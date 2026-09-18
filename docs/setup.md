@@ -13,6 +13,7 @@
 | 5 | Python 3.12 | `winget install Python.Python.3.12` (있으면 생략) | `python --version` |
 | 6 | uv | `winget install astral-sh.uv` | `uv --version` |
 | 7 | Docker Desktop | `winget install Docker.DockerDesktop` | 재부팅 후 `docker compose version` |
+| 8 | Bruno (API 테스트) | `winget install Bruno.Bruno` 또는 https://www.usebruno.com/downloads | 실행 후 `bruno/` 폴더를 컬렉션으로 열기 |
 
 - Gradle은 설치하지 않는다. `backend/gradlew`(wrapper)가 Java만 있으면 알아서 받는다.
 - 설치 후 **새 터미널**을 열어야 PATH가 반영된다.

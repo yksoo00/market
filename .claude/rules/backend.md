@@ -50,6 +50,7 @@ com.company.market
 ## 테스트
 - 서비스: 단위 테스트 (Mockito). 리포지토리·API: Testcontainers Postgres로 통합 테스트.
 - 새 API마다 최소: 정상 1개, 권한 없음 1개, 잘못된 입력 1개.
+- 새 API마다 `bruno/` 에 요청 파일 추가 (폴더는 도메인별: `bruno/auth/`, `bruno/listings/` …). 환경 변수는 `bruno/environments/local.bru`.
 - 테스트 이름은 한국어 `@DisplayName`으로 의도 표현.
 
 ## 하지 말 것

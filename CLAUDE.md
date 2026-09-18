@@ -63,6 +63,7 @@ market/
 ├── backend/             ← Spring Boot. 도메인별 패키지 (user, listing, chat, organization, ai, common)
 ├── frontend/            ← Next.js
 ├── ai/                  ← FastAPI. quote, embed, chat
+├── bruno/               ← API 요청 모음 (Bruno). 새 API 추가 시 같은 PR에서 요청 파일도
 └── infra/               ← Caddyfile, 배포 스크립트, GitHub Actions
 ```
 

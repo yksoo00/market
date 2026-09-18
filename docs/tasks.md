@@ -25,7 +25,8 @@
 - [ ] 주석·커밋 한국어, 식별자 영어
 
 ## 보강 필요 (실무 표준인데 아직 없는 것)
-- [ ] API 문서화 (Springdoc/Swagger) 규칙 → `rules/backend.md`
+- [ ] API 문서화 (Springdoc/Swagger) 규칙 → `rules/backend.md`. 운영에서는 비활성
+- [ ] `bruno/` 컬렉션 초기화 (environments/local.bru, 첫 요청은 인증 구현 때) — Bruno 앱 설치 후
 - [ ] 코드 포맷터·정적 분석 도구 확정 (Spotless/Checkstyle, Prettier/ESLint 설정, ruff 설정)
 - [ ] PR 템플릿 (`.github/PULL_REQUEST_TEMPLATE.md`)
 - [ ] 모니터링·알림 (Sentry, 업타임) — 배포 후
