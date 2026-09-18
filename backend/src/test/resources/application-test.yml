@@ -1,0 +1,4 @@
+app:
+  jwt:
+    secret: test-secret-test-secret-test-secret-32bytes
+  internal-token: test-token
