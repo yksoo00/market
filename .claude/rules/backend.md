@@ -39,6 +39,9 @@ com.company.market
 - 경로 `/api/v1/...`. 리소스 복수형. `GET /api/v1/listings/{id}`.
 - 응답 `{ ok, data }` / `{ ok, code, message }`. 목록은 `{ items, nextCursor }` 커서 페이지네이션. offset 페이지네이션 금지.
 - 현재 사용자는 `@AuthenticationPrincipal`로만. 요청 본문의 userId 사용 금지.
+- 모든 요청 DTO에 Bean Validation (`@Valid`, `@NotBlank`, `@Size`, `@Min/@Max` …). 프론트가 검증했다고 생략하지 않는다. 수치는 `docs/security.md` "입력 검증"과 동일.
+- 검증 실패 응답은 400 + `{ ok: false, code: "VALIDATION", message, fields: { "<필드>": "<문구>" } }`. 프론트가 필드별로 표시하므로 필드명은 요청 DTO 필드명 그대로.
+- 형식은 맞지만 상태가 안 맞는 경우(예: 이미 사용 중인 이메일, 예약중인 글 수정)는 409/422 + 같은 형태.
 - 쓰기 API에는 rate limit (Redis 카운터).
 - 내부 전용 엔드포인트(`/internal/**`)는 `X-Internal-Token` 검사, Caddy에서 외부 차단.
 
