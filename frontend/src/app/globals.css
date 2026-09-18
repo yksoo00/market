@@ -1,26 +1,41 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* 토큰 원본. docs/design.md 와 같은 값 */
+@theme {
+  --color-primary: #62079b;
+  --color-primary-dark: #46056f;
+  --color-primary-soft: #f2e7f8;
+  --color-green: #2c4506;
+  --color-green-soft: #f1f8d9;
+  --color-ink: #24123a;
+  --color-ink-2: #5e4f75;
+  --color-ink-3: #8e80a3;
+  --color-line: #ded2ea;
+  --color-line-2: #ede5f4;
+  --color-bg: #f5f0f9;
+  --color-surface: #ffffff;
+  --color-on-primary: #ebddf5;
+  --color-down: #b4432b;
+  --color-up: #2f7a3d;
+
+  --font-sans: var(--font-noto), "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-mono: var(--font-plex-mono), Consolas, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  height: 100%;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  word-break: keep-all;
+  -webkit-font-smoothing: antialiased;
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
 }

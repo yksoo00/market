@@ -1,0 +1,20 @@
+export const home = {
+  brand: "커널마켓",
+  nav: ["판매매물", "구매요청", "시세", "사업자", "고객센터"],
+  login: "로그인",
+  signup: "회원가입",
+  search: {
+    label: "장비 검색",
+    placeholder: "모델명 · 제조사 · 부품명  (예: R740, RTX 4090, Catalyst 9300)",
+    placeholderShort: "모델명 · 제조사 · 부품명",
+    button: "검색",
+    allCategories: "전체",
+    popularLabel: "인기 검색",
+  },
+  buyRequests: "실시간 구매요청",
+  sellListings: "실시간 판매매물",
+  viewAll: "전체",
+  empty: "아직 등록된 매물이 없어요",
+  seller: { individual: "개인", business: "사업자" } as const,
+  tabs: { home: "홈", listings: "매물", post: "등록", chat: "채팅", me: "내 정보" },
+};
