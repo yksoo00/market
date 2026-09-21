@@ -13,7 +13,8 @@
   - [x] 2026-09-21 `feat/signup-personal` 선택 → 본인인증(UI) → 약관 → 정보입력(중복확인·이메일/휴대폰 분할) → 완료
   - [ ] `feat/signup-business` 약관 → 사업자 인증 → 정보입력 → 완료
   - [x] 2026-09-21 소셜 첫 로그인 `/signup/social` (약관+닉네임). 백엔드 계약: 콜백이 신규면 `?provider&token&nickname&next` 로 리다이렉트, `POST /auth/oauth/complete`
-- [ ] `docs/data-model.md` — users 부분 먼저
+- [x] 2026-09-21 `docs/data-model.md` 1절 계정 (users·social_accounts·identity_verifications·terms_agreements·organizations·organization_members, Redis 키)
+- [ ] `db/users` 브랜치: 위 6개 테이블 Flyway 마이그레이션 + JPA 엔티티 + Testcontainers 로 `validate` 통과
 - [ ] 인증 구현 (가입 → 로그인 → refresh → 로그아웃 → 내 정보) + 배포 한 번
 - [ ] 기능 정리 받기 → `prd.md` → `data-model.md` 나머지 → `roles.md` → `security.md`
 - [ ] 챗봇 예시 질문 5개 받기 → `ai-api.md` 5절 조정
