@@ -7,13 +7,15 @@ on:
   push:
     branches: [main]
 
+# PR 에 새 커밋이 오면 이전 실행은 끊는다. main 푸시는 끊지 않는다 (머지가 연달아 되면 앞 실행이 "canceled" 로 남음)
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults: { run: { working-directory: backend } }
     env:
       # application.yml 의 ${POSTGRES_*} 자리 채우기용. 실제 DB 는 Testcontainers 가 띄우고 @ServiceConnection 으로 연결
@@ -34,6 +36,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults: { run: { working-directory: frontend } }
     steps:
       - uses: actions/checkout@v4
@@ -47,6 +50,7 @@ jobs:
 
   ai:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults: { run: { working-directory: ai } }
     steps:
       - uses: actions/checkout@v4
