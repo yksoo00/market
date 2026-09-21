@@ -67,3 +67,10 @@ docker compose up -d
 
 Git은 `C:\Program Files\Git`에 이미 설치되어 있었음(시스템 PATH). Docker는 관리자 권한 필요 → 별도.
 
+### Docker 없이 백엔드 테스트·실행 (2026-09-21, 임시)
+Docker 도 Postgres 설치도 안 되는 PC 를 위해 테스트가 **내장 Postgres**(zonky, Gradle 이 바이너리를 받아 임시 폴더에서 실행)로 돈다. 설치할 것 없음.
+- `./gradlew test` — Docker 가 없으면 자동으로 내장 Postgres. 첫 실행은 바이너리 다운로드로 1~2분.
+- `./gradlew bootTestRun` — 같은 DB 로 앱 실행 (프론트 붙여서 확인할 때).
+- 없는 것: pgvector, Redis. 이걸 쓰는 기능은 CI 에서만 검증된다.
+- 왜·언제 걷어내나: `docs/decisions.md` "Docker 없는 PC".
+

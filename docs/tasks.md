@@ -4,7 +4,8 @@
 > 계정·PC가 바뀌어도 이 파일이 이어주는 유일한 끈이다. 대화에서 정한 것은 여기나 `decisions.md`에 반드시 적는다.
 
 ## 지금 하는 것
-- [ ] Docker Desktop 설치 (사용자 직접) → 설치 후 `docker compose up -d` 와 `./gradlew test` 확인
+- [ ] Docker Desktop 설치 — 교육용 PC 라 당분간 불가. 그동안 테스트는 내장 Postgres (decisions.md 2026-09-21). Docker 가 되면 zonky 제거
+- [x] 2026-09-21 `TestInfraConfiguration`: Docker 없으면 zonky 내장 Postgres 16 (PR 예정)
 - [x] 2026-09-21 `gh` CLI 설치·로그인. 이제 PR 생성·머지·CI 확인은 Claude 가 `gh` 로 함
 
 ## 다음

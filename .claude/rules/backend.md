@@ -52,6 +52,7 @@ com.company.market
 
 ## 테스트
 - 서비스: 단위 테스트 (Mockito). 리포지토리·API: Testcontainers Postgres로 통합 테스트.
+- 통합 테스트는 `TestInfraConfiguration` 을 `@Import`. Docker 없으면 내장 Postgres 로 대체되며 그때는 **pgvector·Redis 가 없다** (decisions.md 2026-09-21). Redis·vector 를 쓰는 테스트는 `@Conditional`/`assumeTrue` 로 Docker 있을 때만 돌게 하고, CI 초록으로 확인한다.
 - 새 API마다 최소: 정상 1개, 권한 없음 1개, 잘못된 입력 1개.
 - 새 API마다 `bruno/` 에 요청 파일 추가 (폴더는 도메인별: `bruno/auth/`, `bruno/listings/` …). 환경 변수는 `bruno/environments/local.bru`.
 - 테스트 이름은 한국어 `@DisplayName`으로 의도 표현.

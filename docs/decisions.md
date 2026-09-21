@@ -146,6 +146,13 @@
 - 이름·휴대폰·CI·DI·소셜 이메일은 컬럼 암호화(AES-256-GCM, `AttributeConverter`, 키는 .env). 검색용 sha256 해시 컬럼 별도. 이유: 법적 의무는 아니지만 유출 시 피해가 커서. 비용은 컨버터 하나.
 - 재검토: 재가입 악용 사례 → 30일 제한(CI 해시 보관). 기업 사용자 초대 요구 → organization_members.member.
 
+## 2026-09-21 Docker 없는 PC: 테스트는 내장 Postgres (zonky), 운영·CI 는 그대로 Docker
+- 상황: 개발 PC(교육용)에서 Docker Desktop 도, Postgres 직접 설치도 불가. `./gradlew test` 가 Testcontainers 만 쓰면 로컬에서 아무것도 검증 못 함.
+- 결정: `backend/src/test/.../TestInfraConfiguration` 이 Docker 를 감지해 **있으면 Testcontainers(pgvector·redis 이미지), 없으면 `io.zonky.test:embedded-postgres`** 로 실제 Postgres 16 바이너리를 테스트 중에만 띄운다. 테스트 코드는 한 벌, DB 만 갈아 끼움. 운영·docker-compose·CI 는 변경 없음.
+- 대안과 안 고른 이유: H2 내장 DB — 부분 유니크 인덱스·`timestamptz`·`bytea` 등 우리 스키마가 쓰는 Postgres 기능이 없어 마이그레이션이 안 돌거나 두 벌이 됨. 별도 "도커 없는 브랜치" — 나중에 옮기는 게 곧 머지 충돌. Postgres zip 설치 — PC 정책상 불가.
+- 한계: 내장 Postgres 에는 **pgvector 확장과 Redis 가 없다.** 그걸 쓰는 테스트(상품 임베딩, refresh 토큰)는 로컬에서 못 돌고 CI(Docker) 에서만 검증된다. 로컬 초록 ≠ 완료. CI 초록이 완료.
+- 제거 조건: Docker 를 쓸 수 있게 되면 `build.gradle` 의 zonky 의존성·BOM 과 `TestInfraConfiguration` 의 `DockerUnavailable` 경로를 지운다. `docker compose up` 후 코드 변경 없이 그대로 동작하므로 "옮기는" 작업은 없다.
+
 ## 미정 (결정 필요)
 - 견적서 형식 샘플 확보 (구조화 정확도가 여기에 달림)
 - 챗봇 조회 함수 목록 (무엇을 물어볼 수 있게 할지)
