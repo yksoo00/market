@@ -58,3 +58,8 @@ export const personalSignupSchema = z
   });
 
 export type PersonalSignupInput = z.input<typeof personalSignupSchema>;
+
+// 소셜 첫 로그인: 약관 + 닉네임만. 이름·휴대폰은 안 받음 (decisions.md 2026-09-21)
+export const socialSignupSchema = z.object({ nickname: nicknameSchema }); // 마케팅 동의는 약관 목록에서
+export type SocialSignupInput = z.infer<typeof socialSignupSchema>;
+
