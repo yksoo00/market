@@ -42,6 +42,7 @@
 ## 완료
 - [x] 2026-09-18 `docs/security.md` (기능 무관 부분)
 - [x] 2026-09-18 개발 도구 설치 (Git, JDK 21, Node 24, pnpm, uv). Docker 제외
+- [x] 2026-09-21 이 PC에 도구 재설치 (관리자 권한 없이 사용자 폴더, `docs/setup.md` 참조). 프론트 typecheck·lint, ai pytest·ruff·mypy, 백엔드 컴파일 통과. Docker 제외
 - [x] 2026-09-18 뼈대: `backend/`(Boot 4.1.1), `frontend/`(Next 16.3), `ai/`(FastAPI), `docker-compose.yml`, `infra/Caddyfile`, Dockerfile ×2. 컴파일·lint·테스트 통과
 - [x] 2026-09-17 `docs/architecture.md`, `docs/decisions.md`
 - [x] 2026-09-18 `docs/ai-api.md`

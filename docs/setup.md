@@ -52,3 +52,18 @@ docker compose up -d
 | Redis | 7 | `docker-compose.yml` |
 
 주의: winget이 이 PC에서는 크래시(1.2 구버전). 공식 설치 파일을 직접 받아 설치했음. 새 PC에서 winget이 되면 위 표대로.
+
+## winget·관리자 권한 없이 설치 (2026-09-21 이 PC 방식)
+
+관리자 권한 없이 사용자 폴더에 압축본을 풀고 사용자 PATH에 등록. 재설치·업그레이드는 폴더 교체.
+
+| 도구 | 위치 | 방법 |
+|---|---|---|
+| JDK 21 | `%LOCALAPPDATA%\Programs\Temurin\jdk-21.x` | https://adoptium.net zip 압축 해제. `JAVA_HOME`(사용자)과 `bin`을 PATH에 |
+| Node 24 | `%LOCALAPPDATA%\Programs\nodejs` | https://nodejs.org `win-x64.zip` 압축 해제, PATH에 |
+| pnpm | Node 폴더 안 | `corepack enable` → `corepack prepare pnpm@12.4.2 --activate` |
+| uv | `%USERPROFILE%\.local\bin` | `irm https://astral.sh/uv/install.ps1 \| iex` (PATH 자동 등록) |
+| Gradle | `%USERPROFILE%\.gradle` | 없음. 첫 `gradlew` 실행 시 자동 다운로드 |
+
+Git은 `C:\Program Files\Git`에 이미 설치되어 있었음(시스템 PATH). Docker는 관리자 권한 필요 → 별도.
+
