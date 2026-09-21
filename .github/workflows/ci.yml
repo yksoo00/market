@@ -1,0 +1,57 @@
+# PR 마다 세 스택의 검사를 돌린다. 로컬 "머지 전" 규칙(CLAUDE.md Git 절)과 같은 명령.
+# 백엔드 테스트는 Testcontainers 라 Docker 가 필요 — ubuntu 러너에 기본 포함.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: backend } }
+    env:
+      # application.yml 의 ${POSTGRES_*} 자리 채우기용. 실제 DB 는 Testcontainers 가 띄우고 @ServiceConnection 으로 연결
+      POSTGRES_DB: market
+      POSTGRES_USER: market
+      POSTGRES_PASSWORD: market
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "21" }
+      - uses: gradle/actions/setup-gradle@v4
+      - run: ./gradlew check --no-daemon
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with: { name: backend-test-reports, path: backend/build/reports/tests }
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: frontend } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: frontend/.nvmrc }
+      - run: corepack enable # package.json 의 packageManager 로 pnpm 버전 고정
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      # TODO(Vitest 설정 후): pnpm test
+
+  ai:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: ai } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with: { python-version-file: ai/.python-version, enable-cache: true }
+      - run: uv sync --frozen
+      - run: uv run ruff check .
+      - run: uv run ruff format --check .
+      - run: uv run mypy .
+      - run: uv run pytest
