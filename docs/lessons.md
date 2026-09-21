@@ -10,3 +10,9 @@
 - 올바름: 코드 변경은 `feat/…` 브랜치에서 커밋 후 머지. 사용자가 "커밋해줘"라고 해도 브랜치 여부를 먼저 확인.
 - 어디서: 초기 세팅·홈 화면 (2026-09-18).
 - 조치: CLAUDE.md Git 절에 예외 기준(문서만 main 직접)을 명시해 판단 여지를 없앰.
+
+### 2026-09-21 `git reset --soft` 로 브랜치를 옮기다 문서 커밋을 되돌림
+- 틀림: 커밋 없는 브랜치를 main 위로 옮기려고 `reset --soft main` 후 `git add frontend` 만 하고 커밋. index 에 남아 있던 옛 `docs/` 가 커밋에 딸려 들어가 직전 문서 커밋을 되돌림.
+- 올바름: 브랜치는 **커밋 직전에** main 에서 새로 만든다 (`git checkout -b feat/x main`). 이미 만든 브랜치를 옮겨야 하면 `git rebase main`. 커밋 전 `git status` 로 의도한 파일만 staged 인지 확인.
+- 어디서: feat/login 커밋. 푸시 전이라 이력을 다시 써서 복구.
+

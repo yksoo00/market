@@ -5,7 +5,8 @@
 
 ## 지금 하는 것
 - [ ] Docker Desktop 설치 (사용자 직접) → 설치 후 `docker compose up -d` 와 `./gradlew test` 확인
-- [ ] GitHub 저장소 만들고 푸시, main 브랜치 보호 설정
+- [ ] GitHub `yksoo00/market` main 브랜치 보호 (force push·삭제 금지. CI 생기면 상태 체크 필수) — 웹에서 직접
+- [ ] `gh` CLI 설치 (PR 생성용, `winget install GitHub.cli` 또는 https://cli.github.com) — 없으면 PR 은 웹에서
 
 ## 다음
 - [ ] 인증 UI (백엔드 없이, `lib/api` 실제 호출 → 연결 실패 화면) — 3개 브랜치
