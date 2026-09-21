@@ -62,6 +62,22 @@ export const signup = {
     } as Record<string, string>,
   },
 
+  social: {
+    title: "가입 마무리",
+    subtitle: { kakao: "카카오 계정으로 처음 로그인했습니다.", naver: "네이버 계정으로 처음 로그인했습니다.", google: "Google 계정으로 처음 로그인했습니다." } as Record<string, string>,
+    subtitleFallback: "소셜 계정으로 처음 로그인했습니다.",
+    lead: "약관에 동의하고 닉네임을 정하면 가입이 끝납니다.",
+    nickname: "닉네임",
+    nicknameHint: "프로필 이름을 가져왔어요. 바꿔도 됩니다",
+    submit: "가입 완료",
+    invalid: "로그인 정보가 만료되었거나 올바르지 않습니다. 다시 로그인해 주세요.",
+    toLogin: "로그인으로",
+    errors: {
+      OAUTH_EXPIRED: "로그인 정보가 만료되었습니다. 다시 로그인해 주세요.",
+      DUPLICATE_NICKNAME: "이미 사용 중인 닉네임입니다.",
+    } as Record<string, string>,
+  },
+
   done: {
     title: "가입 완료",
     message: "회원가입이 끝났습니다. 로그인하고 거래를 시작하세요.",

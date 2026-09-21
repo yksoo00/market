@@ -82,6 +82,11 @@ export function PersonalSignupForm() {
       ? { ...result, fields: Object.fromEntries(Object.entries(result.fields).map(([k, m]) => [serverFieldMap[k] ?? k, m])) }
       : result;
     setFormError(applyServerError(mapped, setError, fields, t.form.errors));
+    // 서버가 아이디·닉네임을 거부하면 그 칸에 오류를 붙이고(중복확인 버튼이 다시 열림) 확인 결과를 무효로
+    for (const [code, name] of [["DUPLICATE_LOGIN_ID", "loginId"], ["DUPLICATE_NICKNAME", "nickname"]] as const) {
+      if (result.code === code) setError(name, { type: "server", message: t.form.errors[code] });
+      if (result.code === code || result.fields?.[name]) setChecked((c) => ({ ...c, [name]: false }));
+    }
     if (result.code === "VERIFICATION_EXPIRED") {
       personalSignupFlow.clear();
     }

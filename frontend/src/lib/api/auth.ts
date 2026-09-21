@@ -42,6 +42,10 @@ export const authApi = {
     phone: string;
     marketingOptIn: boolean;
   }) => post<{ userId: string }>("/api/v1/auth/signup/personal", body),
+
+  /** 소셜 첫 로그인 마무리. token 은 OAuth 콜백이 리다이렉트 URL 에 넣어준 임시 토큰(짧은 수명) */
+  completeSocialSignup: (body: { token: string; nickname: string; marketingOptIn: boolean }) =>
+    post<{ userId: string }>("/api/v1/auth/oauth/complete", body),
 };
 
 export type SocialProvider = "kakao" | "naver" | "google";
