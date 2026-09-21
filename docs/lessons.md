@@ -11,6 +11,16 @@
 - 어디서: 초기 세팅·홈 화면 (2026-09-18).
 - 조치: CLAUDE.md Git 절에 예외 기준(문서만 main 직접)을 명시해 판단 여지를 없앰.
 
+### 2026-09-21 Windows 에서 만든 gradlew 가 실행 권한 없이 커밋됨
+- 틀림: `backend/gradlew` 가 100644 로 들어가 CI(Linux) 에서 `Permission denied`. Windows 는 core.filemode 가 꺼져 있어 chmod 가 git 에 안 잡힘.
+- 올바름: 스크립트 파일은 `git update-index --chmod=+x <file>` 로 비트를 올리고 `git ls-files -s` 로 100755 확인. CI 에도 `chmod +x` 안전장치.
+- 어디서: 첫 CI (PR #3).
+
+### 2026-09-21 CI concurrency 취소가 main 푸시까지 끊음
+- 틀림: `cancel-in-progress: true` 를 모든 이벤트에 걸어, 머지가 연달아 되거나 예전 실행을 재실행하면 진행 중인 main 실행이 "canceled" 로 남음. 취소 여부는 **새로 들어오는 실행의 워크플로 파일**이 결정하므로 예전 실행 재실행이 최신 실행을 죽임.
+- 올바름: PR 이벤트에서만 취소 (`cancel-in-progress: ${{ github.event_name == 'pull_request' }}`). 항상 최신 실행만 보고 예전 실행은 재실행하지 않는다.
+- 어디서: PR #5·#6.
+
 ### 2026-09-21 `git reset --soft` 로 브랜치를 옮기다 문서 커밋을 되돌림
 - 틀림: 커밋 없는 브랜치를 main 위로 옮기려고 `reset --soft main` 후 `git add frontend` 만 하고 커밋. index 에 남아 있던 옛 `docs/` 가 커밋에 딸려 들어가 직전 문서 커밋을 되돌림.
 - 올바름: 브랜치는 **커밋 직전에** main 에서 새로 만든다 (`git checkout -b feat/x main`). 이미 만든 브랜치를 옮겨야 하면 `git rebase main`. 커밋 전 `git status` 로 의도한 파일만 staged 인지 확인.
