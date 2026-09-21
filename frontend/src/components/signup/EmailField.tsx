@@ -5,19 +5,26 @@ import { cn } from "cn";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FieldShell, statusClass, useFieldStatus } from "@/components/auth/FormField";
-import { CUSTOM_DOMAIN, type PersonalSignupInput } from "@/lib/validation/signup";
+import { CUSTOM_DOMAIN, type EmailDomainOption } from "@/lib/validation/signup";
 import { emailDomains, signup as t } from "@/messages/signup";
 
+/** 이 컴포넌트를 쓰는 폼이 가져야 하는 칸. 일반·기업 가입 공용 */
+export interface EmailFields {
+  emailLocal: string;
+  emailDomain: EmailDomainOption;
+  emailCustom: string;
+}
+
 /** 이메일: 앞부분 @ [도메인 드롭다운]. "직접 입력" 이면 도메인 칸이 열림 */
-export function EmailField() {
-  const { register, control, resetField, trigger } = useFormContext<PersonalSignupInput>();
-  const local = useFieldStatus<PersonalSignupInput>("emailLocal");
-  const custom = useFieldStatus<PersonalSignupInput>("emailCustom");
+export function EmailField({ label = t.form.email }: { label?: string }) {
+  const { register, control, resetField, trigger } = useFormContext<EmailFields>();
+  const local = useFieldStatus<EmailFields>("emailLocal");
+  const custom = useFieldStatus<EmailFields>("emailCustom");
   const isCustom = useWatch({ control, name: "emailDomain" }) === CUSTOM_DOMAIN;
   const error = local.error ?? custom.error;
 
   return (
-    <FieldShell label={t.form.email} htmlFor="emailLocal" error={error}>
+    <FieldShell label={label} htmlFor="emailLocal" error={error}>
       <div className="flex items-center gap-1.5">
         <Input
           id="emailLocal"

@@ -13,7 +13,7 @@ export default function SignupFormPage() {
     <div className="w-full max-w-[420px] flex flex-col gap-4">
       <SignupSteps steps={personalSteps} current={2} />
       <AuthCard title={t.form.title} subtitle={t.form.subtitle}>
-        <StepGuard require={["verificationToken", "termsAgreed"]}>
+        <StepGuard kind="personal" require={["verificationToken", "termsAgreed"]}>
           <PersonalSignupForm />
         </StepGuard>
       </AuthCard>

@@ -10,7 +10,8 @@ export async function api<T>(path: string, init?: RequestInit): Promise<ApiResul
     const res = await fetch(`${BASE}${path}`, {
       ...init,
       credentials: "include",
-      headers: { "Content-Type": "application/json", ...init?.headers },
+      // FormData 는 브라우저가 Content-Type 을 정해야 하므로 호출부가 headers: {} 로 끄면 JSON 헤더를 안 붙임
+      headers: init?.body instanceof FormData ? init.headers : { "Content-Type": "application/json", ...init?.headers },
     });
     // 5xx 는 본문이 우리 형식이 아닐 수 있음 (프록시 오류 페이지 등)
     if (res.status >= 500) return { ok: false, code: UNREACHABLE, message: t.serverError };
@@ -40,3 +41,9 @@ function codeForStatus(status: number): string {
 export function post<T>(path: string, body: unknown): Promise<ApiResult<T>> {
   return api<T>(path, { method: "POST", body: JSON.stringify(body) });
 }
+
+/** 파일 업로드. Content-Type 은 브라우저가 multipart boundary 와 함께 붙이므로 직접 넣지 않는다 */
+export async function upload<T>(path: string, form: FormData): Promise<ApiResult<T>> {
+  return api<T>(path, { method: "POST", body: form, headers: {} });
+}
+

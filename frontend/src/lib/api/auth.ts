@@ -1,4 +1,4 @@
-import { post } from "@/lib/api/client";
+import { post, upload } from "@/lib/api/client";
 
 // 경로는 백엔드 구현 시 확정. 지금은 rules/backend.md 규칙대로 추정한 값
 export const authApi = {
@@ -46,6 +46,32 @@ export const authApi = {
   /** 소셜 첫 로그인 마무리. token 은 OAuth 콜백이 리다이렉트 URL 에 넣어준 임시 토큰(짧은 수명) */
   completeSocialSignup: (body: { token: string; nickname: string; marketingOptIn: boolean }) =>
     post<{ userId: string }>("/api/v1/auth/oauth/complete", body),
+
+  // --- 기업 가입 ---
+  /** 국세청 진위확인. Spring 이 공공데이터 API 호출 (키 노출 금지). 통과하면 가입에 쓸 토큰 */
+  verifyBusiness: (body: { bizNo: string; startDate: string; ownerName: string }) =>
+    post<{ verificationToken: string }>("/api/v1/auth/signup/business/verify", body),
+
+  /** 사업자등록증 업로드 → MinIO 키. 가입 요청에 키를 넣는다 */
+  uploadBusinessLicense: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return upload<{ fileKey: string }>("/api/v1/auth/signup/business/license", form);
+  },
+
+  signupBusiness: (body: {
+    verificationToken: string;
+    password: string;
+    bizType: "corporation" | "individual";
+    companyName: string;
+    address: string;
+    licenseFileKey: string;
+    contactName: string;
+    contactPhone: string;
+    contactEmail: string;
+    captchaToken: string;
+    marketingOptIn: boolean;
+  }) => post<{ userId: string }>("/api/v1/auth/signup/business", body),
 };
 
 export type SocialProvider = "kakao" | "naver" | "google";
