@@ -23,6 +23,25 @@ export const authApi = {
   /** 이메일 링크의 토큰으로 새 비밀번호 확정 */
   confirmPasswordReset: (body: { token: string; password: string }) =>
     post<null>("/api/v1/auth/password-reset/confirm", body),
+
+  // --- 가입 ---
+  checkLoginId: (loginId: string) =>
+    post<{ available: boolean }>("/api/v1/auth/signup/check-login-id", { loginId }),
+
+  checkNickname: (nickname: string) =>
+    post<{ available: boolean }>("/api/v1/auth/signup/check-nickname", { nickname }),
+
+  /** 일반 가입. 이름·휴대폰은 본인인증 결과와 서버에서 대조. termsAgreedAt 은 서버가 기록 */
+  signupPersonal: (body: {
+    verificationToken: string;
+    name: string;
+    nickname: string;
+    loginId: string;
+    email: string;
+    password: string;
+    phone: string;
+    marketingOptIn: boolean;
+  }) => post<{ userId: string }>("/api/v1/auth/signup/personal", body),
 };
 
 export type SocialProvider = "kakao" | "naver" | "google";
