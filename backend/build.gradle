@@ -43,9 +43,18 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
 	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
 	testImplementation 'org.testcontainers:testcontainers-postgresql'
+	// Docker 없는 PC 에서 실제 Postgres 바이너리로 테스트 (decisions.md 2026-09-21). Docker 가 되면 제거 예정
+	testImplementation 'io.zonky.test:embedded-postgres:2.1.0'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
+}
+
+dependencyManagement {
+	imports {
+		// 내장 Postgres 를 운영과 같은 16 버전으로 (기본값은 14)
+		mavenBom 'io.zonky.test.postgres:embedded-postgres-binaries-bom:16.9.0'
+	}
 }
 
 tasks.named('test') {
