@@ -3,6 +3,8 @@ export const home = {
   nav: ["판매매물", "구매요청", "시세", "사업자", "고객센터"],
   login: "로그인",
   signup: "회원가입",
+  // 홈 검색창 위 한 줄 문구. 바꾸려면 여기만 수정
+  tagline: "서버부터 라이선스까지, 필요한 IT 장비를 바로 찾으세요",
   search: {
     label: "장비 검색",
     placeholder: "모델명 · 제조사 · 부품명  (예: R740, RTX 4090, Catalyst 9300)",

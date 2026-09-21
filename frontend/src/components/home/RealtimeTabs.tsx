@@ -38,7 +38,7 @@ export function RealtimeTabs({ buy, sell }: Props) {
           {t.viewAll} ›
         </Link>
       </div>
-      <div className="min-h-0 flex flex-col overflow-hidden bg-surface -mx-4 px-4">
+      <div className="min-h-0 flex flex-col overflow-y-auto overscroll-contain bg-surface -mx-4 px-4">
         {items.map((item) => (
           <ListingRow key={item.id} item={item} />
         ))}
