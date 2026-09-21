@@ -5,6 +5,7 @@ import { RealtimeCard } from "@/components/home/RealtimeCard";
 import { RealtimeTabs } from "@/components/home/RealtimeTabs";
 import { SearchBox } from "@/components/home/SearchBox";
 import { buyRequests, sellListings } from "@/lib/mock/home";
+import { home as t } from "@/messages/home";
 
 export default function HomePage() {
   return (
@@ -14,6 +15,7 @@ export default function HomePage() {
       <main className="flex-1 min-h-0 px-4 md:px-6 py-3 md:py-5 flex flex-col gap-3 md:gap-4 lg:grid lg:grid-cols-[7fr_3fr] lg:gap-6">
         <section className="min-w-0 flex flex-col gap-4 lg:items-center lg:justify-center lg:pb-10">
           <div className="w-full lg:max-w-[760px] flex flex-col gap-4 md:gap-7">
+            <h1 className="-mb-1 md:-mb-3 text-center text-[17px] md:text-xl font-bold text-ink">{t.tagline}</h1>
             <SearchBox />
             <QuickMenu />
           </div>

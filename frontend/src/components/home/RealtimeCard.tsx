@@ -23,7 +23,7 @@ export function RealtimeCard({ type, items }: Props) {
       {items.length === 0 ? (
         <p className="py-6 text-center text-[13px] text-ink-3">{t.empty}</p>
       ) : (
-        <div className="min-h-0 flex flex-col overflow-hidden">
+        <div className="min-h-0 flex flex-col overflow-y-auto overscroll-contain">
           {items.map((item) => (
             <ListingRow key={item.id} item={item} />
           ))}
