@@ -41,6 +41,7 @@
 
 ## 나중
 - [ ] 기업 계정 담당자 변경 절차 (1단계는 고객센터 수동) — 백엔드 인증 때
+- [ ] 기업 가입 심사: `pending/approved/rejected` 상태, 관리자 심사 화면, 결과 이메일, 사업자번호 선점 이의 신청 — 백엔드 인증·관리자 때
 - [ ] 본인인증 업체(PASS/NICE) 계약, Turnstile 키 발급, 국세청 진위확인 API 키 — 백엔드 인증 때
 - [ ] 약관·개인정보처리방침 법무 검토 — 오픈 전
 - [ ] HTML 준비 가이드(`C:\marketplace-guide\marketplace-guide.html`)가 Supabase 기준이라 낡음. 문서 세트 완성 후 갱신하거나 폐기
