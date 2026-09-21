@@ -2,20 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Icon } from "@/components/common/Icon";
 import { AuthCard } from "@/components/auth/AuthCard";
-import { personalSignupPath } from "@/lib/signupFlow";
+import { businessSignupPath, personalSignupPath } from "@/lib/signupFlow";
 import { signup as t } from "@/messages/signup";
 
 export const metadata: Metadata = { title: `${t.title} · 커널마켓` };
-
-// TODO(feat/signup-business): 기업 가입 경로는 다음 브랜치에서 생김
-const businessPath = "/signup/business/terms";
 
 export default function SignupChoosePage() {
   return (
     <AuthCard title={t.title} subtitle={t.choose.subtitle}>
       <div className="flex flex-col gap-3">
         <Choice href={personalSignupPath.verify} icon="user" tone="primary" title={t.choose.personal.title} desc={t.choose.personal.desc} />
-        <Choice href={businessPath} icon="business" tone="green" title={t.choose.business.title} desc={t.choose.business.desc} />
+        <Choice href={businessSignupPath.terms} icon="business" tone="green" title={t.choose.business.title} desc={t.choose.business.desc} />
       </div>
       <p className="mt-5 text-center text-[13px] text-ink-2">
         {t.choose.haveAccount}{" "}

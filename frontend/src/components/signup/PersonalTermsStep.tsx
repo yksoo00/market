@@ -7,7 +7,7 @@ import { personalTerms } from "@/messages/terms";
 
 export function PersonalTermsStep() {
   return (
-    <StepGuard require={["verificationToken"]}>
+    <StepGuard kind="personal" require={["verificationToken"]}>
       <TermsForm
         items={personalTerms}
         onAgree={(optional) => {

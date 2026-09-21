@@ -6,14 +6,20 @@ import { cn } from "cn";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { FieldShell, statusClass, useFieldStatus } from "@/components/auth/FormField";
-import type { PersonalSignupInput } from "@/lib/validation/signup";
 import { phonePrefixes, signup as t } from "@/messages/signup";
 
+/** 이 컴포넌트를 쓰는 폼이 가져야 하는 칸. 일반·기업 가입 공용 */
+export interface PhoneFields {
+  phonePrefix: (typeof phonePrefixes)[number];
+  phoneMid: string;
+  phoneLast: string;
+}
+
 /** 휴대폰: [010 ▾] - 1234 - 5678. 숫자만 받고 4자리 차면 다음 칸으로 */
-export function PhoneField() {
-  const { register, control } = useFormContext<PersonalSignupInput>();
-  const mid = useFieldStatus<PersonalSignupInput>("phoneMid");
-  const last = useFieldStatus<PersonalSignupInput>("phoneLast");
+export function PhoneField({ label = t.form.phone }: { label?: string }) {
+  const { register, control } = useFormContext<PhoneFields>();
+  const mid = useFieldStatus<PhoneFields>("phoneMid");
+  const last = useFieldStatus<PhoneFields>("phoneLast");
   const lastRef = useRef<HTMLInputElement | null>(null);
   const midReg = register("phoneMid");
   const lastReg = register("phoneLast");
@@ -23,7 +29,7 @@ export function PhoneField() {
   }
 
   return (
-    <FieldShell label={t.form.phone} htmlFor="phoneMid" error={mid.error ?? last.error}>
+    <FieldShell label={label} htmlFor="phoneMid" error={mid.error ?? last.error}>
       <div className="flex items-center gap-1.5">
         <Controller
           control={control}
