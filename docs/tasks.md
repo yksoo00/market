@@ -5,11 +5,11 @@
 
 ## 지금 하는 것
 - [ ] Docker Desktop 설치 (사용자 직접) → 설치 후 `docker compose up -d` 와 `./gradlew test` 확인
-- [ ] GitHub `yksoo00/market` main 브랜치 보호 (force push·삭제 금지. CI 생기면 상태 체크 필수) — 웹에서 직접
-- [ ] `gh` CLI 설치 (PR 생성용, `winget install GitHub.cli` 또는 https://cli.github.com) — 없으면 PR 은 웹에서
+- [ ] `gh` CLI 설치 + `gh auth login` (PR 생성·브랜치 보호 설정을 Claude 가 하려면 필요) — https://cli.github.com
+- [ ] GitHub main 브랜치 보호: force push·삭제 금지, 상태 체크 `ci / backend`·`ci / frontend`·`ci / ai` 필수. PR 필수는 아직 안 켬 (문서 직접 푸시) — gh 설치 후 Claude 가 설정
 
 ## 다음
-- [ ] 인증 UI (백엔드 없이, `lib/api` 실제 호출 → 연결 실패 화면) — 3개 브랜치
+- [x] 2026-09-21 인증 UI 전부 (PR #1 일반가입, #2 소셜, #4 기업가입; 로그인·찾기는 feat/login)
   - [x] 2026-09-21 `feat/login` 로그인(일반⇄기업)·아이디 찾기·비밀번호 찾기·재설정 링크 페이지
   - [x] 2026-09-21 `feat/signup-personal` 선택 → 본인인증(UI) → 약관 → 정보입력(중복확인·이메일/휴대폰 분할) → 완료
   - [ ] `feat/signup-business` 약관 → 사업자 인증 → 정보입력 → 완료
@@ -31,12 +31,14 @@
 
 ## 보강 필요 (실무 표준인데 아직 없는 것)
 - [ ] API 문서화 (Springdoc/Swagger) 규칙 → `rules/backend.md`. 운영에서는 비활성
+- [ ] ArchUnit: controller→service→repository, 도메인 간 repository 직접 접근 금지를 테스트로 강제 — 백엔드 첫 도메인 만들 때
+- [ ] Definition of Done 한 절을 CLAUDE.md 에: `gradlew check`/typecheck·lint/pytest + `/code-review` + PR CI 초록 + docs 갱신 — 백엔드 시작 전
+- [ ] pre-commit hook (lint·포맷 자동) — 포맷터 확정과 같이
 - [ ] `bruno/` 컬렉션 초기화 (environments/local.bru, 첫 요청은 인증 구현 때) — Bruno 앱 설치 후
 - [ ] 코드 포맷터·정적 분석 도구 확정 (Spotless/Checkstyle, Prettier/ESLint 설정, ruff 설정)
 - [ ] PR 템플릿 (`.github/PULL_REQUEST_TEMPLATE.md`)
 - [ ] 모니터링·알림 (Sentry, 업타임) — 배포 후
 - [ ] Vitest 설정 (`frontend/`) — 첫 hook/lib 코드 생길 때
-- [ ] GitHub Actions CI (`.github/workflows/ci.yml`: gradlew check, pnpm typecheck+lint, uv pytest) — 푸시 직후
 - [ ] 배포 스크립트 (`infra/deploy.sh`: 빌드 → 마이그레이션 → api-1/2 순차 교체 → 롤백) — 서버 준비되면
 
 ## 나중
@@ -49,6 +51,7 @@
 - [ ] Cloudflare Pro — 이미지 트래픽 부담 시
 
 ## 완료
+- [x] 2026-09-21 GitHub Actions CI (PR #3, #5 gradlew 권한, #6 concurrency). 세 job 초록 확인
 - [x] 2026-09-18 `docs/security.md` (기능 무관 부분)
 - [x] 2026-09-18 개발 도구 설치 (Git, JDK 21, Node 24, pnpm, uv). Docker 제외
 - [x] 2026-09-21 이 PC에 도구 재설치 (관리자 권한 없이 사용자 폴더, `docs/setup.md` 참조). 프론트 typecheck·lint, ai pytest·ruff·mypy, 백엔드 컴파일 통과. Docker 제외
