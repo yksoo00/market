@@ -49,7 +49,7 @@ export const resetPasswordSchema = z
     password: passwordSchema,
     passwordConfirm: z.string().min(1, v.required),
   })
-  .refine((d) => !d.password.toLowerCase().includes(d.loginId.toLowerCase()), {
+  .refine((d) => !d.loginId || !d.password.toLowerCase().includes(d.loginId.toLowerCase()), {
     message: v.passwordHasId,
     path: ["password"],
   })
