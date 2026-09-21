@@ -5,8 +5,7 @@
 
 ## 지금 하는 것
 - [ ] Docker Desktop 설치 (사용자 직접) → 설치 후 `docker compose up -d` 와 `./gradlew test` 확인
-- [ ] `gh` CLI 설치 + `gh auth login` (PR 생성·브랜치 보호 설정을 Claude 가 하려면 필요) — https://cli.github.com
-- [ ] GitHub main 브랜치 보호: force push·삭제 금지, 상태 체크 `ci / backend`·`ci / frontend`·`ci / ai` 필수. PR 필수는 아직 안 켬 (문서 직접 푸시) — gh 설치 후 Claude 가 설정
+- [x] 2026-09-21 `gh` CLI 설치·로그인. 이제 PR 생성·머지·CI 확인은 Claude 가 `gh` 로 함
 
 ## 다음
 - [x] 2026-09-21 인증 UI 전부 (PR #1 일반가입, #2 소셜, #4 기업가입; 로그인·찾기는 feat/login)
@@ -42,6 +41,7 @@
 - [ ] 배포 스크립트 (`infra/deploy.sh`: 빌드 → 마이그레이션 → api-1/2 순차 교체 → 롤백) — 서버 준비되면
 
 ## 나중
+- [ ] GitHub main 브랜치 보호 — 비공개 저장소는 Pro/Team 플랜 필요(API 403). 회사 조직 계정으로 옮기거나 팀원 생기면. 그전까진 CLAUDE.md 규칙으로
 - [ ] 기업 계정 담당자 변경 절차 (1단계는 고객센터 수동) — 백엔드 인증 때
 - [ ] 기업 가입 심사: `pending/approved/rejected` 상태, 관리자 심사 화면, 결과 이메일, 사업자번호 선점 이의 신청 — 백엔드 인증·관리자 때
 - [ ] 본인인증 업체(PASS/NICE) 계약, Turnstile 키 발급, 국세청 진위확인 API 키 — 백엔드 인증 때
