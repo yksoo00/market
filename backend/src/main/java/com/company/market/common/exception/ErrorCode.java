@@ -1,0 +1,44 @@
+package com.company.market.common.exception;
+
+import org.springframework.http.HttpStatus;
+
+/**
+ * API 오류 코드 전부. 기능별(Login/Signup)로 쪼개지 않고 "무슨 문제인가" 기준 하나의 목록 — 같은 문제(VALIDATION,
+ * UNAUTHENTICATED …)가 여러 기능에서 나오기 때문. 이름은 프론트 `messages/*.ts` 의 errors 키와 1:1 이라 이 파일이
+ * 프론트와의 계약이다. 새 코드를 넣으면 프론트 문구도 같은 PR 에서.
+ */
+public enum ErrorCode {
+
+	// 공통
+	VALIDATION(HttpStatus.BAD_REQUEST, "입력값을 확인해 주세요."),
+	BAD_REQUEST(HttpStatus.BAD_REQUEST, "요청 형식이 올바르지 않습니다."),
+	UNAUTHENTICATED(HttpStatus.UNAUTHORIZED, "로그인이 필요합니다."),
+	FORBIDDEN(HttpStatus.FORBIDDEN, "권한이 없습니다."),
+	NOT_FOUND(HttpStatus.NOT_FOUND, "없는 경로입니다."),
+	RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "시도가 너무 많습니다. 잠시 후 다시 시도하세요."),
+	INTERNAL(HttpStatus.INTERNAL_SERVER_ERROR, "일시적인 오류가 발생했습니다."),
+
+	// 인증
+	INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 맞지 않습니다."),
+	LOCKED(HttpStatus.TOO_MANY_REQUESTS, "로그인을 5회 이상 실패해 15분간 잠겼습니다."),
+	ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "이용이 정지된 계정입니다. 고객센터로 문의해 주세요."),
+	SESSION_EXPIRED(HttpStatus.UNAUTHORIZED, "다시 로그인해 주세요.");
+
+	private final HttpStatus status;
+
+	private final String message;
+
+	ErrorCode(HttpStatus status, String message) {
+		this.status = status;
+		this.message = message;
+	}
+
+	public HttpStatus status() {
+		return status;
+	}
+
+	public String message() {
+		return message;
+	}
+
+}

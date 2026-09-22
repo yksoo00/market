@@ -5,11 +5,13 @@ import java.util.List;
 import java.util.Locale;
 
 import com.company.market.common.exception.ApiException;
+import com.company.market.common.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.data.redis.core.script.RedisScript;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 /**
@@ -19,6 +21,8 @@ import org.springframework.stereotype.Component;
 @Component
 @RequiredArgsConstructor
 public class LoginAttemptGuard {
+
+	private static final Logger log = LoggerFactory.getLogger(LoginAttemptGuard.class);
 
 	private static final int ACCOUNT_LIMIT = 5;
 
@@ -40,11 +44,11 @@ public class LoginAttemptGuard {
 	/** 시도 전에 호출. 잠겨 있으면 비밀번호를 확인하지 않고 바로 거부 */
 	public void check(String account, String ip) {
 		if (Boolean.TRUE.equals(redis.hasKey(lockKey(account)))) {
-			throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "LOCKED", "로그인을 5회 이상 실패해 15분간 잠겼습니다.");
+			throw new ApiException(ErrorCode.LOCKED);
 		}
 		String ipCount = redis.opsForValue().get(ipKey(ip));
 		if (ipCount != null && Integer.parseInt(ipCount) >= IP_LIMIT) {
-			throw new ApiException(HttpStatus.TOO_MANY_REQUESTS, "RATE_LIMITED", "시도가 너무 많습니다. 잠시 후 다시 시도하세요.");
+			throw new ApiException(ErrorCode.RATE_LIMITED);
 		}
 	}
 
@@ -53,8 +57,12 @@ public class LoginAttemptGuard {
 		if (count >= ACCOUNT_LIMIT) {
 			redis.opsForValue().set(lockKey(account), "1", LOCK);
 			redis.delete(accountKey(account));
+			log.warn("로그인 잠금(계정 {}회 실패) ip={}", ACCOUNT_LIMIT, ip);
 		}
-		increment(ipKey(ip));
+		long ipCount = increment(ipKey(ip));
+		if (ipCount == IP_LIMIT) {
+			log.warn("로그인 IP 제한 도달 ip={}", ip);
+		}
 	}
 
 	public void recordSuccess(String account) {

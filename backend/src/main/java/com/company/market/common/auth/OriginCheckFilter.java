@@ -5,6 +5,7 @@ import java.util.Set;
 
 import com.company.market.common.api.ApiError;
 import com.company.market.common.config.AppProperties;
+import com.company.market.common.exception.ErrorCode;
 import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -40,7 +41,7 @@ public class OriginCheckFilter extends OncePerRequestFilter {
 		if (!SAFE_METHODS.contains(req.getMethod()) && origin != null && !origin.equalsIgnoreCase(allowedOrigin)) {
 			res.setStatus(HttpServletResponse.SC_FORBIDDEN);
 			res.setContentType(MediaType.APPLICATION_JSON_VALUE);
-			json.writeValue(res.getWriter(), ApiError.of("FORBIDDEN", "허용되지 않은 출처입니다."));
+			json.writeValue(res.getWriter(), ApiError.of(ErrorCode.FORBIDDEN, "허용되지 않은 출처입니다."));
 			return;
 		}
 		chain.doFilter(req, res);

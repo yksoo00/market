@@ -30,10 +30,10 @@ com.company.market
 - Java 21 문법 사용 (record, sealed, switch pattern). 필드 주입 금지, 생성자 주입 (`@RequiredArgsConstructor` 또는 명시 생성자).
 - DTO는 record. 엔티티를 API 응답으로 직접 반환하지 않는다.
 - 엔티티: `@Id` UUID, `createdAt`/`updatedAt` 공통 base 클래스, soft delete는 `deletedAt`.
-- 예외: `common/exception`의 도메인 예외 → 전역 핸들러가 `{ ok: false, code, message }`로 변환. 컨트롤러에서 try-catch 금지. 오류 코드는 `ErrorCode` enum 하나에 모은다(A2 부터) — 기능별 enum 으로 쪼개지 않고 `// 공통 / 인증 / 가입` 주석으로 묶음. 코드 이름은 프론트 `messages/*.ts` 의 errors 키와 같다.
+- 예외: `common/exception`의 도메인 예외(`ApiException(ErrorCode)`) → 전역 핸들러가 `{ ok: false, code, message }`로 변환. 컨트롤러에서 try-catch 금지. 오류 코드는 `ErrorCode` enum 하나에 모은다 — 기능별 enum 으로 쪼개지 않고 `// 공통 / 인증 / 가입` 주석으로 묶음. 코드 이름은 프론트 `messages/*.ts` 의 errors 키와 같다. 새 코드 추가 시 프론트 문구도 같은 PR.
 - 트랜잭션 경계는 service. `@Transactional(readOnly = true)`를 조회 기본값으로.
 - N+1 주의: 목록 조회는 fetch join 또는 별도 쿼리. `open-in-view=false`.
-- 로그: SLF4J, 구조화(JSON). 개인정보 로그 금지. 요청마다 `requestId` MDC.
+- 로그: SLF4J. `RequestIdFilter` 가 `requestId`, `JwtAuthenticationFilter` 가 `userId` 를 MDC 에 넣으므로 로그 메시지에 다시 쓰지 않아도 된다. 개인정보(아이디·이메일·휴대폰·이름) 로그 금지 — userId·IP 만. 보안 이벤트(잠금·정지 시도·재사용 감지)는 WARN.
 - 시간은 `Instant`(UTC) 저장. 표시 변환은 프론트.
 - Lombok은 `@Getter`, `@Builder`, `@RequiredArgsConstructor`만. `@Data`, `@Setter` 금지.
 

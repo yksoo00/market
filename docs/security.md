@@ -143,7 +143,7 @@
 
 ## 로그·감사
 
-- 구조화(JSON) 로그, `request_id`, `user_id`(있으면). 개인정보·본문 없음.
+- 구조화(JSON) 로그, `request_id`, `user_id`(있으면). 개인정보·본문 없음. 구현(2026-09-22): `RequestIdFilter` 가 `X-Request-Id`(Caddy 가 주면 그 값, 형식 검사 후) 를 MDC 에 넣고 응답 헤더로 돌려줌 → 사용자 문의 때 대조. 로컬은 텍스트 패턴 `[requestId,userId]`, 운영은 compose 의 `LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs`(Boot 내장, 라이브러리 없음). 보안 이벤트: 로그인 실패 INFO, 잠금·IP 제한·정지 계정 시도·refresh 재사용 감지 WARN — `userId`·`ip` 만, 아이디·이메일은 남기지 않는다 (테스트로 확인).
 - 감사 로그(별도 테이블): 로그인/로그아웃, 비밀번호 변경, 관리자 행동(정지·숨김·신고 처리), 사업자 멤버 변경, 데이터 내보내기. 보관 1년.
 - 보안 이벤트 알림 (Sentry 또는 이메일): refresh 재사용 감지, 로그인 잠금 다발, rate limit 상위 IP, 5xx 급증.
 

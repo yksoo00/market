@@ -20,8 +20,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -46,6 +49,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
+@ExtendWith(OutputCaptureExtension.class)
 class AuthApiTest {
 
 	static final String PASSWORD = "Correct-horse-1!";
@@ -270,7 +274,7 @@ class AuthApiTest {
 		@Test
 		@DisplayName("쿠키가 없거나 깨졌으면 401")
 		void missingOrGarbage() throws Exception {
-			mvc.perform(post("/api/v1/auth/refresh")).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+			mvc.perform(post("/api/v1/auth/refresh")).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("SESSION_EXPIRED"));
 			mvc.perform(post("/api/v1/auth/refresh").cookie(new Cookie("refresh_token", "garbage"))).andExpect(status().isUnauthorized());
 		}
 
@@ -373,6 +377,46 @@ class AuthApiTest {
 			mvc.perform(get("/api/v1/users/me").cookie(new Cookie("access_token", cookieValue(r, "access_token"))))
 				.andExpect(jsonPath("$.data.role").value("ADMIN"))
 				.andExpect(jsonPath("$.data.mustChangePassword").value(true));
+		}
+
+	}
+
+	@Nested
+	@DisplayName("보안 이벤트 로그")
+	class SecurityLogs {
+
+		@Test
+		@DisplayName("로그인 실패·잠금은 IP 와 userId 만 남기고 아이디·이메일은 남기지 않는다")
+		void failureAndLockLogged(CapturedOutput output) throws Exception {
+			for (int i = 0; i < 5; i++) {
+				mvc.perform(loginRequest("tester1", "wrong-wrong-1!", true).with(r -> { r.setRemoteAddr("10.1.2.3"); return r; }));
+			}
+
+			assertThat(output).contains("로그인 실패 userId=" + personal.getId() + " ip=10.1.2.3").contains("로그인 잠금");
+			assertThat(output.getOut()).doesNotContain("tester1").doesNotContain("tester1@example.com");
+		}
+
+		@Test
+		@DisplayName("refresh 재사용 감지는 WARN 으로 userId 를 남긴다")
+		void reuseDetectionLogged(CapturedOutput output) throws Exception {
+			String first = cookieValue(loginOk(), "refresh_token");
+			mvc.perform(post("/api/v1/auth/refresh").cookie(new Cookie("refresh_token", first)));
+			redis.delete(redis.keys("session:*:prev"));
+
+			mvc.perform(post("/api/v1/auth/refresh").cookie(new Cookie("refresh_token", first))).andExpect(status().isUnauthorized());
+			assertThat(output).contains("WARN").contains("refresh 토큰 재사용 감지").contains("userId=" + personal.getId());
+		}
+
+		@Test
+		@DisplayName("인증된 요청의 로그에는 requestId 와 userId 가 붙는다")
+		void mdcInLogLine(CapturedOutput output) throws Exception {
+			String access = cookieValue(loginOk(), "access_token");
+			jdbc.update("update users set status = 'suspended' where id = ?", personal.getId());
+
+			// /me 가 401 을 내면서 아무 로그도 안 남기므로, 로그가 확실히 찍히는 정지 로그인 시도로 패턴을 확인
+			mvc.perform(loginRequest("tester1", PASSWORD, true));
+			assertThat(output.getOut()).containsPattern("\\[[0-9a-f-]{36},\\] .*정지 계정 로그인 시도 userId=" + personal.getId());
+			assertThat(access).isNotBlank();
 		}
 
 	}

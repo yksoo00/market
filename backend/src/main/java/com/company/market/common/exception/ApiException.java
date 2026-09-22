@@ -1,28 +1,21 @@
 package com.company.market.common.exception;
 
-import org.springframework.http.HttpStatus;
-
-/**
- * 도메인에서 던지는 예외. 전역 핸들러가 `{ ok:false, code, message }` 로 바꾼다.
- * code 는 프론트 `messages/*.ts` 의 errors 키와 같아야 한다 (프론트가 코드로 문구를 고름).
- */
+/** 도메인에서 던지는 예외. 전역 핸들러가 `{ ok:false, code, message }` 로 바꾼다. 코드·상태·기본 문구는 {@link ErrorCode} */
 public class ApiException extends RuntimeException {
 
-	private final HttpStatus status;
+	private final ErrorCode code;
 
-	private final String code;
+	public ApiException(ErrorCode code) {
+		this(code, code.message());
+	}
 
-	public ApiException(HttpStatus status, String code, String message) {
+	/** 기본 문구 대신 상황에 맞는 문구가 필요할 때. 코드는 그대로라 프론트 매핑은 안 깨진다 */
+	public ApiException(ErrorCode code, String message) {
 		super(message);
-		this.status = status;
 		this.code = code;
 	}
 
-	public HttpStatus getStatus() {
-		return status;
-	}
-
-	public String getCode() {
+	public ErrorCode getCode() {
 		return code;
 	}
 

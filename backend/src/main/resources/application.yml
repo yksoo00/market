@@ -60,3 +60,7 @@ app:
 logging:
   level:
     root: info
+  # 로컬(사람이 읽음): 한 줄 텍스트 + requestId·userId. 운영은 docker-compose 가
+  # LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs 로 JSON 으로 바꾼다 (MDC 는 자동 포함). 라이브러리 없이 Boot 내장 기능
+  pattern:
+    console: "%d{HH:mm:ss.SSS} %5p [%X{requestId:-},%X{userId:-}] %-40.40logger{39} : %m%n"

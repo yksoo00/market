@@ -28,7 +28,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
 	@ExceptionHandler(ApiException.class)
 	ResponseEntity<ApiError> apiException(ApiException e) {
-		return ResponseEntity.status(e.getStatus()).body(ApiError.of(e.getCode(), e.getMessage()));
+		return ResponseEntity.status(e.getCode().status()).body(ApiError.of(e.getCode(), e.getMessage()));
 	}
 
 	/** Bean Validation 실패. 필드명은 요청 DTO 그대로 — 프론트가 그 이름으로 칸 옆에 표시 */
@@ -43,23 +43,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	@Override
 	protected ResponseEntity<Object> handleNoResourceFoundException(NoResourceFoundException e, HttpHeaders headers,
 			HttpStatusCode status, WebRequest request) {
-		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.of("NOT_FOUND", "없는 경로입니다."));
+		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.of(ErrorCode.NOT_FOUND));
 	}
 
 	/** 나머지 MVC 표준 예외(405, 415, 400 …). 상태코드는 스프링이 정한 그대로, 본문만 우리 형식 */
 	@Override
 	protected ResponseEntity<Object> handleExceptionInternal(Exception e, Object body, HttpHeaders headers, HttpStatusCode status,
 			WebRequest request) {
+		if (status.value() == HttpStatus.BAD_REQUEST.value()) {
+			return ResponseEntity.status(status).headers(headers).body(ApiError.of(ErrorCode.BAD_REQUEST));
+		}
 		HttpStatus resolved = HttpStatus.resolve(status.value());
 		String code = resolved == null ? "HTTP_" + status.value() : resolved.name();
-		return ResponseEntity.status(status).headers(headers).body(ApiError.of(code, "요청을 처리할 수 없습니다."));
+		return ResponseEntity.status(status).headers(headers).body(ApiError.ofStatus(code, "요청을 처리할 수 없습니다."));
 	}
 
 	/** 그 외 전부 500. 내부 정보(스택·메시지)는 응답에 넣지 않고 로그로만 */
 	@ExceptionHandler(Exception.class)
 	ResponseEntity<ApiError> unexpected(Exception e) {
 		log.error("처리되지 않은 예외", e);
-		return ResponseEntity.internalServerError().body(ApiError.of("INTERNAL", "일시적인 오류가 발생했습니다."));
+		return ResponseEntity.internalServerError().body(ApiError.of(ErrorCode.INTERNAL));
 	}
 
 }

@@ -7,13 +7,15 @@ import com.company.market.common.auth.JwtProvider;
 import com.company.market.common.auth.LoginAttemptGuard;
 import com.company.market.common.auth.RefreshSessionStore;
 import com.company.market.common.exception.ApiException;
+import com.company.market.common.exception.ErrorCode;
 import com.company.market.organization.service.OrganizationService;
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;
 import com.company.market.user.dto.LoginResult;
 import com.company.market.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -24,6 +26,9 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class AuthService {
+
+	/** 보안 이벤트. userId·IP 만 — 아이디·이메일은 로그 금지 (security.md "로그·감사") */
+	private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
 	/**
 	 * 없는 아이디도 bcrypt 를 한 번 돌려 응답 시간을 맞춘다. 안 그러면 "아이디 있음/없음"이 시간으로 구분됨.
@@ -62,26 +67,29 @@ public class AuthService {
 		boolean matches = hash != null && passwordEncoder.matches(password, hash);
 		if (found.isEmpty() || !matches || found.get().getDeletedAt() != null) {
 			attempts.recordFailure(account, ip);
-			throw new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "아이디 또는 비밀번호가 맞지 않습니다.");
+			log.info("로그인 실패 userId={} ip={}", found.map(u -> u.getId().toString()).orElse("-"), ip);
+			throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
 		}
 		User user = found.get();
 		if (!user.isActive()) {
 			// 비밀번호까지 맞은 뒤에만 알려준다 — 정지 여부도 계정 정보라서
-			throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_SUSPENDED", "이용이 정지된 계정입니다. 고객센터로 문의해 주세요.");
+			log.warn("정지 계정 로그인 시도 userId={} ip={}", user.getId(), ip);
+			throw new ApiException(ErrorCode.ACCOUNT_SUSPENDED);
 		}
 		attempts.recordSuccess(account);
 		user.recordLogin();
 		users.save(user);
+		log.info("로그인 userId={} ip={}", user.getId(), ip);
 		return new LoginResult(user.getId(), jwt.createAccessToken(user.getId(), user.getRole()), sessions.issue(user.getId(), remember), remember);
 	}
 
 	/** refresh 회전. 실패 이유(만료·로그아웃·재사용 감지)는 구분해서 알려주지 않는다 */
 	public LoginResult refresh(String refreshToken) {
 		RefreshSessionStore.Rotated rotated = sessions.rotate(refreshToken)
-			.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "다시 로그인해 주세요."));
+			.orElseThrow(() -> new ApiException(ErrorCode.SESSION_EXPIRED));
 		User user = users.findById(rotated.userId()).filter(User::isActive).orElseThrow(() -> {
 			sessions.revokeAll(rotated.userId());
-			return new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "다시 로그인해 주세요.");
+			return new ApiException(ErrorCode.SESSION_EXPIRED);
 		});
 		return new LoginResult(user.getId(), jwt.createAccessToken(user.getId(), user.getRole()), rotated.token(), rotated.remember());
 	}

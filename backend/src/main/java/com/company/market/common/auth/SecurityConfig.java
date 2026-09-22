@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.company.market.common.api.ApiError;
 import com.company.market.common.config.AppProperties;
+import com.company.market.common.exception.ErrorCode;
 import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
@@ -45,8 +46,8 @@ public class SecurityConfig {
 				.requestMatchers("/api/v1/auth/**", "/actuator/health", "/actuator/health/**").permitAll()
 				.anyRequest().authenticated())
 			.exceptionHandling(e -> e
-				.authenticationEntryPoint((req, res, ex) -> write(res, json, HttpServletResponse.SC_UNAUTHORIZED, "UNAUTHENTICATED", "로그인이 필요합니다."))
-				.accessDeniedHandler((req, res, ex) -> write(res, json, HttpServletResponse.SC_FORBIDDEN, "FORBIDDEN", "권한이 없습니다.")))
+				.authenticationEntryPoint((req, res, ex) -> write(res, json, ErrorCode.UNAUTHENTICATED))
+				.accessDeniedHandler((req, res, ex) -> write(res, json, ErrorCode.FORBIDDEN)))
 			// CORS 필터보다 앞에: 낯선 Origin 도 빈 403 이 아니라 우리 JSON 형식으로 거절
 			.addFilterBefore(originFilter, CorsFilter.class)
 			.addFilterBefore(jwtFilter, AuthorizationFilter.class);
@@ -73,11 +74,10 @@ public class SecurityConfig {
 		return new BCryptPasswordEncoder(12);
 	}
 
-	private static void write(HttpServletResponse res, ObjectMapper json, int status, String code, String message)
-			throws java.io.IOException {
-		res.setStatus(status);
+	private static void write(HttpServletResponse res, ObjectMapper json, ErrorCode code) throws java.io.IOException {
+		res.setStatus(code.status().value());
 		res.setContentType(MediaType.APPLICATION_JSON_VALUE);
-		json.writeValue(res.getWriter(), ApiError.of(code, message));
+		json.writeValue(res.getWriter(), ApiError.of(code));
 	}
 
 }
