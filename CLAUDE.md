@@ -39,7 +39,7 @@ docker compose logs -f <service>
 
 # backend/
 ./gradlew bootRun                    # 실행
-./gradlew test                       # 테스트. Docker 있으면 Testcontainers, 없으면 내장 Postgres (decisions.md 2026-09-21)
+./gradlew test                       # 테스트. Docker 있으면 Testcontainers, 없으면 내장 Postgres·Redis (decisions.md 2026-09-21)
 ./gradlew check                      # 컴파일 + 테스트 + 정적 분석. 커밋 전 통과 필수
 
 # frontend/

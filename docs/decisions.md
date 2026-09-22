@@ -152,6 +152,7 @@
 - 대안과 안 고른 이유: H2 내장 DB — 부분 유니크 인덱스·`timestamptz`·`bytea` 등 우리 스키마가 쓰는 Postgres 기능이 없어 마이그레이션이 안 돌거나 두 벌이 됨. 별도 "도커 없는 브랜치" — 나중에 옮기는 게 곧 머지 충돌. Postgres zip 설치 — PC 정책상 불가.
 - 한계: 내장 Postgres 에는 **pgvector 확장과 Redis 가 없다.** 그걸 쓰는 테스트(상품 임베딩, refresh 토큰)는 로컬에서 못 돌고 CI(Docker) 에서만 검증된다. 로컬 초록 ≠ 완료. CI 초록이 완료.
 - 제거 조건: Docker 를 쓸 수 있게 되면 `build.gradle` 의 zonky 의존성·BOM 과 `TestInfraConfiguration` 의 `DockerUnavailable` 경로를 지운다. `docker compose up` 후 코드 변경 없이 그대로 동작하므로 "옮기는" 작업은 없다.
+- **2026-09-22 덧붙임 — Redis 도 같은 방식.** 인증(refresh 세션·로그인 잠금)이 Redis 를 쓰는데 로컬에 없어서 `com.github.codemonstur:embedded-redis`(테스트 전용, Windows 바이너리 포함)를 Docker 없을 때만 띄운다. 사용자 결정: "일단 오늘만 이 계획으로, 도커 되면 뺀다". 제거 시 지울 것: `build.gradle` 의 `embedded-redis` 한 줄, `TestInfraConfiguration` 의 `embeddedRedis`·`embeddedRedisProperties` 빈. 이제 로컬에서 못 도는 건 pgvector 를 쓰는 테스트만.
 
 ## 2026-09-22 계정은 사람당 하나를 지향. 소셜 연결 1개, 담당자는 조직 1개, 중복 가입 감지는 CI 또는 이메일
 - 결정: `social_accounts.user_id` 유일(한 계정에 소셜 하나), `organization_members.user_id` 유일(한 사람은 한 회사 담당자만). 소셜 첫 로그인 때 제공자가 준 이메일이 이미 `users.email` 에 있으면 가입시키지 않고 "OO 방식으로 가입된 계정" 안내 (방식은 마스킹).

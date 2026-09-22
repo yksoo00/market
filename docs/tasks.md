@@ -4,8 +4,9 @@
 > 계정·PC가 바뀌어도 이 파일이 이어주는 유일한 끈이다. 대화에서 정한 것은 여기나 `decisions.md`에 반드시 적는다.
 
 ## 지금 하는 것
-- [ ] Docker Desktop 설치 — 교육용 PC 라 당분간 불가. 그동안 테스트는 내장 Postgres (decisions.md 2026-09-21). Docker 가 되면 zonky 제거
-- [x] 2026-09-21 `TestInfraConfiguration`: Docker 없으면 zonky 내장 Postgres 16 (PR #7)
+- [ ] Docker Desktop 설치 — 교육용 PC 라 당분간 불가. 그동안 테스트는 내장 Postgres·Redis (decisions.md 2026-09-21). Docker 가 되면 zonky·embedded-redis 제거
+- [x] 2026-09-21 `TestInfraConfiguration`: Docker 없으면 zonky 내장 Postgres 16 (PR #7), 2026-09-22 embedded-redis 추가
+- [ ] 인증 A1 (`feat/auth-core`): 보안 기반 + 로그인·refresh·로그아웃·내 정보 + 관리자 시드. 이어서 A2 일반 가입 → A3 소셜 → A4 기업 → A5 찾기
 - [x] 2026-09-21 `gh` CLI 설치·로그인. 이제 PR 생성·머지·CI 확인은 Claude 가 `gh` 로 함
 
 ## 다음
@@ -15,7 +16,7 @@
   - [ ] `feat/signup-business` 약관 → 사업자 인증 → 정보입력 → 완료
   - [x] 2026-09-21 소셜 첫 로그인 `/signup/social` (약관+닉네임). 백엔드 계약: 콜백이 신규면 `?provider&token&nickname&next` 로 리다이렉트, `POST /auth/oauth/complete`
 - [x] 2026-09-21 `docs/data-model.md` 1절 계정 (users·social_accounts·identity_verifications·terms_agreements·organizations·organization_members, Redis 키)
-- [x] 2026-09-21 `db/users`: 6개 테이블 Flyway + JPA 엔티티 + PiiConverter + `validate` 통과, UserRepository 테스트 4개 (PR 예정)
+- [x] 2026-09-21 `db/users`: 6개 테이블 Flyway + JPA 엔티티 + PiiConverter + `validate` 통과, 테스트 9개 (PR #8)
 - [ ] 인증 구현 (가입 → 로그인 → refresh → 로그아웃 → 내 정보) + 배포 한 번
   - [ ] 소셜 첫 로그인: 제공자 이메일이 이미 있으면 가입 대신 "OO 로 가입된 계정" 안내 (decisions.md 2026-09-22). 프론트 `/signup/social` 오류 케이스 추가
 - [ ] 기능 정리 받기 → `prd.md` → `data-model.md` 나머지 → `roles.md` → `security.md`
