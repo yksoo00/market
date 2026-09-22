@@ -7,13 +7,13 @@ import com.company.market.common.auth.JwtProvider;
 import com.company.market.common.auth.LoginAttemptGuard;
 import com.company.market.common.auth.RefreshSessionStore;
 import com.company.market.common.exception.ApiException;
+import com.company.market.common.exception.ErrorCode;
 import com.company.market.organization.service.OrganizationService;
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;
 import com.company.market.user.dto.LoginResult;
 import com.company.market.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -62,12 +62,12 @@ public class AuthService {
 		boolean matches = hash != null && passwordEncoder.matches(password, hash);
 		if (found.isEmpty() || !matches || found.get().getDeletedAt() != null) {
 			attempts.recordFailure(account, ip);
-			throw new ApiException(HttpStatus.UNAUTHORIZED, "INVALID_CREDENTIALS", "아이디 또는 비밀번호가 맞지 않습니다.");
+			throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
 		}
 		User user = found.get();
 		if (!user.isActive()) {
 			// 비밀번호까지 맞은 뒤에만 알려준다 — 정지 여부도 계정 정보라서
-			throw new ApiException(HttpStatus.FORBIDDEN, "ACCOUNT_SUSPENDED", "이용이 정지된 계정입니다. 고객센터로 문의해 주세요.");
+			throw new ApiException(ErrorCode.ACCOUNT_SUSPENDED);
 		}
 		attempts.recordSuccess(account);
 		user.recordLogin();
@@ -78,10 +78,10 @@ public class AuthService {
 	/** refresh 회전. 실패 이유(만료·로그아웃·재사용 감지)는 구분해서 알려주지 않는다 */
 	public LoginResult refresh(String refreshToken) {
 		RefreshSessionStore.Rotated rotated = sessions.rotate(refreshToken)
-			.orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "다시 로그인해 주세요."));
+			.orElseThrow(() -> new ApiException(ErrorCode.SESSION_EXPIRED));
 		User user = users.findById(rotated.userId()).filter(User::isActive).orElseThrow(() -> {
 			sessions.revokeAll(rotated.userId());
-			return new ApiException(HttpStatus.UNAUTHORIZED, "UNAUTHENTICATED", "다시 로그인해 주세요.");
+			return new ApiException(ErrorCode.SESSION_EXPIRED);
 		});
 		return new LoginResult(user.getId(), jwt.createAccessToken(user.getId(), user.getRole()), rotated.token(), rotated.remember());
 	}

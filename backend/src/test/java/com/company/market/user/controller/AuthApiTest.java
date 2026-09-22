@@ -270,7 +270,7 @@ class AuthApiTest {
 		@Test
 		@DisplayName("쿠키가 없거나 깨졌으면 401")
 		void missingOrGarbage() throws Exception {
-			mvc.perform(post("/api/v1/auth/refresh")).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+			mvc.perform(post("/api/v1/auth/refresh")).andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("SESSION_EXPIRED"));
 			mvc.perform(post("/api/v1/auth/refresh").cookie(new Cookie("refresh_token", "garbage"))).andExpect(status().isUnauthorized());
 		}
 
