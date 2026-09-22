@@ -6,7 +6,9 @@
 ## 지금 하는 것
 - [ ] Docker Desktop 설치 — 교육용 PC 라 당분간 불가. 그동안 테스트는 내장 Postgres·Redis (decisions.md 2026-09-21). Docker 가 되면 zonky·embedded-redis 제거
 - [x] 2026-09-21 `TestInfraConfiguration`: Docker 없으면 zonky 내장 Postgres 16 (PR #7), 2026-09-22 embedded-redis 추가
-- [ ] 인증 A1 (`feat/auth-core`): 보안 기반 + 로그인·refresh·로그아웃·내 정보 + 관리자 시드. 이어서 A2 일반 가입 → A3 소셜 → A4 기업 → A5 찾기
+- [x] 2026-09-22 인증 A1 (`feat/auth-core`): Security 설정·JWT 쿠키·Origin 검사·전역 예외, 로그인(일반·기업)·refresh 회전·로그아웃·`/users/me`·관리자 시드·잠금. API 테스트 19개, `bruno/auth`·`bruno/users` (PR 예정)
+- [ ] 인증 A2 일반 가입 (본인인증 stub → 약관 → 정보, 중복확인) → A3 소셜 → A4 기업 → A5 찾기
+- [ ] 프론트 `lib/api/client.ts`: 401 이면 `/auth/refresh` 한 번 시도 후 재요청 (A1 머지 후)
 - [x] 2026-09-21 `gh` CLI 설치·로그인. 이제 PR 생성·머지·CI 확인은 Claude 가 `gh` 로 함
 
 ## 다음

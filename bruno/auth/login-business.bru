@@ -1,0 +1,19 @@
+meta {
+  name: 로그인 (기업)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/login/business
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "bizNo": "1234567890",
+    "password": "",
+    "remember": true
+  }
+}

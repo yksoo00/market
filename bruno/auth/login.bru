@@ -1,0 +1,24 @@
+meta {
+  name: 로그인 (일반)
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/login
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "loginId": "admin",
+    "password": "{{adminPassword}}",
+    "remember": true
+  }
+}
+
+docs {
+  성공: 200 { ok, data: { userId } } + Set-Cookie access_token, refresh_token
+  실패: 401 INVALID_CREDENTIALS / 429 LOCKED (5회) / 403 ACCOUNT_SUSPENDED / 400 VALIDATION
+}

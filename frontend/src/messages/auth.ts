@@ -26,6 +26,7 @@ export const auth = {
       INVALID_CREDENTIALS: "아이디 또는 비밀번호가 맞지 않습니다.",
       LOCKED: "로그인을 5회 이상 실패해 15분간 잠겼습니다. 잠시 후 다시 시도하세요.",
       RATE_LIMITED: "시도가 너무 많습니다. 잠시 후 다시 시도하세요.",
+      ACCOUNT_SUSPENDED: "이용이 정지된 계정입니다. 고객센터로 문의해 주세요.",
     } as Record<string, string>,
   },
 

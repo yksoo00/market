@@ -1,0 +1,15 @@
+meta {
+  name: refresh (토큰 회전)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/refresh
+  body: none
+  auth: none
+}
+
+docs {
+  refresh_token 쿠키만 필요. 새 access·refresh 쿠키를 준다. 옛 refresh 를 다시 쓰면 401 + 모든 세션 삭제.
+}
