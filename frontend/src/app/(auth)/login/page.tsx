@@ -16,9 +16,15 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
   const next = safeNext(sp.next);
   const initial = sp.type === "business" ? "business" : "personal";
   const withNext = (path: string) => (next === "/" ? path : `${path}?next=${encodeURIComponent(next)}`);
+  const oauthError = oauthErrorMessage(sp.error, sp.method);
 
   return (
     <AuthCard title={t.login.title}>
+      {oauthError && (
+        <p role="alert" className="mb-5 rounded-md border border-down/30 bg-down/5 px-3 py-2.5 text-[13px] text-down">
+          {oauthError}
+        </p>
+      )}
       <Tabs defaultValue={initial} className="gap-5">
         <TabsList variant="line" className="w-full h-10 border-b border-line p-0">
           <TabsTrigger value="personal" className={tabClass}>
@@ -65,6 +71,14 @@ export default async function LoginPage({ searchParams }: PageProps<"/login">) {
       </Tabs>
     </AuthCard>
   );
+}
+
+/** 소셜 콜백의 ?error=&method= → 문구. 쿼리값을 그대로 키로 쓰지 않고 허용 목록으로만 (프로토타입 키 방지) */
+function oauthErrorMessage(error: string | string[] | undefined, method: string | string[] | undefined): string | null {
+  const code = typeof error === "string" && Object.hasOwn(t.login.oauthErrors, error) ? error : null;
+  if (!code) return null;
+  const m = typeof method === "string" && Object.hasOwn(t.login.methodLabel, method) ? t.login.methodLabel[method] : "다른 방식";
+  return t.login.oauthErrors[code].replace("{method}", m);
 }
 
 function FindLinks() {

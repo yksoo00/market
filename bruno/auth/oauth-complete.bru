@@ -1,0 +1,25 @@
+meta {
+  name: 소셜 가입 마무리
+  type: http
+  seq: 20
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/oauth/complete
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "token": "",
+    "nickname": "길동이",
+    "marketingOptIn": false
+  }
+}
+
+docs {
+  소셜 로그인 시작(GET /api/v1/auth/oauth/kakao?next=/)과 콜백은 브라우저로만 (제공자 동의 화면이 필요).
+  콜백이 신규면 /signup/social?token=… 으로 보내는데, 그 token 을 여기에 넣으면 201 { userId } + 쿠키(자동 로그인).
+  410 OAUTH_EXPIRED: 토큰 없음·10분 경과. 409 DUPLICATE_NICKNAME / EMAIL_ALREADY_REGISTERED.
+}

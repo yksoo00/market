@@ -29,6 +29,14 @@ export const auth = {
       ACCOUNT_SUSPENDED: "이용이 정지된 계정입니다. 고객센터로 문의해 주세요.",
       SESSION_EXPIRED: "로그인이 만료되었습니다. 다시 로그인해 주세요.",
     } as Record<string, string>,
+    // 소셜 콜백이 /login?error=CODE&method=… 로 돌려보냈을 때. {method} 는 methodLabel 로 치환
+    oauthErrors: {
+      OAUTH_FAILED: "소셜 로그인에 실패했습니다. 다시 시도해 주세요.",
+      OAUTH_EMAIL_REQUIRED: "이메일 제공에 동의해야 가입할 수 있습니다. 소셜 계정 설정에서 이메일 제공을 허용한 뒤 다시 시도해 주세요.",
+      EMAIL_ALREADY_REGISTERED: "이미 {method}(으)로 가입된 이메일입니다. 그 방식으로 로그인해 주세요.",
+      ACCOUNT_SUSPENDED: "이용이 정지된 계정입니다. 고객센터로 문의해 주세요.",
+    } as Record<string, string>,
+    methodLabel: { kakao: "카카오", naver: "네이버", google: "Google", id: "아이디", business: "기업 회원" } as Record<string, string>,
   },
 
   verify: {

@@ -1,3 +1,12 @@
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          kakao: { client-id: test-kakao-id }
+          naver: { client-id: test-naver-id, client-secret: test-naver-secret }
+          google: { client-id: test-google-id, client-secret: test-google-secret }
+
 app:
   env: local
   jwt:

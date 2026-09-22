@@ -81,6 +81,7 @@ Git은 `C:\Program Files\Git`에 이미 설치되어 있었음(시스템 PATH). 
 - 카카오 이메일이 "선택 동의"(비즈 앱 전환 전)면 null 로 올 수 있다 → A3 에서 이메일 없으면 가입 불가 안내.
 - 카카오 웹훅(연결 해제 알림)·로그아웃 리다이렉트·OIDC 는 기본값. 웹훅은 탈퇴 정리가 필요해질 때 `POST /api/v1/auth/oauth/kakao/unlink-webhook` 으로.
 - 운영 배포 시 같은 자리에 `https://api.<도메인>/api/v1/auth/oauth/{provider}/callback` 을 **추가** (로컬 값은 유지).
+- 로컬에서 실제로 눌러보기: `backend/` 에서 `./gradlew bootTestRun`(내장 Postgres·Redis) + `frontend/` 에서 `pnpm dev` → http://localhost:3000/login → 카카오 버튼. 콘솔 Redirect URI 가 틀리면 제공자 화면에서 오류, 토큰 교환이 실패하면 `/login?error=OAUTH_FAILED` 로 돌아온다 (백엔드 로그에 이유).
 - 키는 `.env` 의 `OAUTH_{KAKAO,NAVER,GOOGLE}_CLIENT_ID/SECRET`. 채팅·문서·커밋에 값을 넣지 않는다.
 
 ### 본인인증 stub (2026-09-22)

@@ -148,7 +148,8 @@ MinIO: 사업자등록증 파일 (organizations.license_file_key)
 | `session:{user_id}:{device_id}` | refresh 토큰 해시 | 30일 | `security.md` 인증 |
 | `signup:verify:{token}` | 본인인증 결과(ci, di, name, phone, provider) | 30분 | 가입 전 인증 결과. 가입 완료 시 삭제 |
 | `signup:biz:{token}` | 사업자 인증 결과(biz_no, start_date, owner_name, nts_result) | 30분 | 기업 가입 1→2단계 |
-| `signup:oauth:{token}` | 소셜 프로필(provider, provider_user_id, email, name) | 10분 | 소셜 첫 로그인 → `/signup/social` |
+| `oauth:state:{state}` | OAuth 인가 요청(client_id, redirect_uri, scope, nonce, next, oauth_flow 쿠키 해시) | 10분 | 세션이 없어 state 검증을 Redis 로. api-1 에서 시작한 로그인의 콜백이 api-2 로 와도 됨 |
+| `signup:oauth:{token}` | 소셜 프로필(provider, provider_user_id, email, email_verified, name) + oauth_flow 쿠키 해시 | 10분 | 소셜 첫 로그인 → `/signup/social`. 가입 완료 시 삭제 |
 | `pwreset:{token_hash}` | user_id | 30분, 1회용 | 기업 비밀번호 재설정 링크 |
 | `login:fail:user:{login_id or biz_no}` | 실패 횟수 | 10분 | 5회 → `login:lock:{…}` 15분 |
 | `login:fail:ip:{ip}` | 실패 횟수 | 10분 | 30회 |
