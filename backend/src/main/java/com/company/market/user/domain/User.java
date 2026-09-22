@@ -88,4 +88,13 @@ public class User extends BaseEntity {
 		this.mustChangePassword = mustChangePassword;
 	}
 
+	/** 로그인 가능한 상태인가. 정지·탈퇴는 불가 */
+	public boolean isActive() {
+		return status == UserStatus.ACTIVE && deletedAt == null;
+	}
+
+	public void recordLogin() {
+		this.lastLoginAt = Instant.now();
+	}
+
 }

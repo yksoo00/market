@@ -1,0 +1,15 @@
+meta {
+  name: 로그아웃 (모든 기기)
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/logout-all
+  body: none
+  auth: none
+}
+
+docs {
+  access_token 쿠키 필요 (로그인 상태에서만).
+}

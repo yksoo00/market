@@ -1,0 +1,15 @@
+meta {
+  name: 내 정보
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/users/me
+  body: none
+  auth: none
+}
+
+docs {
+  { id, kind, role, nickname, mustChangePassword }. 이름·이메일·휴대폰은 안 준다.
+}
