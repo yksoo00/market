@@ -45,7 +45,7 @@ docker compose logs -f <service>
 # frontend/
 pnpm dev / pnpm build
 pnpm typecheck / pnpm lint          # typecheck는 next typegen 포함
-pnpm test                           # Vitest 설정 후
+pnpm test                           # Vitest (lib·hook 단위. *.test.ts)
 
 # ai/
 uv run uvicorn app.main:app --reload
