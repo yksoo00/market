@@ -46,7 +46,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm lint
-      # TODO(Vitest 설정 후): pnpm test
+      - run: pnpm test
 
   ai:
     runs-on: ubuntu-latest
