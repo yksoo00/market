@@ -8,6 +8,8 @@ paths:
 ## Boot 4.x 주의 (학습 데이터의 3.x와 다름)
 - 스타터: `spring-boot-starter-webmvc` (web 아님), `spring-boot-starter-security-oauth2-client`, `spring-boot-starter-flyway`. 테스트는 모듈별 `spring-boot-starter-*-test`.
 - Testcontainers 패키지: `org.testcontainers.postgresql.PostgreSQLContainer`, `org.testcontainers:testcontainers-junit-jupiter`.
+- Jackson 3: `tools.jackson.databind.ObjectMapper` (`com.fasterxml.jackson.databind` 아님). 어노테이션(`@JsonInclude` 등)만 `com.fasterxml.jackson.annotation` 그대로.
+- 테스트 어노테이션 패키지: `org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc` 등 모듈별 (`org.springframework.boot.test.autoconfigure.web.servlet` 아님).
 - 의존성 추가 전 `build.gradle`의 기존 이름 패턴을 따른다. 모르면 https://start.spring.io 메타데이터 확인.
 - 설정은 `application.yml` 하나 + 환경변수. 프로필별 파일은 `application-test.yml`만.
 
