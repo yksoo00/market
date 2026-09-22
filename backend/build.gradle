@@ -43,8 +43,9 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
 	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
 	testImplementation 'org.testcontainers:testcontainers-postgresql'
-	// Docker 없는 PC 에서 실제 Postgres 바이너리로 테스트 (decisions.md 2026-09-21). Docker 가 되면 제거 예정
+	// Docker 없는 PC 에서 실제 Postgres·Redis 바이너리로 테스트 (decisions.md 2026-09-21). Docker 가 되면 두 줄 다 제거
 	testImplementation 'io.zonky.test:embedded-postgres:2.1.0'
+	testImplementation 'com.github.codemonstur:embedded-redis:1.4.3'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
