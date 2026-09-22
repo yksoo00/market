@@ -25,6 +25,13 @@ public class AuthCookies {
 
 	public static final String REFRESH_PATH = "/api/v1/auth";
 
+	/** 소셜 로그인 흐름을 시작한 브라우저 표식. 콜백·가입 마무리가 같은 브라우저에서 오는지 확인 (로그인 CSRF 방지) */
+	public static final String OAUTH_FLOW = "oauth_flow";
+
+	public static final String OAUTH_FLOW_PATH = "/api/v1/auth/oauth";
+
+	private static final Duration OAUTH_FLOW_TTL = Duration.ofMinutes(10);
+
 	private final Duration accessTtl;
 
 	private final Duration refreshTtl;
@@ -47,6 +54,14 @@ public class AuthCookies {
 	public void clear(HttpServletResponse res) {
 		add(res, build(ACCESS, "", "/", Duration.ZERO));
 		add(res, build(REFRESH, "", REFRESH_PATH, Duration.ZERO));
+	}
+
+	public void setOAuthFlow(HttpServletResponse res, String value) {
+		add(res, build(OAUTH_FLOW, value, OAUTH_FLOW_PATH, OAUTH_FLOW_TTL));
+	}
+
+	public void clearOAuthFlow(HttpServletResponse res) {
+		add(res, build(OAUTH_FLOW, "", OAUTH_FLOW_PATH, Duration.ZERO));
 	}
 
 	public Optional<String> read(HttpServletRequest req, String name) {

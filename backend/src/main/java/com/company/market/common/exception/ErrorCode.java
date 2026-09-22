@@ -30,7 +30,13 @@ public enum ErrorCode {
 	DUPLICATE_EMAIL(HttpStatus.CONFLICT, "이미 가입된 이메일입니다."),
 	DUPLICATE_PHONE(HttpStatus.CONFLICT, "이미 가입된 휴대폰 번호입니다."),
 	ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 가입된 회원입니다. 아이디 찾기를 이용해 주세요."),
-	VERIFICATION_EXPIRED(HttpStatus.GONE, "본인인증이 만료되었습니다. 처음부터 다시 진행해 주세요.");
+	VERIFICATION_EXPIRED(HttpStatus.GONE, "본인인증이 만료되었습니다. 처음부터 다시 진행해 주세요."),
+
+	// 소셜 로그인. OAUTH_FAILED·OAUTH_EMAIL_REQUIRED·EMAIL_ALREADY_REGISTERED 는 콜백 리다이렉트 ?error= 로도 나간다
+	OAUTH_EXPIRED(HttpStatus.GONE, "로그인 정보가 만료되었습니다. 다시 로그인해 주세요."),
+	OAUTH_FAILED(HttpStatus.BAD_REQUEST, "소셜 로그인에 실패했습니다. 다시 시도해 주세요."),
+	OAUTH_EMAIL_REQUIRED(HttpStatus.BAD_REQUEST, "이메일 제공에 동의해야 가입할 수 있습니다."),
+	EMAIL_ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 다른 방식으로 가입된 이메일입니다.");
 
 	private final HttpStatus status;
 

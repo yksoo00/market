@@ -9,8 +9,8 @@
 - [x] 2026-09-22 인증 A1 (`feat/auth-core`): Security 설정·JWT 쿠키·Origin 검사·전역 예외, 로그인(일반·기업)·refresh 회전·로그아웃·`/users/me`·관리자 시드·잠금. API 테스트 19개, `bruno/auth`·`bruno/users` (PR 예정)
 - [x] 2026-09-22 `chore/logging`: `ErrorCode` enum, `RequestIdFilter`(X-Request-Id ↔ MDC), 콘솔 패턴에 requestId·userId, 운영은 compose 에서 ECS JSON, 보안 이벤트 로그(실패 INFO·잠금/정지/재사용 WARN — userId·IP 만) (PR 예정)
 - [x] 2026-09-22 인증 A2 일반 가입 (`feat/signup-personal`): check-login-id·check-nickname·signup/personal, `IdentityVerifier`(stub, 운영 기본 거부), 약관 4행, IP 5회/시간, `RateLimiter` 공통화. 테스트 11개 (PR 예정)
-- [ ] 인증 A3 소셜 → A4 기업 → A5 찾기
-  - A3: 카카오 이메일 null(선택 동의) → 가입 불가 안내. 제공자 이메일이 이미 있으면 "OO 로 가입된 계정" 안내
+- [x] 2026-09-22 인증 A3 소셜 (`feat/oauth-login`): 카카오·네이버·구글 인가 시작·콜백(Spring Security OAuth2 Client + Redis state), 이메일 중복 감지, `/oauth/complete` 자동 로그인, 로그인 페이지 `?error=` 안내. 테스트 15개 (PR 예정). **토큰 교환 구간은 머지 후 실제 카카오로 수동 확인 필요**
+- [ ] 인증 A4 기업 → A5 찾기
   - 나중: `mustChangePassword` 는 관리자 API(`/api/v1/admin/**`)에서 강제. pending 기업은 로그인 허용, 사업자 기능(배지·사업자 명의 매물)만 `common/auth/Permission` 에서 차단
 - [x] 2026-09-22 프론트 `lib/api/client.ts`: 401 → refresh 1회 → 재요청, 동시 401 은 refresh 공유, 인증 API 제외 (PR 예정)
 - [x] 2026-09-21 `gh` CLI 설치·로그인. 이제 PR 생성·머지·CI 확인은 Claude 가 `gh` 로 함

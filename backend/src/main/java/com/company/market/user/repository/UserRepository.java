@@ -27,4 +27,7 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
 	boolean existsByPhoneHashAndDeletedAtIsNull(String phoneHash);
 
+	@Query("select u from User u where lower(u.email) = lower(:email) and u.deletedAt is null")
+	Optional<User> findByEmailIgnoreCaseActive(@Param("email") String email);
+
 }
