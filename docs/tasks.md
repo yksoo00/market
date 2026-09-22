@@ -11,7 +11,7 @@
 - [ ] 인증 A2 일반 가입 (본인인증 stub → 약관 → 정보, 중복확인) → A3 소셜 → A4 기업 → A5 찾기
   - A3: 카카오 이메일 null(선택 동의) → 가입 불가 안내. 제공자 이메일이 이미 있으면 "OO 로 가입된 계정" 안내
   - 나중: `mustChangePassword` 는 관리자 API(`/api/v1/admin/**`)에서 강제. pending 기업은 로그인 허용, 사업자 기능(배지·사업자 명의 매물)만 `common/auth/Permission` 에서 차단
-- [ ] 프론트 `lib/api/client.ts`: 401 이면 `/auth/refresh` 한 번 시도 후 재요청 (A1 머지 후)
+- [x] 2026-09-22 프론트 `lib/api/client.ts`: 401 → refresh 1회 → 재요청, 동시 401 은 refresh 공유, 인증 API 제외 (PR 예정)
 - [x] 2026-09-21 `gh` CLI 설치·로그인. 이제 PR 생성·머지·CI 확인은 Claude 가 `gh` 로 함
 
 ## 다음
@@ -46,7 +46,7 @@
 - [ ] 코드 포맷터·정적 분석 도구 확정 (Spotless/Checkstyle, Prettier/ESLint 설정, ruff 설정)
 - [ ] PR 템플릿 (`.github/PULL_REQUEST_TEMPLATE.md`)
 - [ ] 모니터링·알림 (Sentry, 업타임) — 배포 후
-- [ ] Vitest 설정 (`frontend/`) — 첫 hook/lib 코드 생길 때
+- [x] 2026-09-22 Vitest 설정 (`frontend/vitest.config.mts`, `pnpm test`, CI 추가). 첫 테스트는 `lib/api/client.test.ts` (PR 예정)
 - [ ] 배포 스크립트 (`infra/deploy.sh`: 빌드 → 마이그레이션 → api-1/2 순차 교체 → 롤백) — 서버 준비되면
 
 ## 나중
