@@ -222,7 +222,7 @@ GitHub Actions → SSH → 서버에서 스크립트 실행:
 8. 서버 2대 이상 → 그때 K8s 재검토
 
 ## 확정된 것 (2026-09-18)
-- Java 21, Spring Boot 3.x
+- Java 21, Spring Boot 4.1 (`CLAUDE.md` 스택 표가 원본)
 - 1단계 결제 없음 (채팅 직거래)
 - 지역 개념 없음 (regions 테이블 없음)
 - staging은 1단계에 없음. local + production
