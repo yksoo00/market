@@ -1,7 +1,10 @@
 app:
+  env: local
   jwt:
     secret: test-secret-test-secret-test-secret-32bytes
   internal-token: test-token
+  identity-verification:
+    provider: stub
   admin:
     login-id: admin
     password: admin-test-password!1

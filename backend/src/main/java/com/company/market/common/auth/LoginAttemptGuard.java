@@ -1,17 +1,15 @@
 package com.company.market.common.auth;
 
 import java.time.Duration;
-import java.util.List;
 import java.util.Locale;
 
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
+import com.company.market.common.ratelimit.RateLimiter;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
-import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Component;
 
 /**
@@ -32,14 +30,9 @@ public class LoginAttemptGuard {
 
 	private static final Duration LOCK = Duration.ofMinutes(15);
 
-	/** INCR 와 첫 EXPIRE 를 한 번에. 따로 보내면 그 사이 죽었을 때 TTL 없는 카운터가 남아 영구 차단이 된다 */
-	private static final RedisScript<Long> INCR_WITH_TTL = new DefaultRedisScript<>("""
-			local c = redis.call('INCR', KEYS[1])
-			if c == 1 then redis.call('EXPIRE', KEYS[1], ARGV[1]) end
-			return c
-			""", Long.class);
-
 	private final StringRedisTemplate redis;
+
+	private final RateLimiter limiter;
 
 	/** 시도 전에 호출. 잠겨 있으면 비밀번호를 확인하지 않고 바로 거부 */
 	public void check(String account, String ip) {
@@ -53,25 +46,20 @@ public class LoginAttemptGuard {
 	}
 
 	public void recordFailure(String account, String ip) {
-		long count = increment(accountKey(account));
+		long count = limiter.increment(accountKey(account), WINDOW);
 		if (count >= ACCOUNT_LIMIT) {
 			redis.opsForValue().set(lockKey(account), "1", LOCK);
-			redis.delete(accountKey(account));
+			limiter.reset(accountKey(account));
 			log.warn("로그인 잠금(계정 {}회 실패) ip={}", ACCOUNT_LIMIT, ip);
 		}
-		long ipCount = increment(ipKey(ip));
+		long ipCount = limiter.increment(ipKey(ip), WINDOW);
 		if (ipCount == IP_LIMIT) {
 			log.warn("로그인 IP 제한 도달 ip={}", ip);
 		}
 	}
 
 	public void recordSuccess(String account) {
-		redis.delete(accountKey(account));
-	}
-
-	private long increment(String key) {
-		Long count = redis.execute(INCR_WITH_TTL, List.of(key), String.valueOf(WINDOW.toSeconds()));
-		return count == null ? 0 : count;
+		limiter.reset(accountKey(account));
 	}
 
 	private static String accountKey(String account) {

@@ -59,6 +59,7 @@ export const signup = {
       DUPLICATE_EMAIL: "이미 가입된 이메일입니다.",
       DUPLICATE_PHONE: "이미 가입된 휴대폰 번호입니다.",
       VERIFICATION_EXPIRED: "본인인증이 만료되었습니다. 처음부터 다시 진행해 주세요.",
+      ALREADY_REGISTERED: "이미 가입된 회원입니다. 아이디 찾기를 이용해 주세요.",
     } as Record<string, string>,
   },
 

@@ -26,6 +26,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
 	private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
+	@ExceptionHandler(ValidationException.class)
+	ResponseEntity<ApiError> validationException(ValidationException e) {
+		return ResponseEntity.badRequest().body(ApiError.validation(e.getFields()));
+	}
+
 	@ExceptionHandler(ApiException.class)
 	ResponseEntity<ApiError> apiException(ApiException e) {
 		return ResponseEntity.status(e.getCode().status()).body(ApiError.of(e.getCode(), e.getMessage()));

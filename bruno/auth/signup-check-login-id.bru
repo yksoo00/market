@@ -1,0 +1,21 @@
+meta {
+  name: 가입 - 아이디 중복확인
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/signup/check-login-id
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "loginId": "gildong1"
+  }
+}
+
+docs {
+  { available: true|false }. 형식 위반은 400 VALIDATION.
+}

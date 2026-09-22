@@ -1,0 +1,31 @@
+meta {
+  name: 가입 - 일반
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/signup/personal
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "verificationToken": "stub-verification-token",
+    "name": "홍길동",
+    "nickname": "길동이",
+    "loginId": "gildong1",
+    "email": "gildong@example.com",
+    "password": "Str0ng-pass!",
+    "phone": "01012345678",
+    "marketingOptIn": true
+  }
+}
+
+docs {
+  201 { userId }. 로그인은 따로 (자동 로그인 없음).
+  stub 토큰은 .env IDENTITY_VERIFICATION_PROVIDER=stub 일 때만. 운영(pass)은 410 VERIFICATION_EXPIRED.
+  409: DUPLICATE_LOGIN_ID / DUPLICATE_NICKNAME / DUPLICATE_EMAIL / DUPLICATE_PHONE / ALREADY_REGISTERED(같은 사람)
+  429: 같은 IP 5회/시간
+}
