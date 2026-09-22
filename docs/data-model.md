@@ -152,6 +152,8 @@ MinIO: 사업자등록증 파일 (organizations.license_file_key)
 | `pwreset:{token_hash}` | user_id | 30분, 1회용 | 기업 비밀번호 재설정 링크 |
 | `login:fail:user:{login_id or biz_no}` | 실패 횟수 | 10분 | 5회 → `login:lock:{…}` 15분 |
 | `login:fail:ip:{ip}` | 실패 횟수 | 10분 | 30회 |
+| `signup:ip:{ip}` | 가입 시도 횟수 | 1시간 | 5회 |
+| `signup:check:ip:{ip}` | 중복확인 호출 횟수 | 1분 | 30회 |
 
 ### 흐름별 쓰기
 

@@ -6,7 +6,7 @@ create table identity_verifications (
     user_id      uuid not null unique references users (id),
     provider     text not null check (provider in ('pass', 'nice', 'stub')),  -- stub 은 개발용
     ci           text not null,                                               -- PII, 암호화
-    ci_hash      text not null unique,                                        -- HMAC-SHA256(ci) (PiiHasher). 한 사람 = 계정 하나
+    ci_hash      text not null constraint ux_identity_verifications_ci_hash unique,  -- HMAC-SHA256(ci). 한 사람 = 계정 하나. 이름 명시: 앱이 제약 이름으로 오류 코드를 고른다
     di           text not null,                                               -- PII, 암호화
     verified_at  timestamptz not null,
     created_at   timestamptz not null,

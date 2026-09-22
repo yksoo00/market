@@ -44,12 +44,17 @@ management:
         enabled: true
 
 app:
+  env: ${APP_ENV:prod}                        # local 에서만 개발용 우회(stub 본인인증 등)가 켜진다. 기본값은 운영
   jwt:
     secret: ${JWT_SECRET}
     access-ttl-minutes: ${JWT_ACCESS_TTL_MIN:15}
     refresh-ttl-days: ${JWT_REFRESH_TTL_DAYS:30}
   internal-token: ${INTERNAL_TOKEN}
   app-url: ${APP_URL:http://localhost:3000}   # CORS·Origin 검사에 허용하는 유일한 프론트 출처
+  identity-verification:
+    provider: ${IDENTITY_VERIFICATION_PROVIDER:pass}   # 기본값은 안전한 쪽(stub 거부). 로컬 .env 에서만 stub
+  terms:
+    version: ${TERMS_VERSION:2026-09-22-draft}          # 약관 시행일. 법무 검토 후 확정값으로
   admin:
     login-id: ${ADMIN_LOGIN_ID:}               # 둘 다 있고 admin 이 없을 때만 앱 시작 시 1명 생성
     password: ${ADMIN_PASSWORD:}

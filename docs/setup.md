@@ -83,6 +83,9 @@ Git은 `C:\Program Files\Git`에 이미 설치되어 있었음(시스템 PATH). 
 - 운영 배포 시 같은 자리에 `https://api.<도메인>/api/v1/auth/oauth/{provider}/callback` 을 **추가** (로컬 값은 유지).
 - 키는 `.env` 의 `OAUTH_{KAKAO,NAVER,GOOGLE}_CLIENT_ID/SECRET`. 채팅·문서·커밋에 값을 넣지 않는다.
 
+### 본인인증 stub (2026-09-22)
+로컬 `.env` 에 `APP_ENV=local` + `IDENTITY_VERIFICATION_PROVIDER=stub` 이어야 일반 가입이 된다 (`.env.example` 의 주석 해제). `APP_ENV` 가 local 이 아니면 stub 은 앱이 뜨지 않는다 (프론트 인증 버튼이 고정 토큰을 보냄). 기본값 `pass` 는 PASS 연동 전까지 모든 가입을 거부한다 — 운영에서 stub 이 열리는 사고 방지. 자세한 건 decisions.md 2026-09-22.
+
 ### Docker 없이 백엔드 테스트·실행 (2026-09-21, 임시)
 Docker 도 Postgres 설치도 안 되는 PC 를 위해 테스트가 **내장 Postgres**(zonky, Gradle 이 바이너리를 받아 임시 폴더에서 실행)로 돈다. 설치할 것 없음.
 - `./gradlew test` — Docker 가 없으면 자동으로 내장 Postgres. 첫 실행은 바이너리 다운로드로 1~2분.

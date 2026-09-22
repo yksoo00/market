@@ -22,7 +22,15 @@ public enum ErrorCode {
 	INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 맞지 않습니다."),
 	LOCKED(HttpStatus.TOO_MANY_REQUESTS, "로그인을 5회 이상 실패해 15분간 잠겼습니다."),
 	ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "이용이 정지된 계정입니다. 고객센터로 문의해 주세요."),
-	SESSION_EXPIRED(HttpStatus.UNAUTHORIZED, "다시 로그인해 주세요.");
+	SESSION_EXPIRED(HttpStatus.UNAUTHORIZED, "다시 로그인해 주세요."),
+
+	// 가입
+	DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "이미 사용 중인 아이디입니다."),
+	DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다."),
+	DUPLICATE_EMAIL(HttpStatus.CONFLICT, "이미 가입된 이메일입니다."),
+	DUPLICATE_PHONE(HttpStatus.CONFLICT, "이미 가입된 휴대폰 번호입니다."),
+	ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 가입된 회원입니다. 아이디 찾기를 이용해 주세요."),
+	VERIFICATION_EXPIRED(HttpStatus.GONE, "본인인증이 만료되었습니다. 처음부터 다시 진행해 주세요.");
 
 	private final HttpStatus status;
 
