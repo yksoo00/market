@@ -70,6 +70,8 @@ services:
     profiles: ["prod"]
     build: ./backend
     env_file: .env
+    environment:
+      LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs   # 운영 로그는 JSON(ECS). 로컬 bootRun 은 application.yml 의 텍스트 패턴
     expose: ["8080"]                # ports 아님. 내부 네트워크만
     depends_on:
       postgres: { condition: service_healthy }

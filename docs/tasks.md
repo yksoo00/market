@@ -7,9 +7,8 @@
 - [ ] Docker Desktop 설치 — 교육용 PC 라 당분간 불가. 그동안 테스트는 내장 Postgres·Redis (decisions.md 2026-09-21). Docker 가 되면 zonky·embedded-redis 제거
 - [x] 2026-09-21 `TestInfraConfiguration`: Docker 없으면 zonky 내장 Postgres 16 (PR #7), 2026-09-22 embedded-redis 추가
 - [x] 2026-09-22 인증 A1 (`feat/auth-core`): Security 설정·JWT 쿠키·Origin 검사·전역 예외, 로그인(일반·기업)·refresh 회전·로그아웃·`/users/me`·관리자 시드·잠금. API 테스트 19개, `bruno/auth`·`bruno/users` (PR 예정)
-- [ ] `chore/logging` (A2 전): requestId MDC 필터, Boot 내장 구조화 로그(`logging.structured.format.console`), 보안 이벤트 WARN(로그인 실패·잠금·refresh 재사용 감지 — userId·IP 만, 아이디·이메일 금지)
+- [x] 2026-09-22 `chore/logging`: `ErrorCode` enum, `RequestIdFilter`(X-Request-Id ↔ MDC), 콘솔 패턴에 requestId·userId, 운영은 compose 에서 ECS JSON, 보안 이벤트 로그(실패 INFO·잠금/정지/재사용 WARN — userId·IP 만) (PR 예정)
 - [ ] 인증 A2 일반 가입 (본인인증 stub → 약관 → 정보, 중복확인) → A3 소셜 → A4 기업 → A5 찾기
-  - A2 첫 커밋: `common/exception/ErrorCode` enum 으로 코드 모으기 — 기능별(Login/Signup) 분리 **안 함**, 문제 기준 하나의 enum 에 주석으로 묶음. 코드 이름 = 프론트 `messages/*.ts` errors 키 (2026-09-22 결정)
   - A3: 카카오 이메일 null(선택 동의) → 가입 불가 안내. 제공자 이메일이 이미 있으면 "OO 로 가입된 계정" 안내
   - 나중: `mustChangePassword` 는 관리자 API(`/api/v1/admin/**`)에서 강제. pending 기업은 로그인 허용, 사업자 기능(배지·사업자 명의 매물)만 `common/auth/Permission` 에서 차단
 - [ ] 프론트 `lib/api/client.ts`: 401 이면 `/auth/refresh` 한 번 시도 후 재요청 (A1 머지 후)

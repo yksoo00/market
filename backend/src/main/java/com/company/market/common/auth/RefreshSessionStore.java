@@ -8,6 +8,8 @@ import java.util.UUID;
 
 import com.company.market.common.config.AppProperties;
 import com.company.market.common.crypto.PiiHasher;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.ScanOptions;
 import org.springframework.data.redis.core.StringRedisTemplate;
@@ -21,6 +23,8 @@ import org.springframework.stereotype.Component;
  */
 @Component
 public class RefreshSessionStore {
+
+	private static final Logger log = LoggerFactory.getLogger(RefreshSessionStore.class);
 
 	private static final String KEY_PREFIX = "session:";
 
@@ -63,6 +67,7 @@ public class RefreshSessionStore {
 		boolean matchesCurrent = current.hash().equals(hash);
 		boolean matchesPrevious = hash.equals(redis.opsForValue().get(key + ":prev"));
 		if (!matchesCurrent && !matchesPrevious) {
+			log.warn("refresh 토큰 재사용 감지 → 전 세션 삭제 userId={} deviceId={}", p.userId(), p.deviceId());
 			revokeAll(p.userId());
 			return Optional.empty();
 		}
