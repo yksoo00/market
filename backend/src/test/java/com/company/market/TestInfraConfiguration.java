@@ -22,7 +22,7 @@ import org.testcontainers.utility.DockerImageName;
  * pgvector 확장과 Redis 가 없으므로 그걸 쓰는 테스트는 Docker 환경(CI)에서만 돈다.
  */
 @TestConfiguration(proxyBeanMethods = false)
-class TestInfraConfiguration {
+public class TestInfraConfiguration {
 
 	private static final boolean DOCKER_AVAILABLE = DockerClientFactory.instance().isDockerAvailable();
 

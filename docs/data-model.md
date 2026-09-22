@@ -15,6 +15,8 @@
 
 ## 1. 계정 (인증 구현용 — 2026-09-21 초안)
 
+> 구현: `V202609211800`~`1805` (테이블당 파일 하나), 엔티티 `user/domain`·`organization/domain`, 암호화 `common/crypto/PiiConverter`. 열거형은 Java enum ↔ 소문자 text 컨버터(`LowerCaseEnumConverter`, enum 안의 `Db` 중첩 클래스).
+
 ### 한눈에
 
 ```
@@ -44,14 +46,15 @@ MinIO: 사업자등록증 파일 (organizations.license_file_key)
 | email_verified_at | timestamptz ? | | 소셜이 미검증으로 주면 null (`security.md`) |
 | name | text ? | 암호화 | **PII**. personal=본인인증 이름, business=담당자명. 2~30 (암호화 전). 화면 노출 금지 |
 | phone | text ? | 암호화 | **PII**. personal=본인인증 번호, business=담당자 휴대폰. 숫자만 10~11 (암호화 전) |
-| phone_hash | text ? | U* | sha256(phone). 중복 가입 검사용 (암호화 컬럼은 검색 불가) |
+| phone_hash | text ? | U* | HMAC-SHA256(phone). 중복 가입 검사용 (암호화 컬럼은 검색 불가). 키 없는 sha256 은 휴대폰(경우의 수 ~10^8)을 역산할 수 있어 키 있는 해시 |
 | marketing_opt_in_at | timestamptz ? | | 마케팅 수신 동의 시각. null=미동의. 철회 시 null |
 | last_login_at | timestamptz ? | | |
 | must_change_password | boolean | not null, default false | 시드 관리자·관리자가 초기화한 비밀번호. true 면 로그인 직후 변경 화면으로 |
 | created_at, updated_at | timestamptz | not null | |
 | deleted_at | timestamptz ? | | 탈퇴. 아래 "탈퇴 처리" |
 
-인덱스: `U* (login_id)`, `U* (nickname) where kind = 'personal'`, `U* (email)`, `U* (phone_hash)`, `(kind, status)`.
+인덱스: `U* (login_id)`, `U* (nickname) where kind = 'personal'`, `U* (lower(email))` (대소문자만 다른 이메일은 같은 계정), `U* (phone_hash)`, `(kind, status)`.
+제약: `check ((status = 'withdrawn') = (deleted_at is not null))` — 탈퇴 상태와 deleted_at 이 따로 놀 수 없게.
 
 ### social_accounts
 
@@ -65,7 +68,7 @@ MinIO: 사업자등록증 파일 (organizations.license_file_key)
 | connected_at | timestamptz | not null | 처음 연결한 시각 |
 | created_at, updated_at | timestamptz | not null | 재연결·이메일 갱신 시 updated_at |
 
-인덱스: `U (provider, provider_user_id)`, `(user_id)`. 한 사용자가 여러 제공자를 연결할 수 있음 (연결 화면은 2단계).
+인덱스: `U (provider, provider_user_id)`, `U (user_id)`. **계정당 소셜 연결 하나** — 카카오로 가입했으면 네이버 추가 연결 불가 (decisions.md 2026-09-22).
 
 ### identity_verifications — 휴대폰 본인인증 결과
 
@@ -75,7 +78,7 @@ MinIO: 사업자등록증 파일 (organizations.license_file_key)
 | user_id | uuid | FK→users, not null, U | 일반 회원 1:1 |
 | provider | text | not null, check in (`pass`, `nice`, `stub`) | `stub` 은 개발용. 운영에서 거부 |
 | ci | text | not null, 암호화 | **PII**. 연계정보 88자 |
-| ci_hash | text | not null, U | sha256(ci). **한 사람 = 계정 하나** 를 이 유일 제약이 보장. 찾기 조회도 이 컬럼 |
+| ci_hash | text | not null, U | HMAC-SHA256(ci). **한 사람 = 계정 하나** 를 이 유일 제약이 보장. 찾기 조회도 이 컬럼 |
 | di | text | not null, 암호화 | **PII**. 중복가입확인정보 |
 | verified_at | timestamptz | not null | 마지막 인증 시각. 재인증(휴대폰 변경 등) 시 갱신 |
 | created_at, updated_at | timestamptz | not null | |
@@ -98,7 +101,7 @@ MinIO: 사업자등록증 파일 (organizations.license_file_key)
 | ip | inet ? | | 동의 증빙용. 90일 후 null 처리 (접속 기록 보관 기간과 동일) |
 | created_at, updated_at | timestamptz | not null | 동의 기록은 수정하지 않음(철회는 새 행). updated_at 은 ip null 처리 때만 |
 
-인덱스: `U (user_id, terms_id, version)`. 탈퇴해도 삭제하지 않음 (동의 증빙 5년 — 전자상거래법 기록 보관과 같이).
+인덱스: `(user_id, terms_id)`. 유일 제약 없음 — 같은 버전에 동의 → 철회(agreed=false)가 새 행으로 쌓이고 현재 상태는 agreed_at 최신 행. 탈퇴해도 삭제하지 않음 (동의 증빙 5년 — 전자상거래법 기록 보관과 같이).
 
 ### organizations — 사업자
 
@@ -120,7 +123,8 @@ MinIO: 사업자등록증 파일 (organizations.license_file_key)
 | created_at, updated_at | timestamptz | not null | |
 | deleted_at | timestamptz ? | | |
 
-인덱스: `U* (biz_no)`, `(review_status)`.
+인덱스: `U* (biz_no)`, `(review_status)`, `(reviewed_by)`.
+제약: `check (review_status = 'pending' or reviewed_at is not null)`, `check (review_status <> 'rejected' or reject_reason is not null)` — 심사 결과 없이 approved/rejected 불가.
 
 - `approved` 일 때만 사업자 배지·사업자 명의 매물 (`listings.seller_org_id`) 가능. 그 전엔 담당자 계정이 일반 회원처럼만.
 - 사업자번호 선점 분쟁(이의 신청)은 관리자 화면에서 `organization_members` 의 owner 를 바꾸는 것으로 처리. 절차는 `roles.md` 에서.
@@ -135,7 +139,7 @@ MinIO: 사업자등록증 파일 (organizations.license_file_key)
 | role | text | not null, check in (`owner`, `member`), default `owner` | 1단계는 owner 1명. member 는 2단계(사용자 초대) |
 | created_at, updated_at | timestamptz | not null | 담당자 변경(owner 교체)·role 변경 시 updated_at |
 
-인덱스: `U (organization_id, user_id)`, `U (organization_id) where role = 'owner'` (owner 는 하나), `(user_id)`.
+인덱스: `U (organization_id, user_id)`, `U (organization_id) where role = 'owner'` (owner 는 하나), `U (user_id)` (한 사람은 한 조직만).
 
 ### Redis 키 (계정 관련)
 
@@ -173,6 +177,6 @@ MinIO: 사업자등록증 파일 (organizations.license_file_key)
 1. **관리자 시드**: 앱 시작 시 `role=admin` 이 없으면 `ADMIN_LOGIN_ID`/`ADMIN_PASSWORD` 환경변수로 1명 생성. `users.must_change_password=true` 로 첫 로그인 후 비밀번호 변경 강제. 마이그레이션에 해시를 넣지 않는다.
 2. **탈퇴 후 재가입 제한 없음**: `identity_verifications` 하드 삭제로 끝. CI 해시 보관 테이블 없음. 악용 사례가 생기면 30일 제한 재검토.
 3. **닉네임 유일은 personal 만**: `U* (nickname) where kind = 'personal'`. business 는 기업명을 그대로 (같은 상호 허용).
-4. **이름·휴대폰 컬럼 암호화**: `users.name`, `users.phone`, `social_accounts.provider_email`, `identity_verifications.ci/di` 는 AES-256-GCM 으로 암호화해 저장. 키는 `.env` `PII_ENCRYPTION_KEY`(32바이트 base64). Spring JPA `AttributeConverter` 한 개(`common/crypto`). 암호화 컬럼은 `=` 검색 불가 → CI 조회는 별도 `ci_hash`(sha256, 유일) 컬럼으로. 휴대폰 중복 검사도 `phone_hash`.
+4. **이름·휴대폰 컬럼 암호화**: `users.name`, `users.phone`, `social_accounts.provider_email`, `identity_verifications.ci/di` 는 AES-256-GCM 으로 암호화해 저장. 키는 `.env` `PII_ENCRYPTION_KEY`(32바이트 base64). Spring JPA `AttributeConverter` 한 개(`common/crypto`). 암호화 컬럼은 `=` 검색 불가 → CI 조회는 별도 `ci_hash` 컬럼으로, 휴대폰 중복 검사는 `phone_hash`. 해시는 **HMAC-SHA256**(`common/crypto/PiiHasher`), 키는 암호화 키에서 파생 — 키 없는 sha256 은 휴대폰을 DB 유출 시 바로 역산. 해시는 서비스 계층이 계산해 엔티티에 넘긴다.
 
 ## 2. 매물·채팅·거래 — 미작성 (`prd.md` 후)
