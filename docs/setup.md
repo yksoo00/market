@@ -67,6 +67,22 @@ docker compose up -d
 
 Git은 `C:\Program Files\Git`에 이미 설치되어 있었음(시스템 PATH). Docker는 관리자 권한 필요 → 별도.
 
+### 소셜 로그인 콘솔 설정 (2026-09-22)
+콜백은 브라우저가 아니라 **백엔드(8080)** 가 받는다. 경로는 `application.yml` 의 `redirect-uri` 와 정확히 같아야 한다.
+
+| 제공자 | 항목 | 값 (로컬) |
+|---|---|---|
+| 네이버 | 서비스 URL / Callback URL | `http://localhost:3000` / `http://localhost:8080/api/v1/auth/oauth/naver/callback` |
+| 카카오 | 앱 설정 > 플랫폼 > Web 도메인 | `http://localhost:3000`, `http://localhost:8080` |
+| 카카오 | 제품 설정 > 카카오 로그인 > 활성화 ON, Redirect URI | `http://localhost:8080/api/v1/auth/oauth/kakao/callback` |
+| 구글 | 승인된 JavaScript 원본 / 리디렉션 URI | `http://localhost:3000` / `http://localhost:8080/api/v1/auth/oauth/google/callback` |
+
+- 동의 항목은 **이메일만 필수** (중복 가입 감지 기준, decisions.md 2026-09-22). 이름은 필수/추가 무관(닉네임 기본값으로만 씀). **휴대폰은 끈다** — 소셜 회원은 휴대폰을 저장하지 않으므로 수집 최소화.
+- 카카오 이메일이 "선택 동의"(비즈 앱 전환 전)면 null 로 올 수 있다 → A3 에서 이메일 없으면 가입 불가 안내.
+- 카카오 웹훅(연결 해제 알림)·로그아웃 리다이렉트·OIDC 는 기본값. 웹훅은 탈퇴 정리가 필요해질 때 `POST /api/v1/auth/oauth/kakao/unlink-webhook` 으로.
+- 운영 배포 시 같은 자리에 `https://api.<도메인>/api/v1/auth/oauth/{provider}/callback` 을 **추가** (로컬 값은 유지).
+- 키는 `.env` 의 `OAUTH_{KAKAO,NAVER,GOOGLE}_CLIENT_ID/SECRET`. 채팅·문서·커밋에 값을 넣지 않는다.
+
 ### Docker 없이 백엔드 테스트·실행 (2026-09-21, 임시)
 Docker 도 Postgres 설치도 안 되는 PC 를 위해 테스트가 **내장 Postgres**(zonky, Gradle 이 바이너리를 받아 임시 폴더에서 실행)로 돈다. 설치할 것 없음.
 - `./gradlew test` — Docker 가 없으면 자동으로 내장 Postgres. 첫 실행은 바이너리 다운로드로 1~2분.

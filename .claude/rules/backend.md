@@ -30,7 +30,7 @@ com.company.market
 - Java 21 문법 사용 (record, sealed, switch pattern). 필드 주입 금지, 생성자 주입 (`@RequiredArgsConstructor` 또는 명시 생성자).
 - DTO는 record. 엔티티를 API 응답으로 직접 반환하지 않는다.
 - 엔티티: `@Id` UUID, `createdAt`/`updatedAt` 공통 base 클래스, soft delete는 `deletedAt`.
-- 예외: `common/exception`의 도메인 예외 → 전역 핸들러가 `{ ok: false, code, message }`로 변환. 컨트롤러에서 try-catch 금지.
+- 예외: `common/exception`의 도메인 예외 → 전역 핸들러가 `{ ok: false, code, message }`로 변환. 컨트롤러에서 try-catch 금지. 오류 코드는 `ErrorCode` enum 하나에 모은다(A2 부터) — 기능별 enum 으로 쪼개지 않고 `// 공통 / 인증 / 가입` 주석으로 묶음. 코드 이름은 프론트 `messages/*.ts` 의 errors 키와 같다.
 - 트랜잭션 경계는 service. `@Transactional(readOnly = true)`를 조회 기본값으로.
 - N+1 주의: 목록 조회는 fetch join 또는 별도 쿼리. `open-in-view=false`.
 - 로그: SLF4J, 구조화(JSON). 개인정보 로그 금지. 요청마다 `requestId` MDC.
