@@ -2,3 +2,4 @@ app:
   jwt:
     secret: test-secret-test-secret-test-secret-32bytes
   internal-token: test-token
+  pii-key: dGVzdC1waWkta2V5LXRlc3QtcGlpLWtleS0zMmJ5dGU=   # 테스트 전용. 'test-pii-key-test-pii-key-32byte' 의 base64

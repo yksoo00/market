@@ -5,7 +5,7 @@
 
 ## 지금 하는 것
 - [ ] Docker Desktop 설치 — 교육용 PC 라 당분간 불가. 그동안 테스트는 내장 Postgres (decisions.md 2026-09-21). Docker 가 되면 zonky 제거
-- [x] 2026-09-21 `TestInfraConfiguration`: Docker 없으면 zonky 내장 Postgres 16 (PR 예정)
+- [x] 2026-09-21 `TestInfraConfiguration`: Docker 없으면 zonky 내장 Postgres 16 (PR #7)
 - [x] 2026-09-21 `gh` CLI 설치·로그인. 이제 PR 생성·머지·CI 확인은 Claude 가 `gh` 로 함
 
 ## 다음
@@ -15,8 +15,9 @@
   - [ ] `feat/signup-business` 약관 → 사업자 인증 → 정보입력 → 완료
   - [x] 2026-09-21 소셜 첫 로그인 `/signup/social` (약관+닉네임). 백엔드 계약: 콜백이 신규면 `?provider&token&nickname&next` 로 리다이렉트, `POST /auth/oauth/complete`
 - [x] 2026-09-21 `docs/data-model.md` 1절 계정 (users·social_accounts·identity_verifications·terms_agreements·organizations·organization_members, Redis 키)
-- [ ] `db/users` 브랜치: 위 6개 테이블 Flyway 마이그레이션 + JPA 엔티티 + Testcontainers 로 `validate` 통과
+- [x] 2026-09-21 `db/users`: 6개 테이블 Flyway + JPA 엔티티 + PiiConverter + `validate` 통과, UserRepository 테스트 4개 (PR 예정)
 - [ ] 인증 구현 (가입 → 로그인 → refresh → 로그아웃 → 내 정보) + 배포 한 번
+  - [ ] 소셜 첫 로그인: 제공자 이메일이 이미 있으면 가입 대신 "OO 로 가입된 계정" 안내 (decisions.md 2026-09-22). 프론트 `/signup/social` 오류 케이스 추가
 - [ ] 기능 정리 받기 → `prd.md` → `data-model.md` 나머지 → `roles.md` → `security.md`
 - [ ] 챗봇 예시 질문 5개 받기 → `ai-api.md` 5절 조정
 - [ ] 견적서 샘플 2~3개 → `ai/tests/fixtures/`

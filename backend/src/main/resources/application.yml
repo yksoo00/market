@@ -49,6 +49,7 @@ app:
     access-ttl-minutes: ${JWT_ACCESS_TTL_MIN:15}
     refresh-ttl-days: ${JWT_REFRESH_TTL_DAYS:30}
   internal-token: ${INTERNAL_TOKEN}
+  pii-key: ${PII_ENCRYPTION_KEY}    # 이름·휴대폰·CI 컬럼 암호화 키. 32바이트 base64. 바꾸면 전체 재암호화 필요
   ai-url: ${AI_URL:http://localhost:8000}
   domain-root: ${DOMAIN_ROOT:localhost}
 
