@@ -18,6 +18,7 @@
 | 테스트 | Testcontainers(Docker) 고정 | 09-23 로컬 테스트 인프라 |
 | 도구 | Bruno, 문서·주석은 main 직접 커밋 | 09-18 Bruno, 09-21 브랜치 예외 |
 | AI | 보류. `ai/` 서비스 제거. 재개 시 09-18 결정을 출발점으로 | 09-29 AI 보류 |
+| 프론트 | 타일 워크스페이스는 서브 타일을 iframe으로 렌더. 서브 타일 상태는 새로고침 시 사라짐(허용) | 09-29 타일 워크스페이스 |
 
 ## 2026-09-17 백엔드는 자체 서버(R740), 프론트는 Vercel
 
@@ -251,6 +252,13 @@
 - `docs/README.md`의 문서 목록은 CLAUDE.md로 흡수하고 삭제. 외부 템플릿 규칙(`cluade.md`)은 충돌 없는 것만 CLAUDE.md "작업 방식"에 합침.
 - 충돌 시 기존 규칙 유지: 커밋은 Conventional Commits(기존 PR 이력과 일관), 주석은 "왜"만(작성자·날짜는 git blame). 워크플로 스킬 `superpowers`·`grill-me`는 CLAUDE.md, 응답 스타일(`caveman`)은 개인 설정이라 `CLAUDE.local.md`.
 - 세션 시작 시 `decisions.md` 전체를 읽던 규칙은 "구조·정책을 바꿀 때 색인부터"로 줄임 — 매 세션 250줄을 읽는 비용 대비 쓰임이 적어서.
+
+## 2026-09-29 타일 워크스페이스 서브 타일은 iframe
+
+- 결정: 전체화면↔분할화면 타일링 기능에서 메인은 실제 Next.js 라우터가 그리는 페이지, 서브 타일(최대 2개)은 `<iframe src="경로">`로 렌더. 주소창은 메인 경로만 반영, 서브 타일은 새로고침 시 사라짐.
+- 이유: App Router 페이지가 Server Component일 수 있어 클라이언트에서 임의로 동적 import해 그릴 수 없다. iframe이면 서버 렌더링·데이터 fetch·인증 쿠키(same-origin)가 그대로 동작하고 Next.js 라우팅 내부를 우회할 필요가 없다. 대안(세 경로를 주소창 쿼리에 인코딩해 새로고침에도 복원)은 라우트 조회 테이블 등 인프라가 커서, 아직 listing/chat 도메인 페이지 자체가 없는 지금 시점엔 과함.
+- 따라오는 제약: 서버가 나중에 X-Frame-Options/CSP frame-ancestors를 설정하면 same-origin(`'self'`)은 허용해야 한다 (`docs/security.md` 참고). `<iframe onError>`는 HTTP 레벨 실패(404/500)엔 안 믿음직하게 발동하는 브라우저 표준 한계 — 필요해지면 postMessage 핸드셰이크로 보완.
+- 재검토 조건: 서브 타일 공유 링크(새로고침 후 3분할 복원)가 실제로 필요해질 때. 스펙: `docs/superpowers/specs/2026-09-29-tile-workspace-design.md`.
 
 ## 미정 (결정 필요)
 

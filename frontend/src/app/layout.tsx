@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { IBM_Plex_Mono, Noto_Sans_KR } from "next/font/google";
+import { TileWorkspace } from "@/components/common/TileWorkspace";
 import "./globals.css";
 
 const noto = Noto_Sans_KR({
@@ -23,7 +24,9 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="ko" className={`${noto.variable} ${plexMono.variable}`}>
       {/* 홈은 스크롤 없이 한 화면. 하위 페이지는 main 안에서 각자 스크롤 */}
-      <body className="h-dvh overflow-hidden flex flex-col">{children}</body>
+      <body className="h-dvh overflow-hidden flex flex-col">
+        <TileWorkspace>{children}</TileWorkspace>
+      </body>
     </html>
   );
 }

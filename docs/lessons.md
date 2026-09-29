@@ -26,3 +26,8 @@
 - 올바름: 브랜치는 **커밋 직전에** main 에서 새로 만든다 (`git checkout -b feat/x main`). 이미 만든 브랜치를 옮겨야 하면 `git rebase main`. 커밋 전 `git status` 로 의도한 파일만 staged 인지 확인.
 - 어디서: feat/login 커밋. 푸시 전이라 이력을 다시 써서 복구.
 
+### 2026-09-29 프론트 태스크 검증에서 typecheck만 돌리고 lint를 빼먹음
+- 틀림: 타일 워크스페이스 구현(subagent-driven) Task 2에서 구현자·리뷰어 둘 다 `pnpm typecheck`만 돌리고 `pnpm lint`를 안 돌려서, 실제 ESLint error(`react-hooks/set-state-in-effect`)가 통과됨. 다음 태스크 리뷰어가 우연히 lint를 돌려서야 발견.
+- 올바름: 프론트 코드 검증은 typecheck와 lint를 **항상 같이** 돌린다. CLAUDE.md 커밋 전 체크리스트에 이미 `pnpm typecheck && pnpm lint && pnpm test`가 명시돼 있었는데도 태스크 단위 검증에서 lint를 생략한 게 원인.
+- 어디서: `feat/tile-workspace` Task 2~3 (2026-09-29).
+
