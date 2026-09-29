@@ -43,11 +43,11 @@ export function AuthSplitShell({ children, home }: Props) {
       className={
         framed
           ? "relative flex-1 min-h-0 overflow-y-auto"
-          : "relative flex-1 min-h-0 overflow-y-auto lg:overflow-hidden lg:grid lg:grid-cols-2"
+          : "relative flex-1 min-h-0 overflow-y-auto @lg:overflow-hidden @lg:grid @lg:grid-cols-2"
       }
     >
-      {/* 서브 타일(iframe) 안에서는 뷰포트가 넓어도 홈 미리보기 없이 폼만 보인다 — 실제 폭은 좁은데 lg: 레이아웃이 켜지는 걸 막는다 */}
-      <div className={framed ? "hidden" : "hidden lg:block min-h-0 overflow-y-auto border-r border-line bg-bg"}>
+      {/* 서브 타일(iframe) 안에서는 항상 숨김. 그 외엔 @lg: 라 메인이 타일에 밀려 좁아지면(창 폭과 무관하게) 자동으로 접힌다 */}
+      <div className={framed ? "hidden" : "hidden @lg:block min-h-0 overflow-y-auto border-r border-line bg-bg"}>
         {home}
       </div>
       <div
@@ -55,13 +55,13 @@ export function AuthSplitShell({ children, home }: Props) {
         className={previousLogin ? "min-h-0 grid grid-rows-2 divide-y divide-line" : "min-h-0 flex items-center justify-center"}
       >
         {previousLogin && (
-          <section className="min-h-0 overflow-y-auto px-4 py-5 md:px-6 md:py-6 flex items-center justify-center">
+          <section className="min-h-0 overflow-y-auto px-4 py-5 @md:px-6 @md:py-6 flex items-center justify-center">
             <div className="w-full max-w-[560px]">
               <LoginPanel next={previousLogin.next} initial={previousLogin.initial} />
             </div>
           </section>
         )}
-        <section className="min-h-0 overflow-y-auto px-4 py-6 md:px-6 md:py-8 flex items-center justify-center">
+        <section className="min-h-0 overflow-y-auto px-4 py-6 @md:px-6 @md:py-8 flex items-center justify-center">
           <div className="w-full max-w-[560px]">{children}</div>
         </section>
       </div>

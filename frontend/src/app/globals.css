@@ -22,6 +22,12 @@
 
   --font-sans: var(--font-noto), "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-mono: var(--font-plex-mono), Consolas, monospace;
+
+  /* 컨테이너 쿼리(@md, @lg)를 화면 브레이크포인트(md, lg)와 같은 픽셀 기준으로 맞춘다.
+     타일 워크스페이스가 메인 영역을 좁힐 때 lg: 는 브라우저 창 전체 폭을 보고 반응 안 하지만
+     @lg: 는 실제로 담긴 칸(TileWorkspace의 @container)의 폭을 보고 반응한다. */
+  --container-md: 48rem;
+  --container-lg: 64rem;
 }
 
 html,
