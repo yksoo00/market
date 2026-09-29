@@ -4,6 +4,7 @@ import java.util.List;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
@@ -16,14 +17,14 @@ public record ListingUpdateRequest(
 		@Pattern(regexp = ".*\\S.*", message = "상품상태는 빈 값일 수 없습니다.") @Size(max = 20) String prodState,
 		@Min(0) @Max(1_000_000_000) Integer salesUnitPrice,
 		@Min(1) @Max(100_000) Integer salesQuantity,
-		@Min(1) Integer minOrderQuantity,
-		@Min(1) Integer orderUnit,
+		@Min(1) @Max(100_000) Integer minOrderQuantity,
+		@Min(1) @Max(100_000) Integer orderUnit,
 		@Size(max = 10) String deliveryDate,
-		@Min(0) Integer stockQuantity,
+		@Min(0) @Max(100_000) Integer stockQuantity,
 		@Size(max = 200) String description,
 		@Size(max = 100) String listingDataSheet,
-		@Size(max = 4) List<@Size(max = 100) String> photos,
-		@Min(0) Integer warrantyPeriod,
+		@Size(max = 4) List<@NotBlank @Size(max = 100) String> photos,
+		@Min(0) @Max(36_500) Integer warrantyPeriod,
 		@Size(max = 10) String warrantyCoverage,
 		@Size(max = 100) String replaceProd,
 		@Size(max = 100) String testReport,

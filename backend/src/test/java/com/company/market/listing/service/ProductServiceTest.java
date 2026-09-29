@@ -57,4 +57,14 @@ class ProductServiceTest {
 		assertThat(second.getProdId()).isEqualTo("ELEC00010002");
 	}
 
+	@Test
+	@DisplayName("categoryCode가 8자보다 짧으면 부족한 자리만 0으로 채우고 기존 문자는 그대로 둔다")
+	void categoryPrefixPadsOnlyMissingLength() {
+		Product created = service.findOrCreate(new ProductDraft("AB CD", "노트북 E", null, "LG", null, null, null, null));
+
+		String prefix = created.getProdId().substring(0, 8);
+		assertThat(prefix).isEqualTo("AB" + " " + "CD000");
+		assertThat(created.getProdId()).hasSize(12).endsWith("0001");
+	}
+
 }

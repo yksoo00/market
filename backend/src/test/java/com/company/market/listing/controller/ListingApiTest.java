@@ -166,6 +166,54 @@ class ListingApiTest {
 	}
 
 	@Test
+	@DisplayName("사진 경로가 빈 문자열·공백이면 400")
+	void photosRejectsBlankElement() throws Exception {
+		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"ELEC0001","prodName":"노트북 P3","prodBrand":"삼성",
+					 "tradeType":"등록","prodState":"new","salesUnitPrice":1000,"salesQuantity":1,
+					 "photos":["  "]}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields['photos[0]']").isString());
+	}
+
+	@Test
+	@DisplayName("최소주문량이 판매수량보다 크면 400 VALIDATION")
+	void minOrderQuantityCannotExceedSalesQuantity() throws Exception {
+		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"ELEC0001","prodName":"노트북 P4","prodBrand":"삼성",
+					 "tradeType":"등록","prodState":"new","salesUnitPrice":1000,"salesQuantity":5,
+					 "minOrderQuantity":10}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.minOrderQuantity").isString());
+	}
+
+	@Test
+	@DisplayName("상품명·제조사 앞뒤 공백이 달라도 같은 상품으로 재사용한다")
+	void productMatchingTrimsWhitespace() throws Exception {
+		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"ELEC0001","prodName":"노트북 T","prodBrand":"삼성 ",
+					 "tradeType":"등록","prodState":"new","salesUnitPrice":1000,"salesQuantity":1}
+					"""))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.prodId").value("ELEC00010001"));
+
+		mvc.perform(post("/api/v1/listings").cookie(otherUserCookie())
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"ELEC0001","prodName":" 노트북 T","prodBrand":"삼성",
+					 "tradeType":"등록","prodState":"new","salesUnitPrice":1000,"salesQuantity":1}
+					"""))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.prodId").value("ELEC00010001"));
+
+		assertThat(jdbc.queryForObject("select count(*) from products", Integer.class)).isEqualTo(1);
+	}
+
+	@Test
 	@DisplayName("등록한 매물을 상세 조회하면 그대로 나온다")
 	void getReturnsCreatedListing() throws Exception {
 		MvcResult created = mvc.perform(post("/api/v1/listings").cookie(authCookie)
@@ -179,6 +227,22 @@ class ListingApiTest {
 		mvc.perform(get("/api/v1/listings/" + userId + "/" + regDate))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.prodName").value("노트북 G"));
+	}
+
+	@Test
+	@DisplayName("등록 시 보낸 상품번호·사양정보·매물 데이터시트가 응답에 그대로 담긴다")
+	void responseIncludesProductAndListingDetailFields() throws Exception {
+		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"ELEC0001","prodName":"노트북 D","prodBrand":"삼성",
+					 "prodNo":"MODEL-1","prodSpecInfo":"i7/16GB/512GB",
+					 "tradeType":"등록","prodState":"new","salesUnitPrice":1000,"salesQuantity":1,
+					 "listingDataSheet":"listing-sheet.pdf"}
+					"""))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.prodNo").value("MODEL-1"))
+			.andExpect(jsonPath("$.data.prodSpecInfo").value("i7/16GB/512GB"))
+			.andExpect(jsonPath("$.data.listingDataSheet").value("listing-sheet.pdf"));
 	}
 
 	@Test

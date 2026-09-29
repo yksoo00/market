@@ -13,6 +13,7 @@ import java.util.stream.Stream;
 
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
+import com.company.market.common.exception.ValidationException;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.ListingId;
 import com.company.market.listing.domain.Product;
@@ -49,11 +50,14 @@ public class ListingService {
 		List<String> photos = req.photos() == null ? List.of() : req.photos();
 		String firstPhoto = photos.isEmpty() ? null : photos.get(0);
 
-		Product product = products.findOrCreate(new ProductDraft(req.categoryCode(), req.prodName(), req.prodNo(),
-				req.prodBrand(), req.prodMufcDate(), req.prodSpecInfo(), req.productDataSheet(), firstPhoto));
+		Product product = products.findOrCreate(new ProductDraft(req.categoryCode(), req.prodName().trim(), req.prodNo(),
+				req.prodBrand().trim(), req.prodMufcDate(), req.prodSpecInfo(), req.productDataSheet(), firstPhoto));
 
 		int minOrderQuantity = req.minOrderQuantity() == null ? 1 : req.minOrderQuantity();
 		int orderUnit = req.orderUnit() == null ? 1 : req.orderUnit();
+		if (minOrderQuantity > req.salesQuantity()) {
+			throw new ValidationException(Map.of("minOrderQuantity", "최소주문량은 판매수량을 넘을 수 없습니다."));
+		}
 
 		Listing listing = Listing.builder()
 			.userId(userId)
@@ -97,8 +101,12 @@ public class ListingService {
 		if (!requesterId.equals(pathUserId)) {
 			throw new ApiException(ErrorCode.FORBIDDEN);
 		}
+		int effectiveMinOrderQuantity = req.minOrderQuantity() == null ? listing.getMinOrderQuantity() : req.minOrderQuantity();
+		int effectiveSalesQuantity = req.salesQuantity() == null ? listing.getSalesQuantity() : req.salesQuantity();
+		if (effectiveMinOrderQuantity > effectiveSalesQuantity) {
+			throw new ValidationException(Map.of("minOrderQuantity", "최소주문량은 판매수량을 넘을 수 없습니다."));
+		}
 		listing.applyUpdate(req, LocalDateTime.now(clock).format(REG_DATE_FORMAT));
-		listings.save(listing);
 		return toResponse(listing, products.get(listing.getProdId()));
 	}
 
@@ -179,10 +187,10 @@ public class ListingService {
 			.filter(Objects::nonNull)
 			.toList();
 		return new ListingResponse(listing.getUserId(), listing.getRegDate(), listing.getProdId(), product.getProdName(),
-				product.getProdBrand(), listing.getTradeType(), listing.getProdState(), listing.getSalesUnitPrice(),
-				listing.getSalesQuantity(), listing.getMinOrderQuantity(), listing.getOrderUnit(), listing.getDeliveryDate(),
-				listing.getStockQuantity(), listing.getProdDescription(), photos, listing.getWarrantyPeriod(),
-				listing.getWarrantyCoverage(), listing.getReplaceProd(), listing.getTestReport(),
+				product.getProdBrand(), product.getProdNo(), product.getProdSpecInfo(), listing.getTradeType(), listing.getProdState(),
+				listing.getSalesUnitPrice(), listing.getSalesQuantity(), listing.getMinOrderQuantity(), listing.getOrderUnit(),
+				listing.getDeliveryDate(), listing.getStockQuantity(), listing.getProdDescription(), listing.getProdDataSheet(), photos,
+				listing.getWarrantyPeriod(), listing.getWarrantyCoverage(), listing.getReplaceProd(), listing.getTestReport(),
 				listing.getCertificateOfAuthen(), listing.getDtUpdate(), listing.getDtExpire());
 	}
 

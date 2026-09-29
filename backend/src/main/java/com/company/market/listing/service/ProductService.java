@@ -73,11 +73,12 @@ public class ProductService {
 			.build());
 	}
 
+	/** 부족한 자리만 뒤에 '0'을 붙인다 — 기존 방식(공백 채움 후 전체 치환)은 categoryCode 안의 공백까지 바꿔버렸다 */
 	private String categoryPrefix(String categoryCode) {
 		if (categoryCode.length() >= CATEGORY_PREFIX_LENGTH) {
 			return categoryCode.substring(0, CATEGORY_PREFIX_LENGTH);
 		}
-		return String.format("%-" + CATEGORY_PREFIX_LENGTH + "s", categoryCode).replace(' ', '0');
+		return categoryCode + "0".repeat(CATEGORY_PREFIX_LENGTH - categoryCode.length());
 	}
 
 	public record ProductDraft(String categoryCode, String prodName, String prodNo, String prodBrand,
