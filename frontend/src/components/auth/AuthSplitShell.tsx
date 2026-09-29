@@ -3,6 +3,7 @@
 import { useState, type MouseEvent, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { LoginPanel } from "@/components/auth/LoginPanel";
+import { useIsFramed } from "@/hooks/useIsFramed";
 import { safeNext } from "@/lib/safeNext";
 
 interface LoginPaneState {
@@ -17,6 +18,7 @@ interface Props {
 
 export function AuthSplitShell({ children, home }: Props) {
   const pathname = usePathname();
+  const framed = useIsFramed();
   const [previousLogin, setPreviousLogin] = useState<LoginPaneState | null>(null);
 
   const handleNavigation = (event: MouseEvent<HTMLDivElement>) => {
@@ -37,8 +39,15 @@ export function AuthSplitShell({ children, home }: Props) {
   };
 
   return (
-    <main className="relative flex-1 min-h-0 overflow-y-auto lg:overflow-hidden lg:grid lg:grid-cols-2">
-      <div className="hidden lg:block min-h-0 overflow-y-auto border-r border-line bg-bg">
+    <main
+      className={
+        framed
+          ? "relative flex-1 min-h-0 overflow-y-auto"
+          : "relative flex-1 min-h-0 overflow-y-auto lg:overflow-hidden lg:grid lg:grid-cols-2"
+      }
+    >
+      {/* 서브 타일(iframe) 안에서는 뷰포트가 넓어도 홈 미리보기 없이 폼만 보인다 — 실제 폭은 좁은데 lg: 레이아웃이 켜지는 걸 막는다 */}
+      <div className={framed ? "hidden" : "hidden lg:block min-h-0 overflow-y-auto border-r border-line bg-bg"}>
         {home}
       </div>
       <div

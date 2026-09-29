@@ -1,5 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { Icon, type IconName } from "@/components/common/Icon";
+import { useIsFramed } from "@/hooks/useIsFramed";
 import { home as t } from "@/messages/home";
 
 const tabs: { icon: IconName; label: string; href: string; center?: boolean }[] = [
@@ -11,6 +14,9 @@ const tabs: { icon: IconName; label: string; href: string; center?: boolean }[] 
 ];
 
 export function MobileTabBar({ active = "/" }: { active?: string }) {
+  const framed = useIsFramed();
+  if (framed) return null;
+
   return (
     <nav className="md:hidden h-15 shrink-0 grid grid-cols-5 bg-surface border-t border-line text-[10px] pb-[env(safe-area-inset-bottom)]">
       {tabs.map(({ icon, label, href, center }) => {
