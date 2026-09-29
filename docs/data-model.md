@@ -230,6 +230,7 @@ MinIO: 사업자등록증 파일 (organizations.license_file_key)
 | dt_expire | varchar(14) | | 거래완료일시 |
 | spare_col | varchar(100) | | |
 
-인덱스: `(prod_id)` on listings (FK 조회용).
+인덱스: `U (prod_name, prod_brand)` on products (동시 등록 경합 시 재사용 판단의 근거 — 코드리뷰 지적으로 추가, 2026-09-29), `(prod_id)`·`(reg_date)` on listings (FK·목록 조회용).
+제약: `products`·`listings` 엔티티는 PK를 직접 채우므로(uuid `@GeneratedValue` 없음) `Persistable` 구현 필수 — 없으면 Spring Data가 항상 `merge`(UPDATE)를 타서 중복 키를 조용히 덮어쓴다(코드리뷰로 발견, 2026-09-29 수정). 매물 목록 커서는 `reg_date` 단독이 아니라 `reg_date_userId` 복합값 — 같은 초에 다른 사용자가 등록하면 reg_date만으로는 페이지 경계에서 소실될 수 있어서.
 
-**다음에 정할 것**: PRD 작성 시 카테고리 마스터 테이블 여부, 이미지 다건 구조(별도 테이블) 전환, prod_state enum화, 조직(seller_org_id) 도입 여부, (user_id, reg_date) 복합키 충돌 가능성, quantity·가격 검증 규칙(`security.md`).
+**다음에 정할 것**: PRD 작성 시 카테고리 마스터 테이블 여부, 이미지 다건 구조(별도 테이블) 전환, prod_state enum화, 조직(seller_org_id) 도입 여부, quantity·가격 검증 규칙(`security.md`).
