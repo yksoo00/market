@@ -30,6 +30,7 @@ import org.springframework.test.web.servlet.MvcResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -185,6 +186,55 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.data.items.length()").value(20))
 			.andExpect(jsonPath("$.data.nextCursor").isString())
 			.andExpect(jsonPath("$.data.items[0].regDate").value("202609291200" + String.format("%02d", 20)));
+	}
+
+	private String createListing(Cookie cookie) throws Exception {
+		MvcResult created = mvc.perform(post("/api/v1/listings").cookie(cookie)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"ELEC0001","prodName":"노트북 U","prodBrand":"삼성",
+					 "tradeType":"등록","prodState":"new","salesUnitPrice":500000,"salesQuantity":1}
+					"""))
+			.andExpect(status().isCreated()).andReturn();
+		return created.getResponse().getContentAsString().replaceAll(".*\"regDate\":\"([^\"]+)\".*", "$1");
+	}
+
+	private Cookie otherUserCookie() {
+		User other = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("listingapiother")
+			.passwordHash("$2a$12$hash").nickname("listingapiother").email("listingapiother@example.com")
+			.name("김철수").phone("01099998888").phoneHash(hasher.hash("01099998888")).build());
+		return new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(other.getId(), UserRole.USER));
+	}
+
+	@Test
+	@DisplayName("본인 매물의 가격을 수정하면 반영된다")
+	void ownerCanUpdate() throws Exception {
+		String regDate = createListing(authCookie);
+
+		mvc.perform(patch("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("{\"salesUnitPrice\":600000}"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.salesUnitPrice").value(600000));
+	}
+
+	@Test
+	@DisplayName("다른 사용자의 매물을 수정하려 하면 403이고 실제로 바뀌지 않는다")
+	void othersCannotUpdate() throws Exception {
+		String regDate = createListing(authCookie);
+
+		mvc.perform(patch("/api/v1/listings/" + userId + "/" + regDate).cookie(otherUserCookie())
+				.contentType(MediaType.APPLICATION_JSON).content("{\"salesUnitPrice\":1}"))
+			.andExpect(status().isForbidden());
+
+		mvc.perform(get("/api/v1/listings/" + userId + "/" + regDate))
+			.andExpect(jsonPath("$.data.salesUnitPrice").value(500000));
+	}
+
+	@Test
+	@DisplayName("없는 매물을 수정하려 하면 404")
+	void updateMissingIsNotFound() throws Exception {
+		mvc.perform(patch("/api/v1/listings/" + UUID.randomUUID() + "/20260101000000").cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("{\"salesUnitPrice\":1}"))
+			.andExpect(status().isNotFound());
 	}
 
 }

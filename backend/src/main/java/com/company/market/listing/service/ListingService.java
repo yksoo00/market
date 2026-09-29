@@ -18,6 +18,7 @@ import com.company.market.listing.dto.ListingCreateRequest;
 import com.company.market.listing.dto.ListingPageResponse;
 import com.company.market.listing.dto.ListingResponse;
 import com.company.market.listing.dto.ListingSummaryResponse;
+import com.company.market.listing.dto.ListingUpdateRequest;
 import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.service.ProductService.ProductDraft;
 import lombok.RequiredArgsConstructor;
@@ -82,6 +83,18 @@ public class ListingService {
 		}
 
 		return toResponse(listing, product);
+	}
+
+	@Transactional
+	public ListingResponse update(UUID pathUserId, String regDate, UUID requesterId, ListingUpdateRequest req) {
+		Listing listing = listings.findById(new ListingId(pathUserId, regDate))
+			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
+		if (!requesterId.equals(pathUserId)) {
+			throw new ApiException(ErrorCode.FORBIDDEN);
+		}
+		listing.applyUpdate(req, LocalDateTime.now().format(REG_DATE_FORMAT));
+		listings.save(listing);
+		return toResponse(listing, products.get(listing.getProdId()));
 	}
 
 	public ListingResponse get(UUID userId, String regDate) {

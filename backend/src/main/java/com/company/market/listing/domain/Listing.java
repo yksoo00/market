@@ -1,7 +1,9 @@
 package com.company.market.listing.domain;
 
+import java.util.List;
 import java.util.UUID;
 
+import com.company.market.listing.dto.ListingUpdateRequest;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -115,6 +117,66 @@ public class Listing {
 		this.testReport = testReport;
 		this.certificateOfAuthen = certificateOfAuthen;
 		this.spareCol = spareCol;
+	}
+
+	/** null 이 아닌 필드만 반영 (PATCH 부분수정). 상품마스터용 필드는 대상 아님 */
+	public void applyUpdate(ListingUpdateRequest req, String dtUpdate) {
+		if (req.tradeType() != null) {
+			this.tradeType = req.tradeType();
+		}
+		if (req.prodState() != null) {
+			this.prodState = req.prodState();
+		}
+		if (req.salesUnitPrice() != null) {
+			this.salesUnitPrice = req.salesUnitPrice();
+		}
+		if (req.salesQuantity() != null) {
+			this.salesQuantity = req.salesQuantity();
+		}
+		if (req.minOrderQuantity() != null) {
+			this.minOrderQuantity = req.minOrderQuantity();
+		}
+		if (req.orderUnit() != null) {
+			this.orderUnit = req.orderUnit();
+		}
+		if (req.deliveryDate() != null) {
+			this.deliveryDate = req.deliveryDate();
+		}
+		if (req.stockQuantity() != null) {
+			this.stockQuantity = req.stockQuantity();
+		}
+		if (req.description() != null) {
+			this.prodDescription = req.description();
+		}
+		if (req.listingDataSheet() != null) {
+			this.prodDataSheet = req.listingDataSheet();
+		}
+		if (req.photos() != null) {
+			this.prodPhoto1 = photoAt(req.photos(), 0);
+			this.prodPhoto2 = photoAt(req.photos(), 1);
+			this.prodPhoto3 = photoAt(req.photos(), 2);
+			this.prodImage4 = photoAt(req.photos(), 3);
+		}
+		if (req.warrantyPeriod() != null) {
+			this.warrantyPeriod = req.warrantyPeriod();
+		}
+		if (req.warrantyCoverage() != null) {
+			this.warrantyCoverage = req.warrantyCoverage();
+		}
+		if (req.replaceProd() != null) {
+			this.replaceProd = req.replaceProd();
+		}
+		if (req.testReport() != null) {
+			this.testReport = req.testReport();
+		}
+		if (req.certificateOfAuthen() != null) {
+			this.certificateOfAuthen = req.certificateOfAuthen();
+		}
+		this.dtUpdate = dtUpdate;
+	}
+
+	private static String photoAt(List<String> photos, int index) {
+		return index < photos.size() ? photos.get(index) : null;
 	}
 
 }
