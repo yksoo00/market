@@ -7,7 +7,7 @@ import type { SecondaryTile } from "@/lib/tileWorkspace";
 import { common as t } from "@/messages/common";
 
 export function TileFrame({ tile }: { tile: SecondaryTile }) {
-  const { promote, closeTile, updateTilePath } = useTileWorkspace();
+  const { closeTile, updateTilePath } = useTileWorkspace();
   // tile.path는 iframe 내부 이동을 따라 계속 갱신된다. 그걸 src에 그대로 걸면 이동할 때마다
   // src가 바뀌어 iframe이 같은 페이지를 한 번 더 로드하므로, 마운트 시점 경로로 고정한다.
   // 1↔2개 전환처럼 다시 마운트될 때는 최신 tile.path로 열린다.
@@ -54,10 +54,7 @@ export function TileFrame({ tile }: { tile: SecondaryTile }) {
         onError={() => setLoadError(true)}
         className="h-full w-full border-0"
       />
-      <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-        <button type="button" aria-label={t.tileExpand} onClick={() => promote(tile.key, tile.path)}>
-          <Icon name="expand" size={16} />
-        </button>
+      <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
         <button type="button" aria-label={t.tileClose} onClick={() => closeTile(tile.key)}>
           <Icon name="close" size={16} />
         </button>
