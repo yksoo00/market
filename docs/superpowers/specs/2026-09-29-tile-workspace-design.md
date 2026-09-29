@@ -1,7 +1,7 @@
 # 타일 워크스페이스 (Tile Workspace) 설계
 
 날짜: 2026-09-29
-상태: 설계 승인 대기
+상태: 구현 완료 (실제 브라우저 수동 검증 남음 — `docs/superpowers/plans/2026-09-29-tile-workspace-implementation.md` 참고)
 
 ## 배경 / 목적
 
