@@ -182,4 +182,54 @@ MinIO: 사업자등록증 파일 (organizations.license_file_key)
 3. **닉네임 유일은 personal 만**: `U* (nickname) where kind = 'personal'`. business 는 기업명을 그대로 (같은 상호 허용).
 4. **이름·휴대폰 컬럼 암호화**: `users.name`, `users.phone`, `social_accounts.provider_email`, `identity_verifications.ci/di` 는 AES-256-GCM 으로 암호화해 저장. 키는 `.env` `PII_ENCRYPTION_KEY`(32바이트 base64). Spring JPA `AttributeConverter` 한 개(`common/crypto`). 암호화 컬럼은 `=` 검색 불가 → CI 조회는 별도 `ci_hash` 컬럼으로, 휴대폰 중복 검사는 `phone_hash`. 해시는 **HMAC-SHA256**(`common/crypto/PiiHasher`), 키는 암호화 키에서 파생 — 키 없는 sha256 은 휴대폰을 DB 유출 시 바로 역산. 해시는 서비스 계층이 계산해 엔티티에 넘긴다.
 
-## 2. 매물·채팅·거래 — 미작성 (`prd.md` 후)
+## 2. 매물 — 레거시 스펙 초안 (`prd.md` 전, 재검토 예정)
+
+> 구현: `V202609291000__create_product_listing_tables.sql`. 사용자가 제공한 레거시 테이블 정의(TRD_PROD_MASTER, TRD_REG_INFO)를 그대로 옮긴 것. PRD 확정 전 초안이라 카테고리 마스터·이미지 구조(고정 컬럼 vs 별도 테이블)·상태값 체계(자유텍스트 vs enum)는 다시 바뀔 수 있다. 채팅·거래 스키마는 아직 없다.
+
+### products (TRD_PROD_MASTER — 상품마스터)
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| prod_id | varchar(20) | PK | 레거시 비즈니스 키를 그대로 PK로 씀 (uuid 서로게이트 없음, 2026-09-29 지시). 자동생성: 카테고리(8)+일련번호(4) |
+| category_code | varchar(10) | not null | 카테고리마스터 참조 값이나, 카테고리마스터 테이블은 아직 없음 |
+| prod_name | varchar(50) | not null | |
+| prod_no | varchar(20) | | 제조사 번호(코드) |
+| prod_brand | varchar(50) | not null | |
+| prod_mufc_date | varchar(14) | | 제조일시 |
+| prod_spec_info | varchar(100) | | 제조사 제공 자유 기재 |
+| prod_data_sheet | varchar(100) | | 경로정보 |
+| prod_photo_1 | varchar(100) | | 경로정보. 파일 저장소 미정(decisions.md 2026-09-28) 이라 지금은 경로 컬럼만 |
+| reg_date | varchar(14) | not null | 등록일시 |
+| spare_col | varchar(100) | | 예비 컬럼 |
+
+### listings (TRD_REG_INFO — 상품등록 정보)
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| user_id | uuid | PK(복합), FK→users | 레거시 "사용자ID". 로그인 아이디 문자열이 아니라 users.id(uuid). 조직(seller_org_id)은 넣지 않음 — decisions.md 미정 항목을 이 커밋에서 확정 |
+| reg_date | varchar(14) | PK(복합), not null | 등록일시(일시분초). user_id 와 복합 PK — 같은 사용자가 같은 초에 두 번 등록하면 충돌(레거시 설계 그대로, 재검토 예정) |
+| prod_id | varchar(20) | not null, FK→products(prod_id) | |
+| trade_type | varchar(20) | not null | 거래종류 (등록) |
+| prod_state | varchar(20) | not null | 상품상태 (레거시: "신품대비 00%" 자유 텍스트) |
+| sales_unit_price | integer | not null | 등록단가 |
+| sales_quantity | integer | not null | 등록수량 |
+| min_order_quantity | integer | not null, default 1 | |
+| order_unit | integer | not null, default 1 | |
+| delivery_date | varchar(10) | | 납기일(제공가능일). **레거시 스펙엔 물리명이 REG_DATE 로 등록일시와 중복 기재되어 있어 분리함** |
+| stock_quantity | integer ? | | 재고수량. 레거시 기본값 "판매수량"은 DB default로 표현 불가해 앱에서 채움 |
+| prod_description | varchar(200) | | |
+| prod_data_sheet | varchar(100) | | |
+| prod_photo_1~3 | varchar(100) | | 경로정보 |
+| prod_image_4 | varchar(100) | | 경로정보. 레거시 물리명이 다른 사진 컬럼과 다름(PROD_IMAGE_4) — 그대로 유지 |
+| warranty_period | integer ? | | 보증기한(일) |
+| warranty_coverage | varchar(10) | | 불량지원방법 (대체/환불) |
+| replace_prod | varchar(100) | | 대체품 경로정보 |
+| test_report | varchar(100) | | 경로정보 |
+| certificate_of_authen | varchar(100) | | 정품인증서 경로정보 |
+| dt_update | varchar(14) | | 최종갱신일시 |
+| dt_expire | varchar(14) | | 거래완료일시 |
+| spare_col | varchar(100) | | |
+
+인덱스: `(prod_id)` on listings (FK 조회용).
+
+**다음에 정할 것**: PRD 작성 시 카테고리 마스터 테이블 여부, 이미지 다건 구조(별도 테이블) 전환, prod_state enum화, 조직(seller_org_id) 도입 여부, (user_id, reg_date) 복합키 충돌 가능성, quantity·가격 검증 규칙(`security.md`).
