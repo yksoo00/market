@@ -3,16 +3,21 @@ package com.company.market.listing.service;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.listing.domain.Listing;
+import com.company.market.listing.domain.ListingId;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.dto.ListingCreateRequest;
+import com.company.market.listing.dto.ListingPageResponse;
 import com.company.market.listing.dto.ListingResponse;
+import com.company.market.listing.dto.ListingSummaryResponse;
 import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.service.ProductService.ProductDraft;
 import lombok.RequiredArgsConstructor;
@@ -26,6 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class ListingService {
 
 	private static final DateTimeFormatter REG_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
+	private static final int PAGE_SIZE = 20;
 
 	private final ListingRepository listings;
 
@@ -75,6 +82,37 @@ public class ListingService {
 		}
 
 		return toResponse(listing, product);
+	}
+
+	public ListingResponse get(UUID userId, String regDate) {
+		Listing listing = listings.findById(new ListingId(userId, regDate))
+			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
+		return toResponse(listing, products.get(listing.getProdId()));
+	}
+
+	public ListingPageResponse list(String cursor) {
+		List<Listing> page = cursor == null ? listings.findTop21ByOrderByRegDateDesc()
+				: listings.findTop21ByRegDateLessThanOrderByRegDateDesc(cursor);
+		boolean hasMore = page.size() > PAGE_SIZE;
+		List<Listing> items = hasMore ? page.subList(0, PAGE_SIZE) : page;
+
+		Map<String, Product> productsById = products.getAll(items.stream().map(Listing::getProdId).distinct().toList())
+			.stream()
+			.collect(Collectors.toMap(Product::getProdId, p -> p));
+
+		List<ListingSummaryResponse> summaries = items.stream().map(listing -> toSummary(listing, productsById.get(listing.getProdId()))).toList();
+		String nextCursor = hasMore ? items.get(items.size() - 1).getRegDate() : null;
+		return new ListingPageResponse(summaries, nextCursor);
+	}
+
+	private static ListingSummaryResponse toSummary(Listing listing, Product product) {
+		String thumbnail = Stream
+			.of(listing.getProdPhoto1(), listing.getProdPhoto2(), listing.getProdPhoto3(), listing.getProdImage4())
+			.filter(Objects::nonNull)
+			.findFirst()
+			.orElse(null);
+		return new ListingSummaryResponse(listing.getUserId(), listing.getRegDate(), listing.getProdId(), product.getProdName(),
+				product.getProdBrand(), listing.getSalesUnitPrice(), listing.getSalesQuantity(), listing.getProdState(), thumbnail);
 	}
 
 	private static String photoAt(List<String> photos, int index) {

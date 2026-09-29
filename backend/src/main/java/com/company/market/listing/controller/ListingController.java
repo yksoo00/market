@@ -1,11 +1,13 @@
 package com.company.market.listing.controller;
 
 import java.time.Duration;
+import java.util.UUID;
 
 import com.company.market.common.api.ApiResponse;
 import com.company.market.common.auth.AuthenticatedUser;
 import com.company.market.common.ratelimit.RateLimiter;
 import com.company.market.listing.dto.ListingCreateRequest;
+import com.company.market.listing.dto.ListingPageResponse;
 import com.company.market.listing.dto.ListingResponse;
 import com.company.market.listing.service.ListingService;
 import jakarta.validation.Valid;
@@ -13,9 +15,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -33,6 +38,16 @@ public class ListingController {
 		limiter.hit("listing:create:" + me.id(), 10, Duration.ofHours(1));
 		ListingResponse created = listings.create(me.id(), req);
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(created));
+	}
+
+	@GetMapping
+	public ApiResponse<ListingPageResponse> list(@RequestParam(required = false) String cursor) {
+		return ApiResponse.of(listings.list(cursor));
+	}
+
+	@GetMapping("/{userId}/{regDate}")
+	public ApiResponse<ListingResponse> get(@PathVariable UUID userId, @PathVariable String regDate) {
+		return ApiResponse.of(listings.get(userId, regDate));
 	}
 
 }

@@ -1,0 +1,21 @@
+meta {
+  name: 매물 목록
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/listings
+  body: none
+  auth: none
+}
+
+params:query {
+  cursor:
+}
+
+docs {
+  공개 조회 — 로그인 불필요.
+  200 { ok, data: { items: [ListingSummaryResponse], nextCursor } }. 등록일시 내림차순, 20건씩.
+  다음 페이지는 nextCursor 값을 ?cursor= 로 넘긴다. nextCursor 가 null 이면 마지막 페이지.
+}
