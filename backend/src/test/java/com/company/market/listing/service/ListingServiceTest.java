@@ -41,7 +41,7 @@ class ListingServiceTest {
 		when(listings.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("duplicate key"));
 
 		ListingCreateRequest req = new ListingCreateRequest("ELEC0001", "노트북", null, "삼성", null, null, null,
-			"등록", "new", 1000, 1, null, null, null, null, null, null, null, null, null, null, null, null);
+			"등록", "new", 1000, 1, null, null, null, null, null, null, null);
 
 		assertThatThrownBy(() -> service.create(UUID.randomUUID(), req))
 			.isInstanceOf(ApiException.class)

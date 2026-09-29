@@ -77,11 +77,6 @@ public class ListingService {
 			.prodPhoto2(photoAt(photos, 1))
 			.prodPhoto3(photoAt(photos, 2))
 			.prodImage4(photoAt(photos, 3))
-			.warrantyPeriod(req.warrantyPeriod())
-			.warrantyCoverage(req.warrantyCoverage())
-			.replaceProd(req.replaceProd())
-			.testReport(req.testReport())
-			.certificateOfAuthen(req.certificateOfAuthen())
 			.build();
 
 		try {

@@ -23,6 +23,10 @@ body:json {
   }
 }
 
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
 docs {
   로그인(login.bru) 먼저 — 쿠키(access_token)는 Bruno가 자동으로 실어 보낸다.
   201 { ok, data: ListingResponse }. prodId 는 서버가 채번 — 상품명+제조사로 찾고 없으면 상품마스터를 자동 생성한다.
@@ -30,4 +34,5 @@ docs {
   400 VALIDATION: 필드별 fields.<필드명>. 가격 0~10억, 수량 1~100,000 (security.md "입력 검증 > 매물").
   401: 로그인 필요. 409 LISTING_DUPLICATE_REG_TIME: 같은 사용자가 같은 초에 두 번 등록.
   429: 10회/시간/사용자 (security.md "Rate limit").
+  보증기한·불량지원방법·대체품·테스트리포트·정품인증서는 여기서 못 받는다 — 등록 후 register-warranty.bru(PATCH)로 원하는 사람만 추가.
 }

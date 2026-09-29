@@ -11,6 +11,8 @@ import jakarta.validation.constraints.Size;
 /**
  * 매물 직접입력 등록. 상품마스터용 필드(categoryCode~productDataSheet)는 상품명+제조사로 찾거나 새로 만드는 데 쓰인다.
  * prodId 는 클라이언트가 지정하지 않는다(서버가 채번) — security.md "매물".
+ * 보증기한·불량지원방법·대체품·테스트리포트·정품인증서는 등록 시점에 받지 않는다. 등록 후 필요한 사람만
+ * PATCH(ListingUpdateRequest)로 추가한다.
  */
 public record ListingCreateRequest(
 		@NotBlank @Size(max = 10) String categoryCode,
@@ -30,10 +32,5 @@ public record ListingCreateRequest(
 		@Min(0) @Max(100_000) Integer stockQuantity,
 		@Size(max = 200) String description,
 		@Size(max = 100) String listingDataSheet,
-		@Size(max = 4) List<@NotBlank @Size(max = 100) String> photos,
-		@Min(0) @Max(36_500) Integer warrantyPeriod,
-		@Size(max = 10) String warrantyCoverage,
-		@Size(max = 100) String replaceProd,
-		@Size(max = 100) String testReport,
-		@Size(max = 100) String certificateOfAuthen) {
+		@Size(max = 4) List<@NotBlank @Size(max = 100) String> photos) {
 }
