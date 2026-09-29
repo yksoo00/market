@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.RestController;
  * 소셜 로그인의 시작(GET /oauth/{provider})과 콜백(GET /oauth/{provider}/callback)은 Spring Security 필터가 처리한다
  * (SecurityConfig.oauth2Login). 여기는 프론트가 JSON 으로 부르는 마무리만.
  */
-@RestController
+// @RestController // 소셜 로그인을 다시 도입할 때 사용자 승인 후 활성화
 @RequestMapping("/api/v1/auth/oauth")
 @RequiredArgsConstructor
 public class OAuthController {

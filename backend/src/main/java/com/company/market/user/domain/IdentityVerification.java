@@ -18,7 +18,7 @@ import lombok.Getter;
  * 휴대폰 본인인증 결과 (일반 회원 1:1). ci_hash 유일 제약이 "한 사람 = 계정 하나"를 보장.
  * 탈퇴 시 하드 삭제 (개인정보 즉시 파기 — soft delete 규칙의 예외).
  */
-@Entity
+// @Entity // 인증 결과 테이블을 제거한 단일 users 구조에서는 사용하지 않음
 @Table(name = "identity_verifications")
 @Getter
 public class IdentityVerification extends BaseEntity {

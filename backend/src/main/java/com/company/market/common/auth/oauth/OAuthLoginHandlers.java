@@ -23,7 +23,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  * 콜백의 끝: 제공자 인증이 끝난 뒤 우리 계정으로 잇고 프론트로 돌려보낸다. 응답은 항상 302 (브라우저가 와 있으므로 JSON 을
  * 줄 수 없다). 오류는 `/login?error=CODE` 로, 신규는 `/signup/social?...` 로, 성공은 쿠키 + next 로.
  */
-@Component
+// @Component // 소셜 로그인을 다시 도입할 때 활성화
 public class OAuthLoginHandlers implements AuthenticationSuccessHandler, AuthenticationFailureHandler {
 
 	private static final Logger log = LoggerFactory.getLogger(OAuthLoginHandlers.class);

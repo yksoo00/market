@@ -1,5 +1,6 @@
 package com.company.market.common.auth;
 
+import java.net.URI;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Optional;
@@ -42,7 +43,9 @@ public class AuthCookies {
 	public AuthCookies(AppProperties props, JwtProvider jwt) {
 		this.accessTtl = jwt.accessTtl();
 		this.refreshTtl = Duration.ofDays(props.jwt().refreshTtlDays());
-		this.domain = "localhost".equals(props.domainRoot()) ? null : props.domainRoot();
+		String appHost = URI.create(props.appUrl()).getHost();
+		this.domain = appHost == null || "localhost".equalsIgnoreCase(appHost)
+			|| "127.0.0.1".equals(appHost) || "::1".equals(appHost) ? null : props.domainRoot();
 	}
 
 	public void setLogin(HttpServletResponse res, String accessToken, String refreshToken, boolean remember) {

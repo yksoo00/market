@@ -10,7 +10,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Service
+// @Service // 조직 테이블 제거됨. 기업 정보는 users 행에서 조회
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class OrganizationService {

@@ -15,7 +15,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 /** 소셜 로그인 연결. 계정당 하나 — 카카오로 가입했으면 네이버 추가 연결 불가 (decisions.md 2026-09-22) */
-@Entity
+// @Entity // 단일 users 구조에서는 사용하지 않음. 소셜 로그인을 다시 도입할 때 활성화
 @Table(name = "social_accounts")
 @Getter
 public class SocialAccount extends BaseEntity {

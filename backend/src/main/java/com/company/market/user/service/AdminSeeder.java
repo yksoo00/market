@@ -47,7 +47,9 @@ public class AdminSeeder implements ApplicationRunner {
 				.role(UserRole.ADMIN)
 				.loginId(admin.loginId())
 				.passwordHash(passwordEncoder.encode(admin.password()))
+				.name(admin.loginId())
 				.nickname(admin.loginId())
+				.nicknameUsage("Y")
 				.mustChangePassword(true)
 				.build());
 			log.info("관리자 계정 시드 완료");

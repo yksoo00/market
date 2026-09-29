@@ -36,7 +36,7 @@ import org.springframework.transaction.support.TransactionTemplate;
  * 소셜 로그인의 우리 쪽 절반. 제공자 인증(OAuth 토큰 교환·프로필 조회)은 Spring Security 가 하고,
  * 그 결과(SocialProfile)를 받아 계정을 찾거나 가입 마무리로 보낸다 (decisions.md 2026-09-22 "계정은 사람당 하나").
  */
-@Service
+// @Service // 소셜 로그인을 다시 도입할 때 저장 구조와 함께 활성화
 @RequiredArgsConstructor
 public class OAuthLoginService {
 

@@ -3,10 +3,6 @@ package com.company.market.common.auth;
 import java.util.List;
 
 import com.company.market.common.api.ApiError;
-import com.company.market.common.auth.oauth.GetOnlyAuthorizationRequestResolver;
-import com.company.market.common.auth.oauth.NoopAuthorizedClientRepository;
-import com.company.market.common.auth.oauth.OAuthLoginHandlers;
-import com.company.market.common.auth.oauth.RedisAuthorizationRequestRepository;
 import com.company.market.common.config.AppProperties;
 import com.company.market.common.exception.ErrorCode;
 import tools.jackson.databind.ObjectMapper;
@@ -19,7 +15,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
@@ -38,25 +33,13 @@ public class SecurityConfig {
 
 	@Bean
 	SecurityFilterChain filterChain(HttpSecurity http, JwtAuthenticationFilter jwtFilter, OriginCheckFilter originFilter,
-			ObjectMapper json, ClientRegistrationRepository registrations, RedisAuthorizationRequestRepository authRequests,
-			OAuthLoginHandlers oauthHandlers, NoopAuthorizedClientRepository noAuthorizedClients) throws Exception {
+			ObjectMapper json) throws Exception {
 		http.csrf(csrf -> csrf.disable())
 			.cors(Customizer.withDefaults())
 			.sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 			.formLogin(f -> f.disable())
 			.httpBasic(b -> b.disable())
 			.logout(l -> l.disable())
-			// 소셜 로그인. 시작 GET /api/v1/auth/oauth/{provider}, 콜백 GET /api/v1/auth/oauth/{provider}/callback.
-			// loginPage 를 지정하는 이유: 안 하면 스프링이 /login HTML 페이지 필터를 붙인다 (진입점은 위 exceptionHandling 이 이김)
-			.oauth2Login(o -> o
-				.loginPage("/api/v1/auth/oauth/login")
-				.authorizedClientRepository(noAuthorizedClients)
-				.authorizationEndpoint(a -> a
-					.authorizationRequestResolver(new GetOnlyAuthorizationRequestResolver(registrations))
-					.authorizationRequestRepository(authRequests))
-				.redirectionEndpoint(r -> r.baseUri(GetOnlyAuthorizationRequestResolver.BASE_URI + "/*/callback"))
-				.successHandler(oauthHandlers)
-				.failureHandler(oauthHandlers))
 			.authorizeHttpRequests(a -> a
 				// 먼저 걸리는 규칙이 이김: 로그아웃(모든 기기)은 /auth/** 아래지만 로그인 필요
 				.requestMatchers("/api/v1/auth/logout-all").authenticated()

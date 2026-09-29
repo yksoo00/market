@@ -43,21 +43,33 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
 	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
 	testImplementation 'org.testcontainers:testcontainers-postgresql'
-	// Docker 없는 PC 에서 실제 Postgres·Redis 바이너리로 테스트 (decisions.md 2026-09-21). Docker 가 되면 두 줄 다 제거
-	testImplementation 'io.zonky.test:embedded-postgres:2.1.0'
-	testImplementation 'com.github.codemonstur:embedded-redis:1.4.3'
 	testCompileOnly 'org.projectlombok:lombok'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 	testAnnotationProcessor 'org.projectlombok:lombok'
 }
 
-dependencyManagement {
-	imports {
-		// 내장 Postgres 를 운영과 같은 16 버전으로 (기본값은 14)
-		mavenBom 'io.zonky.test.postgres:embedded-postgres-binaries-bom:16.9.0'
-	}
-}
-
 tasks.named('test') {
 	useJUnitPlatform()
+}
+
+tasks.named('bootRun') {
+	def localEnvFile = rootProject.file('../.env')
+	if (localEnvFile.isFile()) {
+		localEnvFile.eachLine('UTF-8') { line ->
+			def entry = line.trim()
+			if (!entry || entry.startsWith('#')) {
+				return
+			}
+			def separator = entry.indexOf('=')
+			if (separator < 1) {
+				return
+			}
+			def key = entry.substring(0, separator).trim()
+			def value = entry.substring(separator + 1).replaceFirst(/\s+#.*$/, '').trim()
+			environment key, value
+		}
+	}
+	// bootRun은 호스트에서 실행하므로 Compose 서비스 이름 대신 공개된 로컬 포트를 사용한다.
+	environment 'POSTGRES_HOST', 'localhost'
+	environment 'REDIS_URL', 'redis://localhost:6379'
 }

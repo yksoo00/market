@@ -13,7 +13,7 @@ import org.springframework.test.context.ActiveProfiles;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** 테스트 인프라(Postgres·Redis)가 Docker 유무와 무관하게 실제로 붙는지. 다른 테스트가 막연히 실패할 때 먼저 볼 것 */
+/** 테스트 인프라(Postgres·Redis)가 Docker 컨테이너에 실제로 붙는지 확인한다. 다른 테스트가 막연히 실패할 때 먼저 볼 것 */
 @Import(TestInfraConfiguration.class)
 @SpringBootTest
 @ActiveProfiles("test")

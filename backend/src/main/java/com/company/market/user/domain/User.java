@@ -1,100 +1,180 @@
 package com.company.market.user.domain;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
+import java.util.UUID;
 
-import com.company.market.common.crypto.PiiConverter;
-import com.company.market.common.domain.BaseEntity;
 import jakarta.persistence.Column;
-import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import lombok.Builder;
 import lombok.Getter;
 
 /**
- * 로그인 주체 하나 = 한 행. 일반(아이디·소셜)과 기업 담당자가 같은 테이블, kind 로 구분 (data-model.md 1절).
- * 이름·휴대폰·이메일은 PII — API 응답·로그에 내보내지 않는다.
+ * 개인·기업 사용자 정보는 한 행에 저장한다. 세부 컬럼 정의는 docs/data-model.md를 따른다.
  */
 @Entity
 @Table(name = "users")
 @Getter
-public class User extends BaseEntity {
+public class User {
 
-	@Column(nullable = false)
+	private static final DateTimeFormatter DATABASE_TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
+	@Id
+	@GeneratedValue(strategy = GenerationType.UUID)
+	private UUID id;
+
+	@Column(name = "user_class", nullable = false, length = 10)
 	private UserKind kind;
 
-	@Column(nullable = false)
+	@Column(name = "role", nullable = false, length = 10)
 	private UserRole role;
 
-	@Column(nullable = false)
+	@Column(name = "status", nullable = false, length = 10)
 	private UserStatus status;
 
-	/** personal 아이디 로그인만. 소셜·기업은 null. 변경 불가(서비스에서 보장). 탈퇴 시 null 로 지우므로 updatable=false 는 안 됨 */
+	/** 로그인 ID. */
+	@Column(name = "user_id", nullable = false, length = 20)
 	private String loginId;
 
-	/** bcrypt. 소셜만 null — DB 가 아니라 앱에서 검사 */
+	/** bcrypt 해시. 원문 비밀번호를 저장하지 않는다. */
+	@Column(name = "password", nullable = false, length = 200)
 	private String passwordHash;
 
-	/** personal 표시명(유일) / business 는 기업명(중복 허용) */
-	@Column(nullable = false)
-	private String nickname;
-
-	private String email;
-
-	private Instant emailVerifiedAt;
-
-	@Convert(converter = PiiConverter.class)
+	@Column(name = "user_name", nullable = false, length = 50)
 	private String name;
 
-	/** 숫자만 저장 */
-	@Convert(converter = PiiConverter.class)
+	@Column(name = "user_phone", length = 20)
 	private String phone;
 
-	/** PiiHasher.hash(phone). 암호화 컬럼은 검색이 안 되므로 중복 가입 검사는 이 컬럼으로. phone 과 같이 넣는다 */
-	private String phoneHash;
+	@Column(name = "user_tel", length = 20)
+	private String userTel;
 
-	private Instant marketingOptInAt;
+	@Column(name = "user_email", length = 100)
+	private String email;
 
-	private Instant lastLoginAt;
+	@Column(name = "user_address", length = 200)
+	private String userAddress;
+
+	@Column(name = "bus_reg_id", length = 20)
+	private String busRegId;
+
+	@Column(name = "company_type", length = 10)
+	private String companyType;
+
+	@Column(name = "company_name", length = 50)
+	private String companyName;
+
+	@Column(name = "company_open_date", length = 10)
+	private String companyOpenDate;
+
+	@Column(name = "company_tel", length = 20)
+	private String companyTel;
+
+	@Column(name = "company_address", length = 200)
+	private String companyAddress;
+
+	@Column(name = "dt_reg", nullable = false, length = 14, updatable = false)
+	private String dtReg;
+
+	@Column(name = "dt_update", nullable = false, length = 14)
+	private String dtUpdate;
+
+	@Column(name = "dt_expire", length = 14)
+	private String dtExpire;
+
+	@Column(name = "user_nickname", length = 100)
+	private String userNickname;
+
+	@Column(name = "nickname_usage", nullable = false, length = 1)
+	private String nicknameUsage;
+
+	@Column(name = "contact_method", nullable = false, length = 1)
+	private String contactMethod;
+
+	@Column(name = "spare_col", length = 40)
+	private String spareCol;
 
 	/** 시드 관리자·관리자가 초기화한 비밀번호. true 면 로그인 직후 변경 화면으로 */
 	@Column(nullable = false)
 	private boolean mustChangePassword;
 
+	@Column(name = "deleted_at")
 	private Instant deletedAt;
 
 	protected User() {
 	}
 
 	@Builder
-	private User(UserKind kind, UserRole role, String loginId, String passwordHash, String nickname, String email,
-			Instant emailVerifiedAt, String name, String phone, String phoneHash, Instant marketingOptInAt,
-			boolean mustChangePassword) {
-		if ((phone == null) != (phoneHash == null)) {
-			throw new IllegalArgumentException("phone 과 phoneHash 는 같이 있거나 같이 없어야 함");
-		}
+	private User(UserKind kind, UserRole role, String loginId, String passwordHash, String nickname,
+			Instant emailVerifiedAt, String phoneHash, Instant marketingOptInAt, String name, String phone,
+			String userTel, String email, String userAddress, String busRegId, String companyType, String companyName,
+			String companyOpenDate, String companyTel, String companyAddress, String dtExpire, String userNickname,
+			String nicknameUsage, String contactMethod, String spareCol, boolean mustChangePassword) {
 		this.kind = kind;
 		this.role = role == null ? UserRole.USER : role;
 		this.status = UserStatus.ACTIVE;
 		this.loginId = loginId;
 		this.passwordHash = passwordHash;
-		this.nickname = nickname;
-		this.email = email;
-		this.emailVerifiedAt = emailVerifiedAt;
 		this.name = name;
 		this.phone = phone;
-		this.phoneHash = phoneHash;
-		this.marketingOptInAt = marketingOptInAt;
+		this.userTel = userTel;
+		this.email = email;
+		this.userAddress = userAddress;
+		this.busRegId = busRegId;
+		this.companyType = companyType;
+		this.companyName = companyName;
+		this.companyOpenDate = companyOpenDate;
+		this.companyTel = companyTel;
+		this.companyAddress = companyAddress;
+		this.dtExpire = dtExpire;
+		this.userNickname = userNickname == null ? nickname : userNickname;
+		this.nicknameUsage = nicknameUsage == null ? "N" : nicknameUsage;
+		this.contactMethod = contactMethod == null ? "1" : contactMethod;
+		this.spareCol = spareCol;
 		this.mustChangePassword = mustChangePassword;
+		// 예전 소셜·해시 필드는 builder 호출부의 이행 중 컴파일 호환용이며 단일 users 표에 저장하지 않는다.
+	}
+
+	@PrePersist
+	void onCreate() {
+		String now = LocalDateTime.now(ZoneOffset.UTC).format(DATABASE_TIMESTAMP);
+		if (dtReg == null) {
+			dtReg = now;
+		}
+		dtUpdate = now;
+	}
+
+	@PreUpdate
+	void onUpdate() {
+		dtUpdate = LocalDateTime.now(ZoneOffset.UTC).format(DATABASE_TIMESTAMP);
 	}
 
 	/** 로그인 가능한 상태인가. 정지·탈퇴는 불가 */
 	public boolean isActive() {
-		return status == UserStatus.ACTIVE && deletedAt == null;
+		String now = LocalDateTime.now(ZoneOffset.UTC).format(DATABASE_TIMESTAMP);
+		return status == UserStatus.ACTIVE && deletedAt == null && (dtExpire == null || dtExpire.isBlank() || dtExpire.compareTo(now) > 0);
+	}
+
+	public String getNickname() {
+		if (kind == UserKind.BUSINESS) {
+			return companyName != null && !companyName.isBlank() ? companyName : loginId;
+		}
+		if ("Y".equals(nicknameUsage) && userNickname != null) {
+			return userNickname;
+		}
+		return loginId;
 	}
 
 	public void recordLogin() {
-		this.lastLoginAt = Instant.now();
+		dtUpdate = LocalDateTime.now(ZoneOffset.UTC).format(DATABASE_TIMESTAMP);
 	}
 
 }

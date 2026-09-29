@@ -28,7 +28,7 @@ import tools.jackson.databind.ObjectMapper;
  * 공격자가 자기 계정으로 시작한 콜백 URL 을 피해자에게 열게 해 피해자를 공격자 계정으로 로그인시킬 수 있다(로그인 CSRF).
  * 그래서 시작 때 무작위 값을 `oauth_flow` 쿠키로 주고 그 해시를 같이 저장, 콜백에서 쿠키가 맞아야만 꺼내준다.
  */
-@Component
+// @Component // 소셜 로그인을 다시 도입할 때 활성화
 public class RedisAuthorizationRequestRepository implements AuthorizationRequestRepository<OAuth2AuthorizationRequest> {
 
 	/** 콜백 처리 중 성공 핸들러가 읽는 request attribute */

@@ -15,7 +15,7 @@ import tools.jackson.databind.ObjectMapper;
  * 프론트는 토큰만 들고 다니고 프로필(이메일 등)은 서버에만 있다. 가입이 끝나면 지운다.
  * 콜백을 완성한 브라우저의 oauth_flow 해시와 묶어 저장하고, 마무리 때 같은 쿠키를 요구한다 (다른 브라우저에 토큰을 넘겨 가입시키는 고정 공격 방지).
  */
-@Component
+// @Component // 소셜 로그인을 다시 도입할 때 활성화
 public class OAuthSignupStore {
 
 	private static final String KEY_PREFIX = "signup:oauth:";

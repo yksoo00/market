@@ -6,6 +6,8 @@ import com.company.market.common.api.ApiResponse;
 import com.company.market.user.dto.CheckLoginIdRequest;
 import com.company.market.user.dto.CheckNicknameRequest;
 import com.company.market.user.dto.SignupPersonalRequest;
+import com.company.market.user.dto.BusinessVerifyRequest;
+import com.company.market.user.dto.SignupBusinessRequest;
 import com.company.market.user.service.SignupService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -39,6 +41,17 @@ public class SignupController {
 	@ResponseStatus(HttpStatus.CREATED)
 	public ApiResponse<Map<String, Object>> signupPersonal(@Valid @RequestBody SignupPersonalRequest body, HttpServletRequest req) {
 		return ApiResponse.of(Map.of("userId", signup.signupPersonal(body, req.getRemoteAddr())));
+	}
+
+	@PostMapping("/business/verify")
+	public ApiResponse<Map<String, String>> verifyBusiness(@Valid @RequestBody BusinessVerifyRequest body, HttpServletRequest req) {
+		return ApiResponse.of(Map.of("verificationToken", signup.verifyBusiness(body, req.getRemoteAddr())));
+	}
+
+	@PostMapping("/business")
+	@ResponseStatus(HttpStatus.CREATED)
+	public ApiResponse<Map<String, Object>> signupBusiness(@Valid @RequestBody SignupBusinessRequest body, HttpServletRequest req) {
+		return ApiResponse.of(Map.of("userId", signup.signupBusiness(body, req.getRemoteAddr())));
 	}
 
 }
