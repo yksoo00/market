@@ -1,0 +1,22 @@
+meta {
+  name: 매물 상세
+  type: http
+  seq: 3
+}
+
+get {
+  url: {{baseUrl}}/api/v1/listings/:userId/:regDate
+  body: none
+  auth: none
+}
+
+params:path {
+  userId: 00000000-0000-0000-0000-000000000000
+  regDate: 20260929120000
+}
+
+docs {
+  공개 조회 — 로그인 불필요. userId·regDate 는 등록 응답(create.bru)의 값을 그대로 쓴다.
+  200 { ok, data: ListingResponse }.
+  404 LISTING_NOT_FOUND: 없는 매물.
+}

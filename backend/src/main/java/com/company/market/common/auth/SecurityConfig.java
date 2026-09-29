@@ -9,6 +9,7 @@ import tools.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -44,6 +45,8 @@ public class SecurityConfig {
 				// 먼저 걸리는 규칙이 이김: 로그아웃(모든 기기)은 /auth/** 아래지만 로그인 필요
 				.requestMatchers("/api/v1/auth/logout-all").authenticated()
 				.requestMatchers("/api/v1/auth/**", "/actuator/health", "/actuator/health/**").permitAll()
+				// 매물 목록·상세는 공개 조회 (등록·수정·삭제는 아래 anyRequest 로 인증 필요)
+				.requestMatchers(HttpMethod.GET, "/api/v1/listings", "/api/v1/listings/*/*").permitAll()
 				.anyRequest().authenticated())
 			.exceptionHandling(e -> e
 				.authenticationEntryPoint((req, res, ex) -> write(res, json, ErrorCode.UNAUTHENTICATED))

@@ -38,7 +38,11 @@ public enum ErrorCode {
 	OAUTH_EXPIRED(HttpStatus.GONE, "로그인 정보가 만료되었습니다. 다시 로그인해 주세요."),
 	OAUTH_FAILED(HttpStatus.BAD_REQUEST, "소셜 로그인에 실패했습니다. 다시 시도해 주세요."),
 	OAUTH_EMAIL_REQUIRED(HttpStatus.BAD_REQUEST, "이메일 제공에 동의해야 가입할 수 있습니다."),
-	EMAIL_ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 다른 방식으로 가입된 이메일입니다.");
+	EMAIL_ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 다른 방식으로 가입된 이메일입니다."),
+
+	// 매물
+	LISTING_DUPLICATE_REG_TIME(HttpStatus.CONFLICT, "같은 시각에 이미 등록된 매물이 있습니다. 다시 시도해 주세요."),
+	LISTING_NOT_FOUND(HttpStatus.NOT_FOUND, "매물을 찾을 수 없습니다.");
 
 	private final HttpStatus status;
 
