@@ -9,6 +9,9 @@
 --    조직(seller_org_id) 개념은 일단 넣지 않는다 — decisions.md 미정 항목 중 이 부분을 이 커밋에서 확정.
 -- 3. TRD_REG_INFO 원본에 물리명 REG_DATE가 "등록일시"와 "납기일" 두 논리 컬럼에
 --    중복 기재되어 있다 (한 테이블에 동일 컬럼명 불가). 납기일은 delivery_date로 분리했다.
+-- 4. products(prod_name, prod_brand)에 유니크 인덱스 추가 — 동시에 같은 상품을 처음 등록하면
+--    이름+제조사가 같은 행이 두 개 생길 수 있어서(코드리뷰 지적). ProductService가 이 제약 위반을
+--    "이미 만들어졌다"는 신호로 잡아 재조회한다. listings.reg_date에도 목록 조회용 인덱스 추가.
 
 create table products (
     prod_id             varchar(20) primary key,
@@ -23,6 +26,8 @@ create table products (
     reg_date            varchar(14) not null,
     spare_col           varchar(100)
 );
+
+create unique index ux_products_name_brand on products (prod_name, prod_brand);
 
 create table listings (
     user_id                 uuid not null references users (id),
@@ -54,3 +59,4 @@ create table listings (
 );
 
 create index ix_listings_prod_id on listings (prod_id);
+create index ix_listings_reg_date on listings (reg_date);

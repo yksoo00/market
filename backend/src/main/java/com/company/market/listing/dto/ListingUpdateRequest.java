@@ -4,12 +4,16 @@ import java.util.List;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
-/** 매물 부분수정(PATCH). null 필드는 그대로 둔다 — 상품마스터용 필드(카테고리·상품명 등)는 수정 대상이 아니다. */
+/**
+ * 매물 부분수정(PATCH). null 필드는 그대로 둔다 — 상품마스터용 필드(카테고리·상품명 등)는 수정 대상이 아니다.
+ * tradeType·prodState는 NOT NULL 컬럼이라 "보냈다면" 공백만으로는 안 된다(null은 여전히 허용 — 미수정).
+ */
 public record ListingUpdateRequest(
-		@Size(max = 20) String tradeType,
-		@Size(max = 20) String prodState,
+		@Pattern(regexp = ".*\\S.*", message = "거래종류는 빈 값일 수 없습니다.") @Size(max = 20) String tradeType,
+		@Pattern(regexp = ".*\\S.*", message = "상품상태는 빈 값일 수 없습니다.") @Size(max = 20) String prodState,
 		@Min(0) @Max(1_000_000_000) Integer salesUnitPrice,
 		@Min(1) @Max(100_000) Integer salesQuantity,
 		@Min(1) Integer minOrderQuantity,

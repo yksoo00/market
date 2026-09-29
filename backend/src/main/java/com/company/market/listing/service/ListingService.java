@@ -1,10 +1,12 @@
 package com.company.market.listing.service;
 
+import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -23,6 +25,7 @@ import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.service.ProductService.ProductDraft;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,6 +42,8 @@ public class ListingService {
 
 	private final ProductService products;
 
+	private final Clock clock;
+
 	@Transactional
 	public ListingResponse create(UUID userId, ListingCreateRequest req) {
 		List<String> photos = req.photos() == null ? List.of() : req.photos();
@@ -52,7 +57,7 @@ public class ListingService {
 
 		Listing listing = Listing.builder()
 			.userId(userId)
-			.regDate(LocalDateTime.now().format(REG_DATE_FORMAT))
+			.regDate(LocalDateTime.now(clock).format(REG_DATE_FORMAT))
 			.prodId(product.getProdId())
 			.tradeType(req.tradeType())
 			.prodState(req.prodState())
@@ -61,7 +66,7 @@ public class ListingService {
 			.minOrderQuantity(minOrderQuantity)
 			.orderUnit(orderUnit)
 			.deliveryDate(req.deliveryDate())
-			.stockQuantity(req.stockQuantity())
+			.stockQuantity(req.stockQuantity() == null ? req.salesQuantity() : req.stockQuantity())
 			.prodDescription(req.description())
 			.prodDataSheet(req.listingDataSheet())
 			.prodPhoto1(photoAt(photos, 0))
@@ -76,7 +81,7 @@ public class ListingService {
 			.build();
 
 		try {
-			listings.save(listing);
+			listings.saveAndFlush(listing);
 		}
 		catch (DataIntegrityViolationException e) {
 			throw new ApiException(ErrorCode.LISTING_DUPLICATE_REG_TIME);
@@ -92,7 +97,7 @@ public class ListingService {
 		if (!requesterId.equals(pathUserId)) {
 			throw new ApiException(ErrorCode.FORBIDDEN);
 		}
-		listing.applyUpdate(req, LocalDateTime.now().format(REG_DATE_FORMAT));
+		listing.applyUpdate(req, LocalDateTime.now(clock).format(REG_DATE_FORMAT));
 		listings.save(listing);
 		return toResponse(listing, products.get(listing.getProdId()));
 	}
@@ -114,8 +119,9 @@ public class ListingService {
 	}
 
 	public ListingPageResponse list(String cursor) {
-		List<Listing> page = cursor == null ? listings.findTop21ByOrderByRegDateDesc()
-				: listings.findTop21ByRegDateLessThanOrderByRegDateDesc(cursor);
+		List<Listing> page = decodeCursor(cursor)
+			.map(c -> listings.findPageBefore(c.regDate(), c.userId(), PageRequest.of(0, PAGE_SIZE + 1)))
+			.orElseGet(listings::findTop21ByOrderByRegDateDescUserIdDesc);
 		boolean hasMore = page.size() > PAGE_SIZE;
 		List<Listing> items = hasMore ? page.subList(0, PAGE_SIZE) : page;
 
@@ -124,8 +130,33 @@ public class ListingService {
 			.collect(Collectors.toMap(Product::getProdId, p -> p));
 
 		List<ListingSummaryResponse> summaries = items.stream().map(listing -> toSummary(listing, productsById.get(listing.getProdId()))).toList();
-		String nextCursor = hasMore ? items.get(items.size() - 1).getRegDate() : null;
+		String nextCursor = hasMore ? encodeCursor(items.get(items.size() - 1)) : null;
 		return new ListingPageResponse(summaries, nextCursor);
+	}
+
+	/** 커서는 "regDate_userId". reg_date 만으로는 같은 초의 다른 사용자를 페이지 경계에서 건너뛸 수 있어 튜플로 묶는다 */
+	private static String encodeCursor(Listing listing) {
+		return listing.getRegDate() + "_" + listing.getUserId();
+	}
+
+	/** 형식이 깨진 커서는 예외 없이 "첫 페이지"로 취급한다 — 500 대신 안전한 기본 동작 */
+	private static Optional<Cursor> decodeCursor(String cursor) {
+		if (cursor == null) {
+			return Optional.empty();
+		}
+		int sep = cursor.lastIndexOf('_');
+		if (sep < 0) {
+			return Optional.empty();
+		}
+		try {
+			return Optional.of(new Cursor(cursor.substring(0, sep), UUID.fromString(cursor.substring(sep + 1))));
+		}
+		catch (IllegalArgumentException e) {
+			return Optional.empty();
+		}
+	}
+
+	private record Cursor(String regDate, UUID userId) {
 	}
 
 	private static ListingSummaryResponse toSummary(Listing listing, Product product) {

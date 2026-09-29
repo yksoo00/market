@@ -8,16 +8,27 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
+import jakarta.persistence.PostLoad;
+import jakarta.persistence.PostPersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import lombok.Builder;
 import lombok.Getter;
+import org.springframework.data.domain.Persistable;
 
-/** 상품등록정보(TRD_REG_INFO). uuid 서로게이트 PK 없음 — (user_id, reg_date) 복합 PK (decisions.md 2026-09-29) */
+/**
+ * 상품등록정보(TRD_REG_INFO). uuid 서로게이트 PK 없음 — (user_id, reg_date) 복합 PK (decisions.md 2026-09-29).
+ * PK 를 직접 채우므로(@GeneratedValue 없음) Persistable 없이는 save() 가 항상 id!=null → merge 로 가서
+ * 같은 초 중복 등록을 INSERT 충돌이 아니라 UPDATE 로 조용히 덮어쓴다. Persistable.isNew() 로 진짜 신규만 INSERT(persist) 하게 한다.
+ */
 @Entity
 @Table(name = "listings")
 @IdClass(ListingId.class)
 @Getter
-public class Listing {
+public class Listing implements Persistable<ListingId> {
+
+	@Transient
+	private boolean isNew = true;
 
 	@Id
 	@Column(name = "user_id")
@@ -177,6 +188,22 @@ public class Listing {
 
 	private static String photoAt(List<String> photos, int index) {
 		return index < photos.size() ? photos.get(index) : null;
+	}
+
+	@Override
+	public ListingId getId() {
+		return new ListingId(userId, regDate);
+	}
+
+	@Override
+	public boolean isNew() {
+		return isNew;
+	}
+
+	@PostPersist
+	@PostLoad
+	void markNotNew() {
+		this.isNew = false;
 	}
 
 }

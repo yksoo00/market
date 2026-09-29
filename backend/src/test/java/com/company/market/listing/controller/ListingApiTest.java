@@ -121,6 +121,9 @@ class ListingApiTest {
 	@Test
 	@DisplayName("사진 없이 등록해도 되고(0장), 4장 전부 채워도 된다")
 	void photosBoundary() throws Exception {
+		// 서로 다른 사용자로 호출 — 같은 사용자가 같은 초에 두 번 등록하면 (user_id, reg_date) 충돌로 409가 난다
+		// (Persistable 도입 후 merge 가 아니라 실제 INSERT 충돌로 감지됨. 이 테스트의 관심사는 사진 개수 처리라
+		// 시간 충돌 자체는 다른 테스트(listing.repository.*DoesNotSilentlyOverwrite)가 고정한다).
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 Z1","prodBrand":"삼성",
@@ -129,7 +132,7 @@ class ListingApiTest {
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.photos.length()").value(0));
 
-		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+		mvc.perform(post("/api/v1/listings").cookie(otherUserCookie())
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 Z2","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"new","salesUnitPrice":1000,"salesQuantity":1,
@@ -137,6 +140,29 @@ class ListingApiTest {
 					"""))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.photos.length()").value(4));
+	}
+
+	@Test
+	@DisplayName("사진이 4장을 넘거나 경로가 100자를 넘으면 400 VALIDATION, fields.photos")
+	void photosOverLimit() throws Exception {
+		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"ELEC0001","prodName":"노트북 P1","prodBrand":"삼성",
+					 "tradeType":"등록","prodState":"new","salesUnitPrice":1000,"salesQuantity":1,
+					 "photos":["a.jpg","b.jpg","c.jpg","d.jpg","e.jpg"]}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.photos").isString());
+
+		String tooLong = "x".repeat(101) + ".jpg";
+		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"ELEC0001","prodName":"노트북 P2","prodBrand":"삼성",
+					 "tradeType":"등록","prodState":"new","salesUnitPrice":1000,"salesQuantity":1,
+					 "photos":["%s"]}
+					""".formatted(tooLong)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields['photos[0]']").isString());
 	}
 
 	@Test
@@ -239,6 +265,39 @@ class ListingApiTest {
 	}
 
 	@Test
+	@DisplayName("로그인 없이 수정하면 401")
+	void updateRequiresAuth() throws Exception {
+		mvc.perform(patch("/api/v1/listings/" + UUID.randomUUID() + "/20260101000000")
+				.contentType(MediaType.APPLICATION_JSON).content("{}"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	@DisplayName("가격이 10억을 넘는 수정은 400 VALIDATION, fields.salesUnitPrice — 실제로 바뀌지 않는다")
+	void updateValidationFailureDoesNotChangeData() throws Exception {
+		String regDate = createListing(authCookie);
+
+		mvc.perform(patch("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("{\"salesUnitPrice\":2000000000}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.salesUnitPrice").isString());
+
+		mvc.perform(get("/api/v1/listings/" + userId + "/" + regDate))
+			.andExpect(jsonPath("$.data.salesUnitPrice").value(500000));
+	}
+
+	@Test
+	@DisplayName("거래종류를 빈 문자열로 수정하려 하면 400 VALIDATION")
+	void updateRejectsBlankTradeType() throws Exception {
+		String regDate = createListing(authCookie);
+
+		mvc.perform(patch("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("{\"tradeType\":\"   \"}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.tradeType").isString());
+	}
+
+	@Test
 	@DisplayName("본인 매물을 삭제하면 204, 다시 조회하면 404")
 	void ownerCanDelete() throws Exception {
 		String regDate = createListing(authCookie);
@@ -263,6 +322,13 @@ class ListingApiTest {
 	void deleteMissingIsNotFound() throws Exception {
 		mvc.perform(delete("/api/v1/listings/" + UUID.randomUUID() + "/20260101000000").cookie(authCookie))
 			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	@DisplayName("로그인 없이 삭제하면 401")
+	void deleteRequiresAuth() throws Exception {
+		mvc.perform(delete("/api/v1/listings/" + UUID.randomUUID() + "/20260101000000"))
+			.andExpect(status().isUnauthorized());
 	}
 
 }
