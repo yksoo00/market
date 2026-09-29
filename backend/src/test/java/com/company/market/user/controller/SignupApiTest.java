@@ -5,7 +5,6 @@ import java.util.Objects;
 import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
-import com.company.market.common.crypto.PiiHasher;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -27,14 +26,12 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** 일반 가입 (본인인증 stub). 테스트 프로필은 app.identity-verification.provider=stub */
+/** 일반 가입. 단일 users 전환 후 본인인증·약관 단계 없음 */
 @Import(TestInfraConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 class SignupApiTest {
-
-	static final String STUB_TOKEN = "stub-verification-token";
 
 	@Autowired
 	MockMvc mvc;
@@ -45,13 +42,8 @@ class SignupApiTest {
 	@Autowired
 	StringRedisTemplate redis;
 
-	@Autowired
-	PiiHasher hasher;
-
 	@AfterEach
 	void tearDown() {
-		jdbc.update("delete from terms_agreements where user_id in (select id from users where role <> 'admin')");
-		jdbc.update("delete from identity_verifications");
 		jdbc.update("delete from users where role <> 'admin'");
 		Objects.requireNonNull(redis.getConnectionFactory()).getConnection().serverCommands().flushDb();
 	}
@@ -59,8 +51,8 @@ class SignupApiTest {
 	/** 기본값은 전부 유효. 바꿀 것만 override */
 	static String body(Map<String, Object> override) {
 		Map<String, Object> m = new java.util.LinkedHashMap<>(Map.of(
-				"verificationToken", STUB_TOKEN, "name", "홍길동", "nickname", "길동이", "loginId", "gildong1",
-				"email", "gildong@example.com", "password", "Str0ng-pass!", "phone", "01012345678", "marketingOptIn", true));
+				"name", "홍길동", "nickname", "길동이", "nicknameUsage", "Y", "loginId", "gildong1",
+				"email", "gildong@example.com", "password", "Str0ng-pass!", "phone", "01012345678", "contactMethod", "1"));
 		m.putAll(override);
 		StringBuilder sb = new StringBuilder("{");
 		m.forEach((k, v) -> sb.append('"').append(k).append("\":").append(v instanceof String s ? '"' + s + '"' : v).append(','));
@@ -81,44 +73,22 @@ class SignupApiTest {
 	class Success {
 
 		@Test
-		@DisplayName("users·identity_verifications·terms_agreements×4 가 생기고, 이름·휴대폰·CI 는 암호화, 이메일은 소문자")
+		@DisplayName("사용자 제공 단일 users 행에 계정 정보를 저장한다")
 		void createsAllRows() throws Exception {
 			MvcResult r = mvc.perform(signup(Map.of("email", "GilDong@Example.com"))).andExpect(status().isCreated())
 				.andExpect(jsonPath("$.ok").value(true)).andReturn();
 			UUID userId = UUID.fromString(r.getResponse().getContentAsString().replaceAll(".*\"userId\":\"([^\"]+)\".*", "$1"));
 
-			Map<String, Object> u = jdbc.queryForMap("select kind, login_id, nickname, email, name, phone, phone_hash, password_hash, marketing_opt_in_at from users where id = ?", userId);
-			assertThat(u.get("kind")).isEqualTo("personal");
-			assertThat(u.get("login_id")).isEqualTo("gildong1");
-			assertThat(u.get("email")).isEqualTo("gildong@example.com");
-			assertThat((String) u.get("name")).doesNotContain("홍길동");
-			assertThat((String) u.get("phone")).doesNotContain("01012345678");
-			assertThat(u.get("phone_hash")).isEqualTo(hasher.hash("01012345678"));
-			assertThat((String) u.get("password_hash")).startsWith("$2a$12$").doesNotContain("Str0ng");
-			assertThat(u.get("marketing_opt_in_at")).isNotNull();
-
-			Map<String, Object> v = jdbc.queryForMap("select provider, ci, ci_hash from identity_verifications where user_id = ?", userId);
-			assertThat(v.get("provider")).isEqualTo("stub");
-			assertThat((String) v.get("ci")).doesNotContain("stub-ci:");
-			assertThat(v.get("ci_hash")).isEqualTo(hasher.hash("stub-ci:" + hasher.hash("stub:01012345678")));
-
-			var termsRows = jdbc.queryForList("select terms_id, agreed, version, ip from terms_agreements where user_id = ? order by terms_id", userId);
-			assertThat(termsRows).hasSize(4);
-			assertThat(termsRows).extracting(row -> row.get("terms_id")).containsExactly("age", "marketing", "privacy", "service");
-			assertThat(termsRows).allSatisfy(row -> {
-				assertThat(row.get("version")).isEqualTo("2026-09-22-draft");
-				assertThat(row.get("ip")).isNotNull();
-			});
-			assertThat(termsRows.stream().filter(row -> "marketing".equals(row.get("terms_id"))).findFirst().orElseThrow().get("agreed")).isEqualTo(true);
-		}
-
-		@Test
-		@DisplayName("마케팅 미동의도 agreed=false 행으로 남는다 (거부 증빙)")
-		void marketingDeclinedIsRecorded() throws Exception {
-			mvc.perform(signup(Map.of("marketingOptIn", false))).andExpect(status().isCreated());
-
-			assertThat(jdbc.queryForObject("select agreed from terms_agreements t join users u on u.id = t.user_id where u.login_id = 'gildong1' and t.terms_id = 'marketing'", Boolean.class)).isFalse();
-			assertThat(jdbc.queryForObject("select marketing_opt_in_at from users where login_id = 'gildong1'", Object.class)).isNull();
+			Map<String, Object> u = jdbc.queryForMap("select user_class, user_id, user_nickname, nickname_usage, contact_method, user_email, user_name, user_phone, password from users where id = ?", userId);
+			assertThat(u.get("user_class")).isEqualTo("personal");
+			assertThat(u.get("user_id")).isEqualTo("gildong1");
+			assertThat(u.get("user_email")).isEqualTo("gildong@example.com");
+			assertThat(u.get("user_name")).isEqualTo("홍길동");
+			assertThat(u.get("user_phone")).isEqualTo("01012345678");
+			assertThat(u.get("user_nickname")).isEqualTo("길동이");
+			assertThat(u.get("nickname_usage")).isEqualTo("Y");
+			assertThat(u.get("contact_method")).isEqualTo("1");
+			assertThat((String) u.get("password")).startsWith("$2a$12$").doesNotContain("Str0ng");
 		}
 
 		@Test
@@ -143,7 +113,7 @@ class SignupApiTest {
 		void eachDuplicateHasItsCode() throws Exception {
 			mvc.perform(signup(Map.of())).andExpect(status().isCreated());
 
-			// 두 번째 가입은 다른 사람(다른 휴대폰 → 다른 CI)이어야 ALREADY_REGISTERED 에 먼저 걸리지 않는다
+			// 나머지 값은 겹치지 않게 해 검사하려는 필드 하나만 중복되도록
 			Map<String, Object> other = Map.of("nickname", "다른이", "loginId", "other01", "email", "other@example.com", "phone", "01099998888");
 			mvc.perform(signup(with(other, "loginId", "gildong1"))).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DUPLICATE_LOGIN_ID"));
 			mvc.perform(signup(with(other, "nickname", "길동이"))).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DUPLICATE_NICKNAME"));
@@ -151,12 +121,12 @@ class SignupApiTest {
 		}
 
 		@Test
-		@DisplayName("같은 사람(CI)이 다시 가입하면 ALREADY_REGISTERED — 아이디 찾기 안내")
-		void samePersonIsAlreadyRegistered() throws Exception {
+		@DisplayName("같은 휴대폰으로 다시 가입하면 중복으로 거부")
+		void samePhoneIsAlreadyRegistered() throws Exception {
 			mvc.perform(signup(Map.of())).andExpect(status().isCreated());
 
 			mvc.perform(signup(Map.of("nickname", "다른이", "loginId", "other01", "email", "other@example.com")))
-				.andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("ALREADY_REGISTERED"));
+				.andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DUPLICATE_PHONE"));
 		}
 
 		@Test
@@ -209,10 +179,12 @@ class SignupApiTest {
 		}
 
 		@Test
-		@DisplayName("stub 토큰이 아니면 VERIFICATION_EXPIRED")
-		void wrongToken() throws Exception {
-			mvc.perform(signup(Map.of("verificationToken", "something-else"))).andExpect(status().isGone())
-				.andExpect(jsonPath("$.code").value("VERIFICATION_EXPIRED"));
+		@DisplayName("별명 사용(Y)인데 별명이 비었으면 400, fields.nickname")
+		void nicknameRequiredWhenUsed() throws Exception {
+			Map<String, Object> noNickname = new java.util.HashMap<>();
+			noNickname.put("nickname", null);  // "" 는 @Size 에서 먼저 걸려 서비스 규칙까지 안 감
+			mvc.perform(signup(noNickname))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION")).andExpect(jsonPath("$.fields.nickname").isString());
 		}
 
 	}
@@ -234,8 +206,8 @@ class SignupApiTest {
 	@DisplayName("같은 IP 에서 6번째 가입 시도는 429 (5회/시간)")
 	void rateLimitedPerIp() throws Exception {
 		for (int i = 0; i < 5; i++) {
-			// 검증 실패(VERIFICATION_EXPIRED)도 시도로 센다 — 비용이 드는 건 시도 자체라서
-			mvc.perform(signupFrom("10.9.9.9", Map.of("verificationToken", "x"))).andExpect(status().isGone());
+			// 서비스 검증 실패(비밀번호에 아이디 포함)도 시도로 센다 — 비용이 드는 건 시도 자체라서
+			mvc.perform(signupFrom("10.9.9.9", Map.of("password", "Gildong1-pass!"))).andExpect(status().isBadRequest());
 		}
 
 		mvc.perform(signupFrom("10.9.9.9", Map.of())).andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.code").value("RATE_LIMITED"));

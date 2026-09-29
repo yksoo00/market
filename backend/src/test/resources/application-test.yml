@@ -1,17 +1,18 @@
-spring:
-  security:
-    oauth2:
-      client:
-        registration:
-          kakao: { client-id: test-kakao-id }
-          naver: { client-id: test-naver-id, client-secret: test-naver-secret }
-          google: { client-id: test-google-id, client-secret: test-google-secret }
+# TODO(소셜 일시 비활성): main application.yml 의 oauth2 설정과 함께 주석 처리. kakao·naver 는 provider 설정 없이 registration 만 있으면
+# 컨텍스트가 안 뜬다. 소셜 재활성화 때 OAuthApiTest @Disabled 와 함께 되살린다.
+# spring:
+#   security:
+#     oauth2:
+#       client:
+#         registration:
+#           kakao: { client-id: test-kakao-id }
+#           naver: { client-id: test-naver-id, client-secret: test-naver-secret }
+#           google: { client-id: test-google-id, client-secret: test-google-secret }
 
 app:
   env: local
   jwt:
     secret: test-secret-test-secret-test-secret-32bytes
-  internal-token: test-token
   identity-verification:
     provider: stub
   admin:

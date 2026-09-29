@@ -12,7 +12,7 @@ export function BusinessFormStep() {
   const raw = useSyncExternalStore(noop, businessSignupFlow.raw, () => null);
   const business = useMemo(() => parseState<BusinessSignupState>(raw).business, [raw]);
   return (
-    <StepGuard kind="business" require={["termsAgreed", "business"]}>
+    <StepGuard kind="business" require={["business"]}>
       {business && <BusinessSignupForm business={business} />}
     </StepGuard>
   );

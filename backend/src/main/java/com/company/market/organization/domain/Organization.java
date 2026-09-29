@@ -15,7 +15,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 /** 사업자. 가입 직후 PENDING, 관리자 심사 후 APPROVED 여야 사업자 배지·사업자 명의 매물 가능 */
-@Entity
+// @Entity // 조직 테이블을 제거하고 사업자 정보를 users 행에 통합함
 @Table(name = "organizations")
 @Getter
 public class Organization extends BaseEntity {
@@ -42,7 +42,7 @@ public class Organization extends BaseEntity {
 	@Column(nullable = false)
 	private String address;
 
-	/** MinIO 키. URL 저장 금지. 승인 후 90일 뒤 파일 삭제·null */
+	/** 파일 저장소 키. URL 저장 금지. 저장소 선택 후 사용. 승인 후 90일 뒤 파일 삭제·null */
 	private String licenseFileKey;
 
 	/** 국세청 진위확인 통과 시각. stub 인증은 null → 운영에서 가입 거부 */

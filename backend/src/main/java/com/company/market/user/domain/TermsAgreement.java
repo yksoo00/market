@@ -14,7 +14,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 /** 약관 동의 기록. 수정하지 않고 철회는 새 행. 탈퇴해도 유지 (증빙 5년) */
-@Entity
+// @Entity // 약관 테이블을 제거한 단일 users 구조에서는 사용하지 않음
 @Table(name = "terms_agreements")
 @Getter
 public class TermsAgreement extends BaseEntity {

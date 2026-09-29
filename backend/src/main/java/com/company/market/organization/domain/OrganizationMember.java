@@ -13,7 +13,7 @@ import lombok.Builder;
 import lombok.Getter;
 
 /** 사업자 ↔ 담당자(kind=business 사용자). OWNER 는 조직당 하나, 한 사람은 한 조직만 (유니크 인덱스) */
-@Entity
+// @Entity // 조직 멤버 테이블을 제거하고 사업자 정보를 users 행에 통합함
 @Table(name = "organization_members")
 @Getter
 public class OrganizationMember extends BaseEntity {

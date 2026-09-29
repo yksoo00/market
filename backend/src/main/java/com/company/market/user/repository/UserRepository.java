@@ -18,16 +18,21 @@ public interface UserRepository extends JpaRepository<User, UUID> {
 
 	boolean existsByLoginIdAndDeletedAtIsNull(String loginId);
 
-	/** 닉네임 유일은 personal 만 (business 는 기업명이라 중복 허용) */
-	boolean existsByNicknameAndKindAndDeletedAtIsNull(String nickname, UserKind kind);
+	/** 별칭 사용이 켜진 개인 계정에서 별칭 중복을 검사한다. */
+	@Query("select count(u) > 0 from User u where u.userNickname = :nickname and u.kind = :kind and u.deletedAt is null")
+	boolean existsByNicknameAndKindAndDeletedAtIsNull(@Param("nickname") String nickname, @Param("kind") UserKind kind);
 
-	/** 유일 인덱스가 lower(email) 이라 같은 식으로 비교해야 인덱스를 탄다 */
+	/** 이메일 중복 확인. 개인정보 암호화 컬럼이 아니라 단일 users 표의 값을 직접 조회한다. */
 	@Query("select count(u) > 0 from User u where lower(u.email) = lower(:email) and u.deletedAt is null")
 	boolean existsByEmailIgnoreCaseActive(@Param("email") String email);
 
-	boolean existsByPhoneHashAndDeletedAtIsNull(String phoneHash);
-
 	@Query("select u from User u where lower(u.email) = lower(:email) and u.deletedAt is null")
 	Optional<User> findByEmailIgnoreCaseActive(@Param("email") String email);
+
+	boolean existsByPhoneAndDeletedAtIsNull(String phone);
+
+	Optional<User> findByBusRegIdAndDeletedAtIsNull(String busRegId);
+
+	boolean existsByBusRegIdAndDeletedAtIsNull(String busRegId);
 
 }

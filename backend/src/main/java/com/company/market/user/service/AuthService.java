@@ -8,7 +8,6 @@ import com.company.market.common.auth.LoginAttemptGuard;
 import com.company.market.common.auth.RefreshSessionStore;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
-import com.company.market.organization.service.OrganizationService;
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;
 import com.company.market.user.dto.LoginResult;
@@ -38,8 +37,6 @@ public class AuthService {
 
 	private final UserRepository users;
 
-	private final OrganizationService organizations;
-
 	private final PasswordEncoder passwordEncoder;
 
 	private final JwtProvider jwt;
@@ -57,7 +54,7 @@ public class AuthService {
 	/** 기업: 사업자번호 → owner 담당자. 담당자 계정의 비밀번호로 확인 */
 	public LoginResult loginBusiness(String bizNo, String password, boolean remember, String ip) {
 		attempts.check(bizNo, ip);
-		Optional<User> user = organizations.findOwnerUserId(bizNo).flatMap(users::findById).filter(u -> u.getKind() == UserKind.BUSINESS);
+		Optional<User> user = users.findByBusRegIdAndDeletedAtIsNull(bizNo).filter(u -> u.getKind() == UserKind.BUSINESS);
 		return authenticate(bizNo, user, password, remember, ip);
 	}
 

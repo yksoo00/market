@@ -22,7 +22,7 @@ frontend/src/
 - 서버 컴포넌트 기본. `"use client"`는 상호작용·상태가 필요한 잎 컴포넌트에만.
 - 데이터 가져오기: SSR은 SEO가 필요한 목록·상세만. 나머지는 클라이언트에서 `lib/api` 경유.
 - `lib/api`가 유일한 백엔드 호출 지점. 컴포넌트에서 `fetch` 직접 호출 금지. access token 갱신은 여기서 처리.
-- 스타일은 Tailwind 클래스만. 인라인 style, CSS 모듈 금지. 색·간격은 `tailwind.config` 토큰(`docs/design.md` 기준).
+- 스타일은 Tailwind 클래스만. 인라인 style, CSS 모듈 금지. 색·간격은 `src/app/globals.css` `@theme` 토큰(`docs/design.md` 기준).
 - shadcn/ui 컴포넌트를 먼저 찾고, 없을 때만 새로 만든다.
 - 폼은 react-hook-form + zod. 스키마는 `lib/validation/`에 두고 `docs/security.md` "입력 검증"의 길이·범위 수치와 동일하게. 백엔드 규칙이 바뀌면 같은 PR에서 맞춘다.
 - 검증 반응 (모든 폼 공통):

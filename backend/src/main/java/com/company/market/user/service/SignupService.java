@@ -1,33 +1,28 @@
 package com.company.market.user.service;
 
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.time.Duration;
-import java.time.Instant;
-import java.util.List;
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
 import com.company.market.common.config.AppProperties;
-import com.company.market.common.crypto.PiiHasher;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.exception.ValidationException;
 import com.company.market.common.ratelimit.RateLimiter;
-import com.company.market.user.domain.IdentityVerification;
-import com.company.market.user.domain.TermsAgreement;
-import com.company.market.user.domain.TermsId;
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;
 import com.company.market.user.dto.SignupPersonalRequest;
-import com.company.market.user.repository.IdentityVerificationRepository;
-import com.company.market.user.repository.TermsAgreementRepository;
+import com.company.market.user.dto.BusinessVerifyRequest;
+import com.company.market.user.dto.SignupBusinessRequest;
 import com.company.market.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -48,28 +43,21 @@ public class SignupService {
 
 	private static final Duration CHECK_WINDOW = Duration.ofMinutes(1);
 
-	/** 일반 가입 약관 4개. 필수 3개는 프론트가 동의 없이 제출하지 못하므로 true, 마케팅만 선택값 */
-	private static final List<TermsId> REQUIRED_TERMS = List.of(TermsId.SERVICE, TermsId.PRIVACY, TermsId.AGE);
+	private static final String BUSINESS_VERIFY_PREFIX = "signup:biz:";
+
+	private static final Duration BUSINESS_VERIFY_TTL = Duration.ofMinutes(30);
 
 	/** 유일 제약 이름 → 오류 코드. 미리 확인해도 동시 가입 경쟁은 DB 만 잡을 수 있어서 */
 	private static final Map<String, ErrorCode> CONSTRAINT_CODES = Map.of(
-			"ux_users_login_id", ErrorCode.DUPLICATE_LOGIN_ID,
-			"ux_users_nickname_personal", ErrorCode.DUPLICATE_NICKNAME,
+			"ux_users_user_id", ErrorCode.DUPLICATE_LOGIN_ID,
+			"ux_users_nickname", ErrorCode.DUPLICATE_NICKNAME,
 			"ux_users_email", ErrorCode.DUPLICATE_EMAIL,
-			"ux_users_phone_hash", ErrorCode.DUPLICATE_PHONE,
-			"ux_identity_verifications_ci_hash", ErrorCode.ALREADY_REGISTERED);
+			"ux_users_phone", ErrorCode.DUPLICATE_PHONE,
+			"ux_users_bus_reg_id", ErrorCode.DUPLICATE_BIZ_NO);
 
 	private final UserRepository users;
 
-	private final IdentityVerificationRepository verifications;
-
-	private final TermsAgreementRepository terms;
-
-	private final IdentityVerifier verifier;
-
 	private final PasswordEncoder passwordEncoder;
-
-	private final PiiHasher hasher;
 
 	private final RateLimiter limiter;
 
@@ -77,6 +65,8 @@ public class SignupService {
 
 	/** 같은 클래스의 @Transactional 메서드는 프록시를 안 거쳐 트랜잭션이 안 걸리므로 템플릿으로 감싼다 */
 	private final TransactionTemplate tx;
+
+	private final StringRedisTemplate redis;
 
 	public boolean isLoginIdAvailable(String loginId, String ip) {
 		limiter.hit("signup:check:ip:" + ip, CHECK_PER_IP, CHECK_WINDOW);
@@ -89,7 +79,7 @@ public class SignupService {
 	}
 
 	/**
-	 * 일반 가입. users + identity_verifications + terms_agreements ×4 를 한 트랜잭션에 (data-model.md "흐름별 쓰기").
+	 * 일반 가입. 단일 users 행으로 저장한다.
 	 * 비밀번호 해시(bcrypt ~250ms)는 트랜잭션 밖에서 먼저 계산해 DB 커넥션을 오래 잡지 않는다.
 	 */
 	public UUID signupPersonal(SignupPersonalRequest req, String ip) {
@@ -100,17 +90,15 @@ public class SignupService {
 			throw new ValidationException(Map.of("password", "비밀번호에 아이디를 포함할 수 없습니다."));
 		}
 
-		IdentityVerifier.VerifiedIdentity identity = verifier.resolve(req.verificationToken(), req.name(), req.phone())
-			.orElseThrow(() -> new ApiException(ErrorCode.VERIFICATION_EXPIRED));
-
 		String email = req.email().trim().toLowerCase(Locale.ROOT);
-		String phoneHash = hasher.hash(identity.phone());
-		String ciHash = hasher.hash(identity.ci());
-		checkDuplicates(req.loginId(), req.nickname(), email, phoneHash, ciHash);
+		if ("Y".equals(req.nicknameUsage()) && (req.nickname() == null || req.nickname().isBlank())) {
+			throw new ValidationException(Map.of("nickname", "별명을 입력하세요."));
+		}
+		checkDuplicates(req.loginId(), req.nickname(), email, req.phone(), "Y".equals(req.nicknameUsage()));
 
 		String passwordHash = passwordEncoder.encode(req.password());
 		try {
-			UUID userId = tx.execute(status -> persist(req, identity, email, phoneHash, ciHash, passwordHash, ip));
+			UUID userId = tx.execute(status -> persist(req, email, passwordHash));
 			log.info("일반 가입 userId={} ip={}", userId, ip);
 			return userId;
 		}
@@ -119,64 +107,110 @@ public class SignupService {
 		}
 	}
 
-	private void checkDuplicates(String loginId, String nickname, String email, String phoneHash, String ciHash) {
-		if (users.existsByLoginIdAndDeletedAtIsNull(loginId)) {
-			throw new ApiException(ErrorCode.DUPLICATE_LOGIN_ID);
+	/** 실제 국세청 연동 전까지 로컬 개발에서만 사업자 인증 토큰을 발급한다. */
+	public String verifyBusiness(BusinessVerifyRequest req, String ip) {
+		limiter.hit("signup:biz-verify:ip:" + ip, SIGNUP_PER_IP, SIGNUP_WINDOW);
+		if (!props.isLocal()) {
+			throw new ApiException(ErrorCode.BUSINESS_VERIFICATION_UNAVAILABLE);
 		}
-		if (users.existsByNicknameAndKindAndDeletedAtIsNull(nickname, UserKind.PERSONAL)) {
-			throw new ApiException(ErrorCode.DUPLICATE_NICKNAME);
+		try {
+			LocalDate startDate = LocalDate.parse(req.startDate(), java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
+			if (!startDate.isBefore(LocalDate.now())) {
+				throw new ValidationException(Map.of("startDate", "개업년월일은 오늘 이전 날짜여야 합니다."));
+			}
 		}
-		// 같은 사람(CI)이 이미 있으면 이메일·휴대폰보다 먼저 알려준다 — "아이디 찾기" 안내가 맞는 상황이고,
-		// 기존 회원이 다른 이메일의 가입 여부를 확인하는 데 이 응답을 쓰지 못하게
-		if (verifications.existsByCiHash(ciHash)) {
-			throw new ApiException(ErrorCode.ALREADY_REGISTERED);
+		catch (DateTimeParseException e) {
+			throw new ValidationException(Map.of("startDate", "개업년월일이 올바른 날짜가 아닙니다."));
+		}
+		if (users.findByBusRegIdAndDeletedAtIsNull(req.bizNo()).isPresent()) {
+			throw new ApiException(ErrorCode.DUPLICATE_BIZ_NO);
+		}
+		String token = UUID.randomUUID().toString();
+		String value = String.join("|", req.bizNo(), req.startDate(), req.ownerName());
+		redis.opsForValue().set(BUSINESS_VERIFY_PREFIX + token, value, BUSINESS_VERIFY_TTL);
+		return token;
+	}
+
+	/** 사업자 기본 정보는 검증 토큰에서 가져오고, 계정·회사 정보는 users 한 행에 저장한다. */
+	public UUID signupBusiness(SignupBusinessRequest req, String ip) {
+		limiter.hit("signup:ip:" + ip, SIGNUP_PER_IP, SIGNUP_WINDOW);
+		String verified = redis.opsForValue().getAndDelete(BUSINESS_VERIFY_PREFIX + req.verificationToken());
+		if (verified == null) {
+			throw new ApiException(ErrorCode.VERIFICATION_EXPIRED);
+		}
+		String[] details = verified.split("\\|", 3);
+		String bizNo = details[0];
+		String startDate = details[1];
+		if (req.password().toLowerCase(Locale.ROOT).contains(bizNo)) {
+			throw new ValidationException(Map.of("password", "비밀번호에 사업자등록번호를 포함할 수 없습니다."));
+		}
+		String email = req.contactEmail().trim().toLowerCase(Locale.ROOT);
+		if (users.existsByBusRegIdAndDeletedAtIsNull(bizNo) || users.existsByLoginIdAndDeletedAtIsNull(bizNo)) {
+			throw new ApiException(ErrorCode.DUPLICATE_BIZ_NO);
 		}
 		if (users.existsByEmailIgnoreCaseActive(email)) {
 			throw new ApiException(ErrorCode.DUPLICATE_EMAIL);
 		}
-		if (users.existsByPhoneHashAndDeletedAtIsNull(phoneHash)) {
+		if (users.existsByPhoneAndDeletedAtIsNull(req.contactPhone())) {
+			throw new ApiException(ErrorCode.DUPLICATE_PHONE);
+		}
+		String passwordHash = passwordEncoder.encode(req.password());
+		try {
+			UUID userId = tx.execute(status -> users.save(User.builder()
+				.kind(UserKind.BUSINESS)
+				.loginId(bizNo)
+				.passwordHash(passwordHash)
+				.name(req.contactName())
+				.phone(req.contactPhone())
+				.userTel(req.contactTel())
+				.email(email)
+				.userAddress(req.address())
+				.busRegId(bizNo)
+				.companyType("corporation".equals(req.bizType()) ? "corporate" : req.bizType())
+				.companyName(req.companyName())
+				.companyOpenDate(startDate)
+				.companyTel(req.companyTel())
+				.companyAddress(req.address())
+				.nicknameUsage("N")
+				.build()).getId());
+			log.info("기업 가입 userId={} ip={}", userId, ip);
+			return userId;
+		}
+		catch (DataIntegrityViolationException e) {
+			throw duplicateFrom(e);
+		}
+	}
+
+	private void checkDuplicates(String loginId, String nickname, String email, String phone, boolean useNickname) {
+		if (users.existsByLoginIdAndDeletedAtIsNull(loginId)) {
+			throw new ApiException(ErrorCode.DUPLICATE_LOGIN_ID);
+		}
+		if (useNickname && users.existsByNicknameAndKindAndDeletedAtIsNull(nickname, UserKind.PERSONAL)) {
+			throw new ApiException(ErrorCode.DUPLICATE_NICKNAME);
+		}
+		if (users.existsByEmailIgnoreCaseActive(email)) {
+			throw new ApiException(ErrorCode.DUPLICATE_EMAIL);
+		}
+		if (users.existsByPhoneAndDeletedAtIsNull(phone)) {
 			throw new ApiException(ErrorCode.DUPLICATE_PHONE);
 		}
 	}
 
-	private UUID persist(SignupPersonalRequest req, IdentityVerifier.VerifiedIdentity identity, String email, String phoneHash,
-			String ciHash, String passwordHash, String ip) {
+	private UUID persist(SignupPersonalRequest req, String email, String passwordHash) {
 		User user = users.save(User.builder()
 			.kind(UserKind.PERSONAL)
 			.loginId(req.loginId())
 			.passwordHash(passwordHash)
 			.nickname(req.nickname())
+			.nicknameUsage(req.nicknameUsage())
 			.email(email)
-			.name(identity.name())
-			.phone(identity.phone())
-			.phoneHash(phoneHash)
-			.marketingOptInAt(req.marketingOptIn() ? Instant.now() : null)
+			.name(req.name())
+			.phone(req.phone())
+			.userTel(req.tel())
+			.userAddress(req.address())
+			.contactMethod(req.contactMethod())
 			.build());
-		verifications.save(IdentityVerification.builder()
-			.user(user)
-			.provider(identity.provider())
-			.ci(identity.ci())
-			.ciHash(ciHash)
-			.di(identity.di())
-			.verifiedAt(Instant.now())
-			.build());
-		InetAddress address = parseIp(ip);
-		String version = props.terms().version();
-		for (TermsId id : REQUIRED_TERMS) {
-			terms.save(TermsAgreement.builder().user(user).termsId(id).version(version).agreed(true).ip(address).build());
-		}
-		terms.save(TermsAgreement.builder().user(user).termsId(TermsId.MARKETING).version(version).agreed(req.marketingOptIn()).ip(address).build());
 		return user.getId();
-	}
-
-	private static InetAddress parseIp(String ip) {
-		try {
-			// 리터럴 IP 만 온다. 이상한 값이면 증빙 IP 는 비워두고 가입은 진행
-			return ip == null || ip.isBlank() ? null : InetAddress.getByName(ip);
-		}
-		catch (UnknownHostException e) {
-			return null;
-		}
 	}
 
 	private static ApiException duplicateFrom(DataIntegrityViolationException e) {

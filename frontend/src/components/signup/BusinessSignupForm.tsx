@@ -2,20 +2,18 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Controller, FormProvider, useForm, useFormContext, useWatch } from "react-hook-form";
+import { Controller, FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ShieldCheck } from "lucide-react";
-import { cn } from "cn";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FieldShell, FormField, useFieldStatus } from "@/components/auth/FormField";
+import { FieldShell, FormField } from "@/components/auth/FormField";
 import { FormError, SubmitButton } from "@/components/auth/FormStatus";
-import { CaptchaPlaceholder } from "@/components/signup/CaptchaPlaceholder";
 import { EmailField } from "@/components/signup/EmailField";
 import { PhoneField } from "@/components/signup/PhoneField";
 import { authApi } from "@/lib/api/auth";
 import { applyServerError } from "@/lib/form";
 import { businessSignupFlow, businessSignupPath, type BusinessSignupState } from "@/lib/signupFlow";
-import { businessSignupSchema, LICENSE_TYPES, type BusinessSignupInput } from "@/lib/validation/business";
+import { businessSignupSchema, type BusinessSignupInput } from "@/lib/validation/business";
 import { joinEmail } from "@/lib/validation/signup";
 import { signup as t } from "@/messages/signup";
 import { UNREACHABLE } from "@/types/api";
@@ -23,13 +21,12 @@ import { UNREACHABLE } from "@/types/api";
 const m = t.business.form;
 
 const fields = [
-  "password", "passwordConfirm", "bizType", "companyName", "address", "license",
-  "contactName", "phoneMid", "phoneLast", "emailLocal", "emailCustom", "captchaToken",
+  "password", "passwordConfirm", "bizType", "companyName", "address",
+  "contactName", "phoneMid", "phoneLast", "emailLocal", "emailCustom", "contactTel", "companyTel",
 ] as const;
 const serverFieldMap: Record<string, (typeof fields)[number]> = {
   contactEmail: "emailLocal",
   contactPhone: "phoneMid",
-  licenseFileKey: "license",
 };
 
 export function BusinessSignupForm({ business }: { business: NonNullable<BusinessSignupState["business"]> }) {
@@ -49,11 +46,11 @@ export function BusinessSignupForm({ business }: { business: NonNullable<Busines
       phonePrefix: "010",
       phoneMid: "",
       phoneLast: "",
+      contactTel: "",
+      companyTel: "",
       emailLocal: "",
       emailDomain: "naver.com",
       emailCustom: "",
-      captchaToken: "",
-      marketingOptIn: businessSignupFlow.get().marketingOptIn ?? false,
     },
   });
   const {
@@ -64,26 +61,9 @@ export function BusinessSignupForm({ business }: { business: NonNullable<Busines
   } = form;
   const [formError, setFormError] = useState<string | null>(null);
   const [unreachable, setUnreachable] = useState(false);
-  // 같은 파일이면 재시도 때 다시 올리지 않는다 (10MB 재전송·고아 파일·업로드 rate limit 방지)
-  const [uploaded, setUploaded] = useState<{ file: File; key: string } | null>(null);
-
   const onSubmit = handleSubmit(async (v) => {
     setFormError(null);
     setUnreachable(false);
-
-    // 파일 먼저 올리고 키를 받아 가입 요청에 넣는다
-    const file = v.license[0];
-    let licenseFileKey = uploaded?.file === file ? uploaded.key : null;
-    if (!licenseFileKey) {
-      const res = await authApi.uploadBusinessLicense(file);
-      if (!res.ok) {
-        setUnreachable(res.code === UNREACHABLE);
-        setFormError(applyServerError(res, setError, ["license"]));
-        return;
-      }
-      licenseFileKey = res.data.fileKey;
-      setUploaded({ file, key: licenseFileKey });
-    }
 
     const result = await authApi.signupBusiness({
       verificationToken: business.verificationToken,
@@ -91,12 +71,11 @@ export function BusinessSignupForm({ business }: { business: NonNullable<Busines
       bizType: v.bizType,
       companyName: v.companyName,
       address: v.address,
-      licenseFileKey,
       contactName: v.contactName,
       contactPhone: `${v.phonePrefix}${v.phoneMid}${v.phoneLast}`,
       contactEmail: joinEmail(v.emailLocal, v.emailDomain, v.emailCustom),
-      captchaToken: v.captchaToken,
-      marketingOptIn: v.marketingOptIn,
+      contactTel: v.contactTel,
+      companyTel: v.companyTel,
     });
     if (result.ok) {
       businessSignupFlow.clear();
@@ -154,16 +133,14 @@ export function BusinessSignupForm({ business }: { business: NonNullable<Busines
         </FieldShell>
 
         <FormField<BusinessSignupInput> name="companyName" label={m.companyName} placeholder={m.companyNamePlaceholder} autoComplete="organization" maxLength={50} />
+        <FormField<BusinessSignupInput> name="companyTel" label={m.companyTel} placeholder={m.companyTelPlaceholder} autoComplete="tel" maxLength={20} />
         {/* TODO(주소 검색): 우편번호 API 붙이기 전까지 직접 입력 */}
         <FormField<BusinessSignupInput> name="address" label={m.address} placeholder={m.addressPlaceholder} autoComplete="street-address" maxLength={200} />
-        <LicenseField />
-
         <h2 className="mt-2 pt-4 border-t border-line-2 text-[14px] font-bold">{m.contactSection}</h2>
         <FormField<BusinessSignupInput> name="contactName" label={m.contactName} placeholder={t.form.namePlaceholder} autoComplete="name" maxLength={30} />
         <PhoneField label={m.contactPhone} />
+        <FormField<BusinessSignupInput> name="contactTel" label={m.contactTel} placeholder={m.contactTelPlaceholder} autoComplete="tel" maxLength={20} />
         <EmailField label={m.contactEmail} />
-
-        <CaptchaPlaceholder />
 
         <p className="rounded-md bg-bg px-3.5 py-3 text-xs leading-relaxed text-ink-2">{m.reviewNotice}</p>
         <SubmitButton label={m.submit} disabled={!isValid} submitting={isSubmitting} />
@@ -186,45 +163,5 @@ function VerifiedBusiness({ business }: { business: NonNullable<BusinessSignupSt
         <span>{business.ownerName}</span>
       </dd>
     </dl>
-  );
-}
-
-/** 사업자등록증 파일. 선택 즉시 형식·크기 검사 (rules/frontend.md) */
-function LicenseField() {
-  const { register, control } = useFormContext<BusinessSignupInput>();
-  const { error, valid } = useFieldStatus<BusinessSignupInput>("license");
-  const files = useWatch({ control, name: "license" }) as FileList | undefined;
-  const fileName = files && files.length > 0 ? files[0].name : null;
-  const reg = register("license");
-
-  return (
-    <FieldShell label={m.license} htmlFor="license" hint={m.licenseHint} error={error}>
-      <label
-        className={cn(
-          // relative: 안의 sr-only input 이 이 박스 안에 머물러야 포커스 시 화면이 엉뚱한 곳으로 안 튐
-          "relative flex items-center gap-3 h-11 px-3 rounded-md border bg-surface cursor-pointer text-[14px]",
-          "focus-within:ring-3 focus-within:ring-ring/50",
-          error ? "border-down" : valid ? "border-up" : "border-line",
-        )}
-      >
-        <span className="shrink-0 px-2.5 h-7 flex items-center rounded-md bg-primary-soft text-primary-dark text-xs font-semibold">
-          {m.licenseChoose}
-        </span>
-        <span className={cn("truncate", fileName ? "text-ink" : "text-ink-3")}>{fileName ?? m.licenseNone}</span>
-        <input
-          id="license"
-          type="file"
-          accept={LICENSE_TYPES.join(",")}
-          className="sr-only"
-          aria-invalid={Boolean(error)}
-          {...reg}
-          onChange={(e) => {
-            void reg.onChange(e);
-            // 파일 선택은 blur 가 안 오므로 blur 이벤트를 흉내 내서 touched + 검증을 바로 켠다
-            void reg.onBlur({ target: e.target, type: "blur" });
-          }}
-        />
-      </label>
-    </FieldShell>
   );
 }

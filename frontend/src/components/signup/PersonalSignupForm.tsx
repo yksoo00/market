@@ -17,7 +17,7 @@ import { signup as t } from "@/messages/signup";
 import { UNREACHABLE } from "@/types/api";
 
 // 서버 fields 오류를 붙일 수 있는 칸. 이메일·휴대폰은 서버 필드명(email, phone)을 폼 칸으로 옮긴다
-const fields = ["name", "nickname", "loginId", "emailLocal", "emailCustom", "password", "passwordConfirm", "phoneMid", "phoneLast"] as const;
+const fields = ["name", "nickname", "nicknameUsage", "loginId", "emailLocal", "emailCustom", "password", "passwordConfirm", "phoneMid", "phoneLast", "tel", "address"] as const;
 const serverFieldMap: Record<string, (typeof fields)[number]> = { email: "emailLocal", phone: "phoneMid" };
 
 export function PersonalSignupForm() {
@@ -29,6 +29,7 @@ export function PersonalSignupForm() {
     defaultValues: {
       name: "",
       nickname: "",
+      nicknameUsage: "Y",
       loginId: "",
       emailLocal: "",
       emailDomain: "naver.com",
@@ -38,7 +39,9 @@ export function PersonalSignupForm() {
       phonePrefix: "010",
       phoneMid: "",
       phoneLast: "",
-      marketingOptIn: personalSignupFlow.get().marketingOptIn ?? false,
+      tel: "",
+      address: "",
+      contactMethod: "1",
     },
   });
   const {
@@ -46,6 +49,8 @@ export function PersonalSignupForm() {
     setError,
     formState: { isValid, isSubmitting },
   } = form;
+  const nicknameUsage = form.watch("nicknameUsage");
+  const contactMethod = form.watch("contactMethod");
   const [checked, setChecked] = useState({ loginId: false, nickname: false });
   const [formError, setFormError] = useState<string | null>(null);
   const [unreachable, setUnreachable] = useState(false);
@@ -57,20 +62,17 @@ export function PersonalSignupForm() {
   const onSubmit = handleSubmit(async (v) => {
     setFormError(null);
     setUnreachable(false);
-    const { verificationToken } = personalSignupFlow.get();
-    if (!verificationToken) {
-      router.replace(personalSignupPath.verify);
-      return;
-    }
     const result = await authApi.signupPersonal({
-      verificationToken,
       name: v.name,
-      nickname: v.nickname,
+      nickname: v.nicknameUsage === "Y" ? v.nickname : null,
+      nicknameUsage: v.nicknameUsage,
       loginId: v.loginId,
       email: joinEmail(v.emailLocal, v.emailDomain, v.emailCustom),
       password: v.password,
       phone: `${v.phonePrefix}${v.phoneMid}${v.phoneLast}`,
-      marketingOptIn: v.marketingOptIn,
+      tel: v.tel,
+      address: v.address,
+      contactMethod: v.contactMethod,
     });
     if (result.ok) {
       personalSignupFlow.clear();
@@ -87,12 +89,9 @@ export function PersonalSignupForm() {
       if (result.code === code) setError(name, { type: "server", message: t.form.errors[code] });
       if (result.code === code || result.fields?.[name]) setChecked((c) => ({ ...c, [name]: false }));
     }
-    if (result.code === "VERIFICATION_EXPIRED") {
-      personalSignupFlow.clear();
-    }
   });
 
-  const canSubmit = isValid && checked.loginId && checked.nickname;
+  const canSubmit = isValid && checked.loginId && (nicknameUsage === "N" || checked.nickname);
 
   return (
     <FormProvider {...form}>
@@ -100,7 +99,29 @@ export function PersonalSignupForm() {
         <FormError message={formError} onRetry={unreachable ? () => void onSubmit() : undefined} />
 
         <FormField<PersonalSignupInput> name="name" label={t.form.name} placeholder={t.form.namePlaceholder} autoComplete="name" maxLength={30} />
-        <CheckableField name="nickname" label={t.form.nickname} hint={t.form.nicknameHint} placeholder={t.form.nicknamePlaceholder} maxLength={20} onStatus={onCheckStatus} />
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-[13px] font-medium text-ink">{t.form.nicknameUsage}</legend>
+          <div role="group" aria-label={t.form.nicknameUsage} className="grid grid-cols-2 gap-2">
+            {(["Y", "N"] as const).map((value) => {
+              const selected = nicknameUsage === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => {
+                    form.setValue("nicknameUsage", value, { shouldValidate: true, shouldDirty: true });
+                    setChecked((current) => ({ ...current, nickname: value === "N" }));
+                  }}
+                  className={`h-11 rounded-md border text-sm font-medium transition-colors ${selected ? "border-primary bg-primary-soft text-primary" : "border-line bg-surface text-ink-2 hover:border-primary"}`}
+                >
+                  {value === "Y" ? t.form.nicknameUse : t.form.nicknameSkip}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
+        {nicknameUsage === "Y" && <CheckableField name="nickname" label={t.form.nickname} hint={t.form.nicknameHint} placeholder={t.form.nicknamePlaceholder} maxLength={20} onStatus={onCheckStatus} />}
         <CheckableField
           name="loginId"
           label={t.form.loginId}
@@ -122,6 +143,27 @@ export function PersonalSignupForm() {
         />
         <FormField<PersonalSignupInput> name="passwordConfirm" label={t.form.passwordConfirm} type="password" autoComplete="new-password" maxLength={32} />
         <PhoneField />
+        <FormField<PersonalSignupInput> name="tel" label={t.form.tel} placeholder={t.form.telPlaceholder} autoComplete="tel" maxLength={20} />
+        <FormField<PersonalSignupInput> name="address" label={t.form.address} placeholder={t.form.addressPlaceholder} autoComplete="street-address" maxLength={200} />
+        <fieldset className="flex flex-col gap-2">
+          <legend className="text-[13px] font-medium text-ink">{t.form.contactMethod}</legend>
+          <div role="group" aria-label={t.form.contactMethod} className="grid grid-cols-3 gap-2">
+            {([["1", t.form.contactMethods.all], ["2", t.form.contactMethods.phone], ["3", t.form.contactMethods.email]] as const).map(([value, label]) => {
+              const selected = contactMethod === value;
+              return (
+                <button
+                  key={value}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => form.setValue("contactMethod", value, { shouldValidate: true, shouldDirty: true })}
+                  className={`h-11 rounded-md border text-sm font-medium transition-colors ${selected ? "border-primary bg-primary-soft text-primary" : "border-line bg-surface text-ink-2 hover:border-primary"}`}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+        </fieldset>
 
         {!canSubmit && isValid && <p className="text-xs text-ink-3 text-center">{t.form.needCheck}</p>}
         <SubmitButton label={t.form.submit} disabled={!canSubmit} submitting={isSubmitting} />

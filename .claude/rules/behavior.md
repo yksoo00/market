@@ -64,4 +64,4 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 
 **These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
 
-<!-- 출처: https://github.com/multica-ai/andrej-karpathy-skills — Karpathy의 관찰을 Forrest Chang이 정리. 원문 그대로. 갱신 시 원본과 교체. -->
+

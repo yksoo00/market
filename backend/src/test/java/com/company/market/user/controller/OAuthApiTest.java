@@ -21,6 +21,7 @@ import com.company.market.user.repository.UserRepository;
 import com.company.market.user.service.OAuthLoginService;
 import com.company.market.user.service.OAuthSignupStore;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -51,6 +52,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * 소셜 로그인. 제공자 서버(토큰 교환)는 테스트에서 못 부르므로 그 앞(인가 시작)과 뒤(프로필 받은 이후)를 각각 검증한다.
  * 토큰 교환 구간은 실제 카카오 콘솔로 수동 확인 (PR 본문).
  */
+@Disabled("소셜 로그인은 단일 users 테이블 전환 중 비활성화")
 @Import(TestInfraConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc

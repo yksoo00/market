@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: `${t.business.form.title} · ${t.titl
 export default function BusinessFormPage() {
   return (
     <div className="w-full max-w-[560px] flex flex-col gap-4">
-      <SignupSteps steps={businessSteps} current={2} />
+      <SignupSteps steps={businessSteps} current={1} />
       <AuthCard title={t.business.form.title} subtitle={t.business.form.subtitle} wide>
         <BusinessFormStep />
       </AuthCard>

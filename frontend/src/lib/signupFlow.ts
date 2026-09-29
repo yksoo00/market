@@ -1,16 +1,8 @@
-// 가입 단계 진행 상태. 페이지가 나뉘어 있어 "본인인증·약관을 거쳤나"를 다음 페이지가 알아야 한다.
-// TODO(백엔드 인증 구현 시): sessionStorage 대신 서버가 발급한 가입 세션 토큰으로 교체.
-// 지금은 UI 단계라 브라우저 탭 안에서만 유지되면 충분 (탭 닫으면 처음부터).
+// 가입 중인 사업자 인증 정보를 브라우저 탭에만 임시 보관한다.
 
-export interface PersonalSignupState {
-  verificationToken?: string;
-  termsAgreed?: boolean;
-  marketingOptIn?: boolean;
-}
+export type PersonalSignupState = Record<never, never>;
 
 export interface BusinessSignupState {
-  termsAgreed?: boolean;
-  marketingOptIn?: boolean;
   /** 정보입력에서 인증 만료로 돌아왔을 때 인증 페이지가 보여줄 안내 */
   notice?: "VERIFICATION_EXPIRED";
   /** 사업자 인증 통과 결과. 정보입력 페이지에서 읽기 전용으로 보여줌 */
@@ -65,14 +57,13 @@ export const personalSignupFlow = createFlow<PersonalSignupState>("signup:person
 export const businessSignupFlow = createFlow<BusinessSignupState>("signup:business");
 
 export const personalSignupPath = {
-  verify: "/signup/personal/verify",
-  terms: "/signup/personal/terms",
+  verify: "/signup/personal/form",
+  terms: "/signup/personal/form",
   form: "/signup/personal/form",
   done: "/signup/done",
 } as const;
 
 export const businessSignupPath = {
-  terms: "/signup/business/terms",
   verify: "/signup/business/verify",
   form: "/signup/business/form",
   done: "/signup/done?type=business",

@@ -1,10 +1,44 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { Icon } from "@/components/common/Icon";
+import { authApi } from "@/lib/api/auth";
 import { home as t } from "@/messages/home";
 
 const navHrefs = ["/listings", "/requests", "/prices", "/business", "/support"];
 
-export function Header() {
+export function Header({ hideAuthLinks = false }: { hideAuthLinks?: boolean }) {
+  const [profile, setProfile] = useState<{ nickname: string } | null>(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    void authApi.me().then((result) => {
+      if (!active) return;
+      setProfile(result.ok ? result.data : null);
+      setSessionChecked(true);
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const logout = async () => {
+    setLoggingOut(true);
+    setLogoutError(false);
+    const result = await authApi.logout();
+    if (result.ok) {
+      setProfile(null);
+      setSessionChecked(true);
+    } else {
+      setLogoutError(true);
+    }
+    setLoggingOut(false);
+  };
+
   return (
     <header className="h-13 md:h-14 shrink-0 px-4 md:px-6 flex items-center gap-7 bg-primary text-white">
       <Link href="/" className="flex items-center gap-2">
@@ -27,15 +61,31 @@ export function Header() {
       <Link href="/notifications" aria-label="알림" className="md:hidden w-11 h-11 flex items-center justify-center text-on-primary">
         <Icon name="bell" />
       </Link>
-      <Link href="/login" className="text-[13px] text-on-primary hover:text-white">
-        {t.login}
-      </Link>
-      <Link
-        href="/signup"
-        className="hidden md:flex h-[34px] px-3.5 items-center rounded-md bg-green text-white text-[13px] font-bold"
-      >
-        {t.signup}
-      </Link>
+      {profile ? (
+        <div className="flex items-center gap-3">
+          <span className="max-w-36 truncate text-[13px] font-semibold text-white" title={profile.nickname}>
+            {profile.nickname}님
+          </span>
+          <button type="button" onClick={() => void logout()} disabled={loggingOut} className="text-[13px] text-on-primary hover:text-white disabled:opacity-60">
+            {loggingOut ? "로그아웃 중…" : "로그아웃"}
+          </button>
+          {logoutError && <span role="alert" className="text-xs text-white">로그아웃 실패</span>}
+        </div>
+      ) : sessionChecked && !hideAuthLinks ? (
+        <>
+          <Link href="/login" className="text-[13px] text-on-primary hover:text-white">
+            {t.login}
+          </Link>
+          <Link
+            href="/signup"
+            className="hidden md:flex h-[34px] px-3.5 items-center rounded-md bg-green text-white text-[13px] font-bold"
+          >
+            {t.signup}
+          </Link>
+        </>
+      ) : (
+        <span aria-hidden="true" className="w-14" />
+      )}
     </header>
   );
 }

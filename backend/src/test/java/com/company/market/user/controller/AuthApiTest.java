@@ -1,15 +1,9 @@
 package com.company.market.user.controller;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.Objects;
 
 import com.company.market.TestInfraConfiguration;
-import com.company.market.organization.domain.BizType;
-import com.company.market.organization.domain.Organization;
-import com.company.market.organization.domain.OrganizationMember;
-import com.company.market.organization.repository.OrganizationMemberRepository;
-import com.company.market.organization.repository.OrganizationRepository;
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;
 import com.company.market.user.domain.UserRole;
@@ -63,12 +57,6 @@ class AuthApiTest {
 	UserRepository users;
 
 	@Autowired
-	OrganizationRepository organizations;
-
-	@Autowired
-	OrganizationMemberRepository members;
-
-	@Autowired
 	PasswordEncoder passwordEncoder;
 
 	@Autowired
@@ -86,14 +74,14 @@ class AuthApiTest {
 			.loginId("tester1")
 			.passwordHash(passwordEncoder.encode(PASSWORD))
 			.nickname("테스터")
+			.nicknameUsage("Y")
+			.name("홍길동")
 			.email("tester1@example.com")
 			.build());
 	}
 
 	@AfterEach
 	void tearDown() {
-		jdbc.update("delete from organization_members");
-		jdbc.update("delete from organizations");
 		jdbc.update("delete from users where role <> 'admin'");
 		Objects.requireNonNull(redis.getConnectionFactory()).getConnection().serverCommands().flushDb();
 	}
@@ -205,11 +193,10 @@ class AuthApiTest {
 		@Test
 		@DisplayName("사업자번호 + 담당자 비밀번호로 로그인된다")
 		void success() throws Exception {
-			User owner = users.save(User.builder().kind(UserKind.BUSINESS).passwordHash(passwordEncoder.encode(PASSWORD))
-				.nickname("테스트상사").email("owner@biz.example").build());
-			Organization org = organizations.save(Organization.builder().bizNo("1234567890").name("테스트상사").ownerName("대표")
-				.startDate(LocalDate.of(2020, 1, 1)).bizType(BizType.CORPORATION).address("서울").build());
-			members.save(OrganizationMember.builder().organization(org).user(owner).build());
+			User owner = users.save(User.builder().kind(UserKind.BUSINESS).loginId("1234567890")
+				.passwordHash(passwordEncoder.encode(PASSWORD)).name("담당자").email("owner@biz.example")
+				.busRegId("1234567890").companyType("corporate").companyName("테스트상사")
+				.companyOpenDate("20200101").companyAddress("서울").build());
 
 			mvc.perform(post("/api/v1/auth/login/business").contentType(MediaType.APPLICATION_JSON)
 					.content("""

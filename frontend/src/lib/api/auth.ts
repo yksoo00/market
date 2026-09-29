@@ -1,20 +1,31 @@
-import { post, upload } from "@/lib/api/client";
+import { api, post } from "@/lib/api/client";
 
 // 경로는 백엔드 구현 시 확정. 지금은 rules/backend.md 규칙대로 추정한 값
 export const authApi = {
+  me: () => api<{ id: string; kind: "PERSONAL" | "BUSINESS"; nickname: string }>("/api/v1/users/me", { cache: "no-store" }),
+  logout: () => post<null>("/api/v1/auth/logout", {}),
   login: (body: { loginId: string; password: string; remember: boolean }) =>
     post<{ userId: string }>("/api/v1/auth/login", body),
 
-  loginBusiness: (body: { bizNo: string; password: string; remember: boolean }) =>
-    post<{ userId: string }>("/api/v1/auth/login/business", body),
+  loginBusiness: (body: {
+    bizNo: string;
+    password: string;
+    remember: boolean;
+  }) => post<{ userId: string }>("/api/v1/auth/login/business", body),
 
   /** 본인인증 토큰으로 아이디 조회. 아이디는 마스킹해서 옴 (ab***12) */
   findId: (body: { verificationToken: string }) =>
-    post<{ loginIdMasked: string; joinedAt: string }>("/api/v1/auth/find-id", body),
+    post<{ loginIdMasked: string; joinedAt: string }>(
+      "/api/v1/auth/find-id",
+      body,
+    ),
 
   /** 아이디 + 본인인증 + 새 비밀번호를 한 번에. 인증한 사람이 계정 소유자인지는 서버가 CI 로 대조 */
-  resetPassword: (body: { loginId: string; verificationToken: string; password: string }) =>
-    post<null>("/api/v1/auth/password-reset", body),
+  resetPassword: (body: {
+    loginId: string;
+    verificationToken: string;
+    password: string;
+  }) => post<null>("/api/v1/auth/password-reset", body),
 
   /** 기업: 담당자 이메일로 재설정 링크 발송. 가입 여부를 응답으로 알려주지 않음 (계정 존재 노출 방지) */
   requestBusinessPasswordReset: (body: { bizNo: string; email: string }) =>
@@ -26,38 +37,40 @@ export const authApi = {
 
   // --- 가입 ---
   checkLoginId: (loginId: string) =>
-    post<{ available: boolean }>("/api/v1/auth/signup/check-login-id", { loginId }),
+    post<{ available: boolean }>("/api/v1/auth/signup/check-login-id", {
+      loginId,
+    }),
 
   checkNickname: (nickname: string) =>
-    post<{ available: boolean }>("/api/v1/auth/signup/check-nickname", { nickname }),
+    post<{ available: boolean }>("/api/v1/auth/signup/check-nickname", {
+      nickname,
+    }),
 
-  /** 일반 가입. 이름·휴대폰은 본인인증 결과와 서버에서 대조. termsAgreedAt 은 서버가 기록 */
+  /** 일반 가입. 요청 필드는 users 테이블의 계정·연락처 컬럼에 저장된다. */
   signupPersonal: (body: {
-    verificationToken: string;
     name: string;
-    nickname: string;
+    nickname: string | null;
+    nicknameUsage: "Y" | "N";
     loginId: string;
     email: string;
     password: string;
     phone: string;
-    marketingOptIn: boolean;
+    tel: string;
+    address: string;
+    contactMethod: "1" | "2" | "3";
   }) => post<{ userId: string }>("/api/v1/auth/signup/personal", body),
 
-  /** 소셜 첫 로그인 마무리. token 은 OAuth 콜백이 리다이렉트 URL 에 넣어준 임시 토큰(짧은 수명) */
-  completeSocialSignup: (body: { token: string; nickname: string; marketingOptIn: boolean }) =>
-    post<{ userId: string }>("/api/v1/auth/oauth/complete", body),
-
   // --- 기업 가입 ---
-  /** 국세청 진위확인. Spring 이 공공데이터 API 호출 (키 노출 금지). 통과하면 가입에 쓸 토큰 */
-  verifyBusiness: (body: { bizNo: string; startDate: string; ownerName: string }) =>
-    post<{ verificationToken: string }>("/api/v1/auth/signup/business/verify", body),
-
-  /** 사업자등록증 업로드 → MinIO 키. 가입 요청에 키를 넣는다 */
-  uploadBusinessLicense: (file: File) => {
-    const form = new FormData();
-    form.append("file", file);
-    return upload<{ fileKey: string }>("/api/v1/auth/signup/business/license", form);
-  },
+  /** 국세청 실연동 전까지 로컬 환경에서만 임시 가입 토큰을 발급한다. */
+  verifyBusiness: (body: {
+    bizNo: string;
+    startDate: string;
+    ownerName: string;
+  }) =>
+    post<{ verificationToken: string }>(
+      "/api/v1/auth/signup/business/verify",
+      body,
+    ),
 
   signupBusiness: (body: {
     verificationToken: string;
@@ -65,19 +78,10 @@ export const authApi = {
     bizType: "corporation" | "individual";
     companyName: string;
     address: string;
-    licenseFileKey: string;
     contactName: string;
     contactPhone: string;
     contactEmail: string;
-    captchaToken: string;
-    marketingOptIn: boolean;
+    contactTel: string;
+    companyTel: string;
   }) => post<{ userId: string }>("/api/v1/auth/signup/business", body),
 };
-
-export type SocialProvider = "kakao" | "naver" | "google";
-
-/** 소셜 로그인은 페이지 이동. 콜백은 백엔드가 처리하고 쿠키를 심은 뒤 next 로 돌려보냄 */
-export function socialLoginUrl(provider: SocialProvider, next: string): string {
-  const base = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
-  return `${base}/api/v1/auth/oauth/${provider}?next=${encodeURIComponent(next)}`;
-}
