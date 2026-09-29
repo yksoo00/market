@@ -5,4 +5,5 @@ export const common = {
   submitting: "처리 중…",
   tileExpand: "확대",
   tileClose: "닫기",
+  tileFrameTitle: "보조 화면",
 };

@@ -7,8 +7,11 @@ import type { SecondaryTile } from "@/lib/tileWorkspace";
 import { common as t } from "@/messages/common";
 
 export function TileFrame({ tile }: { tile: SecondaryTile }) {
-  const { promote, closeTile } = useTileWorkspace();
-  const [currentPath, setCurrentPath] = useState(tile.path);
+  const { promote, closeTile, updateTilePath } = useTileWorkspace();
+  // tile.path는 iframe 내부 이동을 따라 계속 갱신된다. 그걸 src에 그대로 걸면 이동할 때마다
+  // src가 바뀌어 iframe이 같은 페이지를 한 번 더 로드하므로, 마운트 시점 경로로 고정한다.
+  // 1↔2개 전환처럼 다시 마운트될 때는 최신 tile.path로 열린다.
+  const [src] = useState(tile.path);
   const [loadError, setLoadError] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
 
@@ -19,12 +22,12 @@ export function TileFrame({ tile }: { tile: SecondaryTile }) {
         event.source === iframeRef.current?.contentWindow &&
         event.data?.source === "market-tile"
       ) {
-        setCurrentPath(event.data.pathname);
+        updateTilePath(tile.key, event.data.pathname);
       }
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
-  }, []);
+  }, [tile.key, updateTilePath]);
 
   if (loadError) {
     return (
@@ -44,9 +47,15 @@ export function TileFrame({ tile }: { tile: SecondaryTile }) {
 
   return (
     <div className="group relative h-full w-full">
-      <iframe ref={iframeRef} src={tile.path} onError={() => setLoadError(true)} className="h-full w-full border-0" />
-      <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button type="button" aria-label={t.tileExpand} onClick={() => promote(tile.key, currentPath)}>
+      <iframe
+        ref={iframeRef}
+        src={src}
+        title={t.tileFrameTitle}
+        onError={() => setLoadError(true)}
+        className="h-full w-full border-0"
+      />
+      <div className="absolute top-1 right-1 flex gap-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+        <button type="button" aria-label={t.tileExpand} onClick={() => promote(tile.key, tile.path)}>
           <Icon name="expand" size={16} />
         </button>
         <button type="button" aria-label={t.tileClose} onClick={() => closeTile(tile.key)}>

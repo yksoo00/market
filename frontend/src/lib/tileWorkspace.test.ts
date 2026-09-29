@@ -5,6 +5,7 @@ import {
   closeTile,
   promoteTile,
   resetTiles,
+  updateTilePath,
 } from "./tileWorkspace";
 
 describe("openTileLink", () => {
@@ -70,6 +71,29 @@ describe("promoteTile", () => {
   it("없는 key면 상태 그대로 반환", () => {
     const s = openTileLink(initialTileWorkspaceState, "/a", "k1");
     expect(promoteTile(s, "none", "/x", "k-new")).toEqual(s);
+  });
+});
+
+describe("updateTilePath", () => {
+  it("해당 key 타일의 path만 바꾸고 나머지·순서는 그대로", () => {
+    let s = openTileLink(initialTileWorkspaceState, "/a", "k1");
+    s = openTileLink(s, "/b", "k2");
+    const result = updateTilePath(s, "k1", "/a/detail?tab=spec");
+    expect(result.secondary).toEqual([
+      { path: "/b", key: "k2" },
+      { path: "/a/detail?tab=spec", key: "k1" },
+    ]);
+    expect(result.secondary[0]).toBe(s.secondary[0]);
+  });
+
+  it("없는 key면 상태 그대로 반환", () => {
+    const s = openTileLink(initialTileWorkspaceState, "/a", "k1");
+    expect(updateTilePath(s, "none", "/x")).toBe(s);
+  });
+
+  it("경로가 같으면 상태 그대로 반환", () => {
+    const s = openTileLink(initialTileWorkspaceState, "/a", "k1");
+    expect(updateTilePath(s, "k1", "/a")).toBe(s);
   });
 });
 
