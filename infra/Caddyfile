@@ -2,10 +2,6 @@
 api.{$DOMAIN_ROOT} {
     encode gzip
 
-    handle_path /media/* {
-        reverse_proxy minio:9000
-    }
-
     @internal path /internal/*      # spring ↔ ai 내부 전용. 외부 차단
     respond @internal 404
 

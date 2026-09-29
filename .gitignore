@@ -1,5 +1,7 @@
 .env
 .env.*
+
+.pnpm-store/*
 !.env.example
 CLAUDE.local.md
 
@@ -23,13 +25,6 @@ frontend/.vercel
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
 
-ai/.venv/
-ai/**/__pycache__/
-ai/.pytest_cache/
-ai/.mypy_cache/
-ai/.ruff_cache/
-ai/*.egg-info/
-
 infra/data/
-# 견적서 원본 (개인정보 포함 가능). 익명화한 것만 ai/tests/fixtures/ 에
+# 견적서 원본 (개인정보 포함 가능)
 samples/
