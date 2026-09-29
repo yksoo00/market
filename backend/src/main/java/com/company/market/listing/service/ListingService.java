@@ -97,6 +97,16 @@ public class ListingService {
 		return toResponse(listing, products.get(listing.getProdId()));
 	}
 
+	@Transactional
+	public void delete(UUID pathUserId, String regDate, UUID requesterId) {
+		Listing listing = listings.findById(new ListingId(pathUserId, regDate))
+			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
+		if (!requesterId.equals(pathUserId)) {
+			throw new ApiException(ErrorCode.FORBIDDEN);
+		}
+		listings.delete(listing);
+	}
+
 	public ListingResponse get(UUID userId, String regDate) {
 		Listing listing = listings.findById(new ListingId(userId, regDate))
 			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));

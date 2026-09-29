@@ -29,6 +29,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -234,6 +235,33 @@ class ListingApiTest {
 	void updateMissingIsNotFound() throws Exception {
 		mvc.perform(patch("/api/v1/listings/" + UUID.randomUUID() + "/20260101000000").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("{\"salesUnitPrice\":1}"))
+			.andExpect(status().isNotFound());
+	}
+
+	@Test
+	@DisplayName("본인 매물을 삭제하면 204, 다시 조회하면 404")
+	void ownerCanDelete() throws Exception {
+		String regDate = createListing(authCookie);
+
+		mvc.perform(delete("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie))
+			.andExpect(status().isNoContent());
+		mvc.perform(get("/api/v1/listings/" + userId + "/" + regDate)).andExpect(status().isNotFound());
+	}
+
+	@Test
+	@DisplayName("다른 사용자의 매물을 삭제하려 하면 403이고 실제로 지워지지 않는다")
+	void othersCannotDelete() throws Exception {
+		String regDate = createListing(authCookie);
+
+		mvc.perform(delete("/api/v1/listings/" + userId + "/" + regDate).cookie(otherUserCookie()))
+			.andExpect(status().isForbidden());
+		mvc.perform(get("/api/v1/listings/" + userId + "/" + regDate)).andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("없는 매물을 삭제하려 하면 404")
+	void deleteMissingIsNotFound() throws Exception {
+		mvc.perform(delete("/api/v1/listings/" + UUID.randomUUID() + "/20260101000000").cookie(authCookie))
 			.andExpect(status().isNotFound());
 	}
 

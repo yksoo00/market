@@ -16,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -57,6 +58,14 @@ public class ListingController {
 			@PathVariable UUID userId, @PathVariable String regDate, @Valid @RequestBody ListingUpdateRequest req) {
 		limiter.hit("listing:update:" + me.id(), 20, Duration.ofHours(1));
 		return ApiResponse.of(listings.update(userId, regDate, me.id(), req));
+	}
+
+	@DeleteMapping("/{userId}/{regDate}")
+	public ResponseEntity<Void> delete(@AuthenticationPrincipal AuthenticatedUser me,
+			@PathVariable UUID userId, @PathVariable String regDate) {
+		limiter.hit("listing:delete:" + me.id(), 10, Duration.ofHours(1));
+		listings.delete(userId, regDate, me.id());
+		return ResponseEntity.noContent().build();
 	}
 
 }
