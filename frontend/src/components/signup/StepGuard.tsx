@@ -26,11 +26,11 @@ export function StepGuard({ kind, require, children }: Props) {
     noop,
     () => {
       const state: Partial<Record<string, unknown>> = kind === "personal" ? { ...personalSignupFlow.get() } : { ...businessSignupFlow.get() };
-      return key.split(",").every((k) => Boolean(state[k]));
+      return require.length === 0 || key.split(",").every((k) => Boolean(state[k]));
     },
     () => null,
   );
-  const redirectTo = kind === "personal" ? personalSignupPath.verify : businessSignupPath.terms;
+  const redirectTo = kind === "personal" ? personalSignupPath.form : businessSignupPath.verify;
 
   useEffect(() => {
     if (ok === false) router.replace(redirectTo);

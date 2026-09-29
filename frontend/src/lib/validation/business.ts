@@ -32,16 +32,6 @@ export const businessVerifySchema = z.object({
 export type BusinessVerifyInput = z.input<typeof businessVerifySchema>;
 export type BusinessVerifyOutput = z.output<typeof businessVerifySchema>;
 
-export const LICENSE_TYPES = ["application/pdf", "image/jpeg", "image/png"] as const;
-export const LICENSE_MAX_BYTES = 10 * 1024 * 1024;
-
-// 파일 input 은 FileList 를 주므로 첫 파일만 검사. 서버가 형식·크기를 다시 검사
-const licenseSchema = z
-  .custom<FileList>((v) => typeof FileList !== "undefined" && v instanceof FileList)
-  .refine((fl) => fl.length === 1, ta.validation.required)
-  .refine((fl) => fl.length !== 1 || (LICENSE_TYPES as readonly string[]).includes(fl[0].type), v.licenseType)
-  .refine((fl) => fl.length !== 1 || fl[0].size <= LICENSE_MAX_BYTES, v.licenseSize);
-
 // 2단계: 나머지 정보. 사업자번호·개업일·대표자는 1단계 결과를 그대로 씀 (폼 필드 아님)
 export const businessSignupSchema = z
   .object({
@@ -52,20 +42,21 @@ export const businessSignupSchema = z
     bizType: z.enum(["corporation", "individual"]),
     companyName: name50(v.companyName),
     address: z.string().min(1, ta.validation.required).max(200, v.address),
-    license: licenseSchema,
     contactName: nameSchema,
     phonePrefix: z.enum(phonePrefixes),
     phoneMid: z.string().regex(/^\d{4}$/, t.validation.phone),
     phoneLast: z.string().regex(/^\d{4}$/, t.validation.phone),
+    contactTel: z.string().max(20, "전화번호는 20자 이하입니다."),
+    companyTel: z.string().max(20, "회사 전화번호는 20자 이하입니다."),
     emailLocal: z.string().min(1, t.validation.emailLocal).max(64, t.validation.emailLocal),
     emailDomain: z.enum([...emailDomains, CUSTOM_DOMAIN]),
     emailCustom: z.string(),
-    captchaToken: z.string().min(1, v.captcha),
-    marketingOptIn: z.boolean(),
   })
   .superRefine((d, ctx) => {
     if (d.emailDomain === CUSTOM_DOMAIN && d.emailCustom.trim() === "") {
       ctx.addIssue({ code: "custom", path: ["emailCustom"], message: t.validation.emailDomain });
+    } else if (joinEmail(d.emailLocal, d.emailDomain, d.emailCustom).length > 100) {
+      ctx.addIssue({ code: "custom", path: [d.emailDomain === CUSTOM_DOMAIN ? "emailCustom" : "emailLocal"], message: "이메일은 100자 이하로 입력하세요." });
     } else if (!emailSchema.safeParse(joinEmail(d.emailLocal, d.emailDomain, d.emailCustom)).success) {
       const path = d.emailDomain === CUSTOM_DOMAIN ? "emailCustom" : "emailLocal";
       ctx.addIssue({ code: "custom", path: [path], message: ta.validation.email });

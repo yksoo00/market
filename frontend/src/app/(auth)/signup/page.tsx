@@ -11,8 +11,8 @@ export default function SignupChoosePage() {
   return (
     <AuthCard title={t.title} subtitle={t.choose.subtitle}>
       <div className="flex flex-col gap-3">
-        <Choice href={personalSignupPath.verify} icon="user" tone="primary" title={t.choose.personal.title} desc={t.choose.personal.desc} />
-        <Choice href={businessSignupPath.terms} icon="business" tone="green" title={t.choose.business.title} desc={t.choose.business.desc} />
+        <Choice href={personalSignupPath.form} icon="user" tone="primary" title={t.choose.personal.title} desc={t.choose.personal.desc} />
+        <Choice href={businessSignupPath.verify} icon="business" tone="green" title={t.choose.business.title} desc={t.choose.business.desc} />
       </div>
       <p className="mt-5 text-center text-[13px] text-ink-2">
         {t.choose.haveAccount}{" "}

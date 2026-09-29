@@ -25,7 +25,8 @@ export function joinEmail(local: string, domain: EmailDomainOption, custom: stri
 export const personalSignupSchema = z
   .object({
     name: nameSchema,
-    nickname: nicknameSchema,
+    nickname: z.string().max(20, v.nickname),
+    nicknameUsage: z.enum(["Y", "N"]),
     loginId: loginIdSchema,
     emailLocal: z.string().min(1, v.emailLocal).max(64, v.emailLocal),
     emailDomain: domainEnum,
@@ -35,13 +36,23 @@ export const personalSignupSchema = z
     phonePrefix: z.enum(phonePrefixes),
     phoneMid: z.string().regex(/^\d{4}$/, v.phone),
     phoneLast: z.string().regex(/^\d{4}$/, v.phone),
-    marketingOptIn: z.boolean(),
+    tel: z.string().max(20, "전화번호는 20자 이하입니다."),
+    address: z.string().max(200, "주소는 200자 이하입니다."),
+    contactMethod: z.enum(["1", "2", "3"]),
   })
   .superRefine((d, ctx) => {
+    if (d.nicknameUsage === "Y" && !nicknameSchema.safeParse(d.nickname).success) {
+      ctx.addIssue({ code: "custom", path: ["nickname"], message: v.nickname });
+    }
     if (d.emailDomain === CUSTOM_DOMAIN && d.emailCustom.trim() === "") {
       ctx.addIssue({ code: "custom", path: ["emailCustom"], message: v.emailDomain });
     } else {
-      const r = emailSchema.safeParse(joinEmail(d.emailLocal, d.emailDomain, d.emailCustom));
+      const email = joinEmail(d.emailLocal, d.emailDomain, d.emailCustom);
+      if (email.length > 100) {
+        ctx.addIssue({ code: "custom", path: [d.emailDomain === CUSTOM_DOMAIN ? "emailCustom" : "emailLocal"], message: "이메일은 100자 이하로 입력하세요." });
+        return;
+      }
+      const r = emailSchema.safeParse(email);
       if (!r.success) {
         // 합친 결과가 틀리면 사용자가 고칠 수 있는 칸에 표시
         const path = d.emailDomain === CUSTOM_DOMAIN ? "emailCustom" : "emailLocal";
@@ -58,8 +69,3 @@ export const personalSignupSchema = z
   });
 
 export type PersonalSignupInput = z.input<typeof personalSignupSchema>;
-
-// 소셜 첫 로그인: 약관 + 닉네임만. 이름·휴대폰은 안 받음 (decisions.md 2026-09-21)
-export const socialSignupSchema = z.object({ nickname: nicknameSchema }); // 마케팅 동의는 약관 목록에서
-export type SocialSignupInput = z.infer<typeof socialSignupSchema>;
-

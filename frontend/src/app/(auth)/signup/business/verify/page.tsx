@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: `${t.business.verify.title} · ${t.ti
 export default function BusinessVerifyPage() {
   return (
     <div className="w-full max-w-[420px] flex flex-col gap-4">
-      <SignupSteps steps={businessSteps} current={1} />
+      <SignupSteps steps={businessSteps} current={0} />
       <AuthCard title={t.business.verify.title} subtitle={t.business.verify.subtitle}>
         <BusinessVerifyStep />
       </AuthCard>
