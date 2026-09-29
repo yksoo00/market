@@ -74,3 +74,5 @@ logging:
   # LOGGING_STRUCTURED_FORMAT_CONSOLE=ecs 로 JSON 으로 바꾼다 (MDC 는 자동 포함). 라이브러리 없이 Boot 내장 기능
   pattern:
     console: "%d{HH:mm:ss.SSS} %5p [%X{requestId:-},%X{userId:-}] %-40.40logger{39} : %m%n"
+  charset:
+    console: UTF-8    # Windows 콘솔 기본 codepage(CP949)로 한글 로그 깨짐 방지
