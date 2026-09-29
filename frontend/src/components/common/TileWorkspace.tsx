@@ -23,12 +23,12 @@ function TileGrid({ main }: { main: ReactNode }) {
   const { secondary } = useTileWorkspace();
 
   if (secondary.length === 0) {
-    return <div className="h-full w-full">{main}</div>;
+    return <div className="flex-1 min-h-0 h-full w-full">{main}</div>;
   }
 
   if (secondary.length === 1) {
     return (
-      <div className="grid grid-cols-2 h-full w-full">
+      <div className="flex-1 min-h-0 grid grid-cols-2 h-full w-full">
         {main}
         <TileFrame tile={secondary[0]} />
       </div>
@@ -36,7 +36,7 @@ function TileGrid({ main }: { main: ReactNode }) {
   }
 
   return (
-    <div className="grid grid-cols-2 h-full w-full">
+    <div className="flex-1 min-h-0 grid grid-cols-2 h-full w-full">
       {main}
       <div className="grid grid-rows-2 h-full">
         <TileFrame tile={secondary[0]} />
