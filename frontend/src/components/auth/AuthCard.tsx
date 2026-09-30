@@ -16,7 +16,7 @@ export function AuthCard({ title, subtitle, wide = false, children }: Props) {
         <h1 className="text-xl font-bold">{title}</h1>
         {subtitle && <p className="text-[13px] text-ink-2">{subtitle}</p>}
       </div>
-      <div className="bg-surface border border-line rounded-md p-5 md:p-6">{children}</div>
+      <div className="bg-surface border border-line rounded-md p-5 @md:p-6">{children}</div>
     </div>
   );
 }

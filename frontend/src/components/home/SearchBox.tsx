@@ -5,15 +5,15 @@ import { home as t } from "@/messages/home";
 
 export function SearchBox() {
   return (
-    <form action="/search" className="w-full flex flex-col gap-2.5 md:gap-3">
+    <form action="/search" className="w-full flex flex-col gap-2.5 @md:gap-3">
       <label htmlFor="q" className="sr-only">
         {t.search.label}
       </label>
-      <div className="h-11 md:h-16 flex items-stretch rounded-md md:rounded-lg border-2 border-primary bg-surface overflow-hidden">
+      <div className="h-11 @md:h-16 flex items-stretch rounded-md @md:rounded-lg border-2 border-primary bg-surface overflow-hidden">
         <select
           name="category"
           aria-label="카테고리"
-          className="hidden md:block w-28 px-3 border-r border-line bg-primary-soft text-primary-dark text-sm font-medium outline-none"
+          className="hidden @md:block w-28 px-3 border-r border-line bg-primary-soft text-primary-dark text-sm font-medium outline-none"
         >
           <option value="">{t.search.allCategories}</option>
           {categories.map((c) => (
@@ -22,19 +22,19 @@ export function SearchBox() {
             </option>
           ))}
         </select>
-        <div className="grow min-w-0 flex items-center gap-2.5 px-3 md:px-3.5 text-ink-2">
+        <div className="grow min-w-0 flex items-center gap-2.5 px-3 @md:px-3.5 text-ink-2">
           <Icon name="search" strokeWidth={2} />
           <input
             id="q"
             name="q"
             type="search"
             placeholder={t.search.placeholder}
-            className="grow min-w-0 bg-transparent outline-none text-[15px] md:text-[17px] text-ink placeholder:text-ink-3"
+            className="grow min-w-0 bg-transparent outline-none text-[15px] @md:text-[17px] text-ink placeholder:text-ink-3"
           />
         </div>
         <button
           type="submit"
-          className="w-16 md:w-26 bg-primary text-white text-sm md:text-base font-bold hover:bg-primary-dark"
+          className="w-16 @md:w-26 bg-primary text-white text-sm @md:text-base font-bold hover:bg-primary-dark"
         >
           {t.search.button}
         </button>

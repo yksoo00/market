@@ -3,7 +3,6 @@ import {
   initialTileWorkspaceState,
   openTileLink,
   closeTile,
-  promoteTile,
   resetTiles,
   updateTilePath,
 } from "./tileWorkspace";
@@ -54,23 +53,6 @@ describe("closeTile", () => {
   it("없는 key는 상태 그대로 반환", () => {
     const s = openTileLink(initialTileWorkspaceState, "/a", "k1");
     expect(closeTile(s, "none")).toEqual(s);
-  });
-});
-
-describe("promoteTile", () => {
-  it("해당 key 자리를 replacementPath/Key로 교체", () => {
-    let s = openTileLink(initialTileWorkspaceState, "/a", "k1");
-    s = openTileLink(s, "/b", "k2");
-    const result = promoteTile(s, "k2", "/old-main", "k-new");
-    expect(result.secondary).toEqual([
-      { path: "/old-main", key: "k-new" },
-      { path: "/a", key: "k1" },
-    ]);
-  });
-
-  it("없는 key면 상태 그대로 반환", () => {
-    const s = openTileLink(initialTileWorkspaceState, "/a", "k1");
-    expect(promoteTile(s, "none", "/x", "k-new")).toEqual(s);
   });
 });
 

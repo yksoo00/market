@@ -36,7 +36,11 @@ function TileGrid({ main }: { main: ReactNode }) {
   // 페이지들은 body(flex-col)의 직계 자식처럼 <Header/><main className="flex-1 min-h-0">…을 두므로
   // 래퍼도 flex-col이어야 main의 flex-1·min-h-0이 전처럼 동작한다.
   // 그리드 안에서도 하나의 셀로 들어가야 Header·main·MobileTabBar가 각각 셀로 흩어지지 않는다.
-  const mainCell = <div className="flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden">{main}</div>;
+  // @container: 이 칸의 실제 폭을 기준으로 안쪽 콘텐츠가 @md:/@lg: 로 반응하게 한다
+  // (타일이 열려 메인이 좁아져도, 일반 md:/lg: 처럼 브라우저 창 전체 폭을 보고 반응 안 하는 문제 방지).
+  const mainCell = (
+    <div className="@container flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden">{main}</div>
+  );
 
   if (tiles.length === 0) {
     return <div className="flex flex-1 flex-col min-h-0 w-full">{mainCell}</div>;

@@ -15,7 +15,6 @@ const paths = {
   home: <path d="M3 11l9-8 9 8v9a2 2 0 0 1-2 2h-4v-6H9v6H5a2 2 0 0 1-2-2z" />,
   user: <><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
-  expand: <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />,
   close: <path d="M6 6l12 12M18 6L6 18" />,
 } as const;
 

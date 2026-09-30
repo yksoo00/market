@@ -26,22 +26,6 @@ export function closeTile(
   return { secondary: newSecondary };
 }
 
-export function promoteTile(
-  state: TileWorkspaceState,
-  key: string,
-  replacementPath: string,
-  replacementKey: string
-): TileWorkspaceState {
-  const foundIndex = state.secondary.findIndex((tile) => tile.key === key);
-  if (foundIndex === -1) {
-    return state;
-  }
-  const newSecondary = state.secondary.map((tile) =>
-    tile.key === key ? { path: replacementPath, key: replacementKey } : tile
-  );
-  return { secondary: newSecondary };
-}
-
 export function updateTilePath(
   state: TileWorkspaceState,
   key: string,

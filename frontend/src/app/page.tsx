@@ -12,21 +12,21 @@ export default function HomePage() {
     <>
       <Header />
 
-      <main className="flex-1 min-h-0 px-4 md:px-6 py-3 md:py-5 flex flex-col gap-3 md:gap-4 lg:grid lg:grid-cols-[7fr_3fr] lg:gap-6">
-        <section className="min-w-0 flex flex-col gap-4 lg:items-center lg:justify-center lg:pb-10">
-          <div className="w-full lg:max-w-[760px] flex flex-col gap-4 md:gap-7">
-            <h1 className="-mb-1 md:-mb-3 text-center text-[17px] md:text-xl font-bold text-ink">{t.tagline}</h1>
+      <main className="flex-1 min-h-0 px-4 @md:px-6 py-3 @md:py-5 flex flex-col gap-3 @md:gap-4 @lg:grid @lg:grid-cols-[7fr_3fr] @lg:gap-6">
+        <section className="min-w-0 flex flex-col gap-4 @lg:items-center @lg:justify-center @lg:pb-10">
+          <div className="w-full @lg:max-w-[760px] flex flex-col gap-4 @md:gap-7">
+            <h1 className="-mb-1 @md:-mb-3 text-center text-[17px] @md:text-xl font-bold text-ink">{t.tagline}</h1>
             <SearchBox />
             <QuickMenu />
           </div>
         </section>
 
-        <div className="hidden lg:flex min-w-0 min-h-0 flex-col gap-4">
+        <div className="hidden @lg:flex min-w-0 min-h-0 flex-col gap-4">
           <RealtimeCard type="buy" items={buyRequests} />
           <RealtimeCard type="sell" items={sellListings} />
         </div>
 
-        <div className="lg:hidden flex-1 min-h-0 flex flex-col">
+        <div className="@lg:hidden flex-1 min-h-0 flex flex-col">
           <RealtimeTabs buy={buyRequests} sell={sellListings} />
         </div>
       </main>

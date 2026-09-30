@@ -3,18 +3,22 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/common/Icon";
+import { useIsFramed } from "@/hooks/useIsFramed";
 import { authApi } from "@/lib/api/auth";
 import { home as t } from "@/messages/home";
 
 const navHrefs = ["/listings", "/requests", "/prices", "/business", "/support"];
 
 export function Header({ hideAuthLinks = false }: { hideAuthLinks?: boolean }) {
+  const framed = useIsFramed();
   const [profile, setProfile] = useState<{ nickname: string } | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [logoutError, setLogoutError] = useState(false);
 
   useEffect(() => {
+    // 서브 타일(iframe) 안에서는 헤더 자체를 안 그리므로 세션 조회도 건너뛴다.
+    if (framed) return;
     let active = true;
     void authApi.me().then((result) => {
       if (!active) return;
@@ -24,7 +28,7 @@ export function Header({ hideAuthLinks = false }: { hideAuthLinks?: boolean }) {
     return () => {
       active = false;
     };
-  }, []);
+  }, [framed]);
 
   const logout = async () => {
     setLoggingOut(true);
@@ -38,6 +42,8 @@ export function Header({ hideAuthLinks = false }: { hideAuthLinks?: boolean }) {
     }
     setLoggingOut(false);
   };
+
+  if (framed) return null;
 
   return (
     <header className="h-13 md:h-14 shrink-0 px-4 md:px-6 flex items-center gap-7 bg-primary text-white">
