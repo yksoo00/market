@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { FitList } from "@/components/home/FitList";
-import { ListingRow, ROW_HEIGHT } from "@/components/home/ListingRow";
+import { ListingRow } from "@/components/home/ListingRow";
 import { home as t } from "@/messages/home";
 import type { ListingSummary, ListingType } from "@/types/listing";
 
@@ -24,7 +24,7 @@ export function RealtimeCard({ type, items }: Props) {
       {items.length === 0 ? (
         <p className="py-6 text-center text-[13px] text-ink-3">{t.empty}</p>
       ) : (
-        <FitList rowHeight={ROW_HEIGHT} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+        <FitList className="flex-1 min-h-0 flex flex-col overflow-hidden">
           {items.map((item) => (
             <ListingRow key={item.id} item={item} />
           ))}

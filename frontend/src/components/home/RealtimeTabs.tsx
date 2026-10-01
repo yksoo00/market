@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { FitList } from "@/components/home/FitList";
-import { ListingRow, ROW_HEIGHT } from "@/components/home/ListingRow";
+import { ListingRow } from "@/components/home/ListingRow";
 import { home as t } from "@/messages/home";
 import type { ListingSummary, ListingType } from "@/types/listing";
 
@@ -39,11 +39,15 @@ export function RealtimeTabs({ buy, sell }: Props) {
           {t.viewAll} ›
         </Link>
       </div>
-      <FitList rowHeight={ROW_HEIGHT} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-surface -mx-4 px-4">
-        {items.map((item) => (
-          <ListingRow key={item.id} item={item} />
-        ))}
-      </FitList>
+      {items.length === 0 ? (
+        <p className="py-6 text-center text-[13px] text-ink-3 bg-surface -mx-4 px-4">{t.empty}</p>
+      ) : (
+        <FitList className="flex-1 min-h-0 flex flex-col overflow-hidden bg-surface -mx-4 px-4">
+          {items.map((item) => (
+            <ListingRow key={item.id} item={item} />
+          ))}
+        </FitList>
+      )}
     </section>
   );
 }

@@ -1,11 +1,11 @@
 "use client";
 
-import { Children, isValidElement, type ReactNode } from "react";
+import { Children, type ReactElement, type ReactNode } from "react";
 import { useFitCount } from "@/hooks/useFitCount";
 
 interface Props {
-  rowHeight: number;
   className?: string;
+  /** 높이가 모두 같은 행들 (첫 행 높이로 개수를 센다) */
   children: ReactNode;
 }
 
@@ -16,12 +16,12 @@ interface Props {
  * (칸 높이가 내용에 맞춰지므로), invisible 은 자리는 지키면서 포커스·스크린리더에서도 빠진다.
  * 측정 전(서버 렌더·첫 렌더)에는 행 수를 모르므로 전부 숨긴다 — 반쯤 잘린 행이 보였다가 사라지는 깜빡임 방지.
  */
-export function FitList({ rowHeight, className = "", children }: Props) {
-  const [ref, fit] = useFitCount<HTMLDivElement>(rowHeight);
+export function FitList({ className = "", children }: Props) {
+  const [ref, fit] = useFitCount<HTMLDivElement>();
   return (
     <div ref={ref} className={`${className} ${fit === null ? "invisible" : ""}`}>
       {Children.toArray(children).map((row, i) => (
-        <div key={isValidElement(row) ? row.key : i} className={fit !== null && i >= fit ? "invisible" : ""}>
+        <div key={(row as ReactElement).key} className={fit !== null && i >= fit ? "invisible" : ""}>
           {row}
         </div>
       ))}

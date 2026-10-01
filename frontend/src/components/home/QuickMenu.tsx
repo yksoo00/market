@@ -99,10 +99,11 @@ export function QuickMenu() {
         <p
           key={notice.seq}
           role={notice.error ? "alert" : "status"}
-          className={`flex items-center gap-2 text-[13px] ${notice.error ? "text-down" : "text-ink-2"}`}
+          className={`max-w-full flex items-center gap-2 text-[13px] ${notice.error ? "text-down" : "text-ink-2"}`}
         >
-          {notice.text}
-          <button type="button" aria-label={t.dismiss} onClick={() => setNotice(null)} className="text-ink-3 hover:text-ink">
+          {/* 긴 파일 이름(공백 없음)이 한 줄로 늘어나 가로 스크롤을 만들지 않게 */}
+          <span className="min-w-0 break-all">{notice.text}</span>
+          <button type="button" aria-label={t.dismiss} onClick={() => setNotice(null)} className="shrink-0 text-ink-3 hover:text-ink">
             <Icon name="close" size={14} />
           </button>
         </p>
@@ -114,7 +115,9 @@ export function QuickMenu() {
 function Group({ tone, label, children }: { tone: Tone; label: string; children: ReactNode }) {
   return (
     <div role="group" aria-label={label} className="flex items-center gap-1.5 @md:gap-3">
+      {/* 그룹 이름은 aria-label 로 이미 읽히므로 배지는 스크린리더에서 뺀다 (두 번 읽힘 방지) */}
       <span
+        aria-hidden="true"
         className={`h-6 px-2 mr-1 rounded-[5px] flex items-center text-xs font-bold text-white ${
           tone === "sell" ? "bg-primary" : "bg-green"
         }`}

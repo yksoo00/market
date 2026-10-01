@@ -3,9 +3,6 @@ import { formatPrice, formatRelative } from "@/lib/format";
 import { home as t } from "@/messages/home";
 import type { ListingSummary } from "@/types/listing";
 
-/** 행 높이(px). 아래 h-14 와 같아야 한다 — 홈 목록이 칸에 들어가는 행 수를 이 값으로 센다 */
-export const ROW_HEIGHT = 56;
-
 export function ListingRow({ item }: { item: ListingSummary }) {
   const href = item.type === "buy" ? `/requests/${item.id}` : `/listings/${item.id}`;
   return (
