@@ -26,10 +26,22 @@ export interface ListingSearchItem {
   prodName: string;
   prodBrand: string;
   category: string;
-  /** 부품상세내역 */
-  description: string | null;
+  /** 제조일 YYYY-MM-DD (products.prod_mufc_date) */
+  mufcDate: string | null;
+  /** 상품설명 (listings.prod_description) */
+  prodDescription: string | null;
+  /** 부품상세내역, 제조사 제공 (products.prod_spec_info) */
+  specInfo: string | null;
   hasDataSheet: boolean;
   hasPhoto: boolean;
+  // 아래 5개는 등록 후 추가등록(PATCH)으로만 채워져 비어 있는 경우가 흔하다 (PR #17)
+  /** 보증기한 YYYY-MM-DD. DB는 일수(warranty_period)라 백엔드가 등록일 + 일수로 계산해 내려준다 */
+  warrantyUntil: string | null;
+  /** 불량지원방법 (warranty_coverage: 대체/환불) */
+  warrantyCoverage: string | null;
+  hasReplaceProd: boolean;
+  hasTestReport: boolean;
+  hasCertificate: boolean;
   /** 상품상태 자유 텍스트 (예: 양호, 신품대비 90%) */
   prodState: string;
   stockQuantity: number;

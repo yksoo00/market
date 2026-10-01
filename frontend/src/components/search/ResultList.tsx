@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, type MouseEvent } from "react";
+import { useState, type MouseEvent, type ReactNode } from "react";
 import { Icon } from "@/components/common/Icon";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatPrice } from "@/lib/format";
@@ -15,6 +15,44 @@ const keyOf = (i: ListingSearchItem) => `${i.userId}/${i.regDate}`;
 const qty = new Intl.NumberFormat("ko-KR");
 // 체크박스·링크 클릭이 행 클릭(상세 이동)으로 번지지 않게
 const stop = (e: MouseEvent) => e.stopPropagation();
+const DASH = "–";
+
+interface Column {
+  label: string;
+  /** Tailwind 폭 클래스 */
+  width: string;
+  align?: "left" | "right" | "center";
+  mono?: boolean;
+  strong?: boolean;
+  /** 거래 가능 행에서 보조 글자색 */
+  muted?: boolean;
+  /** 말줄임되는 칸의 전체 값 (마우스 올리면) */
+  title?: (item: ListingSearchItem) => string | undefined;
+  cell: (item: ListingSearchItem, done: boolean) => ReactNode;
+}
+
+const alignClass = { left: "text-left", right: "text-right", center: "text-center" } as const;
+const c = t.columns;
+
+// 체크·상품명(왼쪽 고정) 뒤의 열. 순서는 요구 화면(상품명·상품번호·제조사·제조일·상태·설명·서류·보증)을 따르되
+// 수량·단가는 스크롤 없이 보이게 제조사 바로 뒤로 당김
+const columns: Column[] = [
+  { label: c.prodNo, width: "w-36", mono: true, title: (i) => i.prodNo ?? undefined, cell: (i) => i.prodNo ?? DASH },
+  { label: c.brand, width: "w-32", title: (i) => i.prodBrand, cell: (i) => i.prodBrand },
+  { label: c.quantity, width: "w-18", align: "right", mono: true, cell: (i) => qty.format(i.stockQuantity) },
+  { label: c.price, width: "w-28", align: "right", mono: true, strong: true, cell: (i) => formatPrice(i.salesUnitPrice) },
+  { label: c.mufcDate, width: "w-26", mono: true, muted: true, cell: (i) => i.mufcDate ?? DASH },
+  { label: c.state, width: "w-26", cell: (i, done) => (done ? <CompletedBadge /> : i.prodState) },
+  { label: c.prodDescription, width: "w-56", muted: true, title: (i) => i.prodDescription ?? undefined, cell: (i) => i.prodDescription ?? DASH },
+  { label: c.specInfo, width: "w-56", muted: true, title: (i) => i.specInfo ?? undefined, cell: (i) => i.specInfo ?? DASH },
+  { label: c.dataSheet, width: "w-20", align: "center", cell: (i) => <Has on={i.hasDataSheet} icon="file" label={c.dataSheet} /> },
+  { label: c.photo, width: "w-12", align: "center", cell: (i) => <Has on={i.hasPhoto} icon="image" label={c.photo} /> },
+  { label: c.warranty, width: "w-26", mono: true, muted: true, cell: (i) => i.warrantyUntil ?? DASH },
+  { label: c.coverage, width: "w-18", align: "center", cell: (i) => i.warrantyCoverage ?? DASH },
+  { label: c.replaceProd, width: "w-16", align: "center", cell: (i) => <Mark on={i.hasReplaceProd} label={c.replaceProd} /> },
+  { label: c.testReport, width: "w-24", align: "center", cell: (i) => <Mark on={i.hasTestReport} label={c.testReport} /> },
+  { label: c.certificate, width: "w-22", align: "center", cell: (i) => <Mark on={i.hasCertificate} label={c.certificate} /> },
+];
 
 interface Props {
   items: ListingSearchItem[];
@@ -90,37 +128,30 @@ export function ResultList({ items, query }: Props) {
         </div>
       )}
 
-      {/* 데스크톱: 표 */}
-      {/* 상품명·부품상세만 남는 폭을 나눠 갖는다. 칸이 1024 미만(태블릿, 홈|결과 분할)이면 부품상세 열을 숨겨
-          수량·단가가 잘리지 않게 하고, 그래도 720보다 좁으면 상품명이 눌리지 않게 표 안에서 가로 스크롤 */}
+      {/* 데스크톱: 표. 열이 많아(16) 칸에 다 안 들어가므로 가로 스크롤하고, 체크·상품명은 왼쪽에 고정해
+          어느 열을 보든 어떤 매물인지 보이게 한다. 수량·단가는 스크롤 없이 보이도록 앞쪽에 둔다 */}
       <div className="hidden @md:block rounded-md border border-line bg-surface overflow-x-auto">
-        <table className="w-full min-w-180 table-fixed text-[13px]">
+        <table className="w-full min-w-474 table-fixed text-[13px]">
           <colgroup>
             <col className="w-10" />
-            <col className="w-30" />
-            <col />
-            <col className="w-24" />
-            <col className="hidden @lg:table-column" />
-            <col className="w-18" />
-            <col className="w-12" />
-            <col className="w-24" />
-            <col className="w-16" />
-            <col className="w-26" />
+            <col className="w-48" />
+            {columns.map((c) => (
+              <col key={c.label} className={c.width} />
+            ))}
           </colgroup>
-          <thead className="bg-bg text-xs font-medium text-ink-2">
+          <thead className="bg-bg text-xs text-ink-2">
             <tr className="h-10 text-left">
-              <th scope="col" className="pl-3">
+              <th scope="col" className="sticky left-0 z-10 bg-bg pl-3">
                 <Checkbox checked={headerChecked} onCheckedChange={toggleAll} aria-label={r.selectAll} />
               </th>
-              <th scope="col" className="px-2 font-medium">{t.columns.prodNo}</th>
-              <th scope="col" className="px-2 font-medium">{t.columns.prodName}</th>
-              <th scope="col" className="px-2 font-medium">{t.columns.brand}</th>
-              <th scope="col" className="hidden @lg:table-cell px-2 font-medium">{t.columns.description}</th>
-              <th scope="col" className="px-2 font-medium text-center">{t.columns.dataSheet}</th>
-              <th scope="col" className="px-2 font-medium text-center">{t.columns.photo}</th>
-              <th scope="col" className="px-2 font-medium">{t.columns.state}</th>
-              <th scope="col" className="px-2 font-medium text-right">{t.columns.quantity}</th>
-              <th scope="col" className="pl-2 pr-3 font-medium text-right">{t.columns.price}</th>
+              <th scope="col" className="sticky left-10 z-10 bg-bg px-2 font-medium border-r border-line-2">
+                {t.columns.prodName}
+              </th>
+              {columns.map((c, i) => (
+                <th key={c.label} scope="col" className={`px-2 font-medium ${alignClass[c.align ?? "left"]} ${i === columns.length - 1 ? "pr-3" : ""}`}>
+                  {c.label}
+                </th>
+              ))}
             </tr>
           </thead>
           <tbody>
@@ -131,24 +162,25 @@ export function ResultList({ items, query }: Props) {
                 <tr
                   key={key}
                   onClick={() => go(item)}
-                  className={`h-11 border-t border-line-2 cursor-pointer hover:bg-bg ${done ? "text-ink-3" : "text-ink"}`}
+                  className={`group h-11 border-t border-line-2 cursor-pointer hover:bg-bg ${done ? "text-ink-3" : "text-ink"}`}
                 >
-                  <td className="pl-3" onClick={stop}>
+                  <td className="sticky left-0 z-10 bg-surface group-hover:bg-bg pl-3" onClick={stop}>
                     <Checkbox checked={selected.has(key)} onCheckedChange={() => toggle(key)} aria-label={r.selectRow(item.prodName)} />
                   </td>
-                  <td className="px-2 num truncate">{item.prodNo ?? "–"}</td>
-                  <td className="px-2 truncate font-medium">
+                  <td className="sticky left-10 z-10 bg-surface group-hover:bg-bg px-2 truncate font-medium border-r border-line-2" title={item.prodName}>
                     <Link href={listingHref(item)} onClick={stop} className="hover:text-primary">
                       {item.prodName}
                     </Link>
                   </td>
-                  <td className="px-2 truncate" title={item.prodBrand}>{item.prodBrand}</td>
-                  <td className={`hidden @lg:table-cell px-2 truncate ${done ? "" : "text-ink-2"}`} title={item.description ?? undefined}>{item.description ?? "–"}</td>
-                  <td className="px-2 text-center"><Has on={item.hasDataSheet} icon="file" label={r.dataSheet} /></td>
-                  <td className="px-2 text-center"><Has on={item.hasPhoto} icon="image" label={r.photo} /></td>
-                  <td className="px-2 truncate">{done ? <CompletedBadge /> : item.prodState}</td>
-                  <td className="px-2 num text-right">{qty.format(item.stockQuantity)}</td>
-                  <td className="pl-2 pr-3 num text-right font-semibold">{formatPrice(item.salesUnitPrice)}</td>
+                  {columns.map((c, i) => (
+                    <td
+                      key={c.label}
+                      title={c.title?.(item)}
+                      className={`px-2 truncate ${alignClass[c.align ?? "left"]} ${c.mono ? "num" : ""} ${c.strong ? "font-semibold" : ""} ${c.muted && !done ? "text-ink-2" : ""} ${i === columns.length - 1 ? "pr-3" : ""}`}
+                    >
+                      {c.cell(item, done)}
+                    </td>
+                  ))}
                 </tr>
               );
             })}
@@ -187,6 +219,7 @@ export function ResultList({ items, query }: Props) {
                     <Has on={item.hasPhoto} icon="image" label={r.photo} />
                   </span>
                 </div>
+                <ExtraChips item={item} />
               </div>
             </li>
           );
@@ -206,6 +239,41 @@ export function ResultList({ items, query }: Props) {
 function Has({ on, icon, label }: { on: boolean; icon: "file" | "image"; label: string }) {
   return on ? (
     <Icon name={icon} size={18} role="img" aria-label={label} aria-hidden={false} className="inline-block text-ink-2" />
+  ) : (
+    <span className="text-ink-3">
+      <span aria-hidden="true">–</span>
+      <span className="sr-only">{`${label} ${r.none}`}</span>
+    </span>
+  );
+}
+
+// 모바일 카드엔 표의 보증·서류 열 대신, 있는 것만 칩으로 (대부분 비어 있어 줄이 안 생기는 경우가 많다)
+function ExtraChips({ item }: { item: ListingSearchItem }) {
+  const chips = [
+    item.warrantyUntil && r.warrantyChip(item.warrantyUntil),
+    item.warrantyCoverage,
+    item.hasReplaceProd && c.replaceProd,
+    item.hasTestReport && c.testReport,
+    item.hasCertificate && c.certificate,
+  ].filter((s): s is string => typeof s === "string" && s !== "");
+  if (chips.length === 0) return null;
+  return (
+    <ul className="flex flex-wrap gap-1">
+      {chips.map((s) => (
+        <li key={s} className="h-5 px-1.5 inline-flex items-center rounded-[5px] bg-primary-soft text-primary-dark text-[11px] font-medium">
+          {s}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+// 서류(대체품·테스트리포트·정품인증서) 유무. 요구 화면처럼 ○ / –
+function Mark({ on, label }: { on: boolean; label: string }) {
+  return on ? (
+    <span role="img" aria-label={label} className="text-primary font-semibold">
+      ○
+    </span>
   ) : (
     <span className="text-ink-3">
       <span aria-hidden="true">–</span>
