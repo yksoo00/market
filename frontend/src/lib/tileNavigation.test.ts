@@ -4,7 +4,7 @@ import { formIntercept, linkIntercept, type AnchorInfo, type ClickInfo, type For
 const O = "http://h";
 const click: ClickInfo = { button: 0, metaKey: false, ctrlKey: false, shiftKey: false, altKey: false, defaultPrevented: false };
 const anchor: AnchorInfo = { href: `${O}/login`, target: "", hasDownload: false, tileReset: false };
-const form: FormInfo = { method: "get", action: `${O}/search`, hasFunctionAction: false, entries: [["q", "LM"], ["field", "all"]] };
+const form: FormInfo = { method: "get", action: `${O}/search`, hasActionAttr: true, defaultPrevented: false, entries: [["q", "LM"], ["field", "all"]] };
 
 describe("linkIntercept", () => {
   it("같은 출처 일반 왼쪽 클릭은 가로챈다", () => {
@@ -49,9 +49,19 @@ describe("formIntercept", () => {
     expect(formIntercept({ ...form, entries: [["q", ""]] }, O)).toEqual({ path: "/search?q=", reset: false });
   });
 
-  it("POST·함수 action·다른 출처는 건드리지 않는다", () => {
+  it("POST·다른 출처(서버 액션 javascript: 포함)는 건드리지 않는다", () => {
     expect(formIntercept({ ...form, method: "post" }, O)).toBeNull();
-    expect(formIntercept({ ...form, hasFunctionAction: true }, O)).toBeNull();
+    expect(formIntercept({ ...form, action: "javascript:throw 1" }, O)).toBeNull();
     expect(formIntercept({ ...form, action: "http://other/search" }, O)).toBeNull();
+  });
+});
+
+describe("formIntercept — 앱이 직접 처리하는 폼은 건드리지 않음", () => {
+  it("action 속성이 없는 폼(onSubmit만 있는 로그인·가입 폼)은 가로채지 않는다", () => {
+    expect(formIntercept({ ...form, hasActionAttr: false }, O)).toBeNull();
+  });
+
+  it("앱이 이미 preventDefault 한 제출은 가로채지 않는다", () => {
+    expect(formIntercept({ ...form, defaultPrevented: true }, O)).toBeNull();
   });
 });

@@ -8,9 +8,11 @@ import { TileCloseButton, TileFrame } from "@/components/common/TileFrame";
 
 // Provider는 framed 여부와 무관하게 항상 감싼다. useIsFramed는 첫 렌더 false → iframe 안이면 true로
 // 바뀌는데, 이때 루트 타입(Provider ↔ Fragment)이 바뀌면 페이지 전체가 다시 마운트되기 때문.
-export function TileWorkspace({ children }: { children: ReactNode }) {
+// header도 Provider 안에 둔다: 헤더가 칸 목록을 보고(로그인 칸이 닫히면) 세션을 다시 확인해야 해서.
+export function TileWorkspace({ header, children }: { header: ReactNode; children: ReactNode }) {
   return (
     <TileWorkspaceProvider>
+      {header}
       {/* useSearchParams는 Suspense 밖에서 쓰면 정적 프리렌더가 깨지므로 잎 컴포넌트로 분리 */}
       <Suspense fallback={null}>
         <TilePathReporter />

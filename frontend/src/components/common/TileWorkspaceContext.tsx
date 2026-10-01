@@ -10,6 +10,7 @@ import {
   applyOpen,
   closePane,
   decideOpen,
+  paneNavigated,
   restorePanes,
   serializePanes,
   STORAGE_KEY,
@@ -77,10 +78,19 @@ export function TileWorkspaceProvider({ children }: { children: ReactNode }) {
     [router],
   );
 
-  // TileFrame의 message 리스너 effect deps에 들어가므로 참조를 고정한다
-  const updatePath = useCallback((key: string, path: string) => {
-    setPanes((ps) => (ps.some((p) => p.key === key && p.path !== path) ? ps.map((p) => (p.key === key ? { ...p, path } : p)) : ps));
-  }, []);
+  // iframe 칸이 보고한 현재 경로. 같은 화면이면 경로만 갱신, 코드로 다른 화면에 갔으면(로그인 성공 후 등)
+  // 그 칸을 닫고 큐 규칙으로 연다 (paneNavigated). TileFrame의 message 리스너 deps에 들어가므로 참조 고정
+  const updatePath = useCallback(
+    (key: string, path: string) => {
+      const cur = panesRef.current;
+      const next = paneNavigated(cur, key, path, wideRef.current, newKey());
+      const same = next.length === cur.length && next.every((p, i) => p.key === cur[i].key && p.path === cur[i].path);
+      if (same) return;
+      setPanes(next);
+      if (next[0] && (next[0].key !== cur[0]?.key || next[0].path !== cur[0]?.path)) router.push(next[0].path);
+    },
+    [router],
+  );
 
   // 주소창 경로가 바뀔 때: 처음이면 새로고침 복원 시도, 그 뒤엔 동기화(뒤로가기·router.push 등)
   const onMainPath = useCallback((fullPath: string) => {
@@ -144,15 +154,24 @@ export function TileWorkspaceProvider({ children }: { children: ReactNode }) {
       const form = e.target;
       if (!(form instanceof HTMLFormElement)) return;
       const entries = [...new FormData(form, e.submitter)].filter((x): x is [string, string] => typeof x[1] === "string");
-      // React 서버 액션 폼은 action이 javascript: 라 출처 비교에서 걸러진다
-      handle(e, formIntercept({ method: form.method, action: form.action, hasFunctionAction: false, entries }, window.location.origin));
+      const info = {
+        method: form.method,
+        action: form.action,
+        hasActionAttr: form.hasAttribute("action"),
+        defaultPrevented: e.defaultPrevented,
+        entries,
+      };
+      handle(e, formIntercept(info, window.location.origin));
     };
 
+    // 링크는 캡처 단계: next/link가 defaultPrevented를 보고 스스로 이동하지 않게 먼저 막는다.
+    // 폼 제출은 window 버블 단계: React(document에 붙음)의 onSubmit이 먼저 돌아, 앱이 직접 처리하는 폼
+    // (react-hook-form 등)이 preventDefault 한 걸 보고 건드리지 않는다. 브라우저 기본 제출보다는 여전히 앞이다.
     document.addEventListener("click", onClick, true);
-    document.addEventListener("submit", onSubmit, true);
+    window.addEventListener("submit", onSubmit);
     return () => {
       document.removeEventListener("click", onClick, true);
-      document.removeEventListener("submit", onSubmit, true);
+      window.removeEventListener("submit", onSubmit);
     };
   }, [framed, open]);
 

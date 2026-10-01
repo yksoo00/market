@@ -3,6 +3,7 @@ import {
   applyOpen,
   closePane,
   decideOpen,
+  paneNavigated,
   restorePanes,
   serializePanes,
   syncMainPath,
@@ -145,5 +146,42 @@ describe("serializePanes · restorePanes", () => {
     }
     const four = serializePanes([P("a", "/"), P("b", "/1"), P("c", "/2"), P("d", "/3")]);
     expect(restorePanes(four, "/")).toBeNull();
+  });
+});
+
+describe("리뷰 반영", () => {
+  it("좁은 화면에선 숨은 칸에 같은 화면이 있어도 교체하지 않고 리셋 (클릭이 무반응처럼 보이지 않게)", () => {
+    expect(decideOpen([P("a", "/"), P("b", "/login")], "a", "/login", { reset: false, wide: false })).toEqual({
+      kind: "reset",
+      path: "/login",
+    });
+  });
+
+  it("다른 칸에 이미 같은 주소가 열려 있으면 아무것도 안 함 (다시 불러와 입력값이 지워지지 않게)", () => {
+    expect(decideOpen([P("a", "/"), P("b", "/login")], "a", "/login", wide)).toEqual({ kind: "none" });
+  });
+});
+
+describe("paneNavigated — iframe 칸이 코드로(로그인 성공 후 이동 등) 다른 곳으로 갔을 때", () => {
+  it("같은 화면 안 이동은 경로만 갱신", () => {
+    expect(paneNavigated([P("a", "/"), P("b", "/login")], "b", "/login/find-id", true, "n")).toEqual([
+      P("a", "/"),
+      P("b", "/login/find-id"),
+    ]);
+  });
+
+  it("다른 화면으로 가면 그 칸을 닫고 큐 규칙으로 연다 — 로그인 후 홈이면 이미 홈이 있어 칸만 닫힘", () => {
+    expect(paneNavigated([P("a", "/"), P("b", "/login")], "b", "/", true, "n")).toEqual([P("a", "/")]);
+  });
+
+  it("연관 화면이면 그 자리 대신 큐 뒤에 열린다", () => {
+    expect(paneNavigated([P("a", "/search"), P("b", "/login")], "b", "/", true, "n")).toEqual([
+      P("a", "/search"),
+      P("n", "/"),
+    ]);
+  });
+
+  it("모르는 칸이면 그대로", () => {
+    expect(paneNavigated([P("a", "/")], "x", "/login", true, "n")).toEqual([P("a", "/")]);
   });
 });

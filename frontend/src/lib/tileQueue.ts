@@ -29,10 +29,12 @@ export function decideOpen(
   if (from.path === path) return { kind: "none" };
   const target = screenOf(path);
   if (screenOf(from.path).id === target.id) return { kind: "inPlace", paneKey: from.key, path };
-  const sameScreen = panes.find((p) => screenOf(p.path).id === target.id);
-  if (sameScreen) return { kind: "replace", paneKey: sameScreen.key, path };
-  // 모바일 폭에선 분할하지 않는다 (사용자 지시)
+  // 모바일 폭에선 분할하지 않는다 (사용자 지시). 숨은 칸을 바꾸면 클릭이 무반응처럼 보이므로 교체보다 먼저 본다
   if (!opts.wide) return { kind: "reset", path };
+  const sameScreen = panes.find((p) => screenOf(p.path).id === target.id);
+  // 이미 그 주소로 열려 있으면 다시 불러오지 않는다 (입력하던 값이 지워지지 않게)
+  if (sameScreen?.path === path) return { kind: "none" };
+  if (sameScreen) return { kind: "replace", paneKey: sameScreen.key, path };
   return isRelated(target, panes.map((p) => screenOf(p.path))) ? { kind: "push", path } : { kind: "reset", path };
 }
 
@@ -56,6 +58,19 @@ export function applyOpen(panes: readonly Pane[], action: OpenAction, newKey: st
 export function closePane(panes: readonly Pane[], key: string): Pane[] {
   if (panes.length <= 1) return [...panes];
   return panes.filter((p) => p.key !== key);
+}
+
+/**
+ * iframe 칸이 링크가 아니라 코드로(로그인 성공 후 router.push, 로그인 상태면 홈으로 보내기 등) 이동했다고 보고했을 때.
+ * 다른 화면으로의 링크 클릭은 iframe이 부모 큐에 넘기므로, 여기서 화면이 바뀌었다면 코드 이동이다 →
+ * 그 칸을 닫고 그 경로를 주소창 칸에서 연 것처럼 큐 규칙으로 연다 (로그인 후 홈이면 이미 홈이 있어 칸만 닫힘).
+ */
+export function paneNavigated(panes: readonly Pane[], key: string, path: string, wide: boolean, newKey: string): Pane[] {
+  const pane = panes.find((p) => p.key === key);
+  if (!pane) return [...panes];
+  if (screenOf(pane.path).id === screenOf(path).id) return panes.map((p) => (p.key === key ? { ...p, path } : p));
+  const rest = closePane(panes, key);
+  return applyOpen(rest, decideOpen(rest, rest[0].key, path, { reset: false, wide }), newKey);
 }
 
 /** 주소창 경로가 링크 밖의 이유(뒤로가기, router.push)로 바뀌었을 때 */

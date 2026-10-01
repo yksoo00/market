@@ -20,8 +20,13 @@ export interface AnchorInfo {
 export interface FormInfo {
   method: string;
   action: string;
-  /** React 19 action={함수} 폼은 서버 액션이라 건드리지 않는다 */
-  hasFunctionAction: boolean;
+  /**
+   * action 속성을 명시한 폼만 이동용 폼으로 본다. onSubmit만 있는 폼(로그인·가입 등)은 method 기본값이 GET이라
+   * 가로채면 비밀번호가 주소창·서버 로그에 실린다 (최종 리뷰 Critical)
+   */
+  hasActionAttr: boolean;
+  /** 앱 핸들러(react-hook-form handleSubmit 등)가 이미 막은 제출 */
+  defaultPrevented: boolean;
   entries: [string, string][];
 }
 
@@ -48,7 +53,8 @@ export function linkIntercept(click: ClickInfo, anchor: AnchorInfo, origin: stri
 }
 
 export function formIntercept(form: FormInfo, origin: string): Intercept {
-  if (form.method.toLowerCase() !== "get" || form.hasFunctionAction) return null;
+  if (!form.hasActionAttr || form.defaultPrevented || form.method.toLowerCase() !== "get") return null;
+  // 서버 액션 폼(action={함수})은 action이 javascript: 라 아래 출처 비교에서 걸러진다
   const path = sameOriginPath(form.action, origin);
   if (path === null) return null;
   const query = new URLSearchParams(form.entries).toString();

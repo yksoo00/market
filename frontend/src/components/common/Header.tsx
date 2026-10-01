@@ -4,15 +4,19 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/common/Icon";
+import { useTileWorkspace } from "@/components/common/TileWorkspaceContext";
 import { useIsFramed } from "@/hooks/useIsFramed";
 import { authApi } from "@/lib/api/auth";
+import { screenOf } from "@/lib/tileScreens";
 import { home as t } from "@/messages/home";
 
 const navHrefs = ["/listings", "/requests", "/prices", "/business", "/support"];
 
 export function Header() {
   // 경로 전체가 아니라 "로그인 화면인가"만 본다 (아래 effect 주석)
-  const onLoginPage = usePathname() === "/login";
+  // 로그인은 타일 큐의 칸(iframe)에서도 일어나므로 주소창 칸이든 다른 칸이든 로그인 화면이 열려 있는지를 본다
+  const { panes } = useTileWorkspace();
+  const onLoginPage = usePathname() === "/login" || panes.some((p) => screenOf(p.path).id === "login");
   const framed = useIsFramed();
   const [profile, setProfile] = useState<{ nickname: string } | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
