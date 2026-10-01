@@ -91,18 +91,19 @@ export function ResultList({ items, query }: Props) {
       )}
 
       {/* 데스크톱: 표 */}
-      <div className="hidden @md:block rounded-md border border-line bg-surface overflow-hidden">
-        <table className="w-full table-fixed text-[13px]">
+      {/* 상품명·부품상세만 남는 폭을 나눠 갖는다. 960보다 좁으면(태블릿·분할) 상품명이 눌리지 않게 표 안에서 가로 스크롤 */}
+      <div className="hidden @md:block rounded-md border border-line bg-surface overflow-x-auto">
+        <table className="w-full min-w-240 table-fixed text-[13px]">
           <colgroup>
             <col className="w-10" />
-            <col className="w-[15%]" />
+            <col className="w-35" />
             <col />
-            <col className="w-[12%]" />
-            <col className="w-[20%]" />
+            <col className="w-30" />
+            <col />
             <col className="w-18" />
             <col className="w-12" />
             <col className="w-24" />
-            <col className="w-18" />
+            <col className="w-16" />
             <col className="w-26" />
           </colgroup>
           <thead className="bg-bg text-xs font-medium text-ink-2">
@@ -140,8 +141,8 @@ export function ResultList({ items, query }: Props) {
                       {item.prodName}
                     </Link>
                   </td>
-                  <td className="px-2 truncate">{item.prodBrand}</td>
-                  <td className={`px-2 truncate ${done ? "" : "text-ink-2"}`}>{item.description ?? "–"}</td>
+                  <td className="px-2 truncate" title={item.prodBrand}>{item.prodBrand}</td>
+                  <td className={`px-2 truncate ${done ? "" : "text-ink-2"}`} title={item.description ?? undefined}>{item.description ?? "–"}</td>
                   <td className="px-2 text-center"><Has on={item.hasDataSheet} icon="file" label={r.dataSheet} /></td>
                   <td className="px-2 text-center"><Has on={item.hasPhoto} icon="image" label={r.photo} /></td>
                   <td className="px-2 truncate">{done ? <CompletedBadge /> : item.prodState}</td>
