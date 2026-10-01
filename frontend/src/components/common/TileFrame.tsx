@@ -59,7 +59,7 @@ export function TileFrame({ tile }: { tile: SecondaryTile }) {
         type="button"
         aria-label={t.tileClose}
         onClick={() => closeTile(tile.key)}
-        className="absolute top-1 right-1 w-7 h-7 flex items-center justify-center rounded-full bg-surface text-ink border border-line shadow-sm hover:border-primary"
+        className="absolute top-1 right-1 w-7 h-7 flex items-center justify-center rounded-full bg-surface text-ink border border-line hover:border-primary"
       >
         <Icon name="close" size={14} />
       </button>

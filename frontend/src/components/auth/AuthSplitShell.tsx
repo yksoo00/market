@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type MouseEvent, type ReactNode } from "react";
+import { startTransition, useState, type MouseEvent, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { LoginPanel } from "@/components/auth/LoginPanel";
 import { SignupChoosePanel } from "@/components/auth/SignupChoosePanel";
@@ -11,7 +11,7 @@ import { common as t } from "@/messages/common";
 
 // 로그인 ↔ 가입으로 이동할 때 떠나온 화면을 위 칸에 남긴다. 가입은 유형 선택(/signup)에만 로그인 링크가 있다.
 type PreviousPane =
-  | { kind: "login"; next: string; initial: "personal" | "business" }
+  | { kind: "login"; next: string; initial: "personal" | "business"; search: string }
   | { kind: "signup" };
 
 interface Props {
@@ -37,6 +37,8 @@ export function AuthSplitShell({ children, home }: Props) {
         kind: "login",
         next: safeNext(params.get("next") ?? undefined),
         initial: params.get("type") === "business" ? "business" : "personal",
+        // 돌아갈 때 원래 주소 그대로 복원한다 (next가 없던 /login이 ?next=%2F로 바뀌지 않게)
+        search: window.location.search,
       });
     } else if (pathname === "/signup" && nextPath === "/login") {
       setPrevious({ kind: "signup" });
@@ -49,14 +51,17 @@ export function AuthSplitShell({ children, home }: Props) {
 
   // 현재 경로 칸 닫기. 분할이면 현재 칸을 닫고 위 칸(떠나온 화면)으로 돌아가고, 단일 칸이면 홈으로.
   const closeCurrent = () => {
+    // 위 칸 정리와 이동을 한 transition으로 묶어, 이동이 끝나기 전에 현재 칸만 단독으로 커져 보이는 깜빡임을 막는다
     if (previous?.kind === "login") {
-      const params = new URLSearchParams({ next: previous.next });
-      if (previous.initial === "business") params.set("type", "business");
-      setPrevious(null);
-      router.push(`/login?${params}`);
+      startTransition(() => {
+        setPrevious(null);
+        router.push(`/login${previous.search}`);
+      });
     } else if (previous?.kind === "signup") {
-      setPrevious(null);
-      router.push("/signup");
+      startTransition(() => {
+        setPrevious(null);
+        router.push("/signup");
+      });
     } else {
       router.push("/");
     }
@@ -114,7 +119,7 @@ function PaneCloseButton({ onClick, className = "flex" }: { onClick: () => void;
       type="button"
       aria-label={t.tileClose}
       onClick={onClick}
-      className={`${className} absolute top-2 right-4 w-7 h-7 items-center justify-center rounded-full bg-surface text-ink border border-line shadow-sm hover:border-primary`}
+      className={`${className} absolute top-2 right-4 w-7 h-7 items-center justify-center rounded-full bg-surface text-ink border border-line hover:border-primary`}
     >
       <Icon name="close" size={14} />
     </button>
