@@ -9,7 +9,7 @@ paths:
 ```
 frontend/src/
 ├── app/            라우트. 페이지 컴포넌트는 얇게 (데이터 가져오기 + 조립)
-├── components/     ui/ (shadcn 원본), common/, 도메인별 (listing/, chat/, ...)
+├── components/     ui/ (shadcn 원본), common/, 도메인별 (listing/, ...)
 ├── lib/            api 클라이언트, auth, utils
 ├── hooks/
 ├── messages/       사용자에게 보이는 문구
@@ -39,12 +39,8 @@ frontend/src/
 - 이미지는 `next/image`, alt 필수. 버튼·링크에 접근 가능한 이름.
 - 가격은 `formatPrice()` 헬퍼로만 표시.
 
-## 채팅
-- WebSocket은 `hooks/useChatSocket`. 끊기면 자동 재접속 후 `lastMessageId` 이후를 REST로 재조회.
-- 낙관적 전송 → 서버 확인 후 확정. 중복 메시지는 `clientMessageId`로 제거.
-
 ## 테스트
-- Vitest: `lib/`, `hooks/` 단위. Playwright: 핵심 흐름 (가입→로그인→상품 등록→채팅) 최소 1개.
+- Vitest: `lib/`, `hooks/` 단위. Playwright: 핵심 흐름 (가입→로그인→상품 등록) 최소 1개.
 
 ## 하지 말 것
 - `localStorage`에 access token 저장. httpOnly 쿠키로.

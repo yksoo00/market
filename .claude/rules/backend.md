@@ -18,7 +18,6 @@ paths:
 com.company.market
 ├── user/           controller, service, repository, domain(엔티티), dto
 ├── listing/
-├── chat/
 ├── organization/
 └── common/         auth, config, exception, cache, storage
 ```

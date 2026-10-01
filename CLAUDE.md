@@ -45,7 +45,7 @@ market/
 ├── CLAUDE.md, README.md, docker-compose.yml, .env.example
 ├── .claude/rules/       ← 경로별 세부 규칙 (backend, frontend, db) + behavior
 ├── docs/                ← 위 문서
-├── backend/             ← Spring Boot. 도메인별 패키지 (현재 user, organization, common. 목표: listing, chat 추가)
+├── backend/             ← Spring Boot. 도메인별 패키지 (현재 user, organization, common. 목표: listing 추가. 채팅 없음)
 ├── frontend/            ← Next.js. 현재 홈(mock)·로그인·가입 화면
 ├── bruno/               ← API 요청 모음 (Bruno). 새 API 추가 시 같은 PR에서 요청 파일도
 ├── infra/               ← 보류된 Caddyfile
@@ -108,7 +108,7 @@ market/
 - 예외 (2026-09-21, 1인 개발 동안): `docs/`, `CLAUDE.md`, `.claude/`, 코드 주석만 바꾸는 커밋은 main 직접. 실행 결과가 바뀌는 변경은 아무리 작아도 브랜치.
 - 코드 브랜치는 **푸시 후 PR로 머지** (1인이라 셀프 머지). PR 본문이 그 기능의 설명서 — 무엇을·왜·확인 방법. 머지 후 브랜치 삭제. 브랜치 보호는 force push·삭제 금지 + CI 통과만 (PR 필수는 팀원 생기면).
 - 스키마 변경은 `db/` 브랜치로 분리. 코드 변경과 섞지 않는다.
-- 커밋: Conventional Commits + 범위. `feat(backend): 카카오 로그인 콜백`, `fix(frontend): 채팅 재접속 시 중복 메시지`, `db: listings에 seller_org_id 추가`
+- 커밋: Conventional Commits + 범위. `feat(backend): 카카오 로그인 콜백`, `fix(frontend): 실시간 목록 중복 표시`, `db: listings에 seller_org_id 추가`
 - 커밋은 작동하는 상태에서, 작게, 자주. 한 커밋에 한 가지.
 - 머지 전: `./gradlew check` + `pnpm typecheck && pnpm lint && pnpm test` 통과, `/code-review` 실행. 스키마·인증·권한 변경은 `/security-review`도.
 - 배포 시 태그 `vX.Y.Z`.
