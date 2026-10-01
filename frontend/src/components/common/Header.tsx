@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/common/Icon";
 import { useIsFramed } from "@/hooks/useIsFramed";
@@ -9,7 +10,12 @@ import { home as t } from "@/messages/home";
 
 const navHrefs = ["/listings", "/requests", "/prices", "/business", "/support"];
 
-export function Header({ hideAuthLinks = false }: { hideAuthLinks?: boolean }) {
+// 로그인·가입 화면에서는 헤더의 로그인·가입 링크가 중복이라 숨긴다. 헤더가 루트 레이아웃에 있어 경로로 판단한다.
+const authPaths = ["/login", "/signup"];
+
+export function Header() {
+  const pathname = usePathname();
+  const hideAuthLinks = authPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const framed = useIsFramed();
   const [profile, setProfile] = useState<{ nickname: string } | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -28,7 +34,9 @@ export function Header({ hideAuthLinks = false }: { hideAuthLinks?: boolean }) {
     return () => {
       active = false;
     };
-  }, [framed]);
+    // 헤더가 루트 레이아웃에 있어 페이지를 옮겨도 다시 마운트되지 않는다. 로그인 후 이동 등으로
+    // 경로가 바뀔 때 세션을 다시 확인해야 "로그인" 표시가 남지 않는다.
+  }, [framed, pathname]);
 
   const logout = async () => {
     setLoggingOut(true);
@@ -46,7 +54,7 @@ export function Header({ hideAuthLinks = false }: { hideAuthLinks?: boolean }) {
   if (framed) return null;
 
   return (
-    <header className="h-13 @md:h-14 shrink-0 px-4 @md:px-6 flex items-center gap-7 bg-primary text-white">
+    <header className="h-13 md:h-14 shrink-0 px-4 md:px-6 flex items-center gap-7 bg-primary text-white">
       <Link href="/" className="flex items-center gap-2">
         <span className="w-7 h-7 rounded-md bg-green flex items-center justify-center">
           <Icon name="logo" size={17} strokeWidth={2.2} />
@@ -54,7 +62,7 @@ export function Header({ hideAuthLinks = false }: { hideAuthLinks?: boolean }) {
         <span className="text-lg font-bold tracking-tight">{t.brand}</span>
       </Link>
 
-      <nav className="hidden @md:flex items-center gap-5 text-sm font-medium">
+      <nav className="hidden md:flex items-center gap-5 text-sm font-medium">
         {t.nav.map((label, i) => (
           <Link key={label} href={navHrefs[i]} className="text-on-primary hover:text-white">
             {label}
@@ -64,7 +72,7 @@ export function Header({ hideAuthLinks = false }: { hideAuthLinks?: boolean }) {
 
       <span className="grow" />
 
-      <Link href="/notifications" aria-label="알림" className="@md:hidden w-11 h-11 flex items-center justify-center text-on-primary">
+      <Link href="/notifications" aria-label="알림" className="md:hidden w-11 h-11 flex items-center justify-center text-on-primary">
         <Icon name="bell" />
       </Link>
       {profile ? (
@@ -84,7 +92,7 @@ export function Header({ hideAuthLinks = false }: { hideAuthLinks?: boolean }) {
           </Link>
           <Link
             href="/signup"
-            className="hidden @md:flex h-[34px] px-3.5 items-center rounded-md bg-green text-white text-[13px] font-bold"
+            className="hidden md:flex h-[34px] px-3.5 items-center rounded-md bg-green text-white text-[13px] font-bold"
           >
             {t.signup}
           </Link>
