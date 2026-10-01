@@ -57,26 +57,24 @@ function TileGrid({ main }: { main: ReactNode }) {
     </div>
   );
 
-  if (tiles.length === 0) {
-    return <div className="flex flex-1 flex-col min-h-0 w-full">{mainCell}</div>;
-  }
-
-  if (tiles.length === 1) {
-    return (
-      <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-1 h-full w-full">
-        {mainCell}
-        <TileFrame key={tiles[0].key} pane={tiles[0]} />
-      </div>
-    );
-  }
-
+  // 오른쪽 열은 칸이 1개든 2개든 같은 div 하나에 둔다. 부모가 바뀌면 React가 TileFrame을 다시 마운트해
+  // iframe이 새로 로드되고 입력하던 값이 사라진다 (코드리뷰). key로 순서만 바뀌면 그대로 유지된다.
   return (
-    <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-1 h-full w-full">
+    <div
+      className={
+        tiles.length === 0
+          ? "flex flex-1 flex-col min-h-0 w-full"
+          : "flex-1 min-h-0 grid grid-cols-2 grid-rows-1 h-full w-full"
+      }
+    >
       {mainCell}
-      <div className="grid grid-rows-2 h-full min-h-0">
-        <TileFrame key={tiles[0].key} pane={tiles[0]} />
-        <TileFrame key={tiles[1].key} pane={tiles[1]} />
-      </div>
+      {tiles.length > 0 && (
+        <div className={`grid ${tiles.length === 2 ? "grid-rows-2" : "grid-rows-1"} h-full min-h-0`}>
+          {tiles.map((pane) => (
+            <TileFrame key={pane.key} pane={pane} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
