@@ -84,7 +84,7 @@ export function AuthSplitShell({ children, home }: Props) {
   );
 }
 
-function PaneCloseButton({ onClick, className = "flex" }: { onClick: () => void; className?: string }) {
+export function PaneCloseButton({ onClick, className = "flex" }: { onClick: () => void; className?: string }) {
   return (
     <button
       type="button"
