@@ -30,8 +30,6 @@ export interface ListingSearchItem {
   mufcDate: string | null;
   /** 상품설명 (listings.prod_description) */
   prodDescription: string | null;
-  /** 부품상세내역, 제조사 제공 (products.prod_spec_info) */
-  specInfo: string | null;
   hasDataSheet: boolean;
   hasPhoto: boolean;
   // 아래 5개는 등록 후 추가등록(PATCH)으로만 채워져 비어 있는 경우가 흔하다 (PR #17)

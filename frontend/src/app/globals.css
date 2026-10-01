@@ -30,6 +30,11 @@
   --container-lg: 64rem;
 }
 
+/* 타일 큐 서브 칸(iframe) 안에서 숨길 요소. html[data-framed]는 layout.tsx의 인라인 스크립트가 그려지기 전에 붙인다 */
+html[data-framed] [data-hide-in-tile] {
+  display: none;
+}
+
 html,
 body {
   height: 100%;

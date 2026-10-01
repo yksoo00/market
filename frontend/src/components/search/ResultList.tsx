@@ -34,17 +34,14 @@ interface Column {
 const alignClass = { left: "text-left", right: "text-right", center: "text-center" } as const;
 const c = t.columns;
 
-// 체크·상품명(왼쪽 고정) 뒤의 열. 순서는 요구 화면(상품명·상품번호·제조사·제조일·상태·설명·서류·보증)을 따르되
-// 수량·단가는 스크롤 없이 보이게 제조사 바로 뒤로 당김
+// 체크·상품명(왼쪽 고정) 뒤의 열. 순서·항목은 사용자가 정한 그대로(상품명·상품번호·제조사·제조일·상품상태·
+// 상품설명·데이터시트·사진·보증기한·불량지원·대체품·테스트리포트·정품인증서). 상품설명은 유무(O/X)만, 내용은 마우스를 올리면
 const columns: Column[] = [
   { label: c.prodNo, width: "w-36", mono: true, title: (i) => i.prodNo ?? undefined, cell: (i) => i.prodNo ?? DASH },
   { label: c.brand, width: "w-32", title: (i) => i.prodBrand, cell: (i) => i.prodBrand },
-  { label: c.quantity, width: "w-18", align: "right", mono: true, cell: (i) => qty.format(i.stockQuantity) },
-  { label: c.price, width: "w-28", align: "right", mono: true, strong: true, cell: (i) => formatPrice(i.salesUnitPrice) },
   { label: c.mufcDate, width: "w-26", mono: true, muted: true, cell: (i) => i.mufcDate ?? DASH },
   { label: c.state, width: "w-26", cell: (i, done) => (done ? <CompletedBadge /> : i.prodState) },
-  { label: c.prodDescription, width: "w-56", muted: true, title: (i) => i.prodDescription ?? undefined, cell: (i) => i.prodDescription ?? DASH },
-  { label: c.specInfo, width: "w-56", muted: true, title: (i) => i.specInfo ?? undefined, cell: (i) => i.specInfo ?? DASH },
+  { label: c.prodDescription, width: "w-18", align: "center", title: (i) => i.prodDescription ?? undefined, cell: (i) => <Mark on={i.prodDescription !== null} label={c.prodDescription} /> },
   { label: c.dataSheet, width: "w-20", align: "center", cell: (i) => <Has on={i.hasDataSheet} icon="file" label={c.dataSheet} /> },
   { label: c.photo, width: "w-12", align: "center", cell: (i) => <Has on={i.hasPhoto} icon="image" label={c.photo} /> },
   { label: c.warranty, width: "w-26", mono: true, muted: true, cell: (i) => i.warrantyUntil ?? DASH },
@@ -129,9 +126,9 @@ export function ResultList({ items, query }: Props) {
       )}
 
       {/* 데스크톱: 표. 열이 많아(16) 칸에 다 안 들어가므로 가로 스크롤하고, 체크·상품명은 왼쪽에 고정해
-          어느 열을 보든 어떤 매물인지 보이게 한다. 수량·단가는 스크롤 없이 보이도록 앞쪽에 둔다 */}
+          어느 열을 보든 어떤 매물인지 보이게 한다 */}
       <div className="hidden @md:block rounded-md border border-line bg-surface overflow-x-auto">
-        <table className="w-full min-w-474 table-fixed text-[13px]">
+        <table className="w-full min-w-334 table-fixed text-[13px]">
           <colgroup>
             <col className="w-10" />
             <col className="w-48" />
@@ -268,7 +265,7 @@ function ExtraChips({ item }: { item: ListingSearchItem }) {
   );
 }
 
-// 서류(대체품·테스트리포트·정품인증서) 유무. 요구 화면처럼 ○ / –
+// 유무만 보이는 열(제조일·상품설명·대체품·테스트리포트·정품인증서). 요구 화면대로 O / X
 function Mark({ on, label }: { on: boolean; label: string }) {
   return on ? (
     <span role="img" aria-label={label} className="text-primary font-semibold">
@@ -276,7 +273,7 @@ function Mark({ on, label }: { on: boolean; label: string }) {
     </span>
   ) : (
     <span className="text-ink-3">
-      <span aria-hidden="true">–</span>
+      <span aria-hidden="true">✕</span>
       <span className="sr-only">{`${label} ${r.none}`}</span>
     </span>
   );

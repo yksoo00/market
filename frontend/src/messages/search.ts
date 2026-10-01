@@ -51,7 +51,6 @@ export const search = {
     brand: "제조사",
     mufcDate: "제조일",
     prodDescription: "상품설명",
-    specInfo: "부품상세",
     dataSheet: "데이터시트",
     photo: "사진",
     warranty: "보증기한",
@@ -59,9 +58,7 @@ export const search = {
     replaceProd: "대체품",
     testReport: "테스트리포트",
     certificate: "정품인증서",
-    state: "상태",
-    quantity: "수량",
-    price: "단가",
+    state: "상품상태",
   },
   empty: {
     title: "조건에 맞는 매물이 없어요",

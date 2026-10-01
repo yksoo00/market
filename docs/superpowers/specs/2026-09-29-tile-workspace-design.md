@@ -1,7 +1,7 @@
 # 타일 워크스페이스 (Tile Workspace) 설계
 
 날짜: 2026-09-29
-상태: 구현 완료 (실제 브라우저 수동 검증 남음 — `docs/superpowers/plans/2026-09-29-tile-workspace-implementation.md` 참고)
+상태: 구현 완료 (실제 브라우저 수동 검증 남음 — `docs/superpowers/plans/2026-09-29-tile-workspace-implementation.md` 참고) — **일부 대체 → 2026-10-01 타일 큐** (`2026-10-01-tile-queue-design.md`: 왼쪽 칸 고정·새 칸 오른쪽 위·새로고침 소실·TileLink 방식은 더 이상 유효하지 않음)
 
 ## 배경 / 목적
 

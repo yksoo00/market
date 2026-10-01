@@ -1,9 +1,7 @@
-import { HomeAuthPane } from "@/components/auth/HomeAuthPane";
 import { MobileTabBar } from "@/components/common/MobileTabBar";
 import { FilterBar } from "@/components/search/FilterBar";
 import { ResultList } from "@/components/search/ResultList";
 import { SearchForm } from "@/components/search/SearchForm";
-import { SearchSplitShell } from "@/components/search/SearchSplitShell";
 import { searchListings } from "@/lib/mock/search";
 import { buildSearchHref, filterListings, parseSearchParams, type RawSearchParams } from "@/lib/search";
 
@@ -15,13 +13,13 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
   return (
     <>
-      <SearchSplitShell home={<HomeAuthPane />}>
-        <div className="w-full max-w-300 mx-auto flex flex-col gap-3 @md:gap-4 px-4 @md:px-6 pt-3 @md:pt-5 pb-3 @md:pb-6">
+      <main className="flex-1 min-h-0 overflow-y-auto px-4 @md:px-6 pt-3 @md:pt-5">
+        <div className="w-full max-w-300 mx-auto flex flex-col gap-3 @md:gap-4 pb-3 @md:pb-6">
           <SearchForm key={`form-${key}`} query={query} />
           <FilterBar key={`filter-${key}`} query={query} />
           <ResultList key={key} items={items} query={query} />
         </div>
-      </SearchSplitShell>
+      </main>
       <MobileTabBar active="" />
     </>
   );

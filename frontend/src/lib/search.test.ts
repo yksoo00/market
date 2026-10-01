@@ -20,7 +20,6 @@ const base: ListingSearchItem = {
   category: "기타",
   mufcDate: "2026-09-10",
   prodDescription: null,
-  specInfo: null,
   warrantyUntil: null,
   warrantyCoverage: null,
   hasReplaceProd: false,

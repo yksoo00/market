@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
-import { AuthSplitShell } from "@/components/auth/AuthSplitShell";
-import { HomeAuthPane } from "@/components/auth/HomeAuthPane";
+import { AuthShell } from "@/components/auth/AuthShell";
 
 export default function AuthLayout({ children }: { children: ReactNode }) {
-  return <AuthSplitShell home={<HomeAuthPane />}>{children}</AuthSplitShell>;
+  return <AuthShell>{children}</AuthShell>;
 }

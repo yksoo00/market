@@ -4,13 +4,15 @@ import { Suspense, type ReactNode } from "react";
 import { useIsFramed } from "@/hooks/useIsFramed";
 import { useReportTilePathname } from "@/hooks/useReportTilePathname";
 import { TileWorkspaceProvider, useTileWorkspace } from "@/components/common/TileWorkspaceContext";
-import { TileFrame } from "@/components/common/TileFrame";
+import { TileCloseButton, TileFrame } from "@/components/common/TileFrame";
 
 // Provider는 framed 여부와 무관하게 항상 감싼다. useIsFramed는 첫 렌더 false → iframe 안이면 true로
 // 바뀌는데, 이때 루트 타입(Provider ↔ Fragment)이 바뀌면 페이지 전체가 다시 마운트되기 때문.
-export function TileWorkspace({ children }: { children: ReactNode }) {
+// header도 Provider 안에 둔다: 헤더가 칸 목록을 보고(로그인 칸이 닫히면) 세션을 다시 확인해야 해서.
+export function TileWorkspace({ header, children }: { header: ReactNode; children: ReactNode }) {
   return (
     <TileWorkspaceProvider>
+      {header}
       {/* useSearchParams는 Suspense 밖에서 쓰면 정적 프리렌더가 깨지므로 잎 컴포넌트로 분리 */}
       <Suspense fallback={null}>
         <TilePathReporter />
@@ -29,9 +31,10 @@ function TilePathReporter() {
 // 서브 타일 개수·framed가 바뀌어도 메인(children)이 다시 마운트되지 않게 한다.
 function TileGrid({ main }: { main: ReactNode }) {
   const framed = useIsFramed();
-  const { secondary } = useTileWorkspace();
-  // iframe 안(서브 타일)에서는 타일 그리드를 그리지 않는다. 3분할은 메인 컨텍스트에서만.
-  const tiles = framed ? [] : secondary;
+  const { panes, wide, close } = useTileWorkspace();
+  // iframe 안(서브 칸)과 모바일 폭(768 미만)에서는 분할하지 않는다. 칸 목록은 유지돼 넓히면 다시 보인다.
+  // 배치는 읽는 순서 = 오래된 순서: panes[0] 왼쪽, panes[1] 오른쪽 위, panes[2] 오른쪽 아래(새 칸).
+  const tiles = framed || !wide ? [] : panes.slice(1);
 
   // 페이지들은 body(flex-col)의 직계 자식처럼 <main className="flex-1 min-h-0">…<MobileTabBar/>를 두므로
   // 래퍼도 flex-col이어야 main의 flex-1·min-h-0이 전처럼 동작한다.
@@ -44,34 +47,34 @@ function TileGrid({ main }: { main: ReactNode }) {
   // 눌리지 않게(min-h-fit) 한다. 칸이 충분히 크면 flex-auto라 전처럼 남는 높이를 채운다.
   const mainCell = (
     <div
-      className={`@container flex flex-1 flex-col min-h-0 min-w-0 ${
+      className={`@container relative flex flex-1 flex-col min-h-0 min-w-0 ${
         framed ? "overflow-y-auto *:flex-auto *:min-h-fit" : "overflow-hidden"
       }`}
     >
       {main}
+      {/* 칸이 2개 이상이면 주소창 칸에도 닫기. 닫으면 다음 칸이 주소창 칸으로 올라온다 */}
+      {tiles.length > 0 && panes[0] && <TileCloseButton onClick={() => close(panes[0].key)} />}
     </div>
   );
 
-  if (tiles.length === 0) {
-    return <div className="flex flex-1 flex-col min-h-0 w-full">{mainCell}</div>;
-  }
-
-  if (tiles.length === 1) {
-    return (
-      <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-1 h-full w-full">
-        {mainCell}
-        <TileFrame key={tiles[0].key} tile={tiles[0]} />
-      </div>
-    );
-  }
-
+  // 오른쪽 열은 칸이 1개든 2개든 같은 div 하나에 둔다. 부모가 바뀌면 React가 TileFrame을 다시 마운트해
+  // iframe이 새로 로드되고 입력하던 값이 사라진다 (코드리뷰). key로 순서만 바뀌면 그대로 유지된다.
   return (
-    <div className="flex-1 min-h-0 grid grid-cols-2 grid-rows-1 h-full w-full">
+    <div
+      className={
+        tiles.length === 0
+          ? "flex flex-1 flex-col min-h-0 w-full"
+          : "flex-1 min-h-0 grid grid-cols-2 grid-rows-1 h-full w-full"
+      }
+    >
       {mainCell}
-      <div className="grid grid-rows-2 h-full min-h-0">
-        <TileFrame key={tiles[0].key} tile={tiles[0]} />
-        <TileFrame key={tiles[1].key} tile={tiles[1]} />
-      </div>
+      {tiles.length > 0 && (
+        <div className={`grid ${tiles.length === 2 ? "grid-rows-2" : "grid-rows-1"} h-full min-h-0`}>
+          {tiles.map((pane) => (
+            <TileFrame key={pane.key} pane={pane} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
