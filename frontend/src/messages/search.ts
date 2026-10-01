@@ -59,7 +59,7 @@ export const search = {
     replaceProd: "대체품",
     testReport: "테스트리포트",
     certificate: "정품인증서",
-    state: "상태",
+    state: "상품상태",
     quantity: "수량",
     price: "단가",
   },
