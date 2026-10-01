@@ -294,7 +294,7 @@
 
 ## 2026-10-01 검색 결과 화면: URL이 상태, 거래상태는 API의 tradeStatus (지금은 dt_expire로 판단)
 
-- 결정: `/search`의 검색어·구분·필터는 전부 URL 파라미터. 필터는 결과 화면에만 두고 홈 검색창엔 없다. 거래상태는 API 응답의 `tradeStatus: "available" | "completed"`만 보고, 백엔드는 `listings.dt_expire`(레거시 "거래완료일시")가 비면 available, 있으면 completed로 내려준다. 1차는 프론트 mock, 백엔드 검색 API는 다음 PR.
+- 결정: `/search`의 검색어·구분·필터는 전부 URL 파라미터. 필터는 결과 화면에만 두고 홈 검색창엔 없다. 거래상태는 API 응답의 `tradeStatus: "available" | "completed"`만 보고, 백엔드는 `listings.dt_expire`(레거시 "거래완료일시")가 비면 available, 있으면 completed로 내려준다. 1차는 프론트 mock, 백엔드 검색 API는 다음 PR. 화면은 로그인·가입과 같은 홈 | 결과 1:1 분할 (사용자 지시, `@lg` 이상).
 - 이유: URL이 상태면 뒤로가기·새로고침·공유에 조건이 유지된다. 거래 흐름(견적 요청→확인 등)이 미정이라 거래정보 테이블은 이르고, 상태 컬럼은 중간 상태가 생길 때 넣어도 프론트는 `tradeStatus`만 보므로 안 바뀐다.
 - 대안: 거래정보 테이블 존재로 판단, listings에 상태 컬럼 추가 — 둘 다 거래 흐름 확정 전이라 보류.
 - 재검토 조건: 견적·예약 같은 중간 거래상태가 필요해질 때 (상태 컬럼 `db/` 브랜치). 스펙: `docs/superpowers/specs/2026-10-01-search-results-design.md`.
