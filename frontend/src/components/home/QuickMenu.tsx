@@ -29,8 +29,10 @@ type Tone = "sell" | "buy";
 type Notice = { error: boolean; text: string } | null;
 
 const toneClass: Record<Tone, string> = {
-  sell: "text-primary [--quick-soft:var(--color-primary-soft)] hover:bg-primary-soft",
-  buy: "text-green [--quick-soft:var(--color-green-soft)] hover:bg-green-soft",
+  // 호버 배경은 -soft 토큰이 아니라 진한 색의 반투명. -soft 는 페이지 배경(bg)과 거의 같아 호버가 안 보이고,
+  // 아이콘의 연한 면과도 같은 색이라 그림이 배경에 묻힌다
+  sell: "text-primary [--quick-soft:var(--color-primary-soft)] hover:bg-primary/10",
+  buy: "text-green [--quick-soft:var(--color-green-soft)] hover:bg-green/12",
 };
 
 const itemClass = "p-1 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-current";
