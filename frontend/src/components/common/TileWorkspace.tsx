@@ -38,8 +38,17 @@ function TileGrid({ main }: { main: ReactNode }) {
   // 그리드 안에서도 하나의 셀로 들어가야 Header·main·MobileTabBar가 각각 셀로 흩어지지 않는다.
   // @container: 이 칸의 실제 폭을 기준으로 안쪽 콘텐츠가 @md:/@lg: 로 반응하게 한다
   // (타일이 열려 메인이 좁아져도, 일반 md:/lg: 처럼 브라우저 창 전체 폭을 보고 반응 안 하는 문제 방지).
+  // 서브 타일(iframe)은 3분할일 때 세로가 창의 1/4 높이까지 줄어, 한 화면용(h-dvh overflow-hidden)
+  // 페이지가 잘린다. framed에서만 칸 안에서 스크롤하게 하고, 직계 자식(main)이 내용 높이 밑으로
+  // 눌리지 않게(min-h-fit) 한다. 칸이 충분히 크면 flex-auto라 전처럼 남는 높이를 채운다.
   const mainCell = (
-    <div className="@container flex flex-1 flex-col min-h-0 min-w-0 overflow-hidden">{main}</div>
+    <div
+      className={`@container flex flex-1 flex-col min-h-0 min-w-0 ${
+        framed ? "overflow-y-auto *:flex-auto *:min-h-fit" : "overflow-hidden"
+      }`}
+    >
+      {main}
+    </div>
   );
 
   if (tiles.length === 0) {
