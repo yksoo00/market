@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/common/Icon";
 import { useIsFramed } from "@/hooks/useIsFramed";
@@ -9,7 +10,9 @@ import { home as t } from "@/messages/home";
 
 const navHrefs = ["/listings", "/requests", "/prices", "/business", "/support"];
 
-export function Header({ hideAuthLinks = false }: { hideAuthLinks?: boolean }) {
+export function Header() {
+  // 경로 전체가 아니라 "로그인 화면인가"만 본다 (아래 effect 주석)
+  const onLoginPage = usePathname() === "/login";
   const framed = useIsFramed();
   const [profile, setProfile] = useState<{ nickname: string } | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -28,7 +31,10 @@ export function Header({ hideAuthLinks = false }: { hideAuthLinks?: boolean }) {
     return () => {
       active = false;
     };
-  }, [framed]);
+    // 헤더가 루트 레이아웃에 있어 페이지를 옮겨도 다시 마운트되지 않는다. 로그인은 /login을 벗어나는
+    // 이동으로 끝나므로, /login에 들어오고 나갈 때만 세션을 다시 확인한다. 경로가 바뀔 때마다 조회하면
+    // 비로그인 사용자는 이동마다 401 + refresh 시도 요청이 나간다.
+  }, [framed, onLoginPage]);
 
   const logout = async () => {
     setLoggingOut(true);
@@ -77,7 +83,7 @@ export function Header({ hideAuthLinks = false }: { hideAuthLinks?: boolean }) {
           </button>
           {logoutError && <span role="alert" className="text-xs text-white">로그아웃 실패</span>}
         </div>
-      ) : sessionChecked && !hideAuthLinks ? (
+      ) : sessionChecked ? (
         <>
           <Link href="/login" className="text-[13px] text-on-primary hover:text-white">
             {t.login}

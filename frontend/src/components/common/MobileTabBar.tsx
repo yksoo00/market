@@ -18,7 +18,7 @@ export function MobileTabBar({ active = "/" }: { active?: string }) {
   if (framed) return null;
 
   return (
-    <nav className="md:hidden h-15 shrink-0 grid grid-cols-5 bg-surface border-t border-line text-[10px] pb-[env(safe-area-inset-bottom)]">
+    <nav className="@md:hidden h-15 shrink-0 grid grid-cols-5 bg-surface border-t border-line text-[10px] pb-[env(safe-area-inset-bottom)]">
       {tabs.map(({ icon, label, href, center }) => {
         const on = href === active;
         return (

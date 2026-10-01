@@ -46,7 +46,7 @@ export function TileFrame({ tile }: { tile: SecondaryTile }) {
   }
 
   return (
-    <div className="group relative h-full w-full">
+    <div className="relative h-full w-full">
       <iframe
         ref={iframeRef}
         src={src}
@@ -54,11 +54,15 @@ export function TileFrame({ tile }: { tile: SecondaryTile }) {
         onError={() => setLoadError(true)}
         className="h-full w-full border-0"
       />
-      <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
-        <button type="button" aria-label={t.tileClose} onClick={() => closeTile(tile.key)}>
-          <Icon name="close" size={16} />
-        </button>
-      </div>
+      {/* 항상 보이게 둔다. hover에서만 보이면 터치·키보드 사용자는 찾을 수 없고, 어두운 페이지 위에선 아이콘이 묻힌다 */}
+      <button
+        type="button"
+        aria-label={t.tileClose}
+        onClick={() => closeTile(tile.key)}
+        className="absolute top-1 right-1 w-7 h-7 flex items-center justify-center rounded-full bg-surface text-ink border border-line hover:border-primary"
+      >
+        <Icon name="close" size={14} />
+      </button>
     </div>
   );
 }
