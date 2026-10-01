@@ -197,21 +197,3 @@ describe("categoryOptions", () => {
     expect(categoryOptions(["서버", "GPU"], "")).toEqual(["서버", "GPU"]);
   });
 });
-
-describe("홈 칸 닫힘(home=0)", () => {
-  it("home=0이면 homeClosed, 아니면 없음", () => {
-    expect(parseSearchParams({ home: "0" }).homeClosed).toBe(true);
-    expect(parseSearchParams({ home: "1" }).homeClosed).toBeUndefined();
-    expect(parseSearchParams({}).homeClosed).toBeUndefined();
-  });
-
-  it("URL로 왕복해도 유지되고, 필터 초기화에도 남는다", () => {
-    const query = parseSearchParams({ q: "LM", minStock: "1", home: "0" });
-    expect(buildSearchHref(query)).toBe("/search?q=LM&minStock=1&home=0");
-    expect(buildSearchHref(clearFilters(query))).toBe("/search?q=LM&home=0");
-  });
-
-  it("필터 개수에 들어가지 않는다", () => {
-    expect(activeFilterCount(parseSearchParams({ home: "0" }))).toBe(0);
-  });
-});

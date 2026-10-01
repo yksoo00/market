@@ -16,8 +16,6 @@ export interface SearchQuery {
   maxPrice?: number;
   /** YYYY-MM-DD */
   deliveryBy?: string;
-  /** 검색 조건은 아니고 화면 배치: 분할에서 왼쪽 홈 칸을 닫았는지. URL에 둬서 새로고침·재검색에도 유지 (home=0) */
-  homeClosed?: true;
 }
 
 export type RawSearchParams = Record<string, string | string[] | undefined>;
@@ -66,7 +64,6 @@ export function parseSearchParams(raw: RawSearchParams): SearchQuery {
   if (minPrice !== undefined && !inverted) query.minPrice = minPrice;
   if (maxPrice !== undefined && !inverted) query.maxPrice = maxPrice;
   if (isValidDate(deliveryBy)) query.deliveryBy = deliveryBy;
-  if (first(raw.home) === "0") query.homeClosed = true;
   return query;
 }
 
@@ -108,7 +105,6 @@ export function buildSearchHref(query: SearchQuery): string {
   if (query.minPrice !== undefined) p.set("minPrice", String(query.minPrice));
   if (query.maxPrice !== undefined) p.set("maxPrice", String(query.maxPrice));
   if (query.deliveryBy !== undefined) p.set("deliveryBy", query.deliveryBy);
-  if (query.homeClosed) p.set("home", "0");
   const s = p.toString();
   return s ? `/search?${s}` : "/search";
 }
@@ -125,9 +121,7 @@ export function activeFilterCount(query: SearchQuery): number {
 }
 
 export function clearFilters(query: SearchQuery): SearchQuery {
-  const cleared: SearchQuery = { q: query.q, field: query.field, category: "", status: "available" };
-  if (query.homeClosed) cleared.homeClosed = true;
-  return cleared;
+  return { q: query.q, field: query.field, category: "", status: "available" };
 }
 
 export function listingHref(item: Pick<ListingSearchItem, "userId" | "regDate">): string {
