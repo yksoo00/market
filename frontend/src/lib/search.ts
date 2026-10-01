@@ -59,18 +59,21 @@ export function parseSearchParams(raw: RawSearchParams): SearchQuery {
   const maxPrice = intInRange(first(raw.maxPrice), MAX_PRICE);
   const deliveryBy = first(raw.deliveryBy);
   if (minStock !== undefined) query.minStock = minStock;
-  if (minPrice !== undefined) query.minPrice = minPrice;
-  if (maxPrice !== undefined) query.maxPrice = maxPrice;
+  // 뒤집힌 가격 쌍을 그대로 두면 필터 폼이 처음부터 무효라 '적용'이 이유 없이 막힌다 → 둘 다 버림
+  const inverted = minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice;
+  if (minPrice !== undefined && !inverted) query.minPrice = minPrice;
+  if (maxPrice !== undefined && !inverted) query.maxPrice = maxPrice;
   if (isValidDate(deliveryBy)) query.deliveryBy = deliveryBy;
   return query;
 }
 
 export function filterListings(items: readonly ListingSearchItem[], query: SearchQuery): ListingSearchItem[] {
-  const needle = query.q.toLowerCase();
+  // 띄어쓰기로 나눈 낱말이 전부 들어 있으면 매칭 ("DDR4 ECC 32GB" ↔ "DDR4 32GB ECC RDIMM")
+  const words = query.q.toLowerCase().split(/\s+/).filter(Boolean);
   return items.filter((i) => {
-    if (needle) {
-      const haystack = query.field === "brand" ? [i.prodBrand] : [i.prodName, i.prodNo ?? ""];
-      if (!haystack.some((s) => s.toLowerCase().includes(needle))) return false;
+    if (words.length > 0) {
+      const haystack = (query.field === "brand" ? i.prodBrand : `${i.prodName} ${i.prodNo ?? ""}`).toLowerCase();
+      if (!words.every((w) => haystack.includes(w))) return false;
     }
     if (query.status !== "all" && i.tradeStatus !== query.status) return false;
     if (query.category && i.category !== query.category) return false;

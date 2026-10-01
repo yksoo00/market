@@ -75,6 +75,13 @@ describe("parseSearchParams", () => {
     expect(parseSearchParams({ minPrice: "1,000" }).minPrice).toBeUndefined();
   });
 
+  it("최소 가격 > 최대 가격인 URL이면 가격 조건을 둘 다 버림 (폼이 처음부터 막히지 않게)", () => {
+    const query = parseSearchParams({ minPrice: "500000", maxPrice: "1000" });
+    expect(query.minPrice).toBeUndefined();
+    expect(query.maxPrice).toBeUndefined();
+    expect(parseSearchParams({ minPrice: "500", maxPrice: "500" })).toMatchObject({ minPrice: 500, maxPrice: 500 });
+  });
+
   it("납품일은 실제 있는 YYYY-MM-DD만", () => {
     expect(parseSearchParams({ deliveryBy: "2026-10-31" }).deliveryBy).toBe("2026-10-31");
     expect(parseSearchParams({ deliveryBy: "2026-02-30" }).deliveryBy).toBeUndefined();
@@ -90,6 +97,12 @@ describe("filterListings", () => {
   it("상품명 검색은 상품명·상품번호 부분 일치, 대소문자 무시", () => {
     expect(regDates(filterListings(items, q({ q: "lm324" })))).toEqual(["20261001090000"]);
     expect(regDates(filterListings(items, q({ q: "per7" })))).toEqual(["2"]);
+  });
+
+  it("검색어를 띄어쓰기로 나눠 모든 낱말이 들어 있으면 매칭 (순서 무관)", () => {
+    expect(regDates(filterListings(items, q({ q: "48p catalyst" })))).toEqual(["3"]);
+    expect(regDates(filterListings(items, q({ q: "R740  poweredge" })))).toEqual(["2"]);
+    expect(filterListings(items, q({ q: "catalyst R740" }))).toEqual([]);
   });
 
   it("상품번호가 없어도 상품명으로 매칭", () => {
