@@ -23,7 +23,8 @@ export const searchFilterSchema = z
       .refine((s) => s === "" || isValidDate(s), t.validation.date)
       .transform((s) => (s === "" ? undefined : s)),
   })
-  .refine((v) => v.minPrice === undefined || v.maxPrice === undefined || v.minPrice <= v.maxPrice, {
+  // zod 4는 칸 검사가 실패해도 이 refine을 변환 전 문자열로 돌린다 → 둘 다 숫자일 때만 비교
+  .refine((v) => typeof v.minPrice !== "number" || typeof v.maxPrice !== "number" || v.minPrice <= v.maxPrice, {
     message: t.validation.priceOrder,
     path: ["maxPrice"],
   });

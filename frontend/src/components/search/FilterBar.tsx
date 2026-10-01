@@ -112,7 +112,8 @@ export function FilterBar({ query }: { query: SearchQuery }) {
             id="f-price-min"
             inputMode="numeric"
             aria-label={t.priceMin}
-            {...register("minPrice")}
+            // 순서 오류는 최대 가격 칸에 붙으므로, 최소 가격을 고치면 최대 가격도 다시 검사해야 오류가 지워진다
+            {...register("minPrice", { deps: "maxPrice" })}
             aria-invalid={!!errors.minPrice}
             aria-describedby={errors.minPrice ? "f-price-err" : undefined}
             className={`${control} w-28 num text-right`}

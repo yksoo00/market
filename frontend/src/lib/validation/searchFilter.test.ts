@@ -39,6 +39,11 @@ describe("searchFilterSchema", () => {
     expect(parse({ minPrice: "500", maxPrice: "500" }).success).toBe(true);
   });
 
+  it("한쪽 가격 칸이 잘못됐으면 순서 오류를 다른 칸에 붙이지 않는다", () => {
+    expect(errors({ minPrice: "abc", maxPrice: "5" })).toEqual({ minPrice: t.validation.price });
+    expect(errors({ minPrice: "5", maxPrice: "1,000" })).toEqual({ maxPrice: t.validation.price });
+  });
+
   it("없는 날짜는 오류", () => {
     expect(errors({ deliveryBy: "2026-02-30" })).toEqual({ deliveryBy: t.validation.date });
     expect(parse({ deliveryBy: "2026-10-31" }).data?.deliveryBy).toBe("2026-10-31");
