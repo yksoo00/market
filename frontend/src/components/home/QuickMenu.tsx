@@ -26,7 +26,8 @@ const routes = {
 };
 
 type Tone = "sell" | "buy";
-type Notice = { error: boolean; text: string } | null;
+// seq: 같은 문구가 연달아 나와도 알림 요소를 새로 그려 스크린리더가 다시 읽게 한다 (key 로 사용)
+type Notice = { error: boolean; text: string; seq: number } | null;
 
 const toneClass: Record<Tone, string> = {
   // 호버 배경은 -soft 토큰이 아니라 진한 색의 반투명. -soft 는 페이지 배경(bg)과 거의 같아 호버가 안 보이고,
@@ -57,7 +58,11 @@ export function QuickMenu() {
     e.target.value = ""; // 같은 파일을 다시 골라도 change 가 나게
     if (!file) return;
     const error = checkUpload(kindRef.current, file);
-    setNotice(error ? { error: true, text: error } : { error: false, text: upload.pending(file.name) });
+    setNotice((prev) => ({
+      error: error !== null,
+      text: error ?? upload.pending(file.name),
+      seq: (prev?.seq ?? 0) + 1,
+    }));
   };
 
   return (
@@ -92,6 +97,7 @@ export function QuickMenu() {
 
       {notice && (
         <p
+          key={notice.seq}
           role={notice.error ? "alert" : "status"}
           className={`flex items-center gap-2 text-[13px] ${notice.error ? "text-down" : "text-ink-2"}`}
         >

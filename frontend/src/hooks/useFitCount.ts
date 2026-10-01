@@ -6,7 +6,8 @@ import { fitCount } from "@/lib/fitCount";
 /**
  * 목록 칸 높이에 잘리지 않고 들어가는 행 수. 홈은 스크롤 없이 한 화면이라(design.md)
  * 넘치는 행은 스크롤 대신 잘라내고 '전체'로 보낸다.
- * 측정 전(서버 렌더·첫 렌더)은 null → 호출 측은 전부 그리고 칸의 overflow-hidden 에 맡긴다.
+ * 측정 전(서버 렌더·첫 렌더)은 null. 사용처는 FitList (null 동안 목록을 숨김).
+ * ref 를 받은 요소는 hook 을 쓰는 컴포넌트와 함께 마운트돼야 한다 (나중에 붙는 요소는 관찰하지 않음).
  */
 export function useFitCount<T extends HTMLElement>(rowHeight: number) {
   const ref = useRef<T>(null);

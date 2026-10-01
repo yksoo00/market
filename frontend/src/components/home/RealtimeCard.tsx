@@ -1,8 +1,6 @@
-"use client";
-
 import Link from "next/link";
+import { FitList } from "@/components/home/FitList";
 import { ListingRow, ROW_HEIGHT } from "@/components/home/ListingRow";
-import { useFitCount } from "@/hooks/useFitCount";
 import { home as t } from "@/messages/home";
 import type { ListingSummary, ListingType } from "@/types/listing";
 
@@ -13,7 +11,6 @@ interface Props {
 
 export function RealtimeCard({ type, items }: Props) {
   const isBuy = type === "buy";
-  const [listRef, fit] = useFitCount<HTMLDivElement>(ROW_HEIGHT);
   return (
     <section className="flex-1 min-w-0 min-h-0 flex flex-col gap-1.5 bg-surface border border-line rounded-md px-3.5 pt-3 pb-1 overflow-hidden">
       <div className="flex items-center gap-2">
@@ -27,11 +24,11 @@ export function RealtimeCard({ type, items }: Props) {
       {items.length === 0 ? (
         <p className="py-6 text-center text-[13px] text-ink-3">{t.empty}</p>
       ) : (
-        <div ref={listRef} className="flex-1 min-h-0 flex flex-col overflow-hidden">
-          {items.slice(0, fit ?? items.length).map((item) => (
+        <FitList rowHeight={ROW_HEIGHT} className="flex-1 min-h-0 flex flex-col overflow-hidden">
+          {items.map((item) => (
             <ListingRow key={item.id} item={item} />
           ))}
-        </div>
+        </FitList>
       )}
     </section>
   );

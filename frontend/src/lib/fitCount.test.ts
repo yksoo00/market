@@ -7,6 +7,11 @@ describe("fitCount", () => {
     expect(fitCount(56 * 4 + 55, 56)).toBe(4);
   });
 
+  it("배율·분수 높이로 정확한 배수보다 살짝 작게 재져도 들어가는 행을 버리지 않는다", () => {
+    expect(fitCount(167.99, 56)).toBe(3);
+    expect(fitCount(167.6, 56)).toBe(3);
+  });
+
   it("한 행도 안 들어가면 0", () => {
     expect(fitCount(30, 56)).toBe(0);
     expect(fitCount(0, 56)).toBe(0);

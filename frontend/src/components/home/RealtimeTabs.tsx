@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { FitList } from "@/components/home/FitList";
 import { ListingRow, ROW_HEIGHT } from "@/components/home/ListingRow";
-import { useFitCount } from "@/hooks/useFitCount";
 import { home as t } from "@/messages/home";
 import type { ListingSummary, ListingType } from "@/types/listing";
 
@@ -16,7 +16,6 @@ interface Props {
 export function RealtimeTabs({ buy, sell }: Props) {
   const [tab, setTab] = useState<ListingType>("buy");
   const items = tab === "buy" ? buy : sell;
-  const [listRef, fit] = useFitCount<HTMLDivElement>(ROW_HEIGHT);
 
   return (
     <section className="flex-1 min-h-0 flex flex-col">
@@ -40,11 +39,11 @@ export function RealtimeTabs({ buy, sell }: Props) {
           {t.viewAll} ›
         </Link>
       </div>
-      <div ref={listRef} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-surface -mx-4 px-4">
-        {items.slice(0, fit ?? items.length).map((item) => (
+      <FitList rowHeight={ROW_HEIGHT} className="flex-1 min-h-0 flex flex-col overflow-hidden bg-surface -mx-4 px-4">
+        {items.map((item) => (
           <ListingRow key={item.id} item={item} />
         ))}
-      </div>
+      </FitList>
     </section>
   );
 }
