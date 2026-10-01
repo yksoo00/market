@@ -4,7 +4,7 @@ import { AuthCard } from "@/components/auth/AuthCard";
 import { businessSignupPath, personalSignupPath } from "@/lib/signupFlow";
 import { signup as t } from "@/messages/signup";
 
-// /signup 페이지와 AuthSplitShell의 "이전 가입" 칸이 같이 쓴다 (LoginPanel과 같은 방식)
+// /signup 페이지 본문
 export function SignupChoosePanel() {
   return (
     <AuthCard title={t.title} subtitle={t.choose.subtitle}>
