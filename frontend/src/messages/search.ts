@@ -33,6 +33,7 @@ export const search = {
     count: (n: number) => `검색결과 ${n}건`,
     selected: (n: number) => ` · ${n}개 선택`,
     selectAll: "전체 선택",
+    qtyUnit: "개",
     selectRow: (name: string) => `${name} 선택`,
     quote: "견적 요청",
     buy: "구매",
