@@ -1,3 +1,4 @@
+import Form from "next/form";
 import { Icon } from "@/components/common/Icon";
 import { buildSearchHref, type SearchQuery } from "@/lib/search";
 import { search as t } from "@/messages/search";
@@ -10,7 +11,7 @@ function filterHiddenFields(query: SearchQuery): [string, string][] {
 
 export function SearchForm({ query }: { query: SearchQuery }) {
   return (
-    <form action="/search" role="search" className="w-full">
+    <Form action="/search" role="search" className="w-full">
       <label htmlFor="search-q" className="sr-only">
         {t.form.label}
       </label>
@@ -46,6 +47,6 @@ export function SearchForm({ query }: { query: SearchQuery }) {
           {t.form.button}
         </button>
       </div>
-    </form>
+    </Form>
   );
 }
