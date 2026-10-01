@@ -10,12 +10,8 @@ import { home as t } from "@/messages/home";
 
 const navHrefs = ["/listings", "/requests", "/prices", "/business", "/support"];
 
-// 로그인·가입 화면에서는 헤더의 로그인·가입 링크가 중복이라 숨긴다. 헤더가 루트 레이아웃에 있어 경로로 판단한다.
-const authPaths = ["/login", "/signup"];
-
 export function Header() {
   const pathname = usePathname();
-  const hideAuthLinks = authPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
   const framed = useIsFramed();
   const [profile, setProfile] = useState<{ nickname: string } | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
@@ -85,7 +81,7 @@ export function Header() {
           </button>
           {logoutError && <span role="alert" className="text-xs text-white">로그아웃 실패</span>}
         </div>
-      ) : sessionChecked && !hideAuthLinks ? (
+      ) : sessionChecked ? (
         <>
           <Link href="/login" className="text-[13px] text-on-primary hover:text-white">
             {t.login}
