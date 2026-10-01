@@ -28,6 +28,8 @@ export function AuthSplitShell({ children, home, homeClosed }: Props) {
   const closeHome = () => {
     document.cookie = `${AUTH_HOME_CLOSED_COOKIE}=1; path=/; SameSite=Lax`;
     setHomeOpen(false);
+    // 쌓여 있던 칸도 함께 정리해 전체 화면은 항상 한 칸
+    setPrevious(null);
   };
 
   const handleNavigation = (event: MouseEvent<HTMLDivElement>) => {
@@ -35,7 +37,8 @@ export function AuthSplitShell({ children, home, homeClosed }: Props) {
     const anchor = event.target.closest("a");
     if (!anchor) return;
     const nextPath = new URL(anchor.href).pathname;
-    setPrevious(nextPrevious(previous, pathname, nextPath, window.location.search));
+    // 홈 칸을 닫은 전체 화면에선 떠나온 칸을 위에 쌓지 않고 그 칸에서 바로 바뀐다 (사용자 지시)
+    setPrevious(homeOpen ? nextPrevious(previous, pathname, nextPath, window.location.search) : null);
   };
 
   // 현재 경로 칸 닫기. 위 칸 정리와 이동을 한 transition으로 묶어, 이동이 끝나기 전에
