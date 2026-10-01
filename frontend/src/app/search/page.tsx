@@ -1,4 +1,5 @@
 import { MobileTabBar } from "@/components/common/MobileTabBar";
+import { FilterBar } from "@/components/search/FilterBar";
 import { ResultList } from "@/components/search/ResultList";
 import { SearchForm } from "@/components/search/SearchForm";
 import { searchListings } from "@/lib/mock/search";
@@ -15,6 +16,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
       <main className="flex-1 min-h-0 overflow-y-auto px-4 @md:px-6 pt-3 @md:pt-5">
         <div className="w-full max-w-300 mx-auto flex flex-col gap-3 @md:gap-4 pb-3 @md:pb-6">
           <SearchForm key={`form-${key}`} query={query} />
+          <FilterBar key={`filter-${key}`} query={query} />
           <ResultList key={key} items={items} query={query} />
         </div>
       </main>
