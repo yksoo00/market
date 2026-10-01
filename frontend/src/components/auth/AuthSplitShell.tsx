@@ -6,13 +6,8 @@ import { LoginPanel } from "@/components/auth/LoginPanel";
 import { SignupChoosePanel } from "@/components/auth/SignupChoosePanel";
 import { Icon } from "@/components/common/Icon";
 import { useIsFramed } from "@/hooks/useIsFramed";
-import { safeNext } from "@/lib/safeNext";
+import { closeDestination, nextPrevious, type PreviousPane } from "@/lib/authSplit";
 import { common as t } from "@/messages/common";
-
-// 로그인 ↔ 가입으로 이동할 때 떠나온 화면을 위 칸에 남긴다. 가입은 유형 선택(/signup)에만 로그인 링크가 있다.
-type PreviousPane =
-  | { kind: "login"; next: string; initial: "personal" | "business"; search: string }
-  | { kind: "signup" };
 
 interface Props {
   children: ReactNode;
@@ -30,41 +25,17 @@ export function AuthSplitShell({ children, home }: Props) {
     const anchor = event.target.closest("a");
     if (!anchor) return;
     const nextPath = new URL(anchor.href).pathname;
-
-    if (pathname === "/login" && nextPath.startsWith("/signup")) {
-      const params = new URLSearchParams(window.location.search);
-      setPrevious({
-        kind: "login",
-        next: safeNext(params.get("next") ?? undefined),
-        initial: params.get("type") === "business" ? "business" : "personal",
-        // 돌아갈 때 원래 주소 그대로 복원한다 (next가 없던 /login이 ?next=%2F로 바뀌지 않게)
-        search: window.location.search,
-      });
-    } else if (pathname === "/signup" && nextPath === "/login") {
-      setPrevious({ kind: "signup" });
-    } else {
-      // 같은 흐름 안의 이동(/signup → /signup/personal 등)은 위 칸을 유지하고, 흐름을 벗어나면 닫는다
-      const section = pathname.startsWith("/signup") ? "/signup" : "/login";
-      if (!nextPath.startsWith(section)) setPrevious(null);
-    }
+    setPrevious(nextPrevious(previous, pathname, nextPath, window.location.search));
   };
 
-  // 현재 경로 칸 닫기. 분할이면 현재 칸을 닫고 위 칸(떠나온 화면)으로 돌아가고, 단일 칸이면 홈으로.
+  // 현재 경로 칸 닫기. 위 칸 정리와 이동을 한 transition으로 묶어, 이동이 끝나기 전에
+  // 현재 칸만 단독으로 커져 보이는 깜빡임을 막는다.
   const closeCurrent = () => {
-    // 위 칸 정리와 이동을 한 transition으로 묶어, 이동이 끝나기 전에 현재 칸만 단독으로 커져 보이는 깜빡임을 막는다
-    if (previous?.kind === "login") {
-      startTransition(() => {
-        setPrevious(null);
-        router.push(`/login${previous.search}`);
-      });
-    } else if (previous?.kind === "signup") {
-      startTransition(() => {
-        setPrevious(null);
-        router.push("/signup");
-      });
-    } else {
-      router.push("/");
-    }
+    const destination = closeDestination(previous);
+    startTransition(() => {
+      setPrevious(null);
+      router.push(destination);
+    });
   };
 
   return (
