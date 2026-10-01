@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, type MouseEvent, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { LoginPanel } from "@/components/auth/LoginPanel";
 import { Icon } from "@/components/common/Icon";
 import { useIsFramed } from "@/hooks/useIsFramed";
@@ -20,6 +20,7 @@ interface Props {
 
 export function AuthSplitShell({ children, home }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const framed = useIsFramed();
   const [previousLogin, setPreviousLogin] = useState<LoginPaneState | null>(null);
 
@@ -37,6 +38,18 @@ export function AuthSplitShell({ children, home }: Props) {
       });
     } else if (pathname.startsWith("/signup") && !nextPath.startsWith("/signup")) {
       setPreviousLogin(null);
+    }
+  };
+
+  // 현재 경로 칸 닫기. 분할(이전 로그인 + 가입)이면 가입을 닫고 그 로그인 화면으로, 단일 칸이면 홈으로.
+  const closeCurrent = () => {
+    if (previousLogin) {
+      const params = new URLSearchParams({ next: previousLogin.next });
+      if (previousLogin.initial === "business") params.set("type", "business");
+      setPreviousLogin(null);
+      router.push(`/login?${params}`);
+    } else {
+      router.push("/");
     }
   };
 
@@ -66,20 +79,30 @@ export function AuthSplitShell({ children, home }: Props) {
                 <LoginPanel next={previousLogin.next} initial={previousLogin.initial} />
               </div>
             </section>
-            <button
-              type="button"
-              aria-label={t.tileClose}
-              onClick={() => setPreviousLogin(null)}
-              className="absolute top-2 right-4 w-7 h-7 flex items-center justify-center rounded-full bg-surface text-ink border border-line shadow-sm hover:border-primary"
-            >
-              <Icon name="close" size={14} />
-            </button>
+            {!framed && <PaneCloseButton onClick={() => setPreviousLogin(null)} />}
           </div>
         )}
-        <section className="flex-1 min-w-0 min-h-0 overflow-y-auto px-4 py-6 @md:px-6 @md:py-8 flex justify-center">
-          <div className="w-full max-w-[560px] my-auto">{children}</div>
-        </section>
+        <div className="relative flex-1 min-w-0 min-h-0">
+          <section className="h-full overflow-y-auto px-4 py-6 @md:px-6 @md:py-8 flex justify-center">
+            <div className="w-full max-w-[560px] my-auto">{children}</div>
+          </section>
+          {/* 단일 칸일 때는 왼쪽 홈 칸이 보이는 @lg에서만 닫기를 둔다. 좁으면 이 칸이 화면 전체라 닫을 대상이 아니다 */}
+          {!framed && <PaneCloseButton onClick={closeCurrent} className={previousLogin ? "flex" : "hidden @lg:flex"} />}
+        </div>
       </div>
     </main>
+  );
+}
+
+function PaneCloseButton({ onClick, className = "flex" }: { onClick: () => void; className?: string }) {
+  return (
+    <button
+      type="button"
+      aria-label={t.tileClose}
+      onClick={onClick}
+      className={`${className} absolute top-2 right-4 w-7 h-7 items-center justify-center rounded-full bg-surface text-ink border border-line shadow-sm hover:border-primary`}
+    >
+      <Icon name="close" size={14} />
+    </button>
   );
 }
