@@ -4,7 +4,7 @@ import { search as t } from "@/messages/search";
 
 // 다시 검색해도 걸어 둔 필터는 유지한다 (보이는 칸은 검색어·구분뿐, 나머지는 hidden)
 function filterHiddenFields(query: SearchQuery): [string, string][] {
-  const href = buildSearchHref({ ...query, q: "", field: "name" });
+  const href = buildSearchHref({ ...query, q: "", field: "all" });
   return [...new URLSearchParams(href.split("?")[1] ?? "")];
 }
 
@@ -21,6 +21,7 @@ export function SearchForm({ query }: { query: SearchQuery }) {
           aria-label={t.form.fieldLabel}
           className="w-18 @md:w-28 px-2 @md:px-3 border-r border-line bg-primary-soft text-primary-dark text-sm font-medium outline-none"
         >
+          <option value="all">{t.form.fields.all}</option>
           <option value="name">{t.form.fields.name}</option>
           <option value="brand">{t.form.fields.brand}</option>
         </select>

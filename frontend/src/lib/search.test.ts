@@ -41,7 +41,7 @@ const regDates = (list: ListingSearchItem[]) => list.map((i) => i.regDate);
 
 describe("parseSearchParams", () => {
   it("빈 파라미터면 기본값", () => {
-    expect(parseSearchParams({})).toEqual({ q: "", field: "name", category: "", status: "available" });
+    expect(parseSearchParams({})).toEqual({ q: "", field: "all", category: "", status: "available" });
   });
 
   it("검색어 앞뒤 공백을 지우고, 공백뿐이면 빈 검색어", () => {
@@ -51,7 +51,8 @@ describe("parseSearchParams", () => {
 
   it("검색 구분·거래상태의 모르는 값은 기본값", () => {
     expect(parseSearchParams({ field: "brand" }).field).toBe("brand");
-    expect(parseSearchParams({ field: "x" }).field).toBe("name");
+    expect(parseSearchParams({ field: "name" }).field).toBe("name");
+    expect(parseSearchParams({ field: "x" }).field).toBe("all");
     expect(parseSearchParams({ status: "bogus" }).status).toBe("available");
     expect(parseSearchParams({ status: "all" }).status).toBe("all");
   });
@@ -95,8 +96,18 @@ describe("filterListings", () => {
   });
 
   it("상품명 검색은 상품명·상품번호 부분 일치, 대소문자 무시", () => {
+    expect(regDates(filterListings(items, q({ q: "lm324", field: "name" })))).toEqual(["20261001090000"]);
+    expect(regDates(filterListings(items, q({ q: "per7", field: "name" })))).toEqual(["2"]);
+  });
+
+  it("상품명 검색은 제조사를 안 본다", () => {
+    expect(filterListings(items, q({ q: "dell", field: "name" }))).toEqual([]);
+  });
+
+  it("전체 검색은 상품명·상품번호·제조사를 함께 보고, 낱말이 서로 다른 칸에 있어도 매칭", () => {
+    expect(regDates(filterListings(items, q({ q: "dell" })))).toEqual(["2"]);
+    expect(regDates(filterListings(items, q({ q: "Dell R740" })))).toEqual(["2"]);
     expect(regDates(filterListings(items, q({ q: "lm324" })))).toEqual(["20261001090000"]);
-    expect(regDates(filterListings(items, q({ q: "per7" })))).toEqual(["2"]);
   });
 
   it("검색어를 띄어쓰기로 나눠 모든 낱말이 들어 있으면 매칭 (순서 무관)", () => {

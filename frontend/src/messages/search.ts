@@ -2,9 +2,8 @@ export const search = {
   form: {
     label: "장비 검색",
     fieldLabel: "검색 구분",
-    fields: { name: "상품명", brand: "제조사" },
-    // 기본 구분(상품명)은 상품명·상품번호만 찾는다. 제조사는 왼쪽 select로 바꿔서
-    placeholder: "모델명 · 상품번호",
+    fields: { all: "전체", name: "상품명", brand: "제조사" },
+    placeholder: "모델명 · 상품번호 · 제조사",
     button: "검색",
   },
   filter: {
