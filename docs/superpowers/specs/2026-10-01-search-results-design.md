@@ -15,7 +15,7 @@
 
 - **URL이 상태의 원본.** 뒤로가기·새로고침·공유 시 조건 유지. 홈에서 넘어온 `q`·`category`가 결과 화면에 미리 채워진다.
 - **거래상태는 `tradeStatus: "available" | "completed"`로 받는다.** 백엔드는 `listings.dt_expire`(레거시 "거래완료일시")가 비면 `available`, 있으면 `completed`로 내려줄 예정. 거래 흐름(미정)이 정해져 중간 상태가 필요해지면 상태 컬럼 추가를 검토 — 프론트는 이 값만 보므로 저장 방식이 바뀌어도 영향 없음. `decisions.md`에 기록.
-- **검색 구분:** 검색창 왼쪽 select = 상품명 / 제조사. '상품명'은 상품명과 상품번호(`prodNo`) 둘 다 부분 일치. 카테고리는 필터 바에서 고른다. 대소문자 무시, 앞뒤 공백 제거.
+- **검색 구분:** 검색창 왼쪽 select = 전체(기본) / 상품명 / 제조사. '전체'는 상품명·상품번호·제조사를 함께 보고, '상품명'은 상품명과 상품번호(`prodNo`), '제조사'는 제조사만 (코드리뷰 후 사용자 결정: 홈 검색창은 구분을 안 보내고 안내 문구에 제조사가 있으므로 기본값이 가장 넓어야 함). 카테고리는 필터 바에서 고른다. 대소문자 무시, 앞뒤 공백 제거. 검색어는 띄어쓰기로 나눠 모든 낱말이 들어 있으면 매칭(순서 무관) — 코드리뷰 반영, 인기 검색어 "DDR4 ECC 32GB"가 0건이던 문제.
 - **필터는 '적용'을 눌러야 URL에 반영.** 입력 중엔 반영하지 않는다. '초기화'는 `q`·`field`만 남기고 필터 파라미터를 지운다.
 - **구매·견적:** 행 체크박스 + 헤더 전체 선택. 1개 이상 선택 시 [견적 요청][구매] 활성. 누르면 목록 위 안내 한 줄 "준비 중" (홈 파일 안내와 같은 모양, 닫기 ×).
 
@@ -24,14 +24,14 @@
 | 이름 | 값 | 기본 | 잘못된 값 |
 |---|---|---|---|
 | `q` | 문자열 | 빈 값(전체) | — |
-| `field` | `name` \| `brand` | `name` | 기본값 |
+| `field` | `all` \| `name` \| `brand` | `all` | 기본값 |
 | `category` | 카테고리 문자열 | 빈 값(전체) | — |
 | `status` | `available` \| `completed` \| `all` | `available` | 기본값 |
 | `minStock` | 0 ~ 100,000 정수 | 없음 | 무시 |
 | `minPrice`, `maxPrice` | 0 ~ 1,000,000,000 정수 | 없음 | 무시 |
 | `deliveryBy` | `YYYY-MM-DD` | 없음 | 무시 |
 
-URL을 손으로 고친 잘못된 값은 오류를 띄우지 않고 무시(기본값)한다. 입력 폼에서 들어오는 값은 아래 검증을 거친다.
+URL을 손으로 고친 잘못된 값은 오류를 띄우지 않고 무시(기본값)한다. `minPrice > maxPrice`인 쌍도 둘 다 버린다 (그대로 두면 필터 폼이 처음부터 무효라 '적용'이 이유 없이 막힘). 입력 폼에서 들어오는 값은 아래 검증을 거친다.
 
 ## 필터 의미
 
@@ -65,9 +65,16 @@ export interface ListingSearchItem {
   prodName: string;
   prodBrand: string;
   category: string;
-  description: string | null; // 부품상세내역
+  mufcDate: string | null;        // 제조일 YYYY-MM-DD (products.prod_mufc_date)
+  prodDescription: string | null; // 상품설명 (listings.prod_description)
   hasDataSheet: boolean;
   hasPhoto: boolean;
+  // 아래 5개는 추가등록(PATCH)으로만 채워져 흔히 비어 있음 (PR #17)
+  warrantyUntil: string | null;   // 보증기한 YYYY-MM-DD. DB는 일수(warranty_period) → 백엔드가 등록일 + 일수로 계산
+  warrantyCoverage: string | null; // 불량지원 (대체/환불) 글자 그대로 표시
+  hasReplaceProd: boolean;        // 대체품
+  hasTestReport: boolean;         // 테스트리포트
+  hasCertificate: boolean;        // 정품인증서
   prodState: string;       // 상품상태 자유 텍스트 (예: 양호, 신품대비 90%)
   stockQuantity: number;
   salesUnitPrice: number;
@@ -84,10 +91,10 @@ mock 15건 정도를 `lib/mock/search.ts`에 둔다 (부품·서버·GPU·네트
 
 본문 최대 폭 1200, 옆 여백 24, 페이지 스크롤 허용 (홈 "스크롤 없음" 원칙은 홈 한정).
 
-1. **검색창** 높이 48. 홈 검색창과 같은 모양(2px `primary`, radius 8). 왼쪽 select(상품명/제조사, `primary-soft`) · 돋보기 · 입력(값 미리 채움) · 검색 버튼. 인기 검색 줄 없음. 제출 시 `q`·`field`만 바꾸고 필터는 유지.
+1. **검색창** 높이 48. 홈 검색창과 같은 모양(2px `primary`, radius 8). 왼쪽 select(전체/상품명/제조사, `primary-soft`) · 돋보기 · 입력(값 미리 채움) · 검색 버튼. 인기 검색 줄 없음. 제출 시 `q`·`field`만 바꾸고 필터는 유지.
 2. **필터 바** 흰 배경, 1px `line`, radius 6, 안쪽 12. 한 줄(좁으면 줄바꿈): 카테고리 select · 거래상태 3칸 토글(거래 가능 / 거래 완료 / 전체) · 재고 [ ]개 이상 · 가격 [ ]~[ ]원 · 납품일 [date]까지 · [초기화](텍스트) [적용](`primary` 34).
 3. **결과 머리줄** "검색결과 N건" (선택 시 " · M개 선택") · 오른쪽 [견적 요청](outline `primary`) [구매](`primary` 채움). 선택 0개면 비활성(40% 투명). 아래 안내 한 줄 자리.
-4. **결과 표** 흰 카드(1px `line`, radius 6). `<table>`. 열: 체크 · 상품번호(mono) · 상품명 · 제조사 · 부품상세(1줄 말줄임) · 데이터시트 · 사진 · 상태 · 수량(mono, 오른쪽) · 단가(mono, 오른쪽, `formatPrice`). 머리 행 12/500 `ink-2`, 본문 13, 행 높이 44, 구분선 `line-2`, 호버 배경 `bg`. 데이터시트·사진은 있으면 선 아이콘(`ink-2`), 없으면 `–`(`ink-3`). 거래완료 행은 글자 `ink-3` + 상태 칸에 '거래완료' 뱃지(`line-2`/`ink-2`).
+4. **결과 표** 흰 카드(1px `line`, radius 6). `<table>`. 열(사용자 요구 화면 두 장을 합침, 2026-10-01 추가): 체크 · 상품명 (둘은 왼쪽 고정) · 상품번호(mono) · 제조사 · 제조일(날짜) · 상품상태 · 상품설명(○/✕, 내용은 마우스를 올리면) · 데이터시트 · 사진 · 보증기한 · 불량지원(대체/환불) · 대체품 · 테스트리포트 · 정품인증서(○/✕). 항목·순서는 사용자가 정한 그대로 — 부품상세·수량·단가는 표에 넣지 않는다 (모바일 카드엔 상태·수량·단가 유지). 표 최소 폭 1336, 칸이 좁으면 가로 스크롤. 머리 행 12/500 `ink-2`, 본문 13, 행 높이 44, 구분선 `line-2`, 호버 배경 `bg`. 데이터시트·사진은 있으면 선 아이콘(`ink-2`), 없으면 `–`(`ink-3`). 거래완료 행은 글자 `ink-3` + 상태 칸에 '거래완료' 뱃지(`line-2`/`ink-2`).
 
 ### 모바일 (< 768)
 
