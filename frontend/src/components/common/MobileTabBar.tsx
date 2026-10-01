@@ -9,7 +9,6 @@ const tabs: { icon: IconName; label: string; href: string; center?: boolean }[] 
   { icon: "home", label: t.tabs.home, href: "/" },
   { icon: "sell", label: t.tabs.listings, href: "/listings" },
   { icon: "plus", label: t.tabs.post, href: "/listings/new", center: true },
-  { icon: "chat", label: t.tabs.chat, href: "/chats" },
   { icon: "user", label: t.tabs.me, href: "/me" },
 ];
 
@@ -18,7 +17,7 @@ export function MobileTabBar({ active = "/" }: { active?: string }) {
   if (framed) return null;
 
   return (
-    <nav className="@md:hidden h-15 shrink-0 grid grid-cols-5 bg-surface border-t border-line text-[10px] pb-[env(safe-area-inset-bottom)]">
+    <nav className="@md:hidden h-15 shrink-0 grid grid-cols-4 bg-surface border-t border-line text-[10px] pb-[env(safe-area-inset-bottom)]">
       {tabs.map(({ icon, label, href, center }) => {
         const on = href === active;
         return (
