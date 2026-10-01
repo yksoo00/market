@@ -6,7 +6,7 @@ import { useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { Icon } from "@/components/common/Icon";
 import { categories } from "@/lib/mock/home";
-import { activeFilterCount, buildSearchHref, clearFilters, type SearchQuery } from "@/lib/search";
+import { activeFilterCount, buildSearchHref, categoryOptions, clearFilters, type SearchQuery } from "@/lib/search";
 import {
   filterDefaults,
   searchFilterSchema,
@@ -68,7 +68,7 @@ export function FilterBar({ query }: { query: SearchQuery }) {
         <Field label={t.category} htmlFor="f-category">
           <select id="f-category" {...register("category")} className={`${control} grow @md:grow-0`}>
             <option value="">{t.allCategories}</option>
-            {categories.map((c) => (
+            {categoryOptions(categories, query.category).map((c) => (
               <option key={c} value={c}>
                 {c}
               </option>

@@ -3,6 +3,7 @@ import type { ListingSearchItem } from "@/types/listing";
 import {
   activeFilterCount,
   buildSearchHref,
+  categoryOptions,
   clearFilters,
   filterListings,
   listingHref,
@@ -177,5 +178,16 @@ describe("activeFilterCount · clearFilters", () => {
 describe("listingHref", () => {
   it("상세 경로", () => {
     expect(listingHref({ userId: "u1", regDate: "20261001090000" })).toBe("/listings/u1/20261001090000");
+  });
+});
+
+describe("categoryOptions", () => {
+  it("목록에 없는 현재 카테고리(손으로 고친 URL)는 끝에 붙여 select에 그대로 보이게", () => {
+    expect(categoryOptions(["서버", "GPU"], "foo")).toEqual(["서버", "GPU", "foo"]);
+  });
+
+  it("목록에 있거나 비어 있으면 그대로", () => {
+    expect(categoryOptions(["서버", "GPU"], "GPU")).toEqual(["서버", "GPU"]);
+    expect(categoryOptions(["서버", "GPU"], "")).toEqual(["서버", "GPU"]);
   });
 });

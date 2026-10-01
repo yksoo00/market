@@ -127,3 +127,9 @@ export function clearFilters(query: SearchQuery): SearchQuery {
 export function listingHref(item: Pick<ListingSearchItem, "userId" | "regDate">): string {
   return `/listings/${item.userId}/${item.regDate}`;
 }
+
+// 카테고리 마스터가 아직 없어(decisions.md 미정) URL 값을 거르지 않는다. 대신 목록에 없는 값도
+// select에 그대로 보여, '전체'로 보이는데 결과가 비는 상황을 막는다
+export function categoryOptions(options: readonly string[], current: string): string[] {
+  return current && !options.includes(current) ? [...options, current] : [...options];
+}

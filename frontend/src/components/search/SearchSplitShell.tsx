@@ -28,10 +28,11 @@ export function SearchSplitShell({ home, children }: Props) {
       <div className={framed ? "hidden" : "hidden @lg:block min-h-0 overflow-y-auto border-r border-line bg-bg"}>
         {home}
       </div>
-      {/* 닫기 버튼은 안쪽 @container 밖에 둬야 @lg 가 결과 칸이 아니라 전체 칸 폭을 본다.
+      {/* 닫기 버튼은 스크롤 칸 바깥(형제)에 둬야 결과를 내려도 우상단에 고정되고(AuthSplitShell과 같음),
+          안쪽 @container 밖이라 @lg 가 결과 칸이 아니라 전체 칸 폭을 본다.
           분할일 때만 위 여백을 둬서 닫기가 검색창 버튼을 가리지 않게 한다 */}
-      <div className="relative min-w-0 min-h-0 @lg:overflow-y-auto @lg:pt-9">
-        <div className="@container">{children}</div>
+      <div className="relative min-w-0 min-h-0">
+        <div className="@container @lg:h-full @lg:overflow-y-auto @lg:pt-9">{children}</div>
         {!framed && <PaneCloseButton onClick={() => router.push("/")} className="hidden @lg:flex" />}
       </div>
     </main>
