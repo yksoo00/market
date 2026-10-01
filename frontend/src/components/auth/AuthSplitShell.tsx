@@ -6,19 +6,29 @@ import { LoginPanel } from "@/components/auth/LoginPanel";
 import { SignupChoosePanel } from "@/components/auth/SignupChoosePanel";
 import { Icon } from "@/components/common/Icon";
 import { useIsFramed } from "@/hooks/useIsFramed";
-import { closeDestination, nextPrevious, type PreviousPane } from "@/lib/authSplit";
+import { AUTH_HOME_CLOSED_COOKIE, closeDestination, nextPrevious, type PreviousPane } from "@/lib/authSplit";
 import { common as t } from "@/messages/common";
 
 interface Props {
   children: ReactNode;
   home: ReactNode;
+  /** 왼쪽 홈 칸을 닫은 상태로 시작 (쿠키, (auth) 레이아웃이 읽어 넘김) */
+  homeClosed: boolean;
 }
 
-export function AuthSplitShell({ children, home }: Props) {
+export function AuthSplitShell({ children, home, homeClosed }: Props) {
   const pathname = usePathname();
   const router = useRouter();
   const framed = useIsFramed();
   const [previous, setPrevious] = useState<PreviousPane | null>(null);
+  // 레이아웃 상태라 로그인↔가입 이동에도 유지되고, 쿠키라 새로고침에도 유지된다
+  const [homeOpen, setHomeOpen] = useState(!homeClosed);
+  const split = !framed && homeOpen;
+
+  const closeHome = () => {
+    document.cookie = `${AUTH_HOME_CLOSED_COOKIE}=1; path=/; SameSite=Lax`;
+    setHomeOpen(false);
+  };
 
   const handleNavigation = (event: MouseEvent<HTMLDivElement>) => {
     if (!(event.target instanceof Element)) return;
@@ -41,15 +51,19 @@ export function AuthSplitShell({ children, home }: Props) {
   return (
     <main
       className={
-        framed
-          ? "relative flex-1 min-h-0 overflow-y-auto"
-          : "relative flex-1 min-h-0 overflow-y-auto @lg:overflow-hidden @lg:grid @lg:grid-cols-2"
+        split
+          ? "relative flex-1 min-h-0 overflow-y-auto @lg:overflow-hidden @lg:grid @lg:grid-cols-2"
+          : "relative flex-1 min-h-0 overflow-y-auto"
       }
     >
       {/* 서브 타일(iframe) 안에서는 항상 숨김. 그 외엔 @lg: 라 메인이 타일에 밀려 좁아지면(창 폭과 무관하게) 자동으로 접힌다 */}
-      <div className={framed ? "hidden" : "hidden @lg:block min-h-0 overflow-y-auto border-r border-line bg-bg"}>
-        {home}
-      </div>
+      {split && (
+        // 닫기 버튼은 스크롤 칸의 형제로 둬야 칸을 스크롤해도 우상단에 고정된다
+        <div className="hidden @lg:block relative min-h-0 border-r border-line bg-bg">
+          <div className="h-full overflow-y-auto">{home}</div>
+          <PaneCloseButton onClick={closeHome} />
+        </div>
+      )}
       {/* 칸 가운데 정렬은 items-center 대신 자식의 my-auto로 한다. items-center는 내용이 칸보다 길면
           위쪽까지 넘쳐 스크롤로도 닿지 않지만, auto margin은 넘칠 때 0이 되어 위에서부터 스크롤된다 */}
       {/* 안쪽 래퍼도 flex justify-center: AuthCard는 max-w-[420px]라 560 래퍼 안에서 왼쪽에 붙지 않게 */}
@@ -76,8 +90,11 @@ export function AuthSplitShell({ children, home }: Props) {
           <section className="h-full overflow-y-auto px-4 py-6 @md:px-6 @md:py-8 flex justify-center">
             <div className="w-full max-w-[560px] my-auto flex justify-center">{children}</div>
           </section>
-          {/* 단일 칸일 때는 왼쪽 홈 칸이 보이는 @lg에서만 닫기를 둔다. 좁으면 이 칸이 화면 전체라 닫을 대상이 아니다 */}
-          {!framed && <PaneCloseButton onClick={closeCurrent} className={previous ? "flex" : "hidden @lg:flex"} />}
+          {/* 단일 칸일 때는 왼쪽 홈 칸이 보이는 @lg에서만 닫기를 둔다. 좁거나 홈 칸을 닫아 전체 화면이면
+              이 칸이 화면 전체라 닫을 대상이 아니다 */}
+          {!framed && (
+            <PaneCloseButton onClick={closeCurrent} className={previous ? "flex" : split ? "hidden @lg:flex" : "hidden"} />
+          )}
         </div>
       </div>
     </main>
