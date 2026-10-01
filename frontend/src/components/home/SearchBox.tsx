@@ -9,7 +9,7 @@ export function SearchBox() {
       <label htmlFor="q" className="sr-only">
         {t.search.label}
       </label>
-      <div className="h-11 @md:h-16 flex items-stretch rounded-md @md:rounded-lg border-2 border-primary bg-surface overflow-hidden">
+      <div className="h-11 @md:h-14 flex items-stretch rounded-md @md:rounded-lg border-2 border-primary bg-surface overflow-hidden">
         <select
           name="category"
           aria-label="카테고리"
