@@ -38,16 +38,15 @@ export function DatasheetUploader({ value, onChange, onUploadingChange, error }:
   const uploading = state.status === "uploading";
   useEffect(() => onUploadingChange(uploading), [uploading, onUploadingChange]);
 
-  const onPick = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    const check = checkUpload("pdf", file);
-    setProblem(check);
-    if (check) return;
+  // 업로드에 실패한 파일. [다시 시도]가 고르기부터 다시 하지 않고 이 파일을 다시 올린다
+  const [failed, setFailed] = useState<File | null>(null);
+
+  const send = (file: File) => {
     const mine = ++seq.current;
     // 교체 업로드가 실패하면 이전에 올린 파일로 되돌린다 (실패했다고 이미 올린 데이터시트까지 사라지지 않게)
     const previous = state;
+    setProblem(null);
+    setFailed(null);
     setState({ status: "uploading", name: file.name });
     void uploadFile("listing-datasheet", file).then((result) => {
       if (mine !== seq.current) return;
@@ -56,14 +55,29 @@ export function DatasheetUploader({ value, onChange, onUploadingChange, error }:
       } else {
         setState(previous);
         setProblem(uploadErrorMessage(result));
+        setFailed(file);
       }
     });
+  };
+
+  const onPick = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const check = checkUpload("pdf", file);
+    if (check) {
+      setProblem(check);
+      setFailed(null);
+      return;
+    }
+    send(file);
   };
 
   const remove = () => {
     seq.current++;
     setState({ status: "idle" });
     setProblem(null);
+    setFailed(null);
   };
 
   const message = error ?? problem;
@@ -96,8 +110,13 @@ export function DatasheetUploader({ value, onChange, onUploadingChange, error }:
       </div>
       <input ref={inputRef} type="file" accept={acceptOf("pdf")} onChange={onPick} className="hidden" tabIndex={-1} aria-hidden="true" />
       {message && (
-        <p role="alert" className="text-xs text-down">
-          {message}
+        <p role="alert" className="flex items-center gap-2 text-xs text-down">
+          <span className="min-w-0">{message}</span>
+          {failed && !error && !uploading && (
+            <button type="button" onClick={() => send(failed)} className="shrink-0 font-medium text-primary hover:underline">
+              {t.uploadRetry}
+            </button>
+          )}
         </p>
       )}
     </div>

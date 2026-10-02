@@ -55,6 +55,8 @@ export const listing = {
     photoMain: "대표",
     photosOver: "사진은 최대 4장까지 올릴 수 있어요. 앞에서부터 채웠어요",
     uploading: "올리는 중",
+    uploadRetry: "다시 시도",
+    photoRetry: (n: number) => `${n}번째 사진 다시 올리기`,
     datasheet: "데이터시트",
     datasheetHint: " (PDF 1개)",
     datasheetPick: "PDF 선택",

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, RotateCw } from "lucide-react";
 import { Icon } from "@/components/common/Icon";
 import { Label } from "@/components/ui/label";
 import { uploadFile } from "@/lib/api/uploads";
@@ -15,6 +15,8 @@ const t = listing.form;
 interface Slot {
   id: number;
   previewUrl: string;
+  /** 실패하면 같은 파일로 다시 올린다 (고르기부터 다시 하지 않게) */
+  file: File;
   key?: string;
   status: "uploading" | "done" | "error";
   message?: string;
@@ -54,6 +56,13 @@ export function PhotoUploader({ value, onChange, onUploadingChange, error }: Pro
   useEffect(() => () => slotsRef.current.forEach((s) => URL.revokeObjectURL(s.previewUrl)), []);
 
   const update = (id: number, patch: Partial<Slot>) => setSlots((list) => list.map((s) => (s.id === id ? { ...s, ...patch } : s)));
+  // 그사이 칸을 지웠으면 update 가 아무것도 바꾸지 않는다
+  const send = (id: number, file: File) => {
+    update(id, { status: "uploading", message: undefined });
+    void uploadFile("listing-photo", file).then((result) =>
+      update(id, result.ok ? { status: "done", key: result.data.key } : { status: "error", message: uploadErrorMessage(result) }),
+    );
+  };
 
   const onPick = (e: ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files ?? []);
@@ -68,16 +77,9 @@ export function PhotoUploader({ value, onChange, onUploadingChange, error }: Pro
     }
     setNotice(messages.length > 0 ? messages.join(" · ") : null);
 
-    const added = accepted.map((file) => ({
-      file,
-      slot: { id: nextId.current++, previewUrl: URL.createObjectURL(file), status: "uploading" as const },
-    }));
-    setSlots((list) => [...list, ...added.map((a) => a.slot)]);
-    for (const { file, slot } of added) {
-      void uploadFile("listing-photo", file).then((result) =>
-        update(slot.id, result.ok ? { status: "done", key: result.data.key } : { status: "error", message: uploadErrorMessage(result) }),
-      );
-    }
+    const added: Slot[] = accepted.map((file) => ({ id: nextId.current++, previewUrl: URL.createObjectURL(file), file, status: "uploading" }));
+    setSlots((list) => [...list, ...added]);
+    for (const slot of added) send(slot.id, slot.file);
   };
 
   const remove = (id: number) => {
@@ -109,6 +111,16 @@ export function PhotoUploader({ value, onChange, onUploadingChange, error }: Pro
               <span className="absolute left-1.5 top-1.5 h-5 px-1.5 rounded-[5px] flex items-center bg-primary-soft text-primary-dark text-[11px] font-semibold">
                 {t.photoMain}
               </span>
+            )}
+            {slot.status === "error" && (
+              <button
+                type="button"
+                aria-label={t.photoRetry(i + 1)}
+                onClick={() => send(slot.id, slot.file)}
+                className="absolute inset-0 m-auto size-10 rounded-full bg-surface border border-line flex items-center justify-center text-ink-2 hover:border-primary hover:text-primary"
+              >
+                <RotateCw size={18} />
+              </button>
             )}
             {slot.status === "uploading" && (
               <span role="status" aria-label={t.uploading} className="absolute inset-0 flex items-center justify-center text-primary">
