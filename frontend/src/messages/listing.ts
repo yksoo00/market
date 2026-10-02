@@ -6,6 +6,8 @@ export const listing = {
     FORBIDDEN: "내 매물만 수정·삭제할 수 있습니다.",
     // 등록·수정·삭제가 함께 쓰는 문구라 한도 숫자를 넣지 않는다 (등록 10회/시간, 수정 20회, 삭제 10회)
     RATE_LIMITED: "요청이 너무 많아요. 잠시 후 다시 시도해 주세요.",
+    // 응답이 유실돼 다시 누른 등록이 첫 요청과 겹칠 때 (Idempotency-Key)
+    REQUEST_IN_PROGRESS: "앞서 누른 등록을 처리하고 있어요. 잠시 후 다시 시도해 주세요.",
     UNAUTHORIZED: "로그인이 만료됐어요. 다시 로그인해 주세요.",
     UNAUTHENTICATED: "로그인이 만료됐어요. 다시 로그인해 주세요.",
   } as Record<string, string>,
