@@ -50,6 +50,13 @@ export interface ListingSearchItem {
   tradeStatus: TradeStatus;
 }
 
+/** 검색 API 한 페이지. total 은 같은 조건의 전체 개수(커서와 무관) */
+export interface ListingSearchPage {
+  items: ListingSearchItem[];
+  nextCursor: string | null;
+  total: number;
+}
+
 /** 매물 상세. 백엔드 ListingResponse 와 1:1 */
 export interface ListingDetail {
   userId: string;

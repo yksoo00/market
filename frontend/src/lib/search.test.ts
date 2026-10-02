@@ -8,6 +8,7 @@ import {
   filterListings,
   listingHref,
   parseSearchParams,
+  searchApiParams,
   type SearchQuery,
 } from "./search";
 
@@ -195,5 +196,35 @@ describe("categoryOptions", () => {
   it("목록에 있거나 비어 있으면 그대로", () => {
     expect(categoryOptions(["서버", "GPU"], "GPU")).toEqual(["서버", "GPU"]);
     expect(categoryOptions(["서버", "GPU"], "")).toEqual(["서버", "GPU"]);
+  });
+});
+
+describe("searchApiParams", () => {
+  const read = (s: string) => new URLSearchParams(s);
+
+  it("기본 조건은 status 만", () => {
+    expect(searchApiParams(q())).toBe("status=available");
+  });
+
+  it("카테고리는 보내지 않는다 (카테고리 마스터 미정, decisions.md 2026-10-02)", () => {
+    expect(read(searchApiParams(q({ category: "서버" }))).has("category")).toBe(false);
+  });
+
+  it("field 는 all 이면 생략, 아니면 포함", () => {
+    expect(read(searchApiParams(q())).has("field")).toBe(false);
+    expect(read(searchApiParams(q({ field: "brand" }))).get("field")).toBe("brand");
+  });
+
+  it("필터·커서를 담고 검색어는 인코딩된다", () => {
+    const p = read(
+      searchApiParams(q({ q: "Dell R740", minPrice: 10, maxPrice: 20, minStock: 0, deliveryBy: "2026-10-10", status: "all" }), "c1"),
+    );
+    expect(p.get("q")).toBe("Dell R740");
+    expect(p.get("minPrice")).toBe("10");
+    expect(p.get("maxPrice")).toBe("20");
+    expect(p.get("minStock")).toBe("0");
+    expect(p.get("deliveryBy")).toBe("2026-10-10");
+    expect(p.get("status")).toBe("all");
+    expect(p.get("cursor")).toBe("c1");
   });
 });

@@ -109,6 +109,24 @@ export function buildSearchHref(query: SearchQuery): string {
   return s ? `/search?${s}` : "/search";
 }
 
+/**
+ * 검색 API(GET /api/v1/listings) 쿼리 문자열. 카테고리는 보내지 않는다 — 화면 카테고리(한글 이름)와 DB 코드가
+ * 안 맞고 카테고리 마스터가 미정 (decisions.md 2026-10-02 매물 검색). status 는 API 기본값(all)과 화면 기본값이
+ * 달라 항상 보낸다
+ */
+export function searchApiParams(query: SearchQuery, cursor?: string): string {
+  const p = new URLSearchParams();
+  if (query.q) p.set("q", query.q);
+  if (query.field !== "all") p.set("field", query.field);
+  p.set("status", query.status);
+  if (query.minStock !== undefined) p.set("minStock", String(query.minStock));
+  if (query.minPrice !== undefined) p.set("minPrice", String(query.minPrice));
+  if (query.maxPrice !== undefined) p.set("maxPrice", String(query.maxPrice));
+  if (query.deliveryBy !== undefined) p.set("deliveryBy", query.deliveryBy);
+  if (cursor) p.set("cursor", cursor);
+  return p.toString();
+}
+
 export function activeFilterCount(query: SearchQuery): number {
   return [
     query.category !== "",
