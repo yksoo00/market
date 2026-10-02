@@ -9,6 +9,7 @@ import com.company.market.common.ratelimit.RateLimiter;
 import com.company.market.listing.dto.ListingCreateRequest;
 import com.company.market.listing.dto.ListingPageResponse;
 import com.company.market.listing.dto.ListingResponse;
+import com.company.market.listing.dto.ListingSearchCondition;
 import com.company.market.listing.dto.ListingUpdateRequest;
 import com.company.market.listing.service.ListingService;
 import jakarta.validation.Valid;
@@ -18,12 +19,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -44,8 +45,8 @@ public class ListingController {
 	}
 
 	@GetMapping
-	public ApiResponse<ListingPageResponse> list(@RequestParam(required = false) String cursor) {
-		return ApiResponse.of(listings.list(cursor));
+	public ApiResponse<ListingPageResponse> list(@ModelAttribute ListingSearchCondition condition) {
+		return ApiResponse.of(listings.search(condition));
 	}
 
 	@GetMapping("/{userId}/{regDate}")
