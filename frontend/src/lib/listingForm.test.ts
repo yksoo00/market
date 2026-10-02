@@ -31,7 +31,7 @@ describe("toCreateRequest", () => {
       categoryCode: "ELEC0001",
       prodName: "R740",
       prodBrand: "Dell",
-      tradeType: "판매",
+      tradeType: "등록",
       prodState: "신품",
       salesUnitPrice: 1000,
       salesQuantity: 3,

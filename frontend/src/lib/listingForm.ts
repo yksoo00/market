@@ -1,8 +1,8 @@
 import type { ListingCreateRequest } from "@/types/listing";
 import type { ListingFormOutput } from "@/lib/validation/listing";
 
-// 이 폼은 판매 등록 전용. 거래종류 값 목록이 정해지면 바꾼다 (decisions.md 2026-10-02 매물 등록 폼)
-const TRADE_TYPE = "판매";
+// 거래종류는 "등록" 고정 (사용자 결정, decisions.md 2026-10-02 거래종류 "등록" 고정)
+const TRADE_TYPE = "등록";
 
 const seoulDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" });
 

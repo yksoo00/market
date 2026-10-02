@@ -121,7 +121,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 X","prodBrand":"삼성",
-					 "tradeType":"판매","prodState":"신품","salesUnitPrice":500000,"salesQuantity":3,
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":500000,"salesQuantity":3,
 					 "photos":["%s","%s"]}
 					""".formatted(p1, p2)))
 			.andExpect(status().isCreated())
@@ -138,7 +138,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 Y","prodBrand":"삼성",
-					 "tradeType":"판매","prodState":"신품","salesUnitPrice":2000000000,"salesQuantity":1}
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":2000000000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.salesUnitPrice").isString());
@@ -160,7 +160,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 Z1","prodBrand":"삼성",
-					 "tradeType":"판매","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.photos.length()").value(0));
@@ -169,7 +169,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(other)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 Z2","prodBrand":"삼성",
-					 "tradeType":"판매","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
 					 "photos":["%s","%s","%s","%s"]}
 					""".formatted(uploaded(other, UploadKind.LISTING_PHOTO), uploaded(other, UploadKind.LISTING_PHOTO),
 						uploaded(other, UploadKind.LISTING_PHOTO), uploaded(other, UploadKind.LISTING_PHOTO))))
@@ -183,7 +183,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 P1","prodBrand":"삼성",
-					 "tradeType":"판매","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
 					 "photos":["a.jpg","b.jpg","c.jpg","d.jpg","e.jpg"]}
 					"""))
 			.andExpect(status().isBadRequest())
@@ -193,7 +193,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 P2","prodBrand":"삼성",
-					 "tradeType":"판매","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
 					 "photos":["%s"]}
 					""".formatted(tooLong)))
 			.andExpect(status().isBadRequest())
@@ -206,7 +206,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 P3","prodBrand":"삼성",
-					 "tradeType":"판매","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
 					 "photos":["  "]}
 					"""))
 			.andExpect(status().isBadRequest())
@@ -219,7 +219,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 P4","prodBrand":"삼성",
-					 "tradeType":"판매","prodState":"신품","salesUnitPrice":1000,"salesQuantity":5,
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":5,
 					 "minOrderQuantity":10}
 					"""))
 			.andExpect(status().isBadRequest())
@@ -232,7 +232,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 T","prodBrand":"삼성 ",
-					 "tradeType":"판매","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.prodId").value("ELEC00010001"));
@@ -240,7 +240,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(otherUserCookie())
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":" 노트북 T","prodBrand":"삼성",
-					 "tradeType":"판매","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.prodId").value("ELEC00010001"));
@@ -254,7 +254,7 @@ class ListingApiTest {
 		MvcResult created = mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 G","prodBrand":"삼성",
-					 "tradeType":"판매","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isCreated()).andReturn();
 		String regDate = created.getResponse().getContentAsString().replaceAll(".*\"regDate\":\"([^\"]+)\".*", "$1");
@@ -273,7 +273,7 @@ class ListingApiTest {
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 D","prodBrand":"삼성",
 					 "prodNo":"MODEL-1","prodSpecInfo":"i7/16GB/512GB",
-					 "tradeType":"판매","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
 					 "listingDataSheet":"%s"}
 					""".formatted(sheet)))
 			.andExpect(status().isCreated())
@@ -292,7 +292,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 K1","prodBrand":"삼성",
-					 "tradeType":"판매","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
 					 "photos":["%s","%s"],"listingDataSheet":"%s","productDataSheet":"%s"}
 					""".formatted(p1, p2, sheet, sheet)))
 			.andExpect(status().isCreated())
@@ -489,7 +489,7 @@ class ListingApiTest {
 		return mvc.perform(post("/api/v1/listings").cookie(authCookie)
 			.contentType(MediaType.APPLICATION_JSON).content("""
 				{"categoryCode":"ELEC0001","prodName":"%s","prodBrand":"삼성",
-				 "tradeType":"판매","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,%s}
+				 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,%s}
 				""".formatted(prodName, extraJson)));
 	}
 
@@ -497,7 +497,7 @@ class ListingApiTest {
 		return mvc.perform(post("/api/v1/listings").cookie(authCookie)
 			.contentType(MediaType.APPLICATION_JSON).content("""
 				{"categoryCode":"ELEC0001","prodName":"%s","prodBrand":"삼성",
-				 "tradeType":"판매","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+				 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
 				 "photos":["%s"]}
 				""".formatted(prodName, photoKey)));
 	}
@@ -637,7 +637,7 @@ class ListingApiTest {
 		MvcResult created = mvc.perform(post("/api/v1/listings").cookie(cookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 U","prodBrand":"삼성",
-					 "tradeType":"판매","prodState":"신품","salesUnitPrice":500000,"salesQuantity":1}
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":500000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isCreated()).andReturn();
 		return created.getResponse().getContentAsString().replaceAll(".*\"regDate\":\"([^\"]+)\".*", "$1");
