@@ -17,6 +17,11 @@ params:path {
 
 docs {
   공개 조회 — 로그인 불필요. userId·regDate 는 등록 응답(create.bru)의 값을 그대로 쓴다.
-  200 { ok, data: ListingResponse }.
+  200 { ok, data: ListingResponse }. 상세 화면용 파생 필드:
+  - category: 상품 카테고리 코드
+  - mufcDate: 제조일. 숫자 8·14자리면 YYYY-MM-DD, 그 외는 원문, 없으면 null
+  - productDataSheet, productPhoto: 상품마스터의 데이터시트·대표 사진 키 (매물 값이 없을 때 화면이 대신 씀)
+  - tradeStatus: dt_expire 가 비면 available, 있으면 completed
+  - warrantyUntil: 등록일 + warrantyPeriod 일 (YYYY-MM-DD), 기간이 없으면 null
   404 LISTING_NOT_FOUND: 없는 매물.
 }

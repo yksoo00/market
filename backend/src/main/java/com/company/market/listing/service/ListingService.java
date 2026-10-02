@@ -1,8 +1,10 @@
 package com.company.market.listing.service;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -186,7 +188,32 @@ public class ListingService {
 				listing.getSalesUnitPrice(), listing.getSalesQuantity(), listing.getMinOrderQuantity(), listing.getOrderUnit(),
 				listing.getDeliveryDate(), listing.getStockQuantity(), listing.getProdDescription(), listing.getProdDataSheet(), photos,
 				listing.getWarrantyPeriod(), listing.getWarrantyCoverage(), listing.getReplaceProd(), listing.getTestReport(),
-				listing.getCertificateOfAuthen(), listing.getDtUpdate(), listing.getDtExpire());
+				listing.getCertificateOfAuthen(), listing.getDtUpdate(), listing.getDtExpire(), product.getCategoryCode(),
+				toIsoDate(product.getProdMufcDate()), product.getProdDataSheet(), product.getProdPhoto1(),
+				// 거래 흐름이 정해지기 전까지 거래완료일시 유무로만 판단 (decisions.md 2026-10-01 검색 결과)
+				listing.getDtExpire() == null ? "available" : "completed",
+				warrantyUntil(listing.getRegDate(), listing.getWarrantyPeriod()));
+	}
+
+	/** 등록 API 가 제조일 형식을 검사하지 않아, 날짜로 읽히지 않는 값은 버리지 않고 원문 그대로 둔다 */
+	private static String toIsoDate(String raw) {
+		if (raw == null || !raw.matches("\\d{8}|\\d{14}")) {
+			return raw;
+		}
+		try {
+			return LocalDate.parse(raw.substring(0, 8), DateTimeFormatter.BASIC_ISO_DATE).toString();
+		}
+		catch (DateTimeParseException e) {
+			return raw;
+		}
+	}
+
+	/** DB 는 보증 일수만 갖고 있어 등록일 + 일수로 만료일을 계산한다 */
+	private static String warrantyUntil(String regDate, Integer days) {
+		if (days == null) {
+			return null;
+		}
+		return LocalDate.parse(regDate.substring(0, 8), DateTimeFormatter.BASIC_ISO_DATE).plusDays(days).toString();
 	}
 
 }
