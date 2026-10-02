@@ -153,7 +153,7 @@ public class Listing implements Persistable<ListingId> {
 			this.orderUnit = req.orderUnit();
 		}
 		if (req.deliveryDate() != null) {
-			this.deliveryDate = req.deliveryDate();
+			this.deliveryDate = emptyToNull(req.deliveryDate());
 		}
 		if (req.stockQuantity() != null) {
 			this.stockQuantity = req.stockQuantity();

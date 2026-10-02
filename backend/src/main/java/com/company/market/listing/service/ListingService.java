@@ -1,8 +1,13 @@
 package com.company.market.listing.service;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.format.ResolverStyle;
+import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +48,14 @@ public class ListingService {
 
 	private static final DateTimeFormatter REG_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
+	/** STRICT 는 uuuu(연도) 와 함께 써야 2026-02-30 같은 날짜를 거부한다 (yyyy 는 연대 필드가 필요) */
+	private static final DateTimeFormatter MUFC_DATE_FORMAT = DateTimeFormatter.ofPattern("uuuuMMdd")
+		.withResolverStyle(ResolverStyle.STRICT);
+
+	private static final DateTimeFormatter DELIVERY_DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE.withResolverStyle(ResolverStyle.STRICT);
+
+	private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+
 	private static final int PAGE_SIZE = 20;
 
 	private final ListingRepository listings;
@@ -65,6 +78,7 @@ public class ListingService {
 		if (minOrderQuantity > req.salesQuantity()) {
 			throw new ValidationException(Map.of("minOrderQuantity", "최소주문량은 판매수량을 넘을 수 없습니다."));
 		}
+		validateDates(req.prodMufcDate(), req.deliveryDate());
 
 		// 입력 검사(Redis 조회)를 상품마스터 채번·INSERT 보다 먼저 — 잘못된 키 요청이 DB 작업을 하지 않게
 		List<UploadRef> files = new ArrayList<>();
@@ -86,7 +100,7 @@ public class ListingService {
 			.salesQuantity(req.salesQuantity())
 			.minOrderQuantity(minOrderQuantity)
 			.orderUnit(orderUnit)
-			.deliveryDate(req.deliveryDate())
+			.deliveryDate(req.deliveryDate() == null || req.deliveryDate().isEmpty() ? null : req.deliveryDate())
 			.stockQuantity(req.stockQuantity() == null ? req.salesQuantity() : req.stockQuantity())
 			.prodDescription(req.description())
 			.prodDataSheet(req.listingDataSheet())
@@ -114,6 +128,8 @@ public class ListingService {
 		if (!requesterId.equals(pathUserId)) {
 			throw new ApiException(ErrorCode.FORBIDDEN);
 		}
+		// 이미 저장된 납기일을 그대로 다시 보내면(수정 화면이 모든 칸을 보낼 때) 지난 날짜여도 통과
+		validateDates(null, Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
 		int effectiveMinOrderQuantity = req.minOrderQuantity() == null ? listing.getMinOrderQuantity() : req.minOrderQuantity();
 		int effectiveSalesQuantity = req.salesQuantity() == null ? listing.getSalesQuantity() : req.salesQuantity();
 		if (effectiveMinOrderQuantity > effectiveSalesQuantity) {
@@ -210,6 +226,45 @@ public class ListingService {
 				listing.getReplaceProd() != null, listing.getTestReport() != null, listing.getCertificateOfAuthen() != null,
 				listing.getProdState(), listing.getStockQuantity(), listing.getSalesUnitPrice(), listing.getDeliveryDate(),
 				listing.tradeStatus());
+	}
+
+	/**
+	 * 형식(@Pattern)은 DTO가 보고, 여기서는 실제 날짜인지와 범위를 본다: 제조일은 오늘까지, 납기일은 오늘부터.
+	 * "오늘"은 한국 날짜 — 서버 Clock 은 UTC 라 그대로 쓰면 한국 오전 9시 전엔 하루 전 날짜가 된다.
+	 */
+	private void validateDates(String prodMufcDate, String deliveryDate) {
+		LocalDate today = LocalDate.now(clock.withZone(SEOUL));
+		Map<String, String> failures = new LinkedHashMap<>();
+		if (prodMufcDate != null) {
+			LocalDate date = parseStrict(prodMufcDate, MUFC_DATE_FORMAT);
+			if (date == null) {
+				failures.put("prodMufcDate", "제조일이 올바른 날짜가 아닙니다.");
+			}
+			else if (date.isAfter(today)) {
+				failures.put("prodMufcDate", "제조일은 오늘 이전 날짜로 입력하세요.");
+			}
+		}
+		if (deliveryDate != null && !deliveryDate.isEmpty()) {
+			LocalDate date = parseStrict(deliveryDate, DELIVERY_DATE_FORMAT);
+			if (date == null) {
+				failures.put("deliveryDate", "납기일이 올바른 날짜가 아닙니다.");
+			}
+			else if (date.isBefore(today)) {
+				failures.put("deliveryDate", "납기일은 오늘 이후 날짜로 입력하세요.");
+			}
+		}
+		if (!failures.isEmpty()) {
+			throw new ValidationException(failures);
+		}
+	}
+
+	private static LocalDate parseStrict(String value, DateTimeFormatter format) {
+		try {
+			return LocalDate.parse(value, format);
+		}
+		catch (DateTimeParseException e) {
+			return null;
+		}
 	}
 
 	/** null(안 바꿈)·""(비우기)는 업로드 키가 아니므로 확인 대상에서 뺀다 */
