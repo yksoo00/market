@@ -8,8 +8,6 @@ export const search = {
   },
   filter: {
     title: "필터",
-    category: "카테고리",
-    allCategories: "전체",
     status: "거래상태",
     statuses: { available: "거래 가능", completed: "거래 완료", all: "전체" },
     stock: "재고",
@@ -31,6 +29,11 @@ export const search = {
   },
   result: {
     count: (n: number) => `검색결과 ${n}건`,
+    loadFailed: "불러오지 못했어요.",
+    rateLimited: "잠시 후 다시 시도해 주세요.",
+    retry: "다시 시도",
+    more: "더 보기",
+    moreFailed: "더 불러오지 못했어요.",
     selected: (n: number) => ` · ${n}개 선택`,
     selectAll: "전체 선택",
     qtyUnit: "개",

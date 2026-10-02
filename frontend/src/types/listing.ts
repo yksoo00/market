@@ -42,12 +42,19 @@ export interface ListingSearchItem {
   hasCertificate: boolean;
   /** 상품상태 자유 텍스트 (예: 양호, 신품대비 90%) */
   prodState: string;
-  stockQuantity: number;
+  stockQuantity: number | null;
   salesUnitPrice: number;
   /** YYYY-MM-DD */
   deliveryDate: string | null;
   /** 백엔드는 dt_expire가 비면 available, 있으면 completed (decisions.md 2026-10-01) */
   tradeStatus: TradeStatus;
+}
+
+/** 검색 API 한 페이지. total 은 같은 조건의 전체 개수(커서와 무관) */
+export interface ListingSearchPage {
+  items: ListingSearchItem[];
+  nextCursor: string | null;
+  total: number;
 }
 
 /** 매물 상세. 백엔드 ListingResponse 와 1:1 */

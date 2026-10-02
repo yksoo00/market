@@ -1,5 +1,9 @@
 package com.company.market.listing.domain;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -71,6 +75,19 @@ public class Product implements Persistable<String> {
 		this.prodPhoto1 = prodPhoto1;
 		this.regDate = regDate;
 		this.spareCol = spareCol;
+	}
+
+	/** 제조일을 YYYY-MM-DD 로. 등록 API 가 형식을 검사하지 않아, 날짜로 읽히지 않는 값은 버리지 않고 원문 그대로 둔다 */
+	public String mufcDateIso() {
+		if (prodMufcDate == null || !prodMufcDate.matches("\\d{8}|\\d{14}")) {
+			return prodMufcDate;
+		}
+		try {
+			return LocalDate.parse(prodMufcDate.substring(0, 8), DateTimeFormatter.BASIC_ISO_DATE).toString();
+		}
+		catch (DateTimeParseException e) {
+			return prodMufcDate;
+		}
 	}
 
 	@Override

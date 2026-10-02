@@ -1,8 +1,5 @@
 package com.company.market.listing.repository;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
@@ -20,7 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -71,54 +67,6 @@ class ListingRepositoryTest {
 		listings.saveAndFlush(baseListing("20260929120000"));
 
 		assertThat(listings.findById(new ListingId(userId, "20260929120000"))).isPresent();
-	}
-
-	@Test
-	@DisplayName("첫 페이지는 등록일시 내림차순(동률이면 user_id 내림차순)으로 나온다")
-	void firstPageOrdering() {
-		listings.saveAndFlush(baseListing("20260929120000"));
-		listings.saveAndFlush(baseListing("20260929120001"));
-
-		List<Listing> page = listings.findTop21ByOrderByRegDateDescUserIdDesc();
-		assertThat(page).extracting(Listing::getRegDate).containsExactly("20260929120001", "20260929120000");
-	}
-
-	@Test
-	@DisplayName("같은 등록일시를 가진 매물이 페이지 경계에 걸치면(2/3만 1페이지) 나머지가 다음 페이지에서 소실되지 않는다")
-	void tiedRegDateAtPageBoundaryIsNotLost() {
-		// 19건: 서로 다른 등록일시(내림차순 상위) — 1페이지를 21건 중 19건까지 채운다
-		for (int i = 1; i <= 19; i++) {
-			listings.saveAndFlush(baseListing(String.format("202609291201%02d", 19 - i + 1)));
-		}
-		// 나머지 2자리는 "동률" 그룹(같은 등록일시, 서로 다른 사용자 3명)에서 채워지고 1명은 밀려나야 한다
-		String tieDate = "20260929120100";
-		UUID userB = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("listingtieb")
-			.passwordHash("$2a$12$hash").nickname("listingtieb").email("listingtieb@example.com")
-			.name("김철수").phone("01099998888").phoneHash(hasher.hash("01099998888")).build()).getId();
-		UUID userC = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("listingtiec")
-			.passwordHash("$2a$12$hash").nickname("listingtiec").email("listingtiec@example.com")
-			.name("이영희").phone("01077776666").phoneHash(hasher.hash("01077776666")).build()).getId();
-		listings.saveAndFlush(baseListing(tieDate));
-		listings.saveAndFlush(Listing.builder().userId(userB).regDate(tieDate).prodId(product.getProdId())
-			.tradeType("등록").prodState("new").salesUnitPrice(10000).salesQuantity(1).minOrderQuantity(1).orderUnit(1).build());
-		listings.saveAndFlush(Listing.builder().userId(userC).regDate(tieDate).prodId(product.getProdId())
-			.tradeType("등록").prodState("new").salesUnitPrice(10000).salesQuantity(1).minOrderQuantity(1).orderUnit(1).build());
-
-		List<Listing> firstPage = listings.findTop21ByOrderByRegDateDescUserIdDesc();
-		assertThat(firstPage).hasSize(21);
-		List<UUID> tiedInFirstPage = firstPage.stream().filter(l -> l.getRegDate().equals(tieDate)).map(Listing::getUserId).toList();
-		assertThat(tiedInFirstPage).hasSize(2);
-
-		Listing last = firstPage.get(20);
-		List<Listing> secondPage = listings.findPageBefore(last.getRegDate(), last.getUserId(), PageRequest.of(0, 21));
-
-		// 옛 "reg_date < cursor" 방식이면 tieDate == cursor 라 아무것도 안 나오고, 세 번째 사용자가 영구히 사라진다
-		assertThat(secondPage).hasSize(1);
-		assertThat(secondPage.get(0).getRegDate()).isEqualTo(tieDate);
-		Set<UUID> allTied = Set.of(userId, userB, userC);
-		Set<UUID> pageOneTied = new HashSet<>(tiedInFirstPage);
-		UUID missing = allTied.stream().filter(id -> !pageOneTied.contains(id)).findFirst().orElseThrow();
-		assertThat(secondPage.get(0).getUserId()).isEqualTo(missing);
 	}
 
 	@Test

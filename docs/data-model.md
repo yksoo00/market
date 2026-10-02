@@ -96,4 +96,6 @@
 인덱스: `U (prod_name, prod_brand)` on products (동시 등록 경합 시 재사용 판단의 근거 — 코드리뷰 지적으로 추가, 2026-09-29), `(prod_id)`·`(reg_date)` on listings (FK·목록 조회용).
 제약: `products`·`listings` 엔티티는 PK를 직접 채우므로(uuid `@GeneratedValue` 없음) `Persistable` 구현 필수 — 없으면 Spring Data가 항상 `merge`(UPDATE)를 타서 중복 키를 조용히 덮어쓴다(코드리뷰로 발견, 2026-09-29 수정). 매물 목록 커서는 `reg_date` 단독이 아니라 `reg_date_userId` 복합값 — 같은 초에 다른 사용자가 등록하면 reg_date만으로는 페이지 경계에서 소실될 수 있어서.
 
+검색(`GET /api/v1/listings`, 2026-10-02): 상품명·상품번호·제조사(`products`)에 낱말별 `lower(...) like`, 거래상태는 `listings.dt_expire` 유무, 가격·재고·납기일은 `listings` 컬럼. 검색용 인덱스는 없다 — 느린 게 측정되면 pg_trgm 등 검토. 카테고리 필터는 마스터가 정해질 때까지 없음.
+
 **다음에 정할 것**: PRD 작성 시 카테고리 마스터 테이블 여부, 이미지 다건 구조(별도 테이블) 전환, prod_state enum화, 조직(seller_org_id) 도입 여부, quantity·가격 검증 규칙(`security.md`).

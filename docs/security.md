@@ -92,9 +92,17 @@
   | 가격·수량 | 아래 "숫자" 항목과 동일 |
   | 최소주문량·주문단위·재고수량 | 1(재고는 0) ~ 100,000, 최소주문량은 판매수량 이하 |
   | 보증기한 | 0 ~ 36,500일(100년) |
+- 매물 검색 `GET /api/v1/listings` (2026-10-02):
+  | 항목 | 규칙 |
+  |---|---|
+  | 검색어 `q` | 앞뒤 공백 제거 후 100자 이하. `% _ \`는 LIKE 와일드카드가 아니라 글자로 이스케이프 |
+  | `field` / `status` | `all·name·brand` / `available·completed·all` |
+  | 재고 `minStock` | 0 ~ 100,000 |
+  | 가격 `minPrice`·`maxPrice` | 0 ~ 10억, 최소 ≤ 최대 (오류는 `maxPrice`) |
+  | 납품일 `deliveryBy` | 실제 날짜 YYYY-MM-DD |
 - 숫자: 가격 0 ~ 10억, 수량 1 ~ 100,000.
 - ID는 UUID 형식 검사. 정수 ID 없음 (열거 공격 방지).
-- SQL: JPA/파라미터 바인딩만. 문자열 결합 쿼리 금지. `@Query`에 사용자 입력 직접 삽입 금지.
+- SQL: JPA/파라미터 바인딩만. 문자열 결합 쿼리 금지. `@Query`에 사용자 입력 직접 삽입 금지. 예외로 허용: 코드에 고정된 조건 조각만 이어 붙이고 값은 전부 바인딩하는 동적 JPQL(`listing/repository/ListingSearchRepository`).
 - 출력: React가 기본 이스케이프. `dangerouslySetInnerHTML` 금지. 마크다운 허용 시 sanitize.
 
 ## 파일 업로드

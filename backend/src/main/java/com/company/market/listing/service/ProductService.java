@@ -3,7 +3,6 @@ package com.company.market.listing.service;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
 
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.repository.ProductRepository;
@@ -35,10 +34,6 @@ public class ProductService {
 	/** 리스팅이 FK로 갖고 있는 prod_id 는 항상 유효(제약) — 없으면 데이터 정합성 문제이므로 예외를 그대로 던진다 */
 	public Product get(String prodId) {
 		return products.findById(prodId).orElseThrow();
-	}
-
-	public List<Product> getAll(List<String> prodIds) {
-		return products.findAllById(prodIds);
 	}
 
 	/**

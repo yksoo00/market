@@ -1,21 +1,35 @@
 meta {
-  name: 매물 목록
+  name: 매물 목록·검색
   type: http
   seq: 2
 }
 
 get {
-  url: {{baseUrl}}/api/v1/listings
+  url: {{baseUrl}}/api/v1/listings?q=노트북&field=all&status=available
   body: none
   auth: none
 }
 
 params:query {
-  cursor:
+  q: 노트북
+  field: all
+  status: available
+  ~minStock: 1
+  ~minPrice: 0
+  ~maxPrice: 1000000
+  ~deliveryBy: 2026-12-31
+  ~cursor:
 }
 
 docs {
-  공개 조회 — 로그인 불필요.
-  200 { ok, data: { items: [ListingSummaryResponse], nextCursor } }. 등록일시 내림차순, 20건씩.
-  다음 페이지는 nextCursor 값을 ?cursor= 로 넘긴다. nextCursor 가 null 이면 마지막 페이지.
+  공개 조회 — 로그인 불필요. 비로그인은 IP 분당 60회 (넘으면 429 RATE_LIMITED).
+  파라미터 (전부 선택):
+  - q: 공백으로 나눈 낱말이 모두 들어 있어야 매칭, 대소문자 무시. 100자 이하
+  - field: all(상품명+상품번호+제조사, 기본) | name(상품명+상품번호) | brand(제조사)
+  - status: available | completed | all(기본 — 파라미터 없는 호출은 전체)
+  - minStock(0~100,000), minPrice·maxPrice(0~10억, 최소 ≤ 최대), deliveryBy(YYYY-MM-DD, 납기일 없는 매물 제외)
+  - cursor: 앞 응답의 nextCursor
+  200 { ok, data: { items: [ListingSearchItemResponse], nextCursor, total } }. 등록일시 내림차순, 20건씩.
+  total 은 같은 조건의 전체 개수(페이지와 무관). nextCursor 가 null 이면 마지막 페이지.
+  400 VALIDATION: 범위 밖 값, fields 에 파라미터 이름.
 }

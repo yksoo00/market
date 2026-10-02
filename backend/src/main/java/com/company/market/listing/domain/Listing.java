@@ -1,5 +1,7 @@
 package com.company.market.listing.domain;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
 
@@ -193,6 +195,19 @@ public class Listing implements Persistable<ListingId> {
 
 	private static String photoAt(List<String> photos, int index) {
 		return index < photos.size() ? photos.get(index) : null;
+	}
+
+	/** 거래 흐름이 정해지기 전까지 거래완료일시 유무로만 판단 (decisions.md 2026-10-01 검색 결과) */
+	public String tradeStatus() {
+		return dtExpire == null ? "available" : "completed";
+	}
+
+	/** DB 는 보증 일수만 갖고 있어 등록일 + 일수로 만료일(YYYY-MM-DD)을 계산한다 */
+	public String warrantyUntil() {
+		if (warrantyPeriod == null) {
+			return null;
+		}
+		return LocalDate.parse(regDate.substring(0, 8), DateTimeFormatter.BASIC_ISO_DATE).plusDays(warrantyPeriod).toString();
 	}
 
 	@Override
