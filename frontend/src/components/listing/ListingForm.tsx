@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { FormProvider, useForm, useFormContext, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -66,11 +66,24 @@ export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
     [form],
   );
 
+  const uploading = photosUploading || datasheetUploading;
+  // 성공 후 이동하는 동안 버튼이 다시 켜지면 한 번 더 눌려 매물이 두 개 생길 수 있다 (서버 중복 방어는 같은 초뿐)
+  const [done, setDone] = useState(false);
+
+  // 최소주문량 ≤ 판매수량은 두 칸에 걸친 규칙인데, blur 검사는 blur 한 칸의 오류만 갱신한다.
+  // 판매수량이 바뀌면 최소주문량 오류도 다시 계산해야 "버튼은 꺼졌는데 오류 문구가 없는" 상태가 안 생긴다
+  const salesQuantity = useWatch({ control, name: "salesQuantity" });
+  useEffect(() => {
+    const { isTouched } = form.getFieldState("minOrderQuantity");
+    if (isTouched || form.formState.isSubmitted) void form.trigger("minOrderQuantity");
+  }, [salesQuantity, form]);
+
   const submit = handleSubmit(async (values) => {
     setFormError(null);
     setUnreachable(false);
     const result = await onSubmit(values);
     if (result.ok) {
+      setDone(true);
       router.push(`/listings/${result.data.userId}/${result.data.regDate}`);
       return;
     }
@@ -84,7 +97,8 @@ export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
   return (
     <FormProvider {...form}>
       <form onSubmit={submit} noValidate className="flex flex-col gap-6">
-        <FormError message={formError} onRetry={unreachable ? () => void submit() : undefined} />
+        {/* 다시 시도도 [등록]과 같은 조건 — 업로드 중이면 키가 없어 사진이 빠진다 */}
+        <FormError message={formError} onRetry={unreachable && !uploading ? () => void submit() : undefined} />
 
         <Section title={t.sectionProduct}>
           <FormField<ListingFormInput> name="categoryCode" label={t.categoryCode} hint={t.categoryHint} placeholder={t.categoryPlaceholder} maxLength={10} />
@@ -131,7 +145,7 @@ export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
         </Section>
 
         {/* 업로드 중엔 키가 아직 없어 제출하면 사진이 빠진다 → 막는다 */}
-        <SubmitButton label={submitLabel} disabled={!isValid || photosUploading || datasheetUploading} submitting={isSubmitting} />
+        <SubmitButton label={submitLabel} disabled={!isValid || uploading || done} submitting={isSubmitting} />
       </form>
     </FormProvider>
   );

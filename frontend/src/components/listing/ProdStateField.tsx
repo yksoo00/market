@@ -18,7 +18,8 @@ export function ProdStateField() {
   const conditionStatus = useFieldStatus<ListingFormInput>("condition");
 
   return (
-    <FieldShell label={t.condition} error={conditionStatus.error ?? (condition === "used" ? percent.error : undefined)}>
+    // htmlFor 로 오류 문구 id(usedPercent-error)가 생기고 % 칸이 aria-describedby 로 가리킨다
+    <FieldShell label={t.condition} htmlFor="usedPercent" error={conditionStatus.error ?? (condition === "used" ? percent.error : undefined)}>
       <div className="flex flex-wrap items-center gap-2">
         <div role="group" aria-label={t.condition} className="grid grid-cols-2 gap-2 w-[180px]">
           {(["new", "used"] as const).map((value) => {
@@ -41,7 +42,9 @@ export function ProdStateField() {
             {t.usedPercentPrefix}
             <Input
               {...register("usedPercent")}
+              id="usedPercent"
               aria-label={t.usedPercentLabel}
+              aria-describedby={percent.error ? "usedPercent-error" : undefined}
               aria-invalid={percent.touched && Boolean(percent.error)}
               inputMode="numeric"
               maxLength={2}

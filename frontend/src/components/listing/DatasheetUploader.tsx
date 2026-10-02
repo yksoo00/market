@@ -30,6 +30,7 @@ export function DatasheetUploader({ value, onChange, onUploadingChange, error }:
   // 늦게 끝난 이전 업로드가 새로 고른 파일을 덮지 않게 요청 순번을 센다
   const seq = useRef(0);
 
+  // TODO(수정 화면): 빈 상태에서 시작해 마운트 때 "" 를 폼에 넣는다. 수정 화면에서 쓰려면 value(기존 키)로 초기화해야 한다
   const key = state.status === "done" ? state.key : "";
   useEffect(() => {
     if (key !== value) onChange(key);

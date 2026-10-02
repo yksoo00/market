@@ -36,6 +36,7 @@ export function PhotoUploader({ value, onChange, onUploadingChange, error }: Pro
   const [slots, setSlots] = useState<Slot[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // TODO(수정 화면): 지금은 빈 칸에서 시작해 마운트 때 [] 를 폼에 넣는다. 수정 화면에서 쓰려면 slots 를 value(기존 키)로 초기화해야 기존 사진이 안 지워진다
   // 부모(폼) 값과 업로드 상태를 칸 상태에서 계산해 알린다. 같은 값이면 알리지 않아 폼이 불필요하게 다시 검증하지 않게
   const keys = slots.flatMap((s) => (s.status === "done" && s.key ? [s.key] : []));
   const uploading = slots.some((s) => s.status === "uploading");
@@ -88,7 +89,8 @@ export function PhotoUploader({ value, onChange, onUploadingChange, error }: Pro
 
   const firstDoneId = slots.find((s) => s.status === "done")?.id;
   const slotErrors = slots.flatMap((s) => (s.status === "error" && s.message ? [s.message] : []));
-  const messages = [error, notice, ...slotErrors].filter((m): m is string => Boolean(m));
+  // 여러 장이 같은 이유로 실패하면 같은 문구가 반복된다 → 한 번만 (key 로도 쓰므로 중복 금지)
+  const messages = [...new Set([error, notice, ...slotErrors].filter((m): m is string => Boolean(m)))];
 
   return (
     <div className="flex flex-col gap-1.5">
