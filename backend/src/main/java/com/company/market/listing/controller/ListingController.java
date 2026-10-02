@@ -12,6 +12,7 @@ import com.company.market.listing.dto.ListingResponse;
 import com.company.market.listing.dto.ListingSearchCondition;
 import com.company.market.listing.dto.ListingUpdateRequest;
 import com.company.market.listing.service.ListingService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -45,7 +46,12 @@ public class ListingController {
 	}
 
 	@GetMapping
-	public ApiResponse<ListingPageResponse> list(@ModelAttribute ListingSearchCondition condition) {
+	public ApiResponse<ListingPageResponse> list(@AuthenticationPrincipal AuthenticatedUser me,
+			@Valid @ModelAttribute ListingSearchCondition condition, HttpServletRequest req) {
+		// 비로그인 검색만 IP 기준 제한 (security.md "검색 API (비로그인)")
+		if (me == null) {
+			limiter.hit("listing:search:ip:" + req.getRemoteAddr(), 60, Duration.ofMinutes(1));
+		}
 		return ApiResponse.of(listings.search(condition));
 	}
 

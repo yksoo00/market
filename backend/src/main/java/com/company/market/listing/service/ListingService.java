@@ -124,6 +124,9 @@ public class ListingService {
 	}
 
 	public ListingPageResponse search(ListingSearchCondition condition) {
+		if (condition.minPrice() != null && condition.maxPrice() != null && condition.minPrice() > condition.maxPrice()) {
+			throw new ValidationException(Map.of("maxPrice", "최대 가격은 최소 가격보다 크거나 같아야 합니다."));
+		}
 		Optional<Cursor> cursor = decodeCursor(condition.cursor());
 		List<Object[]> rows = searchRepository.findPage(condition, cursor.map(Cursor::regDate).orElse(null),
 				cursor.map(Cursor::userId).orElse(null), PAGE_SIZE + 1);
