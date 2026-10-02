@@ -51,6 +51,8 @@ public class ListingService {
 	private static final DateTimeFormatter MUFC_DATE_FORMAT = DateTimeFormatter.ofPattern("uuuuMMdd")
 		.withResolverStyle(ResolverStyle.STRICT);
 
+	private static final DateTimeFormatter DELIVERY_DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE.withResolverStyle(ResolverStyle.STRICT);
+
 	private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
 	private static final int PAGE_SIZE = 20;
@@ -95,7 +97,7 @@ public class ListingService {
 			.salesQuantity(req.salesQuantity())
 			.minOrderQuantity(minOrderQuantity)
 			.orderUnit(orderUnit)
-			.deliveryDate(req.deliveryDate())
+			.deliveryDate(req.deliveryDate() == null || req.deliveryDate().isEmpty() ? null : req.deliveryDate())
 			.stockQuantity(req.stockQuantity() == null ? req.salesQuantity() : req.stockQuantity())
 			.prodDescription(req.description())
 			.prodDataSheet(req.listingDataSheet())
@@ -123,7 +125,8 @@ public class ListingService {
 		if (!requesterId.equals(pathUserId)) {
 			throw new ApiException(ErrorCode.FORBIDDEN);
 		}
-		validateDates(null, req.deliveryDate());
+		// 이미 저장된 납기일을 그대로 다시 보내면(수정 화면이 모든 칸을 보낼 때) 지난 날짜여도 통과
+		validateDates(null, Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
 		int effectiveMinOrderQuantity = req.minOrderQuantity() == null ? listing.getMinOrderQuantity() : req.minOrderQuantity();
 		int effectiveSalesQuantity = req.salesQuantity() == null ? listing.getSalesQuantity() : req.salesQuantity();
 		if (effectiveMinOrderQuantity > effectiveSalesQuantity) {
@@ -234,8 +237,8 @@ public class ListingService {
 				failures.put("prodMufcDate", "제조일은 오늘 이전 날짜로 입력하세요.");
 			}
 		}
-		if (deliveryDate != null) {
-			LocalDate date = parseStrict(deliveryDate, DateTimeFormatter.ISO_LOCAL_DATE.withResolverStyle(ResolverStyle.STRICT));
+		if (deliveryDate != null && !deliveryDate.isEmpty()) {
+			LocalDate date = parseStrict(deliveryDate, DELIVERY_DATE_FORMAT);
 			if (date == null) {
 				failures.put("deliveryDate", "납기일이 올바른 날짜가 아닙니다.");
 			}

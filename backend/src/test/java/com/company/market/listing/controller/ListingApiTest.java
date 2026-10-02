@@ -20,6 +20,7 @@ import com.company.market.user.domain.UserKind;
 import com.company.market.user.domain.UserRole;
 import com.company.market.user.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -98,6 +99,16 @@ class ListingApiTest {
 		userId = user.getId();
 		String token = jwtProvider.createAccessToken(userId, UserRole.USER);
 		authCookie = new Cookie(AuthCookies.ACCESS, token);
+	}
+
+	/**
+	 * 만든 매물·상품을 지우고 끝낸다. 남기면 같은 컨텍스트를 쓰는 다른 테스트(AuthApiTest 등)가 users 를 지울 때
+	 * listings → users FK 에 걸려 실패한다 (테스트 실행 순서에 따라 드러남).
+	 */
+	@AfterEach
+	void cleanUp() {
+		jdbc.update("delete from listings");
+		jdbc.update("delete from products");
 	}
 
 	@Test
@@ -450,6 +461,27 @@ class ListingApiTest {
 		patchListing(regDate, "{\"deliveryDate\":\"%s\"}".formatted(yesterday)).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.deliveryDate").isString());
 		patchListing(regDate, "{\"salesUnitPrice\":1}").andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("수정에서 납기일을 이미 저장된 값 그대로 보내면 지난 날짜여도 통과한다 (수정 화면이 모든 칸을 다시 보낼 때)")
+	void updateKeepsStoredPastDeliveryDate() throws Exception {
+		String regDate = createListing(authCookie);
+		jdbc.update("update listings set delivery_date = '2020-01-01' where user_id = ? and reg_date = ?", userId, regDate);
+
+		patchListing(regDate, "{\"salesUnitPrice\":900,\"deliveryDate\":\"2020-01-01\"}").andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.salesUnitPrice").value(900));
+	}
+
+	@Test
+	@DisplayName("수정에서 납기일에 빈 문자열을 보내면 비운다")
+	void updateClearsDeliveryDate() throws Exception {
+		String regDate = createListing(authCookie);
+		String today = LocalDate.now(SEOUL).toString();
+		patchListing(regDate, "{\"deliveryDate\":\"%s\"}".formatted(today)).andExpect(status().isOk());
+
+		patchListing(regDate, "{\"deliveryDate\":\"\"}").andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.deliveryDate").value(org.hamcrest.Matchers.nullValue()));
 	}
 
 	private ResultActions createWithFields(String prodName, String extraJson) throws Exception {

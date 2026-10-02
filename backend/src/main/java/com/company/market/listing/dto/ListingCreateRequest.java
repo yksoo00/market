@@ -41,7 +41,8 @@ public record ListingCreateRequest(
 
 	public static final String PROD_STATE_MESSAGE = "상품상태는 '신품' 또는 '신품대비 N%'(N은 1~99) 형식이어야 합니다.";
 
-	public static final String DELIVERY_DATE_PATTERN = "^\\d{4}-\\d{2}-\\d{2}$";
+	/** 빈 문자열은 "비우기"(수정) 또는 "없음"(등록) — 파일 칸과 같은 규칙 */
+	public static final String DELIVERY_DATE_PATTERN = "^(\\d{4}-\\d{2}-\\d{2})?$";
 
 	public static final String DELIVERY_DATE_MESSAGE = "납기일은 YYYY-MM-DD 형식이어야 합니다.";
 
