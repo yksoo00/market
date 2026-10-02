@@ -47,6 +47,8 @@ public class SecurityConfig {
 				.requestMatchers("/api/v1/auth/**", "/actuator/health", "/actuator/health/**").permitAll()
 				// 매물 목록·상세는 공개 조회 (등록·수정·삭제는 아래 anyRequest 로 인증 필요)
 				.requestMatchers(HttpMethod.GET, "/api/v1/listings", "/api/v1/listings/*/*").permitAll()
+				// 업로드 파일 열람: 공개/비공개(로그인) 판단은 FileController 가 폴더로 한다
+				.requestMatchers(HttpMethod.GET, "/api/v1/files/**").permitAll()
 				.anyRequest().authenticated())
 			.exceptionHandling(e -> e
 				.authenticationEntryPoint((req, res, ex) -> write(res, json, ErrorCode.UNAUTHENTICATED))
