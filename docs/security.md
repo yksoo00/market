@@ -114,6 +114,8 @@
 - 소유: 업로드 시 Redis `upload:<key>` = `<userId>|<kind>` 24시간. 등록·수정은 본인이 그 용도로 올린 키만 받고(아니면 400 VALIDATION "파일을 다시 올려 주세요."), 저장 후 기록을 지워 재사용 불가. 수정 시 그 매물에 이미 저장된 키는 통과.
 - 열람: `GET /api/v1/files/{key}`. `public/`은 누구나(1년 immutable 캐시), `private/`은 로그인(no-cache, private). `X-Content-Type-Options: nosniff`.
 - rate: 업로드 20회/10분/사용자.
+- 용량 (2026-10-02): 사용자당 **하루 300MB** (Redis `upload:bytes:<userId>`, 넘으면 429 `UPLOAD_QUOTA_EXCEEDED`, 거부된 업로드는 사용량에 안 셈). 디스크 여유 공간이 **10GB** 미만이 되는 업로드는 거부 (503 `STORAGE_FULL`, `app.storage.min-free`) — 계정 여러 개로 채워도 같은 디스크의 Postgres가 멈추지 않게. 횟수 한도만으로는 10MB × 20회 × 하루 = 약 29GB까지 쓸 수 있어서 둘을 더했다.
+- 비우기: 매물 수정(PATCH)에서 파일 칸(`listingDataSheet`·`testReport`·`certificateOfAuthen`·`replaceProd`)에 `""`를 보내면 비운다. null·생략은 안 바꿈. 사진은 `photos: []`.
 - **위험 — EXIF 위치 정보**: 리사이즈·EXIF 제거는 2단계. 휴대폰 사진에는 촬영 위치(GPS)가 들어 있을 수 있고 사진은 공개다. EXIF 제거 전에 운영 공개하면 판매자 위치가 노출될 수 있다.
 - 고아 파일(올리고 등록 안 한 파일)은 당분간 수동 정리. 매물 삭제 시 파일은 지우지 않는다 (상품 대표 사진이 첫 매물 사진 키를 공유).
 - 엑셀·PDF 등록 원본(상품 등록·다량 등록·대량구매): xlsx·xls·pdf, 파일당 10MB, 1개, 비공개. 업로드 API의 용도는 아직 없다 — 파싱 기능 구현 시 추가. 프론트는 선택 즉시 확장자·크기만 검사(`lib/validation/upload.ts`).
