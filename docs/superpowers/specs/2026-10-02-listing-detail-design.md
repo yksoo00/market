@@ -30,7 +30,7 @@
 | 제목: 상품명(상품번호) | `prod_name` + `prod_no` | |
 | 제목 아래 한 줄 설명 | `products.prod_spec_info` | 제조사 제공 자유 기재 |
 | 제조사 마크 | — | 테이블에 없음, 뺌 |
-| 큰 상품 사진 | 매물 사진 첫 장 | 없으면 `products.prod_photo_1` |
+| 큰 상품 사진 | 매물 사진 첫 장 | ~~없으면 `products.prod_photo_1`~~ → 없으면 없음 (2026-10-02 변경, decisions.md 매물 상세) |
 | 제조사 | `prod_brand` | |
 | 상품코드 | `prod_id` | `prod_no`는 제목에 있음 |
 | 리드 타임 | `delivery_date` | 납기일. 날짜로 표시 |
@@ -40,7 +40,7 @@
 | 복사 버튼·부품번호 입력칸·기타 코드 | — | 뺌 |
 | 제품 개요 | `listings.prod_description` | 자유 텍스트, 줄바꿈 유지 |
 | 기술 사양 표 | — | 테이블에 없음, 뺌 |
-| 데이터시트 PDF 뷰어 | `listings.prod_data_sheet` | 없으면 `products.prod_data_sheet` |
+| 데이터시트 PDF 뷰어 | `listings.prod_data_sheet` | ~~없으면 `products.prod_data_sheet`~~ → 없으면 없음 (2026-10-02 변경) |
 | 사진 목록 | 매물 사진 최대 4장 | |
 
 이미지에 없지만 보여주는 컬럼(사용자 결정 A): 카테고리, 거래종류, 제조일, 최소주문수량, 주문단위, 등록수량, 보증기한, 불량지원방법, 등록일, 거래상태(뱃지), 테스트리포트·정품인증서·대체품(파일 링크).
@@ -87,8 +87,8 @@
 |---|---|
 | `category` | `products.category_code` |
 | `mufcDate` | `products.prod_mufc_date`. 숫자 8자리(`yyyyMMdd`)·14자리(`yyyyMMddHHmmss`)면 `YYYY-MM-DD`, 그 외 형식은 원문 그대로(등록 API가 형식 검사 없이 받음), 없으면 null |
-| `productDataSheet` | `products.prod_data_sheet` |
-| `productPhoto` | `products.prod_photo_1` |
+| ~~`productDataSheet`~~ | ~~`products.prod_data_sheet`~~ — 뺌 (2026-10-02, 상품마스터 대체 안 함) |
+| ~~`productPhoto`~~ | ~~`products.prod_photo_1`~~ — 뺌 (2026-10-02, 상품마스터 대체 안 함) |
 | `tradeStatus` | `dt_expire`가 비면 `"available"`, 있으면 `"completed"` (decisions.md 2026-10-01) |
 | `warrantyUntil` | `reg_date`의 날짜 + `warranty_period`일, `YYYY-MM-DD`. 기간이 null이면 null (검색 타입 `ListingSearchItem.warrantyUntil`과 같은 계산) |
 
