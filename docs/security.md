@@ -99,17 +99,24 @@
 
 ## 파일 업로드
 
-| 항목 | 이미지                                                            | 엑셀 (상품 등록·다량 등록·대량구매) | PDF (상품 등록)      |
-| ---- | ----------------------------------------------------------------- | ----------------------------------- | -------------------- |
-| 형식 | jpg, png, webp                                                    | xlsx, xls                           | pdf                  |
-| 검사 | 확장자 + **매직 바이트** (Content-Type 신뢰 안 함)                | 같음                                | 같음                 |
-| 크기 | 장당 5MB, 상품당 10장                                             | 파일당 10MB, 1개                    | 파일당 10MB, 1개     |
-| 저장 | 파일 저장소 미정. 선택 시 랜덤 UUID 경로 (원본 파일명 사용 안 함) | 같음                                | 같음                 |
-| 공개 | 저장소 선택 후 공개 전달 방식 결정 (상품 이미지)                  | 비공개 (등록용 원본)                | 비공개 (등록용 원본) |
-| 처리 | 2단계: 리사이즈·EXIF 제거 (위치 정보 노출 방지)                   | 미정 (파싱 방식은 구현 시)          | 미정                 |
-| rate | 업로드 20회/10분/사용자                                           | 같음 (합산)                         | 같음 (합산)          |
+`POST /api/v1/uploads` (multipart `kind`, `file`)로 먼저 올려 키를 받고, 매물 등록·수정에 키를 넣는다 (decisions.md 2026-10-02). 용도(`kind`)가 폴더·형식·크기·열람 권한을 정한다:
 
-- 엑셀·PDF 수치는 2026-10-01 홈 판매·구매 아이콘 작업에서 정함. 프론트는 선택 즉시 확장자·크기만 검사(`lib/validation/upload.ts`)하고, 매직 바이트는 백엔드가 검사한다. 업로드 API는 아직 없다.
+| `kind` | 폴더 | 형식 | 크기 | 열람 | 매물 필드 |
+|---|---|---|---|---|---|
+| `listing-photo` | `public/listings/photos/` | jpg, png, webp | 장당 5MB, 매물당 4장 | 누구나 | `photos` |
+| `listing-datasheet` | `private/listings/datasheets/` | pdf | 10MB | 로그인 | `listingDataSheet`, `productDataSheet` |
+| `listing-test-report` | `private/listings/test-reports/` | pdf, jpg, png | 10MB | 로그인 | `testReport` |
+| `listing-certificate` | `private/listings/certificates/` | pdf, jpg, png | 10MB | 로그인 | `certificateOfAuthen` |
+| `listing-replace-prod` | `private/listings/replace-prods/` | pdf, jpg, png | 10MB | 로그인 | `replaceProd` |
+
+- 검사: 확장자 + **매직 바이트** (Content-Type 신뢰 안 함). 빈 파일 거부. multipart 바깥 상한 10MB 초과도 413 `UPLOAD_TOO_LARGE`.
+- 저장: 서버 디스크 `<STORAGE_ROOT>/<폴더>/yyyy/MM/<uuid>.<ext>`. 원본 파일명 사용 안 함. 키 형식(정규식)이 아니면 저장·열람·등록 모두 거부 (`../` 경로 조작 차단).
+- 소유: 업로드 시 Redis `upload:<key>` = `<userId>|<kind>` 24시간. 등록·수정은 본인이 그 용도로 올린 키만 받고(아니면 400 VALIDATION "파일을 다시 올려 주세요."), 저장 후 기록을 지워 재사용 불가. 수정 시 그 매물에 이미 저장된 키는 통과.
+- 열람: `GET /api/v1/files/{key}`. `public/`은 누구나(1년 immutable 캐시), `private/`은 로그인(no-cache, private). `X-Content-Type-Options: nosniff`.
+- rate: 업로드 20회/10분/사용자.
+- **위험 — EXIF 위치 정보**: 리사이즈·EXIF 제거는 2단계. 휴대폰 사진에는 촬영 위치(GPS)가 들어 있을 수 있고 사진은 공개다. EXIF 제거 전에 운영 공개하면 판매자 위치가 노출될 수 있다.
+- 고아 파일(올리고 등록 안 한 파일)은 당분간 수동 정리. 매물 삭제 시 파일은 지우지 않는다 (상품 대표 사진이 첫 매물 사진 키를 공유).
+- 엑셀·PDF 등록 원본(상품 등록·다량 등록·대량구매): xlsx·xls·pdf, 파일당 10MB, 1개, 비공개. 업로드 API의 용도는 아직 없다 — 파싱 기능 구현 시 추가. 프론트는 선택 즉시 확장자·크기만 검사(`lib/validation/upload.ts`).
 
 ## Rate limit (Redis 카운터, 사용자 또는 IP 기준)
 
