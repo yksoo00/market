@@ -237,7 +237,7 @@ public class ListingService {
 				listing.getDeliveryDate(), listing.getStockQuantity(), listing.getProdDescription(), listing.getProdDataSheet(), photos,
 				listing.getWarrantyPeriod(), listing.getWarrantyCoverage(), listing.getReplaceProd(), listing.getTestReport(),
 				listing.getCertificateOfAuthen(), listing.getDtUpdate(), listing.getDtExpire(), product.getCategoryCode(),
-				toIsoDate(product.getProdMufcDate()), product.getProdDataSheet(), product.getProdPhoto1(),
+				toIsoDate(product.getProdMufcDate()),
 				// 거래 흐름이 정해지기 전까지 거래완료일시 유무로만 판단 (decisions.md 2026-10-01 검색 결과)
 				listing.getDtExpire() == null ? "available" : "completed",
 				warrantyUntil(listing.getRegDate(), listing.getWarrantyPeriod()));

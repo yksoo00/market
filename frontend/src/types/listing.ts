@@ -70,7 +70,7 @@ export interface ListingDetail {
   deliveryDate: string | null;
   stockQuantity: number | null;
   description: string | null;
-  /** 저장소 키. 화면은 이게 없으면 productDataSheet 를 쓴다 */
+  /** 저장소 키 */
   listingDataSheet: string | null;
   /** 저장소 키 0~4개 */
   photos: string[];
@@ -84,8 +84,6 @@ export interface ListingDetail {
   category: string;
   /** YYYY-MM-DD. 날짜로 읽히지 않는 레거시 값은 원문 그대로 */
   mufcDate: string | null;
-  productDataSheet: string | null;
-  productPhoto: string | null;
   tradeStatus: TradeStatus;
   /** 등록일 + 보증 일수, YYYY-MM-DD */
   warrantyUntil: string | null;

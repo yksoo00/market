@@ -19,14 +19,14 @@ export function formatRegDate(regDate: string): string {
   return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)} ${d.slice(8, 10)}:${d.slice(10, 12)}`;
 }
 
-/** 매물 사진이 없으면 상품마스터 대표 사진 */
+// 사진·데이터시트는 이 매물에 올린 것만. 상품마스터 파일로 대신하지 않는다 — 처음 등록한 다른 판매자의 실물 사진·파일이라
+// 구매자가 다른 물건을 보고 판단하게 된다 (decisions.md 2026-10-02 매물 상세)
 export function mainPhoto(d: ListingDetail): string | null {
-  return d.photos[0] ?? d.productPhoto;
+  return d.photos[0] ?? null;
 }
 
-/** 매물 데이터시트가 없으면 상품마스터 데이터시트 */
 export function dataSheetKey(d: ListingDetail): string | null {
-  return d.listingDataSheet ?? d.productDataSheet;
+  return d.listingDataSheet;
 }
 
 // refresh 까지 실패한 401 만 로그인이 풀린 것. 네트워크·5xx·429 는 로그인 여부를 모르는 것
