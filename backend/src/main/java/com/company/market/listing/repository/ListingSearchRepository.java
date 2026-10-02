@@ -2,6 +2,7 @@ package com.company.market.listing.repository;
 
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -53,11 +54,12 @@ public class ListingSearchRepository {
 			default -> "concat(p.prodName, ' ', coalesce(p.prodNo, ''), ' ', p.prodBrand)";
 		};
 		// 공백으로 나눈 낱말이 전부 들어 있어야 매칭 (프론트 10-01 규칙과 같음: "DDR4 ECC 32GB" ↔ "DDR4 32GB ECC RDIMM")
+		// (?U): 한글 IME 의 전각 공백(U+3000)·NBSP 도 나눈다 (JS /\s+/ 와 같게)
 		List<String> words = c.q() == null ? List.of()
-				: List.of(c.q().trim().split("\\s+")).stream().filter(w -> !w.isEmpty()).toList();
+				: List.of(c.q().trim().split("(?U)\\s+")).stream().filter(w -> !w.isEmpty()).toList();
 		for (int i = 0; i < words.size(); i++) {
 			jpql.append(" and lower(").append(scope).append(") like :w").append(i).append(" escape '\\'");
-			params.put("w" + i, "%" + escapeLike(words.get(i).toLowerCase()) + "%");
+			params.put("w" + i, "%" + escapeLike(words.get(i).toLowerCase(Locale.ROOT)) + "%");
 		}
 		switch (c.status()) {
 			case "available" -> jpql.append(" and l.dtExpire is null");

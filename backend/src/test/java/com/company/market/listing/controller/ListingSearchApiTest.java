@@ -203,6 +203,8 @@ class ListingSearchApiTest {
 		assertThat(regDates("q", "48p catalyst")).containsExactly(C);
 		assertThat(regDates("q", "R740  poweredge")).containsExactly(B);
 		assertThat(regDates("q", "catalyst R740")).isEmpty();
+		// 한글 IME 의 전각 공백도 낱말 구분
+		assertThat(regDates("q", "48p　catalyst")).containsExactly(C);
 	}
 
 	@Test
@@ -284,8 +286,8 @@ class ListingSearchApiTest {
 			save(String.format("ELEC0001%04d", i), String.format("202610010900%02d", i), "서버 " + i, null, "Dell",
 					1000 + i, 1, null);
 		}
-		// 가격 필터에 걸리지 않는 매물 하나 — 다음 페이지에 섞여 들어오면 안 된다
-		save("ELEC00019999", "20261001090030", "서버 비쌈", null, "Dell", 999_999, 1, null);
+		// 가격 필터에 걸리지 않는 매물 하나. 커서보다 오래돼서 2페이지 쿼리가 필터를 빠뜨리면 섞여 들어온다
+		save("ELEC00019999", "20261001085900", "서버 비쌈", null, "Dell", 999_999, 1, null);
 
 		String first = mvc.perform(get("/api/v1/listings").param("maxPrice", "2000")).andReturn().getResponse()
 			.getContentAsString();
@@ -297,7 +299,7 @@ class ListingSearchApiTest {
 		all.addAll(JsonPath.<List<String>>read(second, "$.data.items[*].regDate"));
 		Set<String> unique = new HashSet<>(all);
 		assertThat(all).hasSize(25);
-		assertThat(unique).hasSize(25).doesNotContain("20261001090030");
+		assertThat(unique).hasSize(25).doesNotContain("20261001085900");
 		assertThat(JsonPath.<Object>read(second, "$.data.nextCursor")).isNull();
 	}
 
