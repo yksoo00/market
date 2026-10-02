@@ -29,6 +29,13 @@ export function dataSheetKey(d: ListingDetail): string | null {
   return d.listingDataSheet ?? d.productDataSheet;
 }
 
+// refresh 까지 실패한 401 만 로그인이 풀린 것. 네트워크·5xx·429 는 로그인 여부를 모르는 것
+const AUTH_LOST = new Set(["UNAUTHENTICATED", "SESSION_EXPIRED", "UNAUTHORIZED"]);
+
+export function isAuthLost(code: string): boolean {
+  return AUTH_LOST.has(code);
+}
+
 /** 버튼 표시용. 실제 권한은 서버가 403 으로 막는다 */
 export function isOwner(meId: string | null, userId: string): boolean {
   return meId !== null && meId.toLowerCase() === userId.toLowerCase();

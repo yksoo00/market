@@ -5,6 +5,7 @@ import {
   dataSheetKey,
   formatRegDate,
   infoRows,
+  isAuthLost,
   isOwner,
   isValidListingPath,
   mainPhoto,
@@ -83,6 +84,13 @@ describe("isOwner", () => {
     expect(isOwner(UUID.toUpperCase(), UUID)).toBe(true);
     expect(isOwner("a81d4e9f-2c6b-4b3a-8e57-1f9c0d2e6a22", UUID)).toBe(false);
     expect(isOwner(null, UUID)).toBe(false);
+  });
+});
+
+describe("isAuthLost", () => {
+  it("refresh 까지 실패한 401 코드만 로그인이 풀린 것, 네트워크·5xx·429 는 아님", () => {
+    for (const code of ["UNAUTHENTICATED", "SESSION_EXPIRED", "UNAUTHORIZED"]) expect(isAuthLost(code)).toBe(true);
+    for (const code of ["UNREACHABLE", "SERVER_ERROR", "RATE_LIMITED", "FORBIDDEN"]) expect(isAuthLost(code)).toBe(false);
   });
 });
 
