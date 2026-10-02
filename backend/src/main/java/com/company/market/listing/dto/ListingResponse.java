@@ -31,8 +31,6 @@ public record ListingResponse(
 		String dtExpire,
 		String category,
 		String mufcDate,
-		String productDataSheet,
-		String productPhoto,
 		String tradeStatus,
 		String warrantyUntil) {
 }

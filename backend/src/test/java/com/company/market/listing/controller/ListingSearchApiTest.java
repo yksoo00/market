@@ -369,4 +369,14 @@ class ListingSearchApiTest {
 			.andExpect(jsonPath("$.data.items[0].tradeStatus").value("available"));
 	}
 
+	@Test
+	@DisplayName("사진·데이터시트 표시는 매물 값만 본다 — 상품마스터 파일은 다른 판매자의 것")
+	void fileFlagsIgnoreProductMaster() throws Exception {
+		saveFour();
+		jdbc.update("update products set prod_photo_1 = 'p.jpg', prod_data_sheet = 'p.pdf' where prod_id = 'ELEC00010001'");
+		mvc.perform(get("/api/v1/listings").param("q", "LM324AD"))
+			.andExpect(jsonPath("$.data.items[0].hasDataSheet").value(false))
+			.andExpect(jsonPath("$.data.items[0].hasPhoto").value(false));
+	}
+
 }

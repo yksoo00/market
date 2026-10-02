@@ -441,7 +441,7 @@ class ListingApiTest {
 	}
 
 	@Test
-	@DisplayName("상세 응답에 카테고리·제조일·상품 데이터시트·상품 사진·거래상태·보증기한이 담긴다")
+	@DisplayName("상세 응답에 카테고리·제조일·거래상태·보증기한이 담기고, 상품마스터의 사진·데이터시트는 담지 않는다")
 	void detailIncludesDerivedFields() throws Exception {
 		saveListing("ELEC00010101", "20261001091500", "20240122", 30);
 
@@ -449,8 +449,9 @@ class ListingApiTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.category").value("ELEC0001"))
 			.andExpect(jsonPath("$.data.mufcDate").value("2024-01-22"))
-			.andExpect(jsonPath("$.data.productDataSheet").value("p-sheet.pdf"))
-			.andExpect(jsonPath("$.data.productPhoto").value("p-photo.jpg"))
+			// 상품마스터 파일은 처음 등록한 다른 판매자의 것이라 이 매물에 보이면 안 된다 (decisions.md 2026-10-02 매물 상세)
+			.andExpect(jsonPath("$.data.productDataSheet").doesNotExist())
+			.andExpect(jsonPath("$.data.productPhoto").doesNotExist())
 			.andExpect(jsonPath("$.data.tradeStatus").value("available"))
 			.andExpect(jsonPath("$.data.warrantyUntil").value("2026-10-31"));
 	}

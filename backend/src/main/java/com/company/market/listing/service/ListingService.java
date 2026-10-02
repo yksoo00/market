@@ -198,12 +198,11 @@ public class ListingService {
 	}
 
 	private static ListingSearchItemResponse toSearchItem(Listing listing, Product product) {
-		// 상세 화면과 같은 대체 규칙: 매물 값이 없으면 상품마스터 값
+		// 상세 화면과 같게 매물 값만 본다. 상품마스터 파일은 처음 등록한 다른 판매자의 것 (decisions.md 2026-10-02 매물 상세)
 		boolean hasPhoto = Stream
-			.of(listing.getProdPhoto1(), listing.getProdPhoto2(), listing.getProdPhoto3(), listing.getProdImage4(),
-					product.getProdPhoto1())
+			.of(listing.getProdPhoto1(), listing.getProdPhoto2(), listing.getProdPhoto3(), listing.getProdImage4())
 			.anyMatch(Objects::nonNull);
-		boolean hasDataSheet = listing.getProdDataSheet() != null || product.getProdDataSheet() != null;
+		boolean hasDataSheet = listing.getProdDataSheet() != null;
 		return new ListingSearchItemResponse(listing.getUserId(), listing.getRegDate(), product.getProdNo(),
 				product.getProdName(), product.getProdBrand(), product.getCategoryCode(),
 				product.mufcDateIso(), listing.getProdDescription(), hasDataSheet, hasPhoto,
@@ -243,7 +242,7 @@ public class ListingService {
 				listing.getDeliveryDate(), listing.getStockQuantity(), listing.getProdDescription(), listing.getProdDataSheet(), photos,
 				listing.getWarrantyPeriod(), listing.getWarrantyCoverage(), listing.getReplaceProd(), listing.getTestReport(),
 				listing.getCertificateOfAuthen(), listing.getDtUpdate(), listing.getDtExpire(), product.getCategoryCode(),
-				product.mufcDateIso(), product.getProdDataSheet(), product.getProdPhoto1(),
+				product.mufcDateIso(),
 				listing.tradeStatus(),
 				listing.warrantyUntil());
 	}

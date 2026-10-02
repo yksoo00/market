@@ -45,7 +45,7 @@
 
 `{ ok: true, data: { items, nextCursor, total } }`
 
-- `items`: `ListingSearchItemResponse[]` — 프론트 `ListingSearchItem`(`types/listing.ts`)과 1:1. `hasDataSheet` = 매물 또는 상품 데이터시트 있음, `hasPhoto` = 매물 사진 또는 상품 사진 있음(상세의 대체값 규칙과 같음). `hasReplaceProd`·`hasTestReport`·`hasCertificate` = 해당 키 있음. `mufcDate`·`warrantyUntil`·`tradeStatus`는 상세 응답과 같은 계산. `category`는 코드 그대로(화면 표에 카테고리 열 없음).
+- `items`: `ListingSearchItemResponse[]` — 프론트 `ListingSearchItem`(`types/listing.ts`)과 1:1. `hasDataSheet` = 매물 데이터시트 있음, `hasPhoto` = 매물 사진 있음 (2026-10-02 변경: 상품마스터 파일은 세지 않음 — 상세와 같게, decisions.md 매물 상세). `hasReplaceProd`·`hasTestReport`·`hasCertificate` = 해당 키 있음. `mufcDate`·`warrantyUntil`·`tradeStatus`는 상세 응답과 같은 계산. `category`는 코드 그대로(화면 표에 카테고리 열 없음).
 - `nextCursor`: 다음 페이지가 없으면 null.
 - `total`: 같은 조건의 전체 개수(커서와 무관).
 

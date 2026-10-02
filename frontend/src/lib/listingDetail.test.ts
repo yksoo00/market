@@ -41,8 +41,6 @@ const base: ListingDetail = {
   dtExpire: null,
   category: "ELEC0001",
   mufcDate: "2026-09-10",
-  productDataSheet: null,
-  productPhoto: null,
   tradeStatus: "available",
   warrantyUntil: null,
 };
@@ -64,17 +62,15 @@ describe("formatRegDate", () => {
 });
 
 describe("mainPhoto", () => {
-  it("매물 사진 첫 장, 없으면 상품 사진, 둘 다 없으면 null", () => {
-    expect(mainPhoto({ ...base, photos: ["a.jpg", "b.jpg"], productPhoto: "p.jpg" })).toBe("a.jpg");
-    expect(mainPhoto({ ...base, photos: [], productPhoto: "p.jpg" })).toBe("p.jpg");
-    expect(mainPhoto(base)).toBeNull();
+  it("매물 사진 첫 장, 없으면 null (상품마스터 사진으로 대신하지 않음)", () => {
+    expect(mainPhoto({ ...base, photos: ["a.jpg", "b.jpg"] })).toBe("a.jpg");
+    expect(mainPhoto({ ...base, photos: [] })).toBeNull();
   });
 });
 
 describe("dataSheetKey", () => {
-  it("매물 데이터시트, 없으면 상품 데이터시트, 둘 다 없으면 null", () => {
-    expect(dataSheetKey({ ...base, listingDataSheet: "l.pdf", productDataSheet: "p.pdf" })).toBe("l.pdf");
-    expect(dataSheetKey({ ...base, productDataSheet: "p.pdf" })).toBe("p.pdf");
+  it("매물 데이터시트, 없으면 null (상품마스터 데이터시트로 대신하지 않음)", () => {
+    expect(dataSheetKey({ ...base, listingDataSheet: "l.pdf" })).toBe("l.pdf");
     expect(dataSheetKey(base)).toBeNull();
   });
 });
