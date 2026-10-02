@@ -2,7 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { DataSheetCard } from "@/components/listing/DataSheetCard";
 import { ListingSummaryCard } from "@/components/listing/ListingSummaryCard";
+import { PhotosCard } from "@/components/listing/PhotosCard";
 import { authApi } from "@/lib/api/auth";
 import { listingsApi } from "@/lib/api/listings";
 import { isOwner, isValidListingPath } from "@/lib/listingDetail";
@@ -54,7 +56,13 @@ export function ListingDetailView({ userId, regDate }: { userId: string; regDate
   }
 
   const { detail, meId } = state;
-  return <ListingSummaryCard detail={detail} owner={isOwner(meId, detail.userId)} />;
+  return (
+    <>
+      <ListingSummaryCard detail={detail} owner={isOwner(meId, detail.userId)} />
+      <DataSheetCard detail={detail} loggedIn={meId !== null} />
+      <PhotosCard photos={detail.photos} />
+    </>
+  );
 }
 
 function NotFound() {
