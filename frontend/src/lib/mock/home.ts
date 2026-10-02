@@ -3,11 +3,6 @@ import type { ListingSummary } from "@/types/listing";
 
 const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString();
 
-export const categories = [
-  "서버", "워크스테이션", "GPU", "CPU", "메모리", "스토리지",
-  "네트워크", "랙·UPS", "라이선스", "모니터·주변기기", "노트북·PC", "기타",
-];
-
 export const popularQueries = [
   "R740", "RTX 4090", "Catalyst 9300", "PM9A3 3.84TB", "DL380 Gen10", "Windows Server 2022", "DDR4 ECC 32GB",
 ];

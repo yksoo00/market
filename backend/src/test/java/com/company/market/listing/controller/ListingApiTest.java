@@ -34,6 +34,7 @@ import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
@@ -426,6 +427,88 @@ class ListingApiTest {
 		mvc.perform(get("/api/v1/listings/" + UUID.randomUUID() + "/20260101000000"))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value("LISTING_NOT_FOUND"));
+	}
+
+	// 상세 화면용 파생 필드 테스트는 등록 API 대신 repository 로 직접 만든다 — 등록 API 의 입력 규칙(파일 키 검사 등)이
+	// 바뀌어도 응답 변환만 검증하게
+	private void saveListing(String prodId, String regDate, String mufcDate, Integer warrantyPeriod) {
+		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("ELEC0001").prodName("상세 " + prodId)
+			.prodBrand("삼성").prodMufcDate(mufcDate).prodDataSheet("p-sheet.pdf").prodPhoto1("p-photo.jpg")
+			.regDate(regDate).build());
+		listingRepository.saveAndFlush(Listing.builder().userId(userId).regDate(regDate).prodId(prodId).tradeType("등록")
+			.prodState("양호").salesUnitPrice(1000).salesQuantity(1).minOrderQuantity(1).orderUnit(1).stockQuantity(1)
+			.warrantyPeriod(warrantyPeriod).build());
+	}
+
+	@Test
+	@DisplayName("상세 응답에 카테고리·제조일·거래상태·보증기한이 담기고, 상품마스터의 사진·데이터시트는 담지 않는다")
+	void detailIncludesDerivedFields() throws Exception {
+		saveListing("ELEC00010101", "20261001091500", "20240122", 30);
+
+		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091500"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.category").value("ELEC0001"))
+			.andExpect(jsonPath("$.data.mufcDate").value("2024-01-22"))
+			// 상품마스터 파일은 처음 등록한 다른 판매자의 것이라 이 매물에 보이면 안 된다 (decisions.md 2026-10-02 매물 상세)
+			.andExpect(jsonPath("$.data.productDataSheet").doesNotExist())
+			.andExpect(jsonPath("$.data.productPhoto").doesNotExist())
+			.andExpect(jsonPath("$.data.tradeStatus").value("available"))
+			.andExpect(jsonPath("$.data.warrantyUntil").value("2026-10-31"));
+	}
+
+	@Test
+	@DisplayName("거래완료일시가 있으면 tradeStatus 는 completed")
+	void tradeStatusCompletedWhenExpired() throws Exception {
+		saveListing("ELEC00010102", "20261001091500", null, null);
+		jdbc.update("update listings set dt_expire = '20261002100000' where user_id = ? and reg_date = '20261001091500'", userId);
+
+		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091500"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.tradeStatus").value("completed"));
+	}
+
+	@Test
+	@DisplayName("제조일은 14자리도 날짜로, 그 외 형식은 원문 그대로, 없으면 null")
+	void mufcDateFormats() throws Exception {
+		saveListing("ELEC00010103", "20261001091501", "20240122093000", null);
+		saveListing("ELEC00010104", "20261001091502", "2024년 1월", null);
+		saveListing("ELEC00010105", "20261001091503", null, null);
+
+		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091501"))
+			.andExpect(jsonPath("$.data.mufcDate").value("2024-01-22"));
+		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091502"))
+			.andExpect(jsonPath("$.data.mufcDate").value("2024년 1월"));
+		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091503"))
+			.andExpect(jsonPath("$.data.mufcDate").value(nullValue()));
+	}
+
+	@Test
+	@DisplayName("숫자 8자리지만 없는 날짜인 제조일은 500 이 아니라 원문 그대로")
+	void mufcDateInvalidCalendarDateKeepsRaw() throws Exception {
+		saveListing("ELEC00010108", "20261001091506", "20241399", null);
+
+		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091506"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.mufcDate").value("20241399"));
+	}
+
+	@Test
+	@DisplayName("보증기간이 없으면 warrantyUntil 은 null, 0일이면 등록일")
+	void warrantyUntilEdges() throws Exception {
+		saveListing("ELEC00010106", "20261001091504", null, null);
+		saveListing("ELEC00010107", "20261001091505", null, 0);
+
+		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091504"))
+			.andExpect(jsonPath("$.data.warrantyUntil").value(nullValue()));
+		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091505"))
+			.andExpect(jsonPath("$.data.warrantyUntil").value("2026-10-01"));
+	}
+
+	@Test
+	@DisplayName("UUID 가 아닌 경로는 500 이 아니다")
+	void malformedUserIdIsNot500() throws Exception {
+		mvc.perform(get("/api/v1/listings/abc/20261001091500"))
+			.andExpect(status().is4xxClientError());
 	}
 
 	@Test

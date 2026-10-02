@@ -1,6 +1,6 @@
 import Form from "next/form";
 import { Icon } from "@/components/common/Icon";
-import { buildSearchHref, type SearchQuery } from "@/lib/search";
+import { buildSearchHref, MAX_QUERY, type SearchQuery } from "@/lib/search";
 import { search as t } from "@/messages/search";
 
 // 다시 검색해도 걸어 둔 필터는 유지한다 (보이는 칸은 검색어·구분뿐, 나머지는 hidden)
@@ -33,6 +33,7 @@ export function SearchForm({ query }: { query: SearchQuery }) {
             name="q"
             type="search"
             defaultValue={query.q}
+            maxLength={MAX_QUERY}
             placeholder={t.form.placeholder}
             className="grow min-w-0 bg-transparent outline-none text-[15px] @md:text-base text-ink placeholder:text-ink-3"
           />

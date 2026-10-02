@@ -1,50 +1,15 @@
 import { describe, expect, it } from "vitest";
-import type { ListingSearchItem } from "@/types/listing";
 import {
   activeFilterCount,
   buildSearchHref,
-  categoryOptions,
   clearFilters,
-  filterListings,
   listingHref,
   parseSearchParams,
+  searchApiParams,
   type SearchQuery,
 } from "./search";
 
-const base: ListingSearchItem = {
-  userId: "u1",
-  regDate: "20261001090000",
-  prodNo: "LM324AD",
-  prodName: "LM324AD 쿼드 OP앰프",
-  prodBrand: "STMICROELECTRONICS",
-  category: "기타",
-  mufcDate: "2026-09-10",
-  prodDescription: null,
-  warrantyUntil: null,
-  warrantyCoverage: null,
-  hasReplaceProd: false,
-  hasTestReport: false,
-  hasCertificate: false,
-  hasDataSheet: true,
-  hasPhoto: true,
-  prodState: "양호",
-  stockQuantity: 500,
-  salesUnitPrice: 320,
-  deliveryDate: "2026-10-10",
-  tradeStatus: "available",
-};
-
-const item = (over: Partial<ListingSearchItem>): ListingSearchItem => ({ ...base, ...over });
-
-const items: ListingSearchItem[] = [
-  base,
-  item({ regDate: "2", prodNo: "PER740", prodName: "PowerEdge R740", prodBrand: "Dell", category: "서버", stockQuantity: 2, salesUnitPrice: 3_500_000, deliveryDate: "2026-10-20" }),
-  item({ regDate: "3", prodNo: null, prodName: "Catalyst 9300 48P", prodBrand: "Cisco", category: "네트워크", stockQuantity: 10, salesUnitPrice: 1_900_000, deliveryDate: null }),
-  item({ regDate: "4", prodNo: "RTX4090", prodName: "RTX 4090 24GB", prodBrand: "NVIDIA", category: "GPU", stockQuantity: 0, salesUnitPrice: 2_450_000, tradeStatus: "completed" }),
-];
-
 const q = (over: Partial<SearchQuery> = {}): SearchQuery => ({ ...parseSearchParams({}), ...over });
-const regDates = (list: ListingSearchItem[]) => list.map((i) => i.regDate);
 
 describe("parseSearchParams", () => {
   it("빈 파라미터면 기본값", () => {
@@ -54,6 +19,11 @@ describe("parseSearchParams", () => {
   it("검색어 앞뒤 공백을 지우고, 공백뿐이면 빈 검색어", () => {
     expect(parseSearchParams({ q: "  LM324  " }).q).toBe("LM324");
     expect(parseSearchParams({ q: "   " }).q).toBe("");
+  });
+
+  it("검색어가 100자를 넘으면 100자로 자른다", () => {
+    expect(parseSearchParams({ q: "a".repeat(150) }).q).toBe("a".repeat(100));
+    expect(parseSearchParams({ q: `${"a".repeat(99)} b` }).q).toBe("a".repeat(99));
   });
 
   it("검색 구분·거래상태의 모르는 값은 기본값", () => {
@@ -97,65 +67,6 @@ describe("parseSearchParams", () => {
   });
 });
 
-describe("filterListings", () => {
-  it("조건이 없으면 거래 가능 전부", () => {
-    expect(regDates(filterListings(items, q()))).toEqual(["20261001090000", "2", "3"]);
-  });
-
-  it("상품명 검색은 상품명·상품번호 부분 일치, 대소문자 무시", () => {
-    expect(regDates(filterListings(items, q({ q: "lm324", field: "name" })))).toEqual(["20261001090000"]);
-    expect(regDates(filterListings(items, q({ q: "per7", field: "name" })))).toEqual(["2"]);
-  });
-
-  it("상품명 검색은 제조사를 안 본다", () => {
-    expect(filterListings(items, q({ q: "dell", field: "name" }))).toEqual([]);
-  });
-
-  it("전체 검색은 상품명·상품번호·제조사를 함께 보고, 낱말이 서로 다른 칸에 있어도 매칭", () => {
-    expect(regDates(filterListings(items, q({ q: "dell" })))).toEqual(["2"]);
-    expect(regDates(filterListings(items, q({ q: "Dell R740" })))).toEqual(["2"]);
-    expect(regDates(filterListings(items, q({ q: "lm324" })))).toEqual(["20261001090000"]);
-  });
-
-  it("검색어를 띄어쓰기로 나눠 모든 낱말이 들어 있으면 매칭 (순서 무관)", () => {
-    expect(regDates(filterListings(items, q({ q: "48p catalyst" })))).toEqual(["3"]);
-    expect(regDates(filterListings(items, q({ q: "R740  poweredge" })))).toEqual(["2"]);
-    expect(filterListings(items, q({ q: "catalyst R740" }))).toEqual([]);
-  });
-
-  it("상품번호가 없어도 상품명으로 매칭", () => {
-    expect(regDates(filterListings(items, q({ q: "catalyst" })))).toEqual(["3"]);
-  });
-
-  it("제조사 검색은 제조사만 본다", () => {
-    expect(regDates(filterListings(items, q({ q: "dell", field: "brand" })))).toEqual(["2"]);
-    expect(filterListings(items, q({ q: "PowerEdge", field: "brand" }))).toEqual([]);
-  });
-
-  it("거래상태: completed만, all이면 전부", () => {
-    expect(regDates(filterListings(items, q({ status: "completed" })))).toEqual(["4"]);
-    expect(filterListings(items, q({ status: "all" }))).toHaveLength(4);
-  });
-
-  it("카테고리는 정확히 일치", () => {
-    expect(regDates(filterListings(items, q({ category: "서버" })))).toEqual(["2"]);
-  });
-
-  it("재고는 이상", () => {
-    expect(regDates(filterListings(items, q({ minStock: 10 })))).toEqual(["20261001090000", "3"]);
-  });
-
-  it("가격은 경계 포함 범위, 한쪽만 있어도 됨", () => {
-    expect(regDates(filterListings(items, q({ minPrice: 320, maxPrice: 1_900_000 })))).toEqual(["20261001090000", "3"]);
-    expect(regDates(filterListings(items, q({ minPrice: 1_900_001 })))).toEqual(["2"]);
-  });
-
-  it("납품일은 그날까지 가능한 것만, 납품일 없는 매물은 제외", () => {
-    expect(regDates(filterListings(items, q({ deliveryBy: "2026-10-10" })))).toEqual(["20261001090000"]);
-    expect(regDates(filterListings(items, q({ deliveryBy: "2026-12-31" })))).toEqual(["20261001090000", "2"]);
-  });
-});
-
 describe("buildSearchHref", () => {
   it("기본값만이면 /search", () => {
     expect(buildSearchHref(q())).toBe("/search");
@@ -174,6 +85,10 @@ describe("activeFilterCount · clearFilters", () => {
     expect(activeFilterCount(q({ status: "all", minPrice: 100 }))).toBe(2);
   });
 
+  it("카테고리는 보류 중이라 세지 않는다 (예전 URL 의 category)", () => {
+    expect(activeFilterCount(q({ category: "서버" }))).toBe(0);
+  });
+
   it("초기화는 검색어·구분만 남김", () => {
     expect(clearFilters(q({ q: "x", field: "brand", category: "서버", minStock: 1, deliveryBy: "2026-10-10" }))).toEqual(
       q({ q: "x", field: "brand" }),
@@ -187,13 +102,32 @@ describe("listingHref", () => {
   });
 });
 
-describe("categoryOptions", () => {
-  it("목록에 없는 현재 카테고리(손으로 고친 URL)는 끝에 붙여 select에 그대로 보이게", () => {
-    expect(categoryOptions(["서버", "GPU"], "foo")).toEqual(["서버", "GPU", "foo"]);
+describe("searchApiParams", () => {
+  const read = (s: string) => new URLSearchParams(s);
+
+  it("기본 조건은 status 만", () => {
+    expect(searchApiParams(q())).toBe("status=available");
   });
 
-  it("목록에 있거나 비어 있으면 그대로", () => {
-    expect(categoryOptions(["서버", "GPU"], "GPU")).toEqual(["서버", "GPU"]);
-    expect(categoryOptions(["서버", "GPU"], "")).toEqual(["서버", "GPU"]);
+  it("카테고리는 보내지 않는다 (카테고리 마스터 미정, decisions.md 2026-10-02)", () => {
+    expect(read(searchApiParams(q({ category: "서버" }))).has("category")).toBe(false);
+  });
+
+  it("field 는 all 이면 생략, 아니면 포함", () => {
+    expect(read(searchApiParams(q())).has("field")).toBe(false);
+    expect(read(searchApiParams(q({ field: "brand" }))).get("field")).toBe("brand");
+  });
+
+  it("필터·커서를 담고 검색어는 인코딩된다", () => {
+    const p = read(
+      searchApiParams(q({ q: "Dell R740", minPrice: 10, maxPrice: 20, minStock: 0, deliveryBy: "2026-10-10", status: "all" }), "c1"),
+    );
+    expect(p.get("q")).toBe("Dell R740");
+    expect(p.get("minPrice")).toBe("10");
+    expect(p.get("maxPrice")).toBe("20");
+    expect(p.get("minStock")).toBe("0");
+    expect(p.get("deliveryBy")).toBe("2026-10-10");
+    expect(p.get("status")).toBe("all");
+    expect(p.get("cursor")).toBe("c1");
   });
 });

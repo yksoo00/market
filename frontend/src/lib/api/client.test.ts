@@ -1,13 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { api, post, resetRefreshStateForTests } from "@/lib/api/client";
+import { api, fetchFile, post, resetRefreshStateForTests } from "@/lib/api/client";
 
 /** fetch 를 흉내낸다. 호출 순서대로 응답을 꺼내 쓰고, 어떤 경로가 몇 번 불렸는지 기록 */
-function mockFetch(responses: Array<{ status: number; body?: unknown }>) {
+// raw 가 있으면 JSON 대신 그 문자열을 type 으로 돌려준다 (파일 응답 흉내)
+function mockFetch(responses: Array<{ status: number; body?: unknown; raw?: string; type?: string }>) {
   const calls: string[] = [];
   const fetchMock = vi.fn(async (url: string) => {
     calls.push(url.replace("http://localhost:8080", ""));
     const next = responses.shift();
     if (!next) throw new Error("예상보다 많은 요청: " + url);
+    if (next.raw !== undefined) {
+      return new Response(next.raw, { status: next.status, headers: { "Content-Type": next.type ?? "application/octet-stream" } });
+    }
     return new Response(next.body === undefined ? null : JSON.stringify(next.body), {
       status: next.status,
       headers: next.body === undefined ? {} : { "Content-Type": "application/json" },
@@ -80,5 +84,49 @@ describe("api() — 401 이면 refresh 한 번 뒤 재시도", () => {
 
     expect(await api<string>("/api/v1/me")).toEqual({ ok: true, data: "retried" });
     expect(calls).toHaveLength(3);
+  });
+});
+
+describe("fetchFile() — 파일을 Blob 으로, 401 이면 api() 와 같은 refresh", () => {
+  const pdf = { status: 200, raw: "PDFDATA", type: "application/pdf" };
+
+  it("200 이면 본문을 Blob 으로 돌려준다", async () => {
+    mockFetch([pdf]);
+
+    const result = await fetchFile("/api/v1/files/k");
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(await result.data.text()).toBe("PDFDATA");
+    expect(result.data.type).toBe("application/pdf");
+  });
+
+  it("401 → refresh 성공 → 다시 받아 Blob", async () => {
+    const calls = mockFetch([unauthorized, ok(null), pdf]);
+
+    const result = await fetchFile("/api/v1/files/k");
+
+    expect(result.ok).toBe(true);
+    expect(calls).toEqual(["/api/v1/files/k", "/api/v1/auth/refresh", "/api/v1/files/k"]);
+  });
+
+  it("401 → refresh 도 실패하면 원래 401 결과 (화면은 이걸 보고 '로그인 후 열람'으로)", async () => {
+    const calls = mockFetch([unauthorized, sessionExpired]);
+
+    expect(await fetchFile("/api/v1/files/k")).toEqual(unauthorized.body);
+    expect(calls).toEqual(["/api/v1/files/k", "/api/v1/auth/refresh"]);
+  });
+
+  it("404 JSON 오류 본문이면 그 실패 결과를 돌려준다", async () => {
+    const notFound = { status: 404, body: { ok: false, code: "NOT_FOUND", message: "없음" } };
+    mockFetch([notFound]);
+
+    expect(await fetchFile("/api/v1/files/k")).toEqual(notFound.body);
+  });
+
+  it("네트워크 오류면 UNREACHABLE", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => { throw new TypeError("Failed to fetch"); }));
+
+    expect(await fetchFile("/api/v1/files/k")).toMatchObject({ ok: false, code: "UNREACHABLE" });
   });
 });

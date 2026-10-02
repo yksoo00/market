@@ -25,13 +25,14 @@ import com.company.market.listing.domain.Product;
 import com.company.market.listing.dto.ListingCreateRequest;
 import com.company.market.listing.dto.ListingPageResponse;
 import com.company.market.listing.dto.ListingResponse;
-import com.company.market.listing.dto.ListingSummaryResponse;
+import com.company.market.listing.dto.ListingSearchCondition;
+import com.company.market.listing.dto.ListingSearchItemResponse;
 import com.company.market.listing.dto.ListingUpdateRequest;
 import com.company.market.listing.repository.ListingRepository;
+import com.company.market.listing.repository.ListingSearchRepository;
 import com.company.market.listing.service.ProductService.ProductDraft;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +46,8 @@ public class ListingService {
 	private static final int PAGE_SIZE = 20;
 
 	private final ListingRepository listings;
+
+	private final ListingSearchRepository searchRepository;
 
 	private final ProductService products;
 
@@ -154,20 +157,19 @@ public class ListingService {
 		return toResponse(listing, products.get(listing.getProdId()));
 	}
 
-	public ListingPageResponse list(String cursor) {
-		List<Listing> page = decodeCursor(cursor)
-			.map(c -> listings.findPageBefore(c.regDate(), c.userId(), PageRequest.of(0, PAGE_SIZE + 1)))
-			.orElseGet(listings::findTop21ByOrderByRegDateDescUserIdDesc);
-		boolean hasMore = page.size() > PAGE_SIZE;
-		List<Listing> items = hasMore ? page.subList(0, PAGE_SIZE) : page;
+	public ListingPageResponse search(ListingSearchCondition condition) {
+		if (condition.minPrice() != null && condition.maxPrice() != null && condition.minPrice() > condition.maxPrice()) {
+			throw new ValidationException(Map.of("maxPrice", "최대 가격은 최소 가격보다 크거나 같아야 합니다."));
+		}
+		Optional<Cursor> cursor = decodeCursor(condition.cursor());
+		List<Object[]> rows = searchRepository.findPage(condition, cursor.map(Cursor::regDate).orElse(null),
+				cursor.map(Cursor::userId).orElse(null), PAGE_SIZE + 1);
+		boolean hasMore = rows.size() > PAGE_SIZE;
+		List<Object[]> page = hasMore ? rows.subList(0, PAGE_SIZE) : rows;
 
-		Map<String, Product> productsById = products.getAll(items.stream().map(Listing::getProdId).distinct().toList())
-			.stream()
-			.collect(Collectors.toMap(Product::getProdId, p -> p));
-
-		List<ListingSummaryResponse> summaries = items.stream().map(listing -> toSummary(listing, productsById.get(listing.getProdId()))).toList();
-		String nextCursor = hasMore ? encodeCursor(items.get(items.size() - 1)) : null;
-		return new ListingPageResponse(summaries, nextCursor);
+		List<ListingSearchItemResponse> items = page.stream().map(r -> toSearchItem((Listing) r[0], (Product) r[1])).toList();
+		String nextCursor = hasMore ? encodeCursor((Listing) page.get(page.size() - 1)[0]) : null;
+		return new ListingPageResponse(items, nextCursor, searchRepository.count(condition));
 	}
 
 	/** 커서는 "regDate_userId". reg_date 만으로는 같은 초의 다른 사용자를 페이지 경계에서 건너뛸 수 있어 튜플로 묶는다 */
@@ -195,14 +197,19 @@ public class ListingService {
 	private record Cursor(String regDate, UUID userId) {
 	}
 
-	private static ListingSummaryResponse toSummary(Listing listing, Product product) {
-		String thumbnail = Stream
+	private static ListingSearchItemResponse toSearchItem(Listing listing, Product product) {
+		// 상세 화면과 같게 매물 값만 본다. 상품마스터 파일은 처음 등록한 다른 판매자의 것 (decisions.md 2026-10-02 매물 상세)
+		boolean hasPhoto = Stream
 			.of(listing.getProdPhoto1(), listing.getProdPhoto2(), listing.getProdPhoto3(), listing.getProdImage4())
-			.filter(Objects::nonNull)
-			.findFirst()
-			.orElse(null);
-		return new ListingSummaryResponse(listing.getUserId(), listing.getRegDate(), listing.getProdId(), product.getProdName(),
-				product.getProdBrand(), listing.getSalesUnitPrice(), listing.getSalesQuantity(), listing.getProdState(), thumbnail);
+			.anyMatch(Objects::nonNull);
+		boolean hasDataSheet = listing.getProdDataSheet() != null;
+		return new ListingSearchItemResponse(listing.getUserId(), listing.getRegDate(), product.getProdNo(),
+				product.getProdName(), product.getProdBrand(), product.getCategoryCode(),
+				product.mufcDateIso(), listing.getProdDescription(), hasDataSheet, hasPhoto,
+				listing.warrantyUntil(), listing.getWarrantyCoverage(),
+				listing.getReplaceProd() != null, listing.getTestReport() != null, listing.getCertificateOfAuthen() != null,
+				listing.getProdState(), listing.getStockQuantity(), listing.getSalesUnitPrice(), listing.getDeliveryDate(),
+				listing.tradeStatus());
 	}
 
 	/** null(안 바꿈)·""(비우기)는 업로드 키가 아니므로 확인 대상에서 뺀다 */
@@ -234,7 +241,10 @@ public class ListingService {
 				listing.getSalesUnitPrice(), listing.getSalesQuantity(), listing.getMinOrderQuantity(), listing.getOrderUnit(),
 				listing.getDeliveryDate(), listing.getStockQuantity(), listing.getProdDescription(), listing.getProdDataSheet(), photos,
 				listing.getWarrantyPeriod(), listing.getWarrantyCoverage(), listing.getReplaceProd(), listing.getTestReport(),
-				listing.getCertificateOfAuthen(), listing.getDtUpdate(), listing.getDtExpire());
+				listing.getCertificateOfAuthen(), listing.getDtUpdate(), listing.getDtExpire(), product.getCategoryCode(),
+				product.mufcDateIso(),
+				listing.tradeStatus(),
+				listing.warrantyUntil());
 	}
 
 }
