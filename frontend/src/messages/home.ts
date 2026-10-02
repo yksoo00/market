@@ -10,7 +10,6 @@ export const home = {
     placeholder: "모델명 · 제조사 · 부품명  (예: R740, RTX 4090, Catalyst 9300)",
     placeholderShort: "모델명 · 제조사 · 부품명",
     button: "검색",
-    allCategories: "전체",
     popularLabel: "인기 검색",
   },
   // 홈 판매·구매 아이콘. 아이콘엔 글씨가 없으므로 이 문구가 툴팁(title)·aria-label 이 된다

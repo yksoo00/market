@@ -54,10 +54,12 @@ const columns: Column[] = [
 interface Props {
   items: ListingSearchItem[];
   query: SearchQuery;
+  /** 같은 조건의 전체 개수. items 는 [더 보기]로 받은 만큼만 */
+  total: number;
 }
 
 // 선택 상태는 결과 집합마다 새로 시작한다 — 페이지에서 key={buildSearchHref(query)}로 다시 마운트
-export function ResultList({ items, query }: Props) {
+export function ResultList({ items, query, total }: Props) {
   const router = useRouter();
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   // seq: 같은 문구가 연달아 나와도 알림 요소를 새로 그려 스크린리더가 다시 읽게 한다 (key 로 사용)
@@ -110,7 +112,7 @@ export function ResultList({ items, query }: Props) {
           aria-label={r.selectAll}
         />
         <p className="grow text-sm text-ink-2" aria-live="polite">
-          <span className="font-bold text-ink">{r.count(items.length)}</span>
+          <span className="font-bold text-ink">{r.count(total)}</span>
           {selected.size > 0 && r.selected(selected.size)}
         </p>
         <div className="hidden @md:flex gap-2">{actions("h-8.5")}</div>

@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { Icon } from "@/components/common/Icon";
-import { categories } from "@/lib/mock/home";
-import { activeFilterCount, buildSearchHref, categoryOptions, clearFilters, type SearchQuery } from "@/lib/search";
+import { activeFilterCount, buildSearchHref, clearFilters, type SearchQuery } from "@/lib/search";
 import {
   filterDefaults,
   searchFilterSchema,
@@ -65,16 +64,8 @@ export function FilterBar({ query }: { query: SearchQuery }) {
         noValidate
         className={`${open ? "flex" : "hidden"} @md:flex flex-col @md:flex-row @md:flex-wrap @md:items-start gap-3 @md:gap-x-5 p-3 rounded-md border border-line bg-surface`}
       >
-        <Field label={t.category} htmlFor="f-category">
-          <select id="f-category" {...register("category")} className={`${control} grow @md:grow-0`}>
-            <option value="">{t.allCategories}</option>
-            {categoryOptions(categories, query.category).map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-        </Field>
+        {/* 카테고리 필터 보류: 카테고리 마스터 미정 (decisions.md 2026-10-02 매물 검색) — 정해지면 select 복원.
+            폼 값의 category 는 그대로 둬 URL 에 있던 값이 '적용' 뒤에도 유지된다 */}
 
         <Field label={t.status} labelId="f-status">
           <div role="radiogroup" aria-labelledby="f-status" className="flex h-8.5 rounded-md border border-line overflow-hidden">

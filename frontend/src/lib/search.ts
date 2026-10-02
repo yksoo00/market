@@ -67,32 +67,7 @@ export function parseSearchParams(raw: RawSearchParams): SearchQuery {
   return query;
 }
 
-// 전체(기본)는 "Dell R740"처럼 제조사·모델을 섞은 검색어가 맞도록 세 칸을 한 문자열로 합쳐 본다.
-// 홈 검색창은 구분을 안 보내므로 홈에서 오는 검색은 항상 전체
-function haystackOf(i: ListingSearchItem, field: SearchField): string {
-  const name = `${i.prodName} ${i.prodNo ?? ""}`;
-  const text = field === "brand" ? i.prodBrand : field === "name" ? name : `${name} ${i.prodBrand}`;
-  return text.toLowerCase();
-}
-
-export function filterListings(items: readonly ListingSearchItem[], query: SearchQuery): ListingSearchItem[] {
-  // 띄어쓰기로 나눈 낱말이 전부 들어 있으면 매칭 ("DDR4 ECC 32GB" ↔ "DDR4 32GB ECC RDIMM")
-  const words = query.q.toLowerCase().split(/\s+/).filter(Boolean);
-  return items.filter((i) => {
-    if (words.length > 0) {
-      const haystack = haystackOf(i, query.field);
-      if (!words.every((w) => haystack.includes(w))) return false;
-    }
-    if (query.status !== "all" && i.tradeStatus !== query.status) return false;
-    if (query.category && i.category !== query.category) return false;
-    if (query.minStock !== undefined && i.stockQuantity < query.minStock) return false;
-    if (query.minPrice !== undefined && i.salesUnitPrice < query.minPrice) return false;
-    if (query.maxPrice !== undefined && i.salesUnitPrice > query.maxPrice) return false;
-    // YYYY-MM-DD는 문자열 비교가 날짜 비교와 같다
-    if (query.deliveryBy !== undefined && (i.deliveryDate === null || i.deliveryDate > query.deliveryBy)) return false;
-    return true;
-  });
-}
+// 검색어·필터 매칭은 서버가 한다 (GET /api/v1/listings, 규칙은 docs/superpowers/specs/2026-10-02-search-api-design.md)
 
 /** 기본값인 파라미터는 생략 */
 export function buildSearchHref(query: SearchQuery): string {
@@ -127,9 +102,9 @@ export function searchApiParams(query: SearchQuery, cursor?: string): string {
   return p.toString();
 }
 
+// 카테고리는 보류 중이라 걸려 있어도 결과에 영향이 없으므로 세지 않는다 (예전 URL 의 category 가 "(1)"로 보이지 않게)
 export function activeFilterCount(query: SearchQuery): number {
   return [
-    query.category !== "",
     query.status !== "available",
     query.minStock !== undefined,
     query.minPrice !== undefined,
@@ -144,10 +119,4 @@ export function clearFilters(query: SearchQuery): SearchQuery {
 
 export function listingHref(item: Pick<ListingSearchItem, "userId" | "regDate">): string {
   return `/listings/${item.userId}/${item.regDate}`;
-}
-
-// 카테고리 마스터가 아직 없어(decisions.md 미정) URL 값을 거르지 않는다. 대신 목록에 없는 값도
-// select에 그대로 보여, '전체'로 보이는데 결과가 비는 상황을 막는다
-export function categoryOptions(options: readonly string[], current: string): string[] {
-  return current && !options.includes(current) ? [...options, current] : [...options];
 }

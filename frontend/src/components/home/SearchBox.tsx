@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Icon } from "@/components/common/Icon";
-import { categories, popularQueries } from "@/lib/mock/home";
+import { popularQueries } from "@/lib/mock/home";
 import { home as t } from "@/messages/home";
 
 export function SearchBox() {
@@ -10,18 +10,7 @@ export function SearchBox() {
         {t.search.label}
       </label>
       <div className="h-11 @md:h-14 flex items-stretch rounded-md @md:rounded-lg border-2 border-primary bg-surface overflow-hidden">
-        <select
-          name="category"
-          aria-label="카테고리"
-          className="hidden @md:block w-28 px-3 border-r border-line bg-primary-soft text-primary-dark text-sm font-medium outline-none"
-        >
-          <option value="">{t.search.allCategories}</option>
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+        {/* 카테고리 select 보류: 카테고리 마스터 미정 (decisions.md 2026-10-02 매물 검색) — 정해지면 복원 */}
         <div className="grow min-w-0 flex items-center gap-2.5 px-3 @md:px-3.5 text-ink-2">
           <Icon name="search" strokeWidth={2} />
           <input
