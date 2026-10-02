@@ -334,6 +334,7 @@
 - 결정: 새 경로 없이 `GET /api/v1/listings`에 `q`·`field`·`status`·재고·가격·납품일과 `total`을 붙인다. 커서 페이지네이션 + [더 보기] (사용자 확인). 검색 결과 화면은 클라이언트 조회, mock·프론트 필터 함수 삭제.
 - 카테고리 필터는 뺀다 (사용자 결정): 화면 카테고리(한글 이름)와 `category_code`(자유 코드, `prod_id` 앞 8자리)가 안 맞고 카테고리 마스터가 미정. 골라도 안 바뀌는 select는 고장으로 보여 홈 검색창·필터 바에서 숨겼다.
 - 이유: 리소스 목록 + 쿼리 파라미터가 규칙(`backend.md`)이고 이미 공개 조회라 보안 설정이 안 바뀐다. 커서는 보는 중 새 매물이 등록돼도 중복·누락이 없다.
+- 쿼리는 동적 JPQL(`ListingSearchRepository`) — security.md "문자열 결합 쿼리 금지"의 예외로 둔다. 코드에 고정된 조건 조각만 잇고 값은 전부 바인딩한다. Criteria API·Specification은 같은 안전성에 코드가 2~3배라 탈락. 사용자 입력이 조각 선택(정렬 필드 등)에 쓰이게 되면 허용 목록 switch로만 고르고, 그게 늘면 Criteria로 옮긴다.
 - 대안: 별도 `/listings/search` 경로(permitAll 추가 필요), offset 페이지 번호(`backend.md` 금지), 카테고리 코드↔이름 프론트 상수·마스터 테이블(마스터 결정과 같이).
 - 재검토 조건: 카테고리 마스터가 정해질 때(select 복원), 검색이 느린 게 측정될 때(pg_trgm 등). 스펙: `docs/superpowers/specs/2026-10-02-search-api-design.md`.
 
