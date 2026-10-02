@@ -205,8 +205,9 @@ public class ListingService {
 				product.getProdBrand(), listing.getSalesUnitPrice(), listing.getSalesQuantity(), listing.getProdState(), thumbnail);
 	}
 
+	/** null(안 바꿈)·""(비우기)는 업로드 키가 아니므로 확인 대상에서 뺀다 */
 	private static void addRef(List<UploadRef> refs, String field, String key, UploadKind kind) {
-		if (key != null) {
+		if (key != null && !key.isEmpty()) {
 			refs.add(new UploadRef(field, key, kind));
 		}
 	}

@@ -376,6 +376,26 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.fields.testReport").value("파일을 다시 올려 주세요."));
 	}
 
+	@Test
+	@DisplayName("수정에서 파일 칸에 빈 문자열을 보내면 그 칸을 비운다")
+	void updateClearsFileFieldsWithEmptyString() throws Exception {
+		String regDate = createListing(authCookie);
+		String report = uploaded(authCookie, UploadKind.LISTING_TEST_REPORT);
+		String sheet = uploaded(authCookie, UploadKind.LISTING_DATASHEET);
+		patchListing(regDate, "{\"testReport\":\"%s\",\"listingDataSheet\":\"%s\"}".formatted(report, sheet))
+			.andExpect(status().isOk());
+
+		patchListing(regDate, "{\"testReport\":\"\",\"listingDataSheet\":\"\",\"certificateOfAuthen\":\"\",\"replaceProd\":\"\"}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.testReport").value(org.hamcrest.Matchers.nullValue()))
+			.andExpect(jsonPath("$.data.listingDataSheet").value(org.hamcrest.Matchers.nullValue()));
+
+		assertThat(jdbc.queryForObject("select test_report from listings where user_id = ? and reg_date = ?", String.class,
+				userId, regDate)).isNull();
+		assertThat(jdbc.queryForObject("select prod_data_sheet from listings where user_id = ? and reg_date = ?", String.class,
+				userId, regDate)).isNull();
+	}
+
 	private ResultActions createWithPhoto(String photoKey, String prodName) throws Exception {
 		return mvc.perform(post("/api/v1/listings").cookie(authCookie)
 			.contentType(MediaType.APPLICATION_JSON).content("""
