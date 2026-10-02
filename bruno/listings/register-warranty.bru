@@ -19,9 +19,9 @@ body:json {
   {
     "warrantyPeriod": 365,
     "warrantyCoverage": "무상",
-    "replaceProd": "replace-spec.pdf",
-    "testReport": "test-report.pdf",
-    "certificateOfAuthen": "certificate.pdf"
+    "replaceProd": "private/listings/replace-prods/2026/10/00000000-0000-0000-0000-000000000000.pdf",
+    "testReport": "private/listings/test-reports/2026/10/00000000-0000-0000-0000-000000000000.pdf",
+    "certificateOfAuthen": "private/listings/certificates/2026/10/00000000-0000-0000-0000-000000000000.pdf"
   }
 }
 
@@ -29,4 +29,6 @@ docs {
   등록(create.bru) 시점엔 안 받는 필드 — 보증기한·불량지원방법·대체품·테스트리포트·정품인증서.
   등록 후 필요한 사람만 이 PATCH로 추가. 안 할 사람은 그냥 넘어가면 된다. 엔드포인트는 update.bru와 동일(PATCH),
   보낸 필드만 반영. 본인 매물만 가능 — 나머지 규칙은 update.bru 참고.
+  대체품·테스트리포트·정품인증서는 uploads/upload.bru 에서 kind=listing-replace-prod / listing-test-report / listing-certificate
+  로 올린 key 로 바꿔 넣는다 (예시 값은 자리표시). 이 매물에 이미 저장된 key 는 다시 올리지 않아도 된다.
 }

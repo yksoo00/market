@@ -4,6 +4,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Clock;
 import java.time.Duration;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -62,6 +66,34 @@ public class UploadService {
 		}
 		redis.opsForValue().set(RECORD_PREFIX + key, userId + "|" + kind.value(), RECORD_TTL);
 		return key;
+	}
+
+	/**
+	 * 각 키가 "이 사용자가 24시간 안에 이 용도로 올린 파일"인지 확인. 실패한 필드를 모두 모아 400 VALIDATION.
+	 * 기록은 지우지 않는다 — 호출자가 DB 저장에 성공한 뒤 release 로 지운다 (저장 실패 시 재시도 가능하게).
+	 */
+	public void verifyOwned(UUID userId, List<UploadRef> refs) {
+		Map<String, Boolean> checked = new HashMap<>();
+		Map<String, String> failures = new LinkedHashMap<>();
+		for (UploadRef ref : refs) {
+			String expected = userId + "|" + ref.kind().value();
+			boolean ok = UploadKind.ofKey(ref.key()).filter(ref.kind()::equals).isPresent()
+					&& checked.computeIfAbsent(ref.key() + "|" + ref.kind().value(),
+							k -> expected.equals(redis.opsForValue().get(RECORD_PREFIX + ref.key())));
+			if (!ok) {
+				failures.putIfAbsent(ref.field(), "파일을 다시 올려 주세요.");
+			}
+		}
+		if (!failures.isEmpty()) {
+			throw new ValidationException(failures);
+		}
+	}
+
+	/** 매물에 저장된 키의 업로드 기록을 지운다 — 같은 업로드를 다른 매물에 다시 쓰지 못하게 */
+	public void release(Collection<String> keys) {
+		if (!keys.isEmpty()) {
+			redis.delete(keys.stream().map(k -> RECORD_PREFIX + k).toList());
+		}
 	}
 
 }

@@ -1,11 +1,13 @@
 package com.company.market.listing.controller;
 
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.auth.AuthCookies;
 import com.company.market.common.auth.JwtProvider;
 import com.company.market.common.crypto.PiiHasher;
+import com.company.market.common.storage.UploadKind;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.repository.ListingRepository;
@@ -22,15 +24,19 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.ResultActions;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -43,8 +49,15 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class ListingApiTest {
 
+	static final byte[] JPG = { (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0, 0x10, 'J', 'F', 'I', 'F', 0, 1 };
+
+	static final byte[] PDF = "%PDF-1.7\n%test".getBytes(StandardCharsets.US_ASCII);
+
 	@Autowired
 	MockMvc mvc;
+
+	@Autowired
+	StringRedisTemplate redis;
 
 	@Autowired
 	JdbcTemplate jdbc;
@@ -85,18 +98,21 @@ class ListingApiTest {
 	@Test
 	@DisplayName("직접입력으로 등록하면 없던 상품마스터가 자동 생성되고, 대표사진은 등록한 첫 사진이다")
 	void createsListingAndAutoCreatesProduct() throws Exception {
+		String p1 = uploaded(authCookie, UploadKind.LISTING_PHOTO);
+		String p2 = uploaded(authCookie, UploadKind.LISTING_PHOTO);
+
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 X","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"new","salesUnitPrice":500000,"salesQuantity":3,
-					 "photos":["p1.jpg","p2.jpg"]}
-					"""))
+					 "photos":["%s","%s"]}
+					""".formatted(p1, p2)))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.ok").value(true))
 			.andExpect(jsonPath("$.data.prodId").value("ELEC00010001"))
-			.andExpect(jsonPath("$.data.photos[0]").value("p1.jpg"));
+			.andExpect(jsonPath("$.data.photos[0]").value(p1));
 
-		assertThat(jdbc.queryForObject("select prod_photo_1 from products where prod_id = 'ELEC00010001'", String.class)).isEqualTo("p1.jpg");
+		assertThat(jdbc.queryForObject("select prod_photo_1 from products where prod_id = 'ELEC00010001'", String.class)).isEqualTo(p1);
 	}
 
 	@Test
@@ -132,12 +148,14 @@ class ListingApiTest {
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.photos.length()").value(0));
 
-		mvc.perform(post("/api/v1/listings").cookie(otherUserCookie())
+		Cookie other = otherUserCookie();
+		mvc.perform(post("/api/v1/listings").cookie(other)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 Z2","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"new","salesUnitPrice":1000,"salesQuantity":1,
-					 "photos":["a.jpg","b.jpg","c.jpg","d.jpg"]}
-					"""))
+					 "photos":["%s","%s","%s","%s"]}
+					""".formatted(uploaded(other, UploadKind.LISTING_PHOTO), uploaded(other, UploadKind.LISTING_PHOTO),
+						uploaded(other, UploadKind.LISTING_PHOTO), uploaded(other, UploadKind.LISTING_PHOTO))))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.photos.length()").value(4));
 	}
@@ -232,17 +250,154 @@ class ListingApiTest {
 	@Test
 	@DisplayName("등록 시 보낸 상품번호·사양정보·매물 데이터시트가 응답에 그대로 담긴다")
 	void responseIncludesProductAndListingDetailFields() throws Exception {
+		String sheet = uploaded(authCookie, UploadKind.LISTING_DATASHEET);
+
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 D","prodBrand":"삼성",
 					 "prodNo":"MODEL-1","prodSpecInfo":"i7/16GB/512GB",
 					 "tradeType":"등록","prodState":"new","salesUnitPrice":1000,"salesQuantity":1,
-					 "listingDataSheet":"listing-sheet.pdf"}
-					"""))
+					 "listingDataSheet":"%s"}
+					""".formatted(sheet)))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.prodNo").value("MODEL-1"))
 			.andExpect(jsonPath("$.data.prodSpecInfo").value("i7/16GB/512GB"))
-			.andExpect(jsonPath("$.data.listingDataSheet").value("listing-sheet.pdf"));
+			.andExpect(jsonPath("$.data.listingDataSheet").value(sheet));
+	}
+
+	@Test
+	@DisplayName("업로드한 사진·데이터시트 키로 등록하면 저장되고 업로드 기록은 지워진다")
+	void uploadedKeysAreSavedAndReleased() throws Exception {
+		String p1 = uploaded(authCookie, UploadKind.LISTING_PHOTO);
+		String p2 = uploaded(authCookie, UploadKind.LISTING_PHOTO);
+		String sheet = uploaded(authCookie, UploadKind.LISTING_DATASHEET);
+
+		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"ELEC0001","prodName":"노트북 K1","prodBrand":"삼성",
+					 "tradeType":"등록","prodState":"new","salesUnitPrice":1000,"salesQuantity":1,
+					 "photos":["%s","%s"],"listingDataSheet":"%s","productDataSheet":"%s"}
+					""".formatted(p1, p2, sheet, sheet)))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.photos[0]").value(p1))
+			.andExpect(jsonPath("$.data.photos[1]").value(p2))
+			.andExpect(jsonPath("$.data.listingDataSheet").value(sheet));
+
+		assertThat(redis.hasKey("upload:" + p1)).isFalse();
+		assertThat(redis.hasKey("upload:" + p2)).isFalse();
+		assertThat(redis.hasKey("upload:" + sheet)).isFalse();
+	}
+
+	@Test
+	@DisplayName("다른 사용자가 올린 키로 등록하면 400 VALIDATION, fields.photos")
+	void rejectsOthersUpload() throws Exception {
+		String othersPhoto = uploaded(otherUserCookie(), UploadKind.LISTING_PHOTO);
+
+		createWithPhoto(othersPhoto, "노트북 K2").andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("VALIDATION"))
+			.andExpect(jsonPath("$.fields.photos").value("파일을 다시 올려 주세요."));
+	}
+
+	@Test
+	@DisplayName("용도가 다른 키(사진 칸에 데이터시트 키)는 400, fields.photos")
+	void rejectsWrongKind() throws Exception {
+		createWithPhoto(uploaded(authCookie, UploadKind.LISTING_DATASHEET), "노트북 K3").andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.photos").value("파일을 다시 올려 주세요."));
+	}
+
+	@Test
+	@DisplayName("이미 등록에 쓴 키를 다시 쓰면 400")
+	void rejectsReusedKey() throws Exception {
+		String photo = uploaded(authCookie, UploadKind.LISTING_PHOTO);
+		createWithPhoto(photo, "노트북 K4").andExpect(status().isCreated());
+
+		createWithPhoto(photo, "노트북 K5").andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.photos").value("파일을 다시 올려 주세요."));
+	}
+
+	@Test
+	@DisplayName("업로드 기록이 없는 키(만료·조작)는 400")
+	void rejectsUnrecordedKeys() throws Exception {
+		String expired = uploaded(authCookie, UploadKind.LISTING_PHOTO);
+		redis.delete("upload:" + expired);
+
+		createWithPhoto(expired, "노트북 K6").andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.photos").value("파일을 다시 올려 주세요."));
+		// 100자 안의 경로 조작 (넘으면 Bean Validation 이 photos[0] 으로 먼저 막는다)
+		createWithPhoto("public/listings/photos/../../x/2026/10/" + UUID.randomUUID() + ".jpg", "노트북 K7")
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.photos").isString());
+		createWithPhoto("p1.jpg", "노트북 K8").andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.photos").isString());
+	}
+
+	@Test
+	@DisplayName("수정할 때 이미 이 매물에 있는 사진 키는 다시 올리지 않아도 통과한다")
+	void updateKeepsExistingKeys() throws Exception {
+		String a = uploaded(authCookie, UploadKind.LISTING_PHOTO);
+		String regDate = createWithPhoto(a, "노트북 K9").andExpect(status().isCreated()).andReturn().getResponse()
+			.getContentAsString().replaceAll(".*\"regDate\":\"([^\"]+)\".*", "$1");
+		String c = uploaded(authCookie, UploadKind.LISTING_PHOTO);
+
+		patchListing(regDate, "{\"photos\":[\"%s\",\"%s\"]}".formatted(a, c)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.photos[0]").value(a))
+			.andExpect(jsonPath("$.data.photos[1]").value(c));
+		assertThat(redis.hasKey("upload:" + c)).isFalse();
+	}
+
+	@Test
+	@DisplayName("수정으로 사진을 전부 빼면(photos: []) 성공한다")
+	void updateRemovesAllPhotos() throws Exception {
+		String regDate = createWithPhoto(uploaded(authCookie, UploadKind.LISTING_PHOTO), "노트북 K10")
+			.andExpect(status().isCreated()).andReturn().getResponse()
+			.getContentAsString().replaceAll(".*\"regDate\":\"([^\"]+)\".*", "$1");
+
+		patchListing(regDate, "{\"photos\":[]}").andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.photos.length()").value(0));
+	}
+
+	@Test
+	@DisplayName("수정에서 테스트리포트·정품인증서·대체품도 본인 업로드 키만 받는다")
+	void updateChecksWarrantyFiles() throws Exception {
+		String regDate = createListing(authCookie);
+		String report = uploaded(authCookie, UploadKind.LISTING_TEST_REPORT);
+		String cert = uploaded(authCookie, UploadKind.LISTING_CERTIFICATE);
+		String replace = uploaded(authCookie, UploadKind.LISTING_REPLACE_PROD);
+
+		patchListing(regDate, "{\"testReport\":\"%s\",\"certificateOfAuthen\":\"%s\",\"replaceProd\":\"%s\"}"
+			.formatted(report, cert, replace))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.testReport").value(report))
+			.andExpect(jsonPath("$.data.certificateOfAuthen").value(cert))
+			.andExpect(jsonPath("$.data.replaceProd").value(replace));
+
+		patchListing(regDate, "{\"testReport\":\"%s\"}".formatted(uploaded(authCookie, UploadKind.LISTING_PHOTO)))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.testReport").value("파일을 다시 올려 주세요."));
+	}
+
+	private ResultActions createWithPhoto(String photoKey, String prodName) throws Exception {
+		return mvc.perform(post("/api/v1/listings").cookie(authCookie)
+			.contentType(MediaType.APPLICATION_JSON).content("""
+				{"categoryCode":"ELEC0001","prodName":"%s","prodBrand":"삼성",
+				 "tradeType":"등록","prodState":"new","salesUnitPrice":1000,"salesQuantity":1,
+				 "photos":["%s"]}
+				""".formatted(prodName, photoKey)));
+	}
+
+	private ResultActions patchListing(String regDate, String json) throws Exception {
+		return mvc.perform(patch("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie)
+			.contentType(MediaType.APPLICATION_JSON).content(json));
+	}
+
+	/** 실제 업로드 API 로 올리고 키를 돌려준다 — 등록·수정은 본인이 올린 키만 받으므로 */
+	private String uploaded(Cookie cookie, UploadKind kind) throws Exception {
+		boolean photo = kind == UploadKind.LISTING_PHOTO;
+		MockMultipartFile file = new MockMultipartFile("file", photo ? "a.jpg" : "a.pdf", "application/octet-stream",
+				photo ? JPG : PDF);
+		String body = mvc.perform(multipart("/api/v1/uploads").file(file).param("kind", kind.value()).cookie(cookie))
+			.andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();
+		return body.replaceAll(".*\"key\":\"([^\"]+)\".*", "$1");
 	}
 
 	@Test
