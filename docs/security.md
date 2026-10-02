@@ -93,9 +93,17 @@
   | 가격·수량 | 아래 "숫자" 항목과 동일 |
   | 최소주문량·주문단위·재고수량 | 1(재고는 0) ~ 100,000, 최소주문량은 판매수량 이하 |
   | 보증기한 | 0 ~ 36,500일(100년) |
+- 매물 검색 `GET /api/v1/listings` (2026-10-02):
+  | 항목 | 규칙 |
+  |---|---|
+  | 검색어 `q` | 앞뒤 공백 제거 후 100자 이하. `% _ \`는 LIKE 와일드카드가 아니라 글자로 이스케이프 |
+  | `field` / `status` | `all·name·brand` / `available·completed·all` |
+  | 재고 `minStock` | 0 ~ 100,000 |
+  | 가격 `minPrice`·`maxPrice` | 0 ~ 10억, 최소 ≤ 최대 (오류는 `maxPrice`) |
+  | 납품일 `deliveryBy` | 실제 날짜 YYYY-MM-DD |
 - 숫자: 가격 0 ~ 10억, 수량 1 ~ 100,000.
 - ID는 UUID 형식 검사. 정수 ID 없음 (열거 공격 방지).
-- SQL: JPA/파라미터 바인딩만. 문자열 결합 쿼리 금지. `@Query`에 사용자 입력 직접 삽입 금지.
+- SQL: JPA/파라미터 바인딩만. 문자열 결합 쿼리 금지. `@Query`에 사용자 입력 직접 삽입 금지. 예외로 허용: 코드에 고정된 조건 조각만 이어 붙이고 값은 전부 바인딩하는 동적 JPQL(`listing/repository/ListingSearchRepository`).
 - 출력: React가 기본 이스케이프. `dangerouslySetInnerHTML` 금지. 마크다운 허용 시 sanitize.
 
 ## 파일 업로드
@@ -144,6 +152,7 @@
 - Cloudflare와 역방향 프록시는 현재 Compose에서 실행하지 않는다. 외부 공개 전 프록시·TLS·접근 제어를 구성한다.
 - HTTP 보안 헤더는 외부 공개 전 프록시 또는 Spring에 설정한다. CSP는 프론트(Vercel)에서.
   - X-Frame-Options/CSP `frame-ancestors` 설정 시 same-origin(`'self'`)은 허용해야 함 — 타일 워크스페이스가 서브 타일을 same-origin iframe으로 띄움 (`docs/decisions.md` 2026-09-29).
+  - 프론트 CSP를 넣을 때 매물 상세가 깨지지 않으려면 `frame-src blob:`(비공개 PDF를 blob으로 iframe에), `img-src`에 API 출처(업로드 사진)가 필요 (`docs/decisions.md` 2026-10-02 매물 상세).
 - CORS: `https://app.{루트}` 만. 와일드카드 금지. credentials 허용.
 - OS: 자동 보안 업데이트, fail2ban(SSH), 불필요 서비스 제거. 월 1회 `docker compose pull` 로 베이스 이미지 갱신.
 

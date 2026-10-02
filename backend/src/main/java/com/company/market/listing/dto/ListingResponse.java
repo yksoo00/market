@@ -28,5 +28,9 @@ public record ListingResponse(
 		String testReport,
 		String certificateOfAuthen,
 		String dtUpdate,
-		String dtExpire) {
+		String dtExpire,
+		String category,
+		String mufcDate,
+		String tradeStatus,
+		String warrantyUntil) {
 }

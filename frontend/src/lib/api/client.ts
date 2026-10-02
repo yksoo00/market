@@ -1,7 +1,7 @@
 import { UNREACHABLE, type ApiResult } from "@/types/api";
 import { common as t } from "@/messages/common";
 
-const BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
 const REFRESH_PATH = "/api/v1/auth/refresh";
 
 /**
@@ -14,11 +14,27 @@ let refreshing: Promise<boolean> | null = null;
 // access 토큰(15분)이 만료돼 401 이 오면 refresh 를 한 번 시도하고 같은 요청을 다시 보낸다.
 // refresh 도 실패하면 원래 401 을 그대로 돌려준다 — 호출부가 로그인 화면으로 보낼 수 있게.
 export async function api<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
-  const first = await send<T>(path, init);
+  return withRefresh<T>(path, init, parse);
+}
+
+/**
+ * 파일(PDF·이미지)을 Blob 으로. 비공개 파일은 로그인 쿠키가 필요해 iframe·링크에 API 주소를 직접 넣지 않고
+ * 이걸로 받는다 — 만료된 access 토큰도 api() 와 같은 refresh 를 탄다. 실패 응답은 JSON 오류 본문이라 parse 로.
+ */
+export async function fetchFile(path: string): Promise<ApiResult<Blob>> {
+  return withRefresh<Blob>(path, undefined, async (res) =>
+    res.ok ? { ok: true, data: await res.blob() } : parse<Blob>(res),
+  );
+}
+
+type Read<T> = (res: Response) => Promise<ApiResult<T>>;
+
+async function withRefresh<T>(path: string, init: RequestInit | undefined, read: Read<T>): Promise<ApiResult<T>> {
+  const first = await send<T>(path, init, read);
   // 인증 API 자체(로그인·refresh·로그아웃)의 401 은 "토큰 만료"가 아니라 그 요청의 결과라 재시도하지 않는다
   if (first.status !== 401 || path.startsWith("/api/v1/auth/")) return first.result;
   if (!(await refreshOnce())) return first.result;
-  return (await send<T>(path, init)).result;
+  return (await send<T>(path, init, read)).result;
 }
 
 async function refreshOnce(): Promise<boolean> {
@@ -30,15 +46,19 @@ async function refreshOnce(): Promise<boolean> {
   return refreshing;
 }
 
-async function send<T>(path: string, init?: RequestInit): Promise<{ status: number; result: ApiResult<T> }> {
+async function send<T>(
+  path: string,
+  init?: RequestInit,
+  read: Read<T> = parse,
+): Promise<{ status: number; result: ApiResult<T> }> {
   try {
-    const res = await fetch(`${BASE}${path}`, {
+    const res = await fetch(`${API_BASE}${path}`, {
       ...init,
       credentials: "include",
       // FormData 는 브라우저가 Content-Type 을 정해야 하므로 호출부가 headers: {} 로 끄면 JSON 헤더를 안 붙임
       headers: init?.body instanceof FormData ? init.headers : { "Content-Type": "application/json", ...init?.headers },
     });
-    return { status: res.status, result: await parse<T>(res) };
+    return { status: res.status, result: await read(res) };
   } catch {
     return { status: 0, result: { ok: false, code: UNREACHABLE, message: t.unreachable } };
   }
