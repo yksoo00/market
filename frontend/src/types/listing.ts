@@ -49,3 +49,44 @@ export interface ListingSearchItem {
   /** 백엔드는 dt_expire가 비면 available, 있으면 completed (decisions.md 2026-10-01) */
   tradeStatus: TradeStatus;
 }
+
+/** 매물 상세. 백엔드 ListingResponse 와 1:1 */
+export interface ListingDetail {
+  userId: string;
+  /** yyyyMMddHHmmss */
+  regDate: string;
+  prodId: string;
+  prodName: string;
+  prodBrand: string;
+  prodNo: string | null;
+  prodSpecInfo: string | null;
+  tradeType: string;
+  prodState: string;
+  salesUnitPrice: number;
+  salesQuantity: number;
+  minOrderQuantity: number;
+  orderUnit: number;
+  /** YYYY-MM-DD */
+  deliveryDate: string | null;
+  stockQuantity: number | null;
+  description: string | null;
+  /** 저장소 키. 화면은 이게 없으면 productDataSheet 를 쓴다 */
+  listingDataSheet: string | null;
+  /** 저장소 키 0~4개 */
+  photos: string[];
+  warrantyPeriod: number | null;
+  warrantyCoverage: string | null;
+  replaceProd: string | null;
+  testReport: string | null;
+  certificateOfAuthen: string | null;
+  dtUpdate: string | null;
+  dtExpire: string | null;
+  category: string;
+  /** YYYY-MM-DD. 날짜로 읽히지 않는 레거시 값은 원문 그대로 */
+  mufcDate: string | null;
+  productDataSheet: string | null;
+  productPhoto: string | null;
+  tradeStatus: TradeStatus;
+  /** 등록일 + 보증 일수, YYYY-MM-DD */
+  warrantyUntil: string | null;
+}
