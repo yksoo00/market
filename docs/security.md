@@ -134,6 +134,7 @@
 - Cloudflare와 역방향 프록시는 현재 Compose에서 실행하지 않는다. 외부 공개 전 프록시·TLS·접근 제어를 구성한다.
 - HTTP 보안 헤더는 외부 공개 전 프록시 또는 Spring에 설정한다. CSP는 프론트(Vercel)에서.
   - X-Frame-Options/CSP `frame-ancestors` 설정 시 same-origin(`'self'`)은 허용해야 함 — 타일 워크스페이스가 서브 타일을 same-origin iframe으로 띄움 (`docs/decisions.md` 2026-09-29).
+  - 프론트 CSP를 넣을 때 매물 상세가 깨지지 않으려면 `frame-src blob:`(비공개 PDF를 blob으로 iframe에), `img-src`에 API 출처(업로드 사진)가 필요 (`docs/decisions.md` 2026-10-02 매물 상세).
 - CORS: `https://app.{루트}` 만. 와일드카드 금지. credentials 허용.
 - OS: 자동 보안 업데이트, fail2ban(SSH), 불필요 서비스 제거. 월 1회 `docker compose pull` 로 베이스 이미지 갱신.
 
