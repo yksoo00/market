@@ -6,6 +6,7 @@ import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -20,18 +21,28 @@ public record ListingCreateRequest(
 		@NotBlank @Size(max = 50) String prodName,
 		@Size(max = 20) String prodNo,
 		@NotBlank @Size(max = 50) String prodBrand,
-		@Size(max = 14) String prodMufcDate,
+		@Pattern(regexp = "^\\d{8}$", message = "제조일은 yyyyMMdd 형식이어야 합니다.") String prodMufcDate,
 		@Size(max = 100) String prodSpecInfo,
 		@Size(max = 100) String productDataSheet,
 		@NotBlank @Size(max = 20) String tradeType,
-		@NotBlank @Size(max = 20) String prodState,
+		@NotBlank @Pattern(regexp = PROD_STATE_PATTERN, message = PROD_STATE_MESSAGE) String prodState,
 		@NotNull @Min(0) @Max(1_000_000_000) Integer salesUnitPrice,
 		@NotNull @Min(1) @Max(100_000) Integer salesQuantity,
 		@Min(1) @Max(100_000) Integer minOrderQuantity,
 		@Min(1) @Max(100_000) Integer orderUnit,
-		@Size(max = 10) String deliveryDate,
+		@Pattern(regexp = DELIVERY_DATE_PATTERN, message = DELIVERY_DATE_MESSAGE) String deliveryDate,
 		@Min(0) @Max(100_000) Integer stockQuantity,
 		@Size(max = 200) String description,
 		@Size(max = 100) String listingDataSheet,
 		@Size(max = 4) List<@NotBlank @Size(max = 100) String> photos) {
+
+	/** "신품" 또는 "신품대비 N%"(N = 1~99). 레거시 형식을 고정해 값이 제각각 쌓이지 않게 (security.md "매물") */
+	public static final String PROD_STATE_PATTERN = "^(신품|신품대비 [1-9][0-9]?%)$";
+
+	public static final String PROD_STATE_MESSAGE = "상품상태는 '신품' 또는 '신품대비 N%'(N은 1~99) 형식이어야 합니다.";
+
+	public static final String DELIVERY_DATE_PATTERN = "^\\d{4}-\\d{2}-\\d{2}$";
+
+	public static final String DELIVERY_DATE_MESSAGE = "납기일은 YYYY-MM-DD 형식이어야 합니다.";
+
 }
