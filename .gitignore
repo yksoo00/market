@@ -17,6 +17,7 @@ backend/build/
 backend/out/
 backend/bin/
 backend/*.log
+backend/data/
 
 frontend/node_modules/
 frontend/.next/

@@ -10,7 +10,8 @@ FROM eclipse-temurin:21-jre
 # 비루트 실행. wget 은 compose 헬스체크용
 RUN useradd -r -u 1001 app \
     && apt-get update && apt-get install -y --no-install-recommends wget \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && mkdir -p /data/uploads && chown app:app /data/uploads   # 업로드 volume 마운트 지점. 이미지에 app 소유로 있어야 새 volume 도 app 소유로 초기화됨
 WORKDIR /srv
 COPY --from=build /src/build/libs/*.jar app.jar
 USER app
