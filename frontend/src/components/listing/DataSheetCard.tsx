@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { fetchFile } from "@/lib/api/client";
-import { filePath } from "@/lib/files";
+import { filePath, openFileInNewTab } from "@/lib/files";
 import { dataSheetKey } from "@/lib/listingDetail";
 import { listing } from "@/messages/listing";
 import type { ListingDetail } from "@/types/listing";
@@ -83,52 +83,58 @@ function PdfViewer({ fileKey, onAuthLost }: { fileKey: string; onAuthLost: (lost
       </div>
     );
   }
-  return <iframe title={t.dataSheet} src={state.url} className="w-full h-120 @md:h-160 rounded-md border border-line-2" />;
+  return (
+    <>
+      <iframe title={t.dataSheet} src={state.url} className="w-full h-120 @md:h-160 rounded-md border border-line-2" />
+      {/* Android Chrome 등은 iframe 안에서 PDF 를 못 그린다 — 새 탭(브라우저 기본 PDF 보기)으로 여는 길을 항상 둔다 */}
+      <FileLink label={t.openInNewTab} fileKey={fileKey} onAuthLost={onAuthLost} />
+    </>
+  );
+}
+
+/** 누르면 비공개 파일을 새 탭에서 연다. 실패 문구는 링크 옆에 */
+function FileLink({ label, fileKey, onAuthLost }: { label: string; fileKey: string; onAuthLost: (lost: boolean) => void }) {
+  const [failed, setFailed] = useState(false);
+
+  const open = async () => {
+    const res = await openFileInNewTab(fileKey);
+    if (res.ok) setFailed(false);
+    else if (AUTH_LOST.has(res.code)) onAuthLost(true);
+    else setFailed(true);
+  };
+
+  return (
+    <span className="flex items-center gap-1.5">
+      <button type="button" onClick={() => void open()} className="text-sm text-primary font-medium hover:underline">
+        {label}
+      </button>
+      {failed && (
+        <span role="alert" className="text-[13px] text-down">
+          {t.fileLoadFailed}
+        </span>
+      )}
+    </span>
+  );
 }
 
 function DocLinks({ detail, onAuthLost }: { detail: ListingDetail; onAuthLost: (lost: boolean) => void }) {
-  const [failed, setFailed] = useState<string | null>(null);
   const docs = [
     { label: t.docs.testReport, key: detail.testReport },
     { label: t.docs.certificate, key: detail.certificateOfAuthen },
     { label: t.docs.replaceProd, key: detail.replaceProd },
   ];
 
-  const open = async (label: string, key: string) => {
-    // await 뒤에 열면 팝업 차단에 걸린다 — 클릭 순간 빈 탭을 먼저 열고, 받은 뒤 주소를 채운다
-    const tab = window.open("", "_blank");
-    const res = await fetchFile(filePath(key));
-    if (res.ok && tab) {
-      const url = URL.createObjectURL(res.data);
-      tab.location.href = url;
-      // 새 탭이 읽는 중일 수 있어 바로 해제하지 않는다
-      setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      setFailed(null);
-      return;
-    }
-    tab?.close();
-    if (!res.ok && AUTH_LOST.has(res.code)) onAuthLost(true);
-    else setFailed(label);
-  };
-
   return (
     <ul className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm">
       {docs.map(({ label, key }) => (
         <li key={label} className="flex items-center gap-1.5">
           {key ? (
-            <button type="button" onClick={() => void open(label, key)} className="text-primary font-medium hover:underline">
-              {label}
-            </button>
+            <FileLink label={label} fileKey={key} onAuthLost={onAuthLost} />
           ) : (
             <>
               <span className="text-ink-2">{label}</span>
               <span className="text-ink-3">{t.empty}</span>
             </>
-          )}
-          {failed === label && (
-            <span role="alert" className="text-[13px] text-down">
-              {t.fileLoadFailed}
-            </span>
           )}
         </li>
       ))}

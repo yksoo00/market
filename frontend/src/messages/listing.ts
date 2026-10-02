@@ -31,6 +31,7 @@ export const listing = {
     noDescription: "등록된 설명이 없습니다.",
     dataSheet: "데이터시트",
     noDataSheet: "등록된 데이터시트가 없습니다.",
+    openInNewTab: "새 탭에서 열기",
     loginToView: "로그인 후 열람할 수 있습니다.",
     login: "로그인",
     fileLoadFailed: "파일을 불러오지 못했어요.",
