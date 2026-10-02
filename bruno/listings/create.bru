@@ -19,7 +19,7 @@ body:json {
     "prodState": "new",
     "salesUnitPrice": 500000,
     "salesQuantity": 3,
-    "photos": ["p1.jpg", "p2.jpg"]
+    "photos": ["public/listings/photos/2026/10/00000000-0000-0000-0000-000000000000.jpg"]
   }
 }
 
@@ -34,5 +34,7 @@ docs {
   400 VALIDATION: 필드별 fields.<필드명>. 가격 0~10억, 수량 1~100,000 (security.md "입력 검증 > 매물").
   401: 로그인 필요. 409 LISTING_DUPLICATE_REG_TIME: 같은 사용자가 같은 초에 두 번 등록.
   429: 10회/시간/사용자 (security.md "Rate limit").
+  photos·listingDataSheet·productDataSheet 는 uploads/upload.bru 가 돌려준 key 로 바꿔 넣는다 (예시 값은 자리표시).
+  본인이 24시간 안에 그 용도로 올린 key 만 받고, 아니면 400 fields.<필드> "파일을 다시 올려 주세요.". 한 번 쓴 key 는 재사용 불가.
   보증기한·불량지원방법·대체품·테스트리포트·정품인증서는 여기서 못 받는다 — 등록 후 register-warranty.bru(PATCH)로 원하는 사람만 추가.
 }

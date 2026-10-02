@@ -162,7 +162,7 @@ public class Listing implements Persistable<ListingId> {
 			this.prodDescription = req.description();
 		}
 		if (req.listingDataSheet() != null) {
-			this.prodDataSheet = req.listingDataSheet();
+			this.prodDataSheet = emptyToNull(req.listingDataSheet());
 		}
 		if (req.photos() != null) {
 			this.prodPhoto1 = photoAt(req.photos(), 0);
@@ -177,15 +177,20 @@ public class Listing implements Persistable<ListingId> {
 			this.warrantyCoverage = req.warrantyCoverage();
 		}
 		if (req.replaceProd() != null) {
-			this.replaceProd = req.replaceProd();
+			this.replaceProd = emptyToNull(req.replaceProd());
 		}
 		if (req.testReport() != null) {
-			this.testReport = req.testReport();
+			this.testReport = emptyToNull(req.testReport());
 		}
 		if (req.certificateOfAuthen() != null) {
-			this.certificateOfAuthen = req.certificateOfAuthen();
+			this.certificateOfAuthen = emptyToNull(req.certificateOfAuthen());
 		}
 		this.dtUpdate = dtUpdate;
+	}
+
+	/** 파일 칸은 null = 안 바꿈, "" = 비우기 (PATCH 에서 null 과 생략을 구분하지 않으므로, decisions.md 2026-10-02) */
+	private static String emptyToNull(String value) {
+		return value.isEmpty() ? null : value;
 	}
 
 	private static String photoAt(List<String> photos, int index) {
