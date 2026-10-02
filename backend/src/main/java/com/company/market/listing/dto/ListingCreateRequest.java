@@ -13,6 +13,7 @@ import jakarta.validation.constraints.Size;
  * prodId 는 클라이언트가 지정하지 않는다(서버가 채번) — security.md "매물".
  * 보증기한·불량지원방법·대체품·테스트리포트·정품인증서는 등록 시점에 받지 않는다. 등록 후 필요한 사람만
  * PATCH(ListingUpdateRequest)로 추가한다.
+ * 경로 필드(photos·데이터시트)는 /api/v1/uploads 가 돌려준 키 — 본인이 올린 것만 받는다 (UploadService.verifyOwned).
  */
 public record ListingCreateRequest(
 		@NotBlank @Size(max = 10) String categoryCode,

@@ -5,10 +5,12 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -16,6 +18,9 @@ import java.util.stream.Stream;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.exception.ValidationException;
+import com.company.market.common.storage.UploadKind;
+import com.company.market.common.storage.UploadRef;
+import com.company.market.common.storage.UploadService;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.ListingId;
 import com.company.market.listing.domain.Product;
@@ -45,6 +50,8 @@ public class ListingService {
 
 	private final ProductService products;
 
+	private final UploadService uploads;
+
 	private final Clock clock;
 
 	@Transactional
@@ -52,14 +59,21 @@ public class ListingService {
 		List<String> photos = req.photos() == null ? List.of() : req.photos();
 		String firstPhoto = photos.isEmpty() ? null : photos.get(0);
 
-		Product product = products.findOrCreate(new ProductDraft(req.categoryCode(), req.prodName().trim(), req.prodNo(),
-				req.prodBrand().trim(), req.prodMufcDate(), req.prodSpecInfo(), req.productDataSheet(), firstPhoto));
-
 		int minOrderQuantity = req.minOrderQuantity() == null ? 1 : req.minOrderQuantity();
 		int orderUnit = req.orderUnit() == null ? 1 : req.orderUnit();
 		if (minOrderQuantity > req.salesQuantity()) {
 			throw new ValidationException(Map.of("minOrderQuantity", "최소주문량은 판매수량을 넘을 수 없습니다."));
 		}
+
+		// 입력 검사(Redis 조회)를 상품마스터 채번·INSERT 보다 먼저 — 잘못된 키 요청이 DB 작업을 하지 않게
+		List<UploadRef> files = new ArrayList<>();
+		photos.forEach(p -> files.add(new UploadRef("photos", p, UploadKind.LISTING_PHOTO)));
+		addRef(files, "listingDataSheet", req.listingDataSheet(), UploadKind.LISTING_DATASHEET);
+		addRef(files, "productDataSheet", req.productDataSheet(), UploadKind.LISTING_DATASHEET);
+		uploads.verifyOwned(userId, files);
+
+		Product product = products.findOrCreate(new ProductDraft(req.categoryCode(), req.prodName().trim(), req.prodNo(),
+				req.prodBrand().trim(), req.prodMufcDate(), req.prodSpecInfo(), req.productDataSheet(), firstPhoto));
 
 		Listing listing = Listing.builder()
 			.userId(userId)
@@ -87,6 +101,7 @@ public class ListingService {
 		catch (DataIntegrityViolationException e) {
 			throw new ApiException(ErrorCode.LISTING_DUPLICATE_REG_TIME);
 		}
+		uploads.release(files.stream().map(UploadRef::key).toList());
 
 		return toResponse(listing, product);
 	}
@@ -103,7 +118,25 @@ public class ListingService {
 		if (effectiveMinOrderQuantity > effectiveSalesQuantity) {
 			throw new ValidationException(Map.of("minOrderQuantity", "최소주문량은 판매수량을 넘을 수 없습니다."));
 		}
+
+		List<UploadRef> files = new ArrayList<>();
+		if (req.photos() != null) {
+			req.photos().forEach(p -> files.add(new UploadRef("photos", p, UploadKind.LISTING_PHOTO)));
+		}
+		addRef(files, "listingDataSheet", req.listingDataSheet(), UploadKind.LISTING_DATASHEET);
+		addRef(files, "testReport", req.testReport(), UploadKind.LISTING_TEST_REPORT);
+		addRef(files, "certificateOfAuthen", req.certificateOfAuthen(), UploadKind.LISTING_CERTIFICATE);
+		addRef(files, "replaceProd", req.replaceProd(), UploadKind.LISTING_REPLACE_PROD);
+		// 이 매물에 이미 저장된 키는 업로드 기록(등록 때 지움) 없이 통과 — 사진 1장만 바꿔도 나머지를 다시 올리지 않게.
+		// 용도가 맞는지는 키 형식으로 여전히 본다 (기존 사진 키를 테스트리포트 칸에 옮기는 것 차단)
+		Set<String> stored = storedFileKeys(listing);
+		files.removeIf(f -> stored.contains(f.key()) && UploadKind.ofKey(f.key()).filter(f.kind()::equals).isPresent());
+		uploads.verifyOwned(requesterId, files);
+
 		listing.applyUpdate(req, LocalDateTime.now(clock).format(REG_DATE_FORMAT));
+		// 커밋 전에 기록을 지우지만 flush 로 DB 오류는 먼저 드러난다. 그 뒤 커밋이 실패하면 사용자는 다시 올리면 된다
+		listings.flush();
+		uploads.release(files.stream().map(UploadRef::key).toList());
 		return toResponse(listing, products.get(listing.getProdId()));
 	}
 
@@ -172,6 +205,21 @@ public class ListingService {
 			.orElse(null);
 		return new ListingSummaryResponse(listing.getUserId(), listing.getRegDate(), listing.getProdId(), product.getProdName(),
 				product.getProdBrand(), listing.getSalesUnitPrice(), listing.getSalesQuantity(), listing.getProdState(), thumbnail);
+	}
+
+	/** null(안 바꿈)·""(비우기)는 업로드 키가 아니므로 확인 대상에서 뺀다 */
+	private static void addRef(List<UploadRef> refs, String field, String key, UploadKind kind) {
+		if (key != null && !key.isEmpty()) {
+			refs.add(new UploadRef(field, key, kind));
+		}
+	}
+
+	private static Set<String> storedFileKeys(Listing listing) {
+		return Stream
+			.of(listing.getProdPhoto1(), listing.getProdPhoto2(), listing.getProdPhoto3(), listing.getProdImage4(),
+					listing.getProdDataSheet(), listing.getTestReport(), listing.getCertificateOfAuthen(), listing.getReplaceProd())
+			.filter(Objects::nonNull)
+			.collect(Collectors.toSet());
 	}
 
 	private static String photoAt(List<String> photos, int index) {

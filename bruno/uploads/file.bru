@@ -1,0 +1,17 @@
+meta {
+  name: 업로드 파일 열람
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/files/public/listings/photos/2026/10/00000000-0000-0000-0000-000000000000.jpg
+  body: none
+  auth: none
+}
+
+docs {
+  경로 = upload.bru 응답의 key 를 /api/v1/files/ 뒤에 그대로 붙인다.
+  public/… (사진): 로그인 없이 200, 1년 캐시. private/… (데이터시트·테스트리포트·정품인증서·대체품): 로그인해야 200, 아니면 401.
+  키 형식이 아니거나 없는 파일은 404. PDF 는 Content-Disposition: inline (브라우저에서 바로 열림).
+}

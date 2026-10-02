@@ -26,6 +26,16 @@ public class RateLimiter {
 			return c
 			""", Long.class);
 
+	/** 더해도 한도 이하일 때만 INCRBY. 넘으면 그대로 두고 -1 — 거부된 요청이 사용량을 깎지 않게 */
+	private static final RedisScript<Long> INCRBY_IF_WITHIN = new DefaultRedisScript<>("""
+			local c = tonumber(redis.call('GET', KEYS[1]) or '0')
+			local amount = tonumber(ARGV[1])
+			if c + amount > tonumber(ARGV[2]) then return -1 end
+			local n = redis.call('INCRBY', KEYS[1], amount)
+			if n == amount then redis.call('EXPIRE', KEYS[1], ARGV[3]) end
+			return n
+			""", Long.class);
+
 	private final StringRedisTemplate redis;
 
 	/** 카운터 +1 하고 현재 값 반환. 한도 판단은 호출자가 */
@@ -39,6 +49,13 @@ public class RateLimiter {
 		if (increment(key, window) > limit) {
 			throw new ApiException(ErrorCode.RATE_LIMITED);
 		}
+	}
+
+	/** 양(바이트 등) 기준 고정 창 한도. amount 를 더해도 limit 이하면 반영하고 true, 넘으면 반영 없이 false */
+	public boolean tryConsume(String key, long amount, long limit, Duration window) {
+		Long result = redis.execute(INCRBY_IF_WITHIN, List.of(key), String.valueOf(amount), String.valueOf(limit),
+				String.valueOf(window.toSeconds()));
+		return result != null && result >= 0;
 	}
 
 	public void reset(String key) {

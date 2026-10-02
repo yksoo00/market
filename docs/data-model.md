@@ -59,7 +59,7 @@
 | prod_mufc_date | varchar(14) | | 제조일시 |
 | prod_spec_info | varchar(100) | | 제조사 제공 자유 기재 |
 | prod_data_sheet | varchar(100) | | 경로정보 |
-| prod_photo_1 | varchar(100) | | 경로정보. 파일 저장소 미정(decisions.md 2026-09-28) 이라 지금은 경로 컬럼만 |
+| prod_photo_1 | varchar(100) | | 경로정보. 상품 처음 등록 시 그 매물의 첫 사진 키를 그대로 씀 (파일 공유) |
 | reg_date | varchar(14) | not null | 등록일시 |
 | spare_col | varchar(100) | | 예비 컬럼 |
 
@@ -90,6 +90,8 @@
 | dt_update | varchar(14) | | 최종갱신일시 |
 | dt_expire | varchar(14) | | 거래완료일시 |
 | spare_col | varchar(100) | | |
+
+경로정보 컬럼(사진·데이터시트·대체품·테스트리포트·정품인증서)은 URL이 아니라 **저장소 키** — `POST /api/v1/uploads`가 돌려준 `public|private/listings/<종류>/yyyy/MM/<uuid>.<ext>` (최대 80자). 파일은 `GET /api/v1/files/{key}`로 연다 (security.md "파일 업로드", decisions.md 2026-10-02).
 
 인덱스: `U (prod_name, prod_brand)` on products (동시 등록 경합 시 재사용 판단의 근거 — 코드리뷰 지적으로 추가, 2026-09-29), `(prod_id)`·`(reg_date)` on listings (FK·목록 조회용).
 제약: `products`·`listings` 엔티티는 PK를 직접 채우므로(uuid `@GeneratedValue` 없음) `Persistable` 구현 필수 — 없으면 Spring Data가 항상 `merge`(UPDATE)를 타서 중복 키를 조용히 덮어쓴다(코드리뷰로 발견, 2026-09-29 수정). 매물 목록 커서는 `reg_date` 단독이 아니라 `reg_date_userId` 복합값 — 같은 초에 다른 사용자가 등록하면 reg_date만으로는 페이지 경계에서 소실될 수 있어서.

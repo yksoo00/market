@@ -1,0 +1,32 @@
+meta {
+  name: 파일 업로드
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/uploads
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  kind: listing-photo
+  file: @file(sample.jpg)
+}
+
+docs {
+  로그인(auth/login.bru) 먼저. file 은 Bruno 앱에서 실제 파일로 바꿔 고른다 (sample.jpg 는 자리표시).
+  201 { ok, data: { key } } — key 를 매물 등록·수정(listings/create.bru 등)의 경로 필드에 그대로 넣는다. 24시간 안에 써야 한다.
+
+  kind (용도) 별 규칙 — security.md "파일 업로드":
+  - listing-photo: jpg·png·webp, 5MB, 공개 → photos
+  - listing-datasheet: pdf, 10MB, 로그인 열람 → listingDataSheet, productDataSheet
+  - listing-test-report: pdf·jpg·png, 10MB, 로그인 열람 → testReport (PATCH)
+  - listing-certificate: pdf·jpg·png, 10MB, 로그인 열람 → certificateOfAuthen (PATCH)
+  - listing-replace-prod: pdf·jpg·png, 10MB, 로그인 열람 → replaceProd (PATCH)
+
+  400 VALIDATION fields.kind: 모르는 용도. 400 UPLOAD_INVALID_TYPE: 확장자·내용(매직 바이트)이 용도와 안 맞거나 빈 파일.
+  413 UPLOAD_TOO_LARGE: 용도별 상한 또는 10MB 초과. 401: 로그인 필요. 429: 20회/10분/사용자.
+  429 UPLOAD_QUOTA_EXCEEDED: 사용자당 하루 300MB 초과. 503 STORAGE_FULL: 서버 디스크 여유 10GB 미만.
+}

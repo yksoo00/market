@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
+import com.company.market.common.storage.UploadService;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.dto.ListingCreateRequest;
 import com.company.market.listing.repository.ListingRepository;
@@ -31,11 +32,14 @@ class ListingServiceTest {
 	@Mock
 	ProductService products;
 
+	@Mock
+	UploadService uploads;
+
 	@Test
 	@DisplayName("저장 시 복합키 충돌(DataIntegrityViolationException)이면 LISTING_DUPLICATE_REG_TIME 으로 바뀐다")
 	void translatesDuplicateKeyViolation() {
 		Clock clock = Clock.fixed(Instant.parse("2026-09-29T12:00:00Z"), ZoneOffset.UTC);
-		ListingService service = new ListingService(listings, products, clock);
+		ListingService service = new ListingService(listings, products, uploads, clock);
 		when(products.findOrCreate(any())).thenReturn(Product.builder().prodId("ELEC00010001").regDate("20260929120000")
 			.categoryCode("ELEC0001").prodName("노트북").prodBrand("삼성").build());
 		when(listings.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("duplicate key"));
