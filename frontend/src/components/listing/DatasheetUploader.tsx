@@ -46,13 +46,15 @@ export function DatasheetUploader({ value, onChange, onUploadingChange, error }:
     setProblem(check);
     if (check) return;
     const mine = ++seq.current;
+    // 교체 업로드가 실패하면 이전에 올린 파일로 되돌린다 (실패했다고 이미 올린 데이터시트까지 사라지지 않게)
+    const previous = state;
     setState({ status: "uploading", name: file.name });
     void uploadFile("listing-datasheet", file).then((result) => {
       if (mine !== seq.current) return;
       if (result.ok) {
         setState({ status: "done", name: file.name, key: result.data.key });
       } else {
-        setState({ status: "idle" });
+        setState(previous);
         setProblem(uploadErrorMessage(result));
       }
     });

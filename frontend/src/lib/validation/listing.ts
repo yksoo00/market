@@ -8,7 +8,8 @@ const v = listing.validation;
 
 const MAX_PRICE = 1_000_000_000;
 const MAX_QUANTITY = 100_000;
-const MAX_PHOTOS = 4;
+export const MAX_PHOTOS = 4;
+export const MAX_DESCRIPTION = 200;
 
 const requiredText = (max: number, message: string) => z.string().trim().min(1, v.required).max(max, message);
 const optionalText = (max: number, message: string) =>
@@ -55,7 +56,7 @@ export function listingFormSchema(today: string) {
       minOrderQuantity: optionalInt(1, MAX_QUANTITY, v.minOrderQuantity),
       orderUnit: optionalInt(1, MAX_QUANTITY, v.orderUnit),
       deliveryDate: optionalDate,
-      description: optionalText(200, v.description),
+      description: optionalText(MAX_DESCRIPTION, v.description),
       photos: z.array(z.string()).max(MAX_PHOTOS, v.photos),
       listingDataSheet: z.string().transform((s) => (s === "" ? undefined : s)),
     })

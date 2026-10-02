@@ -3,7 +3,8 @@ export const listing = {
   errors: {
     LISTING_DUPLICATE_REG_TIME: "같은 시각에 이미 등록된 매물이 있습니다. 다시 시도해 주세요.",
     LISTING_NOT_FOUND: "매물을 찾을 수 없습니다.",
-    RATE_LIMITED: "등록은 1시간에 10번까지 할 수 있어요. 잠시 후 다시 시도해 주세요.",
+    // 등록·수정·삭제가 함께 쓰는 문구라 한도 숫자를 넣지 않는다 (등록 10회/시간, 수정 20회, 삭제 10회)
+    RATE_LIMITED: "요청이 너무 많아요. 잠시 후 다시 시도해 주세요.",
     UNAUTHORIZED: "로그인이 만료됐어요. 다시 로그인해 주세요.",
     UNAUTHENTICATED: "로그인이 만료됐어요. 다시 로그인해 주세요.",
   } as Record<string, string>,

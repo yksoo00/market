@@ -6,11 +6,11 @@ import { Icon } from "@/components/common/Icon";
 import { Label } from "@/components/ui/label";
 import { uploadFile } from "@/lib/api/uploads";
 import { uploadErrorMessage } from "@/lib/uploadError";
+import { MAX_PHOTOS } from "@/lib/validation/listing";
 import { acceptOf, checkUpload } from "@/lib/validation/upload";
 import { listing } from "@/messages/listing";
 
 const t = listing.form;
-const MAX_PHOTOS = 4;
 
 interface Slot {
   id: number;
@@ -38,11 +38,12 @@ export function PhotoUploader({ value, onChange, onUploadingChange, error }: Pro
 
   // TODO(수정 화면): 지금은 빈 칸에서 시작해 마운트 때 [] 를 폼에 넣는다. 수정 화면에서 쓰려면 slots 를 value(기존 키)로 초기화해야 기존 사진이 안 지워진다
   // 부모(폼) 값과 업로드 상태를 칸 상태에서 계산해 알린다. 같은 값이면 알리지 않아 폼이 불필요하게 다시 검증하지 않게
-  const keys = slots.flatMap((s) => (s.status === "done" && s.key ? [s.key] : []));
+  // 배열은 렌더마다 새로 생겨 effect 의존성으로 못 쓴다 → 문자열로 비교 (키에는 "|"가 없다: 폴더/uuid.확장자)
+  const joinedKeys = slots.flatMap((s) => (s.status === "done" && s.key ? [s.key] : [])).join("|");
   const uploading = slots.some((s) => s.status === "uploading");
   useEffect(() => {
-    if (keys.join("|") !== value.join("|")) onChange(keys);
-  }, [keys, value, onChange]);
+    if (joinedKeys !== value.join("|")) onChange(joinedKeys === "" ? [] : joinedKeys.split("|"));
+  }, [joinedKeys, value, onChange]);
   useEffect(() => onUploadingChange(uploading), [uploading, onUploadingChange]);
 
   // 화면을 떠날 때 미리보기 URL 해제 (브라우저 메모리)

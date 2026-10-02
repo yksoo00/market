@@ -13,7 +13,7 @@ import { ProdStateField } from "@/components/listing/ProdStateField";
 import { applyServerError } from "@/lib/form";
 import { formatPrice } from "@/lib/format";
 import { todayInSeoul } from "@/lib/listingForm";
-import { listingFormSchema, type ListingFormInput, type ListingFormOutput } from "@/lib/validation/listing";
+import { listingFormSchema, MAX_DESCRIPTION, type ListingFormInput, type ListingFormOutput } from "@/lib/validation/listing";
 import { listing } from "@/messages/listing";
 import { UNREACHABLE, type ApiResult } from "@/types/api";
 import type { ListingCreated } from "@/types/listing";
@@ -98,7 +98,7 @@ export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
     <FormProvider {...form}>
       <form onSubmit={submit} noValidate className="flex flex-col gap-6">
         {/* 다시 시도도 [등록]과 같은 조건 — 업로드 중이면 키가 없어 사진이 빠진다 */}
-        <FormError message={formError} onRetry={unreachable && !uploading ? () => void submit() : undefined} />
+        <FormError message={formError} onRetry={unreachable && !uploading && !isSubmitting ? () => void submit() : undefined} />
 
         <Section title={t.sectionProduct}>
           <FormField<ListingFormInput> name="categoryCode" label={t.categoryCode} hint={t.categoryHint} placeholder={t.categoryPlaceholder} maxLength={10} />
@@ -174,11 +174,11 @@ function DescriptionField() {
   const { register, control } = useFormContext<ListingFormInput>();
   const value = useWatch({ control, name: "description" });
   return (
-    <FieldShell label={t.description} htmlFor="description" error={error} note={<span className="text-ink-3">{value.length}/200</span>}>
+    <FieldShell label={t.description} htmlFor="description" error={error} note={<span className="text-ink-3">{value.length}/{MAX_DESCRIPTION}</span>}>
       <textarea
         id="description"
         rows={4}
-        maxLength={200}
+        maxLength={MAX_DESCRIPTION}
         placeholder={t.descriptionPlaceholder}
         aria-invalid={touched && Boolean(error)}
         aria-describedby={error ? "description-error" : undefined}

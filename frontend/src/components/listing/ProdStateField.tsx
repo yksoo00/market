@@ -11,7 +11,7 @@ const t = listing.form;
 
 /** 상품상태: [신품][중고] + 중고면 "신품대비 __ %". 저장 값은 "신품" 또는 "신품대비 N%" (lib/listingForm) */
 export function ProdStateField() {
-  const { control, register, setValue } = useFormContext<ListingFormInput>();
+  const { control, register, setValue, clearErrors } = useFormContext<ListingFormInput>();
   const condition = useWatch({ control, name: "condition" });
   const percent = useFieldStatus<ListingFormInput>("usedPercent");
   // 서버가 prodState 를 거부하면 condition 칸에 오류를 붙인다 (ListingForm)
@@ -41,7 +41,8 @@ export function ProdStateField() {
           <label className="flex items-center gap-2 text-[13px] text-ink-2">
             {t.usedPercentPrefix}
             <Input
-              {...register("usedPercent")}
+              // 서버가 prodState 를 거부해 condition 에 붙인 오류는 % 를 고치면 지운다 (안 그러면 고쳐도 옛 문구가 남음)
+              {...register("usedPercent", { onChange: () => clearErrors("condition") })}
               id="usedPercent"
               aria-label={t.usedPercentLabel}
               aria-describedby={percent.error ? "usedPercent-error" : undefined}
