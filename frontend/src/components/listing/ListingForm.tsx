@@ -42,7 +42,7 @@ export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
   const [today] = useState(() => todayInSeoul());
   const form = useForm<ListingFormInput, unknown, ListingFormOutput>({
     resolver: zodResolver(listingFormSchema(today)),
-    mode: "onBlur",
+    mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: initialValues,
   });

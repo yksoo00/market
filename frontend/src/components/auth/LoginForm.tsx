@@ -33,7 +33,7 @@ export function LoginForm({ kind, next }: Props) {
   const isBusiness = kind === "business";
   const form = useForm<Values>({
     resolver: zodResolver(isBusiness ? businessSchema : personalSchema),
-    mode: "onBlur",
+    mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: { loginId: "", bizNo: "", password: "", remember: false },
   });

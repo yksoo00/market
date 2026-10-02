@@ -33,7 +33,7 @@ export function BusinessSignupForm({ business }: { business: NonNullable<Busines
   const router = useRouter();
   const form = useForm<BusinessSignupInput>({
     resolver: zodResolver(businessSignupSchema),
-    mode: "onBlur",
+    mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: {
       bizNo: business.bizNo,

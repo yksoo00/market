@@ -24,7 +24,7 @@ export function PersonalSignupForm() {
   const router = useRouter();
   const form = useForm<PersonalSignupInput>({
     resolver: zodResolver(personalSignupSchema),
-    mode: "onBlur",
+    mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: {
       name: "",

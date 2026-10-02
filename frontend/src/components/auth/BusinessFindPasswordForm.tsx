@@ -18,7 +18,7 @@ const fields = ["bizNo", "email"] as const;
 export function BusinessFindPasswordForm() {
   const form = useForm<FindBusinessPasswordInput>({
     resolver: zodResolver(findBusinessPasswordSchema),
-    mode: "onBlur",
+    mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: { bizNo: "", email: "" },
   });

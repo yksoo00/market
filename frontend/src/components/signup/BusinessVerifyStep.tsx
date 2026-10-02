@@ -25,7 +25,7 @@ export function BusinessVerifyStep() {
   const router = useRouter();
   const form = useForm<BusinessVerifyInput>({
     resolver: zodResolver(businessVerifySchema),
-    mode: "onBlur",
+    mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: { bizNo: "", startDate: "", ownerName: "" },
   });
