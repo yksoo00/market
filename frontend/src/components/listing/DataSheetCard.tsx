@@ -5,23 +5,26 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { fetchFile } from "@/lib/api/client";
 import { filePath, openFileInNewTab } from "@/lib/files";
-import { dataSheetKey } from "@/lib/listingDetail";
+import { dataSheetKey, isAuthLost } from "@/lib/listingDetail";
 import { listing } from "@/messages/listing";
 import type { ListingDetail } from "@/types/listing";
 
 const t = listing.detail;
-// refresh 까지 실패한 401 — 로그인이 풀린 것으로 보고 "로그인 후 열람"으로 바꾼다
-const AUTH_LOST = new Set(["UNAUTHENTICATED", "SESSION_EXPIRED", "UNAUTHORIZED"]);
 
-/** 카드 ② 데이터시트 + 서류. 비공개 파일이라 로그인 사용자만, blob 으로 받아 띄운다 (decisions.md 2026-10-02) */
-export function DataSheetCard({ detail, loggedIn }: { detail: ListingDetail; loggedIn: boolean }) {
+/**
+ * 카드 ② 데이터시트 + 서류. 비공개 파일이라 로그인 사용자만, blob 으로 받아 띄운다 (decisions.md 2026-10-02).
+ * loggedIn 이 null 이면 아직 모름 — "로그인 후 열람"이 잠깐 비쳤다 사라지지 않게 자리만 잡는다
+ */
+export function DataSheetCard({ detail, loggedIn }: { detail: ListingDetail; loggedIn: boolean | null }) {
   const [authLost, setAuthLost] = useState(false);
   const key = dataSheetKey(detail);
 
   return (
     <section className="rounded-md border border-line bg-surface p-4 @md:p-6 flex flex-col gap-3">
       <h2 className="text-[15px] font-bold text-ink">{t.dataSheet}</h2>
-      {!loggedIn || authLost ? (
+      {loggedIn === null ? (
+        <ViewerSkeleton />
+      ) : !loggedIn || authLost ? (
         <LoginPrompt />
       ) : (
         <>
@@ -45,7 +48,11 @@ function LoginPrompt() {
   );
 }
 
-type ViewerState = { kind: "loading" } | { kind: "error" } | { kind: "ready"; url: string };
+type ViewerState = { kind: "loading" } | { kind: "error" } | { kind: "unsupported" } | { kind: "ready"; url: string };
+
+function ViewerSkeleton() {
+  return <div className="w-full h-120 @md:h-160 rounded-md bg-line-2 animate-pulse" aria-busy="true" />;
+}
 
 function PdfViewer({ fileKey, onAuthLost }: { fileKey: string; onAuthLost: (lost: boolean) => void }) {
   const [state, setState] = useState<ViewerState>({ kind: "loading" });
@@ -60,7 +67,8 @@ function PdfViewer({ fileKey, onAuthLost }: { fileKey: string; onAuthLost: (lost
       if (res.ok && res.data.type === "application/pdf") {
         url = URL.createObjectURL(res.data);
         setState({ kind: "ready", url });
-      } else if (!res.ok && AUTH_LOST.has(res.code)) onAuthLost(true);
+      } else if (res.ok) setState({ kind: "unsupported" }); // 다시 받아도 같은 형식이라 [다시 시도]를 주지 않는다
+      else if (isAuthLost(res.code)) onAuthLost(true);
       else setState({ kind: "error" });
     });
     return () => {
@@ -69,7 +77,8 @@ function PdfViewer({ fileKey, onAuthLost }: { fileKey: string; onAuthLost: (lost
     };
   }, [fileKey, attempt, onAuthLost]);
 
-  if (state.kind === "loading") return <div className="w-full h-120 @md:h-160 rounded-md bg-line-2 animate-pulse" aria-busy="true" />;
+  if (state.kind === "loading") return <ViewerSkeleton />;
+  if (state.kind === "unsupported") return <p className="text-sm text-ink-3">{t.unsupportedDataSheet}</p>;
   if (state.kind === "error") {
     const retry = () => {
       setState({ kind: "loading" });
@@ -87,8 +96,11 @@ function PdfViewer({ fileKey, onAuthLost }: { fileKey: string; onAuthLost: (lost
   return (
     <>
       <iframe title={t.dataSheet} src={state.url} className="w-full h-120 @md:h-160 rounded-md border border-line-2" />
-      {/* Android Chrome 등은 iframe 안에서 PDF 를 못 그린다 — 새 탭(브라우저 기본 PDF 보기)으로 여는 길을 항상 둔다 */}
-      <FileLink label={t.openInNewTab} fileKey={fileKey} onAuthLost={onAuthLost} />
+      {/* Android Chrome 등은 iframe 안에서 PDF 를 못 그린다 — 새 탭(브라우저 기본 PDF 보기)으로 여는 길을 항상 둔다.
+          이미 받은 blob 을 그대로 연다 (다시 받지 않게) */}
+      <a href={state.url} target="_blank" rel="noopener" className="self-start text-sm text-primary font-medium hover:underline">
+        {t.openInNewTab}
+      </a>
     </>
   );
 }
@@ -104,7 +116,7 @@ function FileLink({ label, fileKey, onAuthLost }: { label: string; fileKey: stri
     const res = await openFileInNewTab(fileKey);
     setOpening(false);
     if (res.ok) setError(null);
-    else if (AUTH_LOST.has(res.code)) onAuthLost(true);
+    else if (isAuthLost(res.code)) onAuthLost(true);
     else setError(res.code === "POPUP_BLOCKED" ? t.popupBlocked : t.fileLoadFailed);
   };
 

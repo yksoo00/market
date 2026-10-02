@@ -3,7 +3,7 @@ export const listing = {
   errors: {
     LISTING_DUPLICATE_REG_TIME: "같은 시각에 이미 등록된 매물이 있습니다. 다시 시도해 주세요.",
     LISTING_NOT_FOUND: "매물을 찾을 수 없습니다.",
-    FORBIDDEN: "내 매물만 삭제할 수 있습니다.",
+    FORBIDDEN: "내 매물만 수정·삭제할 수 있습니다.",
   } as Record<string, string>,
   detail: {
     rows: {
@@ -31,6 +31,7 @@ export const listing = {
     noDescription: "등록된 설명이 없습니다.",
     dataSheet: "데이터시트",
     noDataSheet: "등록된 데이터시트가 없습니다.",
+    unsupportedDataSheet: "PDF가 아닌 데이터시트라 여기서 볼 수 없습니다.",
     openInNewTab: "새 탭에서 열기",
     loginToView: "로그인 후 열람할 수 있습니다.",
     login: "로그인",

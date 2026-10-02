@@ -33,7 +33,7 @@ export function ListingSummaryCard({ detail, owner }: { detail: ListingDetail; o
             // eslint-disable-next-line @next/next/no-img-element
             <img src={fileUrl(photo)} alt={detail.prodName} className="w-full h-full object-contain" />
           ) : (
-            <Icon name="image" size={40} className="text-ink-3" aria-label={t.noPhoto} role="img" />
+            <Icon name="image" size={40} className="text-ink-3" aria-hidden={false} aria-label={t.noPhoto} role="img" />
           )}
         </div>
 
