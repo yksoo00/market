@@ -120,7 +120,7 @@
 
 - 검사: 확장자 + **매직 바이트** (Content-Type 신뢰 안 함). 빈 파일 거부. multipart 바깥 상한 10MB 초과도 413 `UPLOAD_TOO_LARGE`.
 - 저장: 서버 디스크 `<STORAGE_ROOT>/<폴더>/yyyy/MM/<uuid>.<ext>`. 원본 파일명 사용 안 함. 키 형식(정규식)이 아니면 저장·열람·등록 모두 거부 (`../` 경로 조작 차단).
-- 소유: 업로드 시 Redis `upload:<key>` = `<userId>|<kind>` 24시간. 등록·수정은 본인이 그 용도로 올린 키만 받고(아니면 400 VALIDATION "파일을 다시 올려 주세요."), 저장 후 기록을 지워 재사용 불가. 수정 시 그 매물에 이미 저장된 키는 통과.
+- 소유: 업로드 시 Redis `upload:<key>` = `<userId>|<kind>` 24시간. 등록·수정은 본인이 그 용도로 올린 키만 받고(아니면 400 VALIDATION "파일을 다시 올려 주세요."). 확인과 동시에 `upload-claim:<key>`로 옮겨 선점(Lua 한 번)해 같은 키로 동시에 두 매물을 만들 수 없고, 커밋되면 지우고(재사용 불가) 롤백되면 되돌린다(다시 올리지 않아도 됨). 수정 시 그 매물에 이미 저장된 키는 통과.
 - 열람: `GET /api/v1/files/{key}`. `public/`은 누구나(1년 immutable 캐시), `private/`은 로그인(no-cache, private). `X-Content-Type-Options: nosniff`.
 - rate: 업로드 20회/10분/사용자.
 - 용량 (2026-10-02): 사용자당 **하루 300MB** (Redis `upload:bytes:<userId>`, 넘으면 429 `UPLOAD_QUOTA_EXCEEDED`, 거부된 업로드는 사용량에 안 셈). 디스크 여유 공간이 **10GB** 미만이 되는 업로드는 거부 (503 `STORAGE_FULL`, `app.storage.min-free`) — 계정 여러 개로 채워도 같은 디스크의 Postgres가 멈추지 않게. 횟수 한도만으로는 10MB × 20회 × 하루 = 약 29GB까지 쓸 수 있어서 둘을 더했다.

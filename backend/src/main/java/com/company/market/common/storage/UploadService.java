@@ -4,7 +4,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.Clock;
 import java.time.Duration;
-import java.util.Collection;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -17,7 +17,12 @@ import com.company.market.common.exception.ValidationException;
 import com.company.market.common.ratelimit.RateLimiter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.springframework.data.redis.core.script.RedisScript;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.util.Assert;
 import org.springframework.web.multipart.MultipartFile;
 
 /**
@@ -30,6 +35,35 @@ import org.springframework.web.multipart.MultipartFile;
 public class UploadService {
 
 	static final String RECORD_PREFIX = "upload:";
+
+	/** 매물 저장 트랜잭션이 끝날 때까지 기록을 옮겨 두는 곳 (claim) */
+	static final String CLAIM_PREFIX = "upload-claim:";
+
+	private static final String REUPLOAD = "파일을 다시 올려 주세요.";
+
+	/**
+	 * KEYS = 기록 n개 + 선점 n개, ARGV = 기대값 n개. 다 맞으면 전부 RENAME 하고 빈 목록, 하나라도 틀리면 틀린 위치(1부터)만
+	 * 돌려주고 아무것도 옮기지 않는다
+	 */
+	private static final RedisScript<List> CLAIM = new DefaultRedisScript<>("""
+			local n = #ARGV
+			local failed = {}
+			for i = 1, n do
+				if redis.call('GET', KEYS[i]) ~= ARGV[i] then table.insert(failed, i) end
+			end
+			if #failed > 0 then return failed end
+			for i = 1, n do redis.call('RENAME', KEYS[i], KEYS[n + i]) end
+			return failed
+			""", List.class);
+
+	/** 롤백: 남아 있는 선점을 기록으로 되돌린다 (TTL 이 지나 사라진 것은 건너뜀) */
+	private static final RedisScript<Long> UNCLAIM = new DefaultRedisScript<>("""
+			local n = #KEYS / 2
+			for i = 1, n do
+				if redis.call('EXISTS', KEYS[n + i]) == 1 then redis.call('RENAME', KEYS[n + i], KEYS[i]) end
+			end
+			return n
+			""", Long.class);
 
 	private static final Duration RECORD_TTL = Duration.ofHours(24);
 
@@ -81,31 +115,55 @@ public class UploadService {
 	}
 
 	/**
-	 * 각 키가 "이 사용자가 24시간 안에 이 용도로 올린 파일"인지 확인. 실패한 필드를 모두 모아 400 VALIDATION.
-	 * 기록은 지우지 않는다 — 호출자가 DB 저장에 성공한 뒤 release 로 지운다 (저장 실패 시 재시도 가능하게).
+	 * 각 키가 "이 사용자가 24시간 안에 이 용도로 올린 파일"인지 확인하고, 맞으면 한 번에 선점한다.
+	 * 실패한 필드를 모두 모아 400 VALIDATION. 하나라도 틀리면 아무것도 선점하지 않는다.
+	 * 선점 = 기록을 upload-claim:<key> 로 RENAME (TTL 유지). 확인과 선점이 Lua 하나라 같은 키로 동시에 두 요청이
+	 * 와도 하나만 통과한다. 기록은 커밋된 뒤에 지우고, 롤백되면 되돌린다 — 저장이 실패해도 다시 올리지 않게.
+	 * 호출자의 트랜잭션 안에서만 부른다.
 	 */
-	public void verifyOwned(UUID userId, List<UploadRef> refs) {
-		Map<String, Boolean> checked = new HashMap<>();
+	public void claim(UUID userId, List<UploadRef> refs) {
 		Map<String, String> failures = new LinkedHashMap<>();
+		// 키 → 그 키를 쓴 필드들. 같은 키를 두 칸에 보내도 한 번만 선점한다 (용도는 키 형식이 정하므로 키마다 하나)
+		Map<String, List<String>> fieldsByKey = new LinkedHashMap<>();
+		Map<String, String> expectedByKey = new HashMap<>();
 		for (UploadRef ref : refs) {
-			String expected = userId + "|" + ref.kind().value();
-			boolean ok = UploadKind.ofKey(ref.key()).filter(ref.kind()::equals).isPresent()
-					&& checked.computeIfAbsent(ref.key() + "|" + ref.kind().value(),
-							k -> expected.equals(redis.opsForValue().get(RECORD_PREFIX + ref.key())));
-			if (!ok) {
-				failures.putIfAbsent(ref.field(), "파일을 다시 올려 주세요.");
+			if (UploadKind.ofKey(ref.key()).filter(ref.kind()::equals).isEmpty()) {
+				failures.putIfAbsent(ref.field(), REUPLOAD);
+				continue;
 			}
+			fieldsByKey.computeIfAbsent(ref.key(), k -> new ArrayList<>()).add(ref.field());
+			expectedByKey.put(ref.key(), userId + "|" + ref.kind().value());
 		}
 		if (!failures.isEmpty()) {
 			throw new ValidationException(failures);
 		}
-	}
-
-	/** 매물에 저장된 키의 업로드 기록을 지운다 — 같은 업로드를 다른 매물에 다시 쓰지 못하게 */
-	public void release(Collection<String> keys) {
-		if (!keys.isEmpty()) {
-			redis.delete(keys.stream().map(k -> RECORD_PREFIX + k).toList());
+		if (fieldsByKey.isEmpty()) {
+			return;
 		}
+		Assert.state(TransactionSynchronizationManager.isSynchronizationActive(), "업로드 선점은 트랜잭션 안에서만");
+
+		List<String> keys = List.copyOf(fieldsByKey.keySet());
+		List<String> redisKeys = new ArrayList<>();
+		keys.forEach(k -> redisKeys.add(RECORD_PREFIX + k));
+		keys.forEach(k -> redisKeys.add(CLAIM_PREFIX + k));
+		List<?> failed = redis.execute(CLAIM, redisKeys, keys.stream().map(expectedByKey::get).toArray());
+		if (failed != null && !failed.isEmpty()) {
+			failed.forEach(i -> fieldsByKey.get(keys.get(((Number) i).intValue() - 1))
+				.forEach(f -> failures.putIfAbsent(f, REUPLOAD)));
+			throw new ValidationException(failures);
+		}
+
+		TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+			@Override
+			public void afterCompletion(int status) {
+				if (status == STATUS_COMMITTED) {
+					redis.delete(keys.stream().map(k -> CLAIM_PREFIX + k).toList());
+				}
+				else {
+					redis.execute(UNCLAIM, redisKeys);
+				}
+			}
+		});
 	}
 
 }
