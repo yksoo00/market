@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resetRefreshStateForTests } from "@/lib/api/client";
-import { openFileInNewTab } from "@/lib/files";
+import { isSafeFileType, openFileInNewTab } from "@/lib/files";
+
+describe("isSafeFileType", () => {
+  it("업로드 정책의 형식(pdf·jpg·png·webp)만 허용", () => {
+    for (const type of ["application/pdf", "image/jpeg", "image/png", "image/webp"]) expect(isSafeFileType(type)).toBe(true);
+    for (const type of ["text/html", "image/svg+xml", "application/octet-stream", ""]) expect(isSafeFileType(type)).toBe(false);
+  });
+});
 
 /** window.open 이 돌려주는 탭 흉내. 주소를 채웠는지·닫혔는지만 본다 */
 function fakeTab() {
@@ -39,6 +46,17 @@ describe("openFileInNewTab", () => {
 
     expect(result).toEqual(notFound);
     expect(tab.close).toHaveBeenCalled();
+  });
+
+  it("허용하지 않은 형식(text/html 등)이면 앱 출처에서 실행되지 않게 탭을 닫고 실패", async () => {
+    const tab = fakeTab();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("<script></script>", { status: 200, headers: { "Content-Type": "text/html" } })));
+
+    const result = await openFileInNewTab("k.pdf", () => tab as unknown as Window);
+
+    expect(result).toMatchObject({ ok: false, code: "UNSUPPORTED_FILE" });
+    expect(tab.close).toHaveBeenCalled();
+    expect(tab.location.href).toBe("");
   });
 
   it("탭이 안 열리면(팝업 차단) 파일을 받지 않고 실패", async () => {

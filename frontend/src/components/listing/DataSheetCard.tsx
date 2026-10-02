@@ -56,10 +56,11 @@ function PdfViewer({ fileKey, onAuthLost }: { fileKey: string; onAuthLost: (lost
     let url: string | null = null;
     void fetchFile(filePath(fileKey)).then((res) => {
       if (!alive) return;
-      if (res.ok) {
+      // 데이터시트는 PDF 만 올라온다 (업로드 정책). 다른 형식은 앱 출처의 iframe 에 띄우지 않는다
+      if (res.ok && res.data.type === "application/pdf") {
         url = URL.createObjectURL(res.data);
         setState({ kind: "ready", url });
-      } else if (AUTH_LOST.has(res.code)) onAuthLost(true);
+      } else if (!res.ok && AUTH_LOST.has(res.code)) onAuthLost(true);
       else setState({ kind: "error" });
     });
     return () => {
@@ -94,23 +95,32 @@ function PdfViewer({ fileKey, onAuthLost }: { fileKey: string; onAuthLost: (lost
 
 /** 누르면 비공개 파일을 새 탭에서 연다. 실패 문구는 링크 옆에 */
 function FileLink({ label, fileKey, onAuthLost }: { label: string; fileKey: string; onAuthLost: (lost: boolean) => void }) {
-  const [failed, setFailed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // 받는 중에 다시 누르면 빈 탭이 하나 더 열린다
+  const [opening, setOpening] = useState(false);
 
   const open = async () => {
+    setOpening(true);
     const res = await openFileInNewTab(fileKey);
-    if (res.ok) setFailed(false);
+    setOpening(false);
+    if (res.ok) setError(null);
     else if (AUTH_LOST.has(res.code)) onAuthLost(true);
-    else setFailed(true);
+    else setError(res.code === "POPUP_BLOCKED" ? t.popupBlocked : t.fileLoadFailed);
   };
 
   return (
     <span className="flex items-center gap-1.5">
-      <button type="button" onClick={() => void open()} className="text-sm text-primary font-medium hover:underline">
+      <button
+        type="button"
+        onClick={() => void open()}
+        disabled={opening}
+        className="text-sm text-primary font-medium hover:underline disabled:opacity-40 disabled:pointer-events-none"
+      >
         {label}
       </button>
-      {failed && (
+      {error && (
         <span role="alert" className="text-[13px] text-down">
-          {t.fileLoadFailed}
+          {error}
         </span>
       )}
     </span>

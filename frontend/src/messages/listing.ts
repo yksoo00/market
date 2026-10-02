@@ -35,6 +35,7 @@ export const listing = {
     loginToView: "로그인 후 열람할 수 있습니다.",
     login: "로그인",
     fileLoadFailed: "파일을 불러오지 못했어요.",
+    popupBlocked: "새 탭이 차단됐어요. 브라우저에서 팝업을 허용해 주세요.",
     retry: "다시 시도",
     docs: {
       testReport: "테스트리포트",

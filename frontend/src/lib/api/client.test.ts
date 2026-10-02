@@ -110,6 +110,13 @@ describe("fetchFile() — 파일을 Blob 으로, 401 이면 api() 와 같은 ref
     expect(calls).toEqual(["/api/v1/files/k", "/api/v1/auth/refresh", "/api/v1/files/k"]);
   });
 
+  it("401 → refresh 도 실패하면 원래 401 결과 (화면은 이걸 보고 '로그인 후 열람'으로)", async () => {
+    const calls = mockFetch([unauthorized, sessionExpired]);
+
+    expect(await fetchFile("/api/v1/files/k")).toEqual(unauthorized.body);
+    expect(calls).toEqual(["/api/v1/files/k", "/api/v1/auth/refresh"]);
+  });
+
   it("404 JSON 오류 본문이면 그 실패 결과를 돌려준다", async () => {
     const notFound = { status: 404, body: { ok: false, code: "NOT_FOUND", message: "없음" } };
     mockFetch([notFound]);

@@ -1,4 +1,5 @@
 // 매물 상세 화면의 표시 규칙. 스펙: docs/superpowers/specs/2026-10-02-listing-detail-design.md
+import { formatPrice } from "@/lib/format";
 import { listing } from "@/messages/listing";
 import type { ListingDetail } from "@/types/listing";
 
@@ -54,7 +55,7 @@ export function infoRows(d: ListingDetail): InfoRow[] {
     { label: r.prodId, value: d.prodId, mono: true },
     { label: r.leadTime, value: orEmpty(d.deliveryDate) },
     { label: r.state, value: d.prodState },
-    { label: r.unitPrice, value: t.won(num.format(d.salesUnitPrice)) },
+    { label: r.unitPrice, value: t.won(formatPrice(d.salesUnitPrice)) },
     { label: r.stock, value: count(d.stockQuantity) },
     { label: r.category, value: d.category },
     { label: r.tradeType, value: d.tradeType },
