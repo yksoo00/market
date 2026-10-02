@@ -485,6 +485,22 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.data.deliveryDate").value(org.hamcrest.Matchers.nullValue()));
 	}
 
+	@Test
+	@DisplayName("서비스 입력 검증 실패(최소주문량 > 판매수량, 남의 파일 키)는 등록·수정 한도를 깎지 않는다")
+	void validationFailureDoesNotConsumeRateLimit() throws Exception {
+		createWithFields("노트북 R1", "\"minOrderQuantity\":5").andExpect(status().isBadRequest());
+		createWithPhoto(uploaded(otherUserCookie(), UploadKind.LISTING_PHOTO), "노트북 R2").andExpect(status().isBadRequest());
+		assertThat(redis.opsForValue().get("listing:create:" + userId)).isIn(null, "0");
+
+		String regDate = createListing(authCookie);
+		assertThat(redis.opsForValue().get("listing:create:" + userId)).isEqualTo("1");
+
+		patchListing(regDate, "{\"minOrderQuantity\":99}").andExpect(status().isBadRequest());
+		assertThat(redis.opsForValue().get("listing:update:" + userId)).isIn(null, "0");
+		patchListing(regDate, "{\"salesUnitPrice\":900}").andExpect(status().isOk());
+		assertThat(redis.opsForValue().get("listing:update:" + userId)).isEqualTo("1");
+	}
+
 	private ResultActions createWithFields(String prodName, String extraJson) throws Exception {
 		return mvc.perform(post("/api/v1/listings").cookie(authCookie)
 			.contentType(MediaType.APPLICATION_JSON).content("""

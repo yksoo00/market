@@ -40,8 +40,8 @@ public class ListingController {
 	@PostMapping
 	public ResponseEntity<ApiResponse<ListingResponse>> create(@AuthenticationPrincipal AuthenticatedUser me,
 			@Valid @RequestBody ListingCreateRequest req) {
-		limiter.hit("listing:create:" + me.id(), 10, Duration.ofHours(1));
-		ListingResponse created = listings.create(me.id(), req);
+		ListingResponse created = limiter.hitUnlessInvalid("listing:create:" + me.id(), 10, Duration.ofHours(1),
+				() -> listings.create(me.id(), req));
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(created));
 	}
 
@@ -63,8 +63,8 @@ public class ListingController {
 	@PatchMapping("/{userId}/{regDate}")
 	public ApiResponse<ListingResponse> update(@AuthenticationPrincipal AuthenticatedUser me,
 			@PathVariable UUID userId, @PathVariable String regDate, @Valid @RequestBody ListingUpdateRequest req) {
-		limiter.hit("listing:update:" + me.id(), 20, Duration.ofHours(1));
-		return ApiResponse.of(listings.update(userId, regDate, me.id(), req));
+		return ApiResponse.of(limiter.hitUnlessInvalid("listing:update:" + me.id(), 20, Duration.ofHours(1),
+				() -> listings.update(userId, regDate, me.id(), req)));
 	}
 
 	@DeleteMapping("/{userId}/{regDate}")

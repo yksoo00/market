@@ -2,9 +2,11 @@ package com.company.market.common.ratelimit;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.function.Supplier;
 
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
+import com.company.market.common.exception.ValidationException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -36,6 +38,13 @@ public class RateLimiter {
 			return n
 			""", Long.class);
 
+	/** 0 아래로는 내리지 않는다 — 그 사이 창이 끝나 키가 사라졌으면 -1 이 남지 않게 */
+	private static final RedisScript<Long> DECR_IF_POSITIVE = new DefaultRedisScript<>("""
+			local c = tonumber(redis.call('GET', KEYS[1]) or '0')
+			if c > 0 then return redis.call('DECR', KEYS[1]) end
+			return 0
+			""", Long.class);
+
 	private final StringRedisTemplate redis;
 
 	/** 카운터 +1 하고 현재 값 반환. 한도 판단은 호출자가 */
@@ -57,6 +66,23 @@ public class RateLimiter {
 				String.valueOf(window.toSeconds()));
 		return result != null && result >= 0;
 	}
+
+	/**
+	 * hit 한 뒤 action 을 실행하고, action 이 입력 검증 실패(ValidationException)로 끝나면 이번 시도를 되돌린다.
+	 * Bean Validation 실패는 메서드에 들어오기 전에 400 이라 원래 세지 않는데, 서비스에서 보는 검증(두 칸 비교·파일 키)만
+	 * 한도를 깎으면 고쳐서 다시 보내는 사용자가 막힌다. 검증 실패는 아무것도 만들지 않으므로 세지 않는다.
+	 */
+	public <T> T hitUnlessInvalid(String key, int limit, Duration window, Supplier<T> action) {
+		hit(key, limit, window);
+		try {
+			return action.get();
+		}
+		catch (ValidationException e) {
+			redis.execute(DECR_IF_POSITIVE, List.of(key));
+			throw e;
+		}
+	}
+
 
 	public void reset(String key) {
 		redis.delete(key);
