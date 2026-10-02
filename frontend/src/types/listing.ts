@@ -42,7 +42,7 @@ export interface ListingSearchItem {
   hasCertificate: boolean;
   /** 상품상태 자유 텍스트 (예: 양호, 신품대비 90%) */
   prodState: string;
-  stockQuantity: number;
+  stockQuantity: number | null;
   salesUnitPrice: number;
   /** YYYY-MM-DD */
   deliveryDate: string | null;

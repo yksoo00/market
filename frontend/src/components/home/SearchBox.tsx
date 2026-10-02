@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Icon } from "@/components/common/Icon";
 import { popularQueries } from "@/lib/mock/home";
+import { MAX_QUERY } from "@/lib/search";
 import { home as t } from "@/messages/home";
 
 export function SearchBox() {
@@ -17,6 +18,7 @@ export function SearchBox() {
             id="q"
             name="q"
             type="search"
+            maxLength={MAX_QUERY}
             placeholder={t.search.placeholder}
             className="grow min-w-0 bg-transparent outline-none text-[15px] @md:text-[17px] text-ink placeholder:text-ink-3"
           />

@@ -15,7 +15,9 @@ type State =
   | { kind: "ready"; items: ListingSearchItem[]; nextCursor: string | null; total: number };
 
 // 검색 결과는 클라이언트 조회 (decisions.md 2026-10-02 매물 검색). 조건이 바뀌면 페이지가 key 로 다시 마운트한다
-export function SearchResults({ query }: { query: SearchQuery }) {
+export function SearchResults({ query: initialQuery }: { query: SearchQuery }) {
+  // 같은 URL 로 다시 이동해도 서버가 새 query 객체를 주므로, 마운트 때 값으로 고정해 [더 보기]로 쌓은 결과가 조용히 리셋되지 않게
+  const [query] = useState(initialQuery);
   const [state, setState] = useState<State>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);

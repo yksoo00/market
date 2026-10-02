@@ -21,6 +21,11 @@ describe("parseSearchParams", () => {
     expect(parseSearchParams({ q: "   " }).q).toBe("");
   });
 
+  it("검색어가 100자를 넘으면 100자로 자른다", () => {
+    expect(parseSearchParams({ q: "a".repeat(150) }).q).toBe("a".repeat(100));
+    expect(parseSearchParams({ q: `${"a".repeat(99)} b` }).q).toBe("a".repeat(99));
+  });
+
   it("검색 구분·거래상태의 모르는 값은 기본값", () => {
     expect(parseSearchParams({ field: "brand" }).field).toBe("brand");
     expect(parseSearchParams({ field: "name" }).field).toBe("name");

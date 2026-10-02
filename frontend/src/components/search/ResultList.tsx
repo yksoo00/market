@@ -211,7 +211,7 @@ export function ResultList({ items, query, total }: Props) {
                 </p>
                 <div className="flex items-center gap-2 text-xs">
                   {done ? <CompletedBadge /> : <span className="text-ink-2">{item.prodState}</span>}
-                  <span className="num text-ink-2">{qty.format(item.stockQuantity)}{r.qtyUnit}</span>
+                  <span className="num text-ink-2">{item.stockQuantity === null ? DASH : `${qty.format(item.stockQuantity)}${r.qtyUnit}`}</span>
                   <span className="num font-semibold">{formatPrice(item.salesUnitPrice)}</span>
                   <span className="ml-auto flex gap-1.5">
                     <Has on={item.hasDataSheet} icon="file" label={r.dataSheet} />

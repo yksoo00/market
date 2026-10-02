@@ -21,6 +21,7 @@ export interface SearchQuery {
 export type RawSearchParams = Record<string, string | string[] | undefined>;
 
 // 수치는 docs/security.md "입력 검증"이 원본
+export const MAX_QUERY = 100;
 export const MAX_STOCK = 100_000;
 export const MAX_PRICE = 1_000_000_000;
 
@@ -49,7 +50,8 @@ export function parseSearchParams(raw: RawSearchParams): SearchQuery {
   const field = first(raw.field) as SearchField;
   const status = first(raw.status) as StatusFilter;
   const query: SearchQuery = {
-    q: first(raw.q).trim(),
+    // 넘치는 검색어를 그대로 보내면 서버 400 이 [다시 시도]로도 안 풀린다 → 잘라서 쓴다
+    q: first(raw.q).trim().slice(0, MAX_QUERY).trim(),
     field: FIELDS.includes(field) ? field : "all",
     category: first(raw.category).trim(),
     status: STATUSES.includes(status) ? status : "available",
