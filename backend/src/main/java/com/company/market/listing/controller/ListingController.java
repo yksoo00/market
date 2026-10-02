@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import com.company.market.common.api.ApiResponse;
 import com.company.market.common.auth.AuthenticatedUser;
+import com.company.market.common.idempotency.IdempotencyGuard;
 import com.company.market.common.ratelimit.RateLimiter;
 import com.company.market.listing.dto.ListingCreateRequest;
 import com.company.market.listing.dto.ListingPageResponse;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -37,11 +39,15 @@ public class ListingController {
 
 	private final RateLimiter limiter;
 
+	private final IdempotencyGuard idempotency;
+
 	@PostMapping
 	public ResponseEntity<ApiResponse<ListingResponse>> create(@AuthenticationPrincipal AuthenticatedUser me,
-			@Valid @RequestBody ListingCreateRequest req) {
+			@Valid @RequestBody ListingCreateRequest req,
+			@RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey) {
 		ListingResponse created = limiter.hitUnlessInvalid("listing:create:" + me.id(), 10, Duration.ofHours(1),
-				() -> listings.create(me.id(), req));
+				() -> idempotency.run("listing-create", me.id(), idempotencyKey, () -> listings.create(me.id(), req),
+						ListingResponse::regDate, regDate -> listings.get(me.id(), regDate)));
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(created));
 	}
 
