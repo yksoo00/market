@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { FormProvider, useForm, useFormContext, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "cn";
 import { FieldShell, FormField, useFieldStatus } from "@/components/auth/FormField";
 import { FormError, SubmitButton } from "@/components/auth/FormStatus";
+import { DatasheetUploader } from "@/components/listing/DatasheetUploader";
+import { PhotoUploader } from "@/components/listing/PhotoUploader";
 import { ProdStateField } from "@/components/listing/ProdStateField";
 import { applyServerError } from "@/lib/form";
 import { formatPrice } from "@/lib/format";
@@ -48,11 +50,21 @@ export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
     control,
     handleSubmit,
     setError,
-    formState: { isValid, isSubmitting },
+    formState: { isValid, isSubmitting, errors },
   } = form;
   const [formError, setFormError] = useState<string | null>(null);
   const [unreachable, setUnreachable] = useState(false);
   const price = useWatch({ control, name: "salesUnitPrice" });
+  const photos = useWatch({ control, name: "photos" });
+  const datasheet = useWatch({ control, name: "listingDataSheet" });
+  const [photosUploading, setPhotosUploading] = useState(false);
+  const [datasheetUploading, setDatasheetUploading] = useState(false);
+  // 업로더의 effect 의존성이라 참조가 바뀌지 않게 (바뀌면 렌더마다 effect 가 다시 돈다)
+  const setPhotos = useCallback((keys: string[]) => form.setValue("photos", keys, { shouldValidate: true, shouldDirty: true }), [form]);
+  const setDatasheet = useCallback(
+    (key: string) => form.setValue("listingDataSheet", key, { shouldValidate: true, shouldDirty: true }),
+    [form],
+  );
 
   const submit = handleSubmit(async (values) => {
     setFormError(null);
@@ -110,9 +122,16 @@ export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
           <Wide>
             <DescriptionField />
           </Wide>
+          <Wide>
+            <PhotoUploader value={photos} onChange={setPhotos} onUploadingChange={setPhotosUploading} error={errors.photos?.message} />
+          </Wide>
+          <Wide>
+            <DatasheetUploader value={datasheet} onChange={setDatasheet} onUploadingChange={setDatasheetUploading} error={errors.listingDataSheet?.message} />
+          </Wide>
         </Section>
 
-        <SubmitButton label={submitLabel} disabled={!isValid} submitting={isSubmitting} />
+        {/* 업로드 중엔 키가 아직 없어 제출하면 사진이 빠진다 → 막는다 */}
+        <SubmitButton label={submitLabel} disabled={!isValid || photosUploading || datasheetUploading} submitting={isSubmitting} />
       </form>
     </FormProvider>
   );

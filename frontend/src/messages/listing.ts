@@ -4,6 +4,8 @@ export const listing = {
     LISTING_DUPLICATE_REG_TIME: "같은 시각에 이미 등록된 매물이 있습니다. 다시 시도해 주세요.",
     LISTING_NOT_FOUND: "매물을 찾을 수 없습니다.",
     RATE_LIMITED: "등록은 1시간에 10번까지 할 수 있어요. 잠시 후 다시 시도해 주세요.",
+    UNAUTHORIZED: "로그인이 만료됐어요. 다시 로그인해 주세요.",
+    UNAUTHENTICATED: "로그인이 만료됐어요. 다시 로그인해 주세요.",
   } as Record<string, string>,
   // 상품등록 직접 입력 (/listings/new)
   form: {
@@ -41,6 +43,18 @@ export const listing = {
     description: "상품 설명",
     descriptionPlaceholder: "상태, 구성품, 사용 이력 등을 적어 주세요",
     price: (formatted: string) => `${formatted}원`,
+    photos: "사진",
+    photosHint: " (최대 4장, 첫 장이 대표 사진)",
+    photoAdd: "사진 추가",
+    photoRemove: (n: number) => `${n}번째 사진 삭제`,
+    photoAlt: (n: number) => `올린 사진 ${n}`,
+    photoMain: "대표",
+    photosOver: "사진은 최대 4장까지 올릴 수 있어요. 앞에서부터 채웠어요",
+    uploading: "올리는 중",
+    datasheet: "데이터시트",
+    datasheetHint: " (PDF 1개)",
+    datasheetPick: "PDF 선택",
+    datasheetRemove: "데이터시트 삭제",
     submit: "등록",
   },
   // 칸별 오류. "무엇이 왜 틀렸고 어떻게 고치나" (rules/frontend.md). 수치는 docs/security.md "매물"
