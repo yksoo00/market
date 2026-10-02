@@ -14,6 +14,7 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.context.request.WebRequest;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -49,6 +50,13 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 	protected ResponseEntity<Object> handleNoResourceFoundException(NoResourceFoundException e, HttpHeaders headers,
 			HttpStatusCode status, WebRequest request) {
 		return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiError.of(ErrorCode.NOT_FOUND));
+	}
+
+	/** multipart 바깥 상한(spring.servlet.multipart) 초과. 용도별 상한 초과(UploadService)와 같은 코드로 */
+	@Override
+	protected ResponseEntity<Object> handleMaxUploadSizeExceededException(MaxUploadSizeExceededException e, HttpHeaders headers,
+			HttpStatusCode status, WebRequest request) {
+		return ResponseEntity.status(ErrorCode.UPLOAD_TOO_LARGE.status()).body(ApiError.of(ErrorCode.UPLOAD_TOO_LARGE));
 	}
 
 	/** 나머지 MVC 표준 예외(405, 415, 400 …). 상태코드는 스프링이 정한 그대로, 본문만 우리 형식 */
