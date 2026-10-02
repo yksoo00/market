@@ -106,7 +106,7 @@ export function ResultList({ items, query, total }: Props) {
     <section className="flex flex-col gap-2.5">
       <div className="flex items-center gap-3 min-h-8.5">
         <Checkbox
-          className="@md:hidden"
+          className="@min-[36rem]:hidden"
           checked={headerChecked}
           onCheckedChange={toggleAll}
           aria-label={r.selectAll}
@@ -115,7 +115,7 @@ export function ResultList({ items, query, total }: Props) {
           <span className="font-bold text-ink">{r.count(total)}</span>
           {selected.size > 0 && r.selected(selected.size)}
         </p>
-        <div className="hidden @md:flex gap-2">{actions("h-8.5")}</div>
+        <div className="hidden @min-[36rem]:flex gap-2">{actions("h-8.5")}</div>
       </div>
 
       {notice !== null && (
@@ -128,8 +128,10 @@ export function ResultList({ items, query, total }: Props) {
       )}
 
       {/* 데스크톱: 표. 열이 많아(16) 칸에 다 안 들어가므로 가로 스크롤하고, 체크·상품명은 왼쪽에 고정해
-          어느 열을 보든 어떤 매물인지 보이게 한다 */}
-      <div className="hidden @md:block rounded-md border border-line bg-surface overflow-x-auto">
+          어느 열을 보든 어떤 매물인지 보이게 한다.
+          표↔카드 기준은 @md(768)가 아니라 칸 폭 576 — 타일 반반 분할이면 칸이 768 미만(1440 창이면 720)이라
+          카드로 줄어들었다. 분할에서도 표가 옆으로 펼쳐져야 한다 (사용자 지시). 폰(390)은 그대로 카드 */}
+      <div className="hidden @min-[36rem]:block rounded-md border border-line bg-surface overflow-x-auto">
         <table className="w-full min-w-334 table-fixed text-[13px]">
           <colgroup>
             <col className="w-10" />
@@ -188,7 +190,7 @@ export function ResultList({ items, query, total }: Props) {
       </div>
 
       {/* 모바일: 행 카드 */}
-      <ul className="@md:hidden rounded-md border border-line bg-surface">
+      <ul className="@min-[36rem]:hidden rounded-md border border-line bg-surface">
         {items.map((item, idx) => {
           const key = keyOf(item);
           const done = item.tradeStatus === "completed";
@@ -227,7 +229,7 @@ export function ResultList({ items, query, total }: Props) {
 
       {/* 모바일: 선택하면 아래(탭바 위)에 고정. main 이 스크롤 칸이라 sticky 로 칸 바닥에 붙는다 */}
       {selected.size > 0 && (
-        <div className="@md:hidden sticky bottom-0 -mx-4 px-4 py-2.5 flex gap-2 bg-surface border-t border-line [&>button]:flex-1">
+        <div className="@min-[36rem]:hidden sticky bottom-0 -mx-4 px-4 py-2.5 flex gap-2 bg-surface border-t border-line [&>button]:flex-1">
           {actions("h-10")}
         </div>
       )}
