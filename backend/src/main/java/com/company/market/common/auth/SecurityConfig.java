@@ -49,6 +49,7 @@ public class SecurityConfig {
 				.requestMatchers(HttpMethod.GET, "/api/v1/listings", "/api/v1/listings/*/*").permitAll()
 				// 업로드 파일 열람: 공개/비공개(로그인) 판단은 FileController 가 폴더로 한다
 				.requestMatchers(HttpMethod.GET, "/api/v1/files/**").permitAll()
+				.requestMatchers(HttpMethod.HEAD, "/api/v1/files/**").permitAll()
 				.anyRequest().authenticated())
 			.exceptionHandling(e -> e
 				.authenticationEntryPoint((req, res, ex) -> write(res, json, ErrorCode.UNAUTHENTICATED))

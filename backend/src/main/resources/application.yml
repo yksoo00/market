@@ -45,6 +45,10 @@ server:
   port: 8080
   shutdown: graceful
   forward-headers-strategy: native  # caddy 뒤. 클라이언트 IP·https 판단용
+  tomcat:
+    # 상한 초과 업로드의 나머지 본문을 이만큼은 읽고 버린 뒤 413 JSON 을 보낸다. 기본 2MB 면 그보다 큰 초과분은
+    # 연결이 끊겨 브라우저가 413 대신 네트워크 오류를 본다. 이보다 더 크면 끊김 (무한으로 두면 대역폭 낭비)
+    max-swallow-size: 50MB
 
 management:
   endpoints:

@@ -57,20 +57,21 @@ public class ListingService {
 		List<String> photos = req.photos() == null ? List.of() : req.photos();
 		String firstPhoto = photos.isEmpty() ? null : photos.get(0);
 
-		Product product = products.findOrCreate(new ProductDraft(req.categoryCode(), req.prodName().trim(), req.prodNo(),
-				req.prodBrand().trim(), req.prodMufcDate(), req.prodSpecInfo(), req.productDataSheet(), firstPhoto));
-
 		int minOrderQuantity = req.minOrderQuantity() == null ? 1 : req.minOrderQuantity();
 		int orderUnit = req.orderUnit() == null ? 1 : req.orderUnit();
 		if (minOrderQuantity > req.salesQuantity()) {
 			throw new ValidationException(Map.of("minOrderQuantity", "최소주문량은 판매수량을 넘을 수 없습니다."));
 		}
 
+		// 입력 검사(Redis 조회)를 상품마스터 채번·INSERT 보다 먼저 — 잘못된 키 요청이 DB 작업을 하지 않게
 		List<UploadRef> files = new ArrayList<>();
 		photos.forEach(p -> files.add(new UploadRef("photos", p, UploadKind.LISTING_PHOTO)));
 		addRef(files, "listingDataSheet", req.listingDataSheet(), UploadKind.LISTING_DATASHEET);
 		addRef(files, "productDataSheet", req.productDataSheet(), UploadKind.LISTING_DATASHEET);
 		uploads.verifyOwned(userId, files);
+
+		Product product = products.findOrCreate(new ProductDraft(req.categoryCode(), req.prodName().trim(), req.prodNo(),
+				req.prodBrand().trim(), req.prodMufcDate(), req.prodSpecInfo(), req.productDataSheet(), firstPhoto));
 
 		Listing listing = Listing.builder()
 			.userId(userId)

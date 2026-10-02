@@ -21,6 +21,7 @@ import static org.hamcrest.Matchers.allOf;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -52,6 +53,16 @@ class FileApiTest {
 			.andExpect(header().string("Cache-Control", allOf(containsString("max-age=31536000"), containsString("public"),
 					containsString("immutable"))))
 			.andExpect(content().bytes(UploadApiTest.JPG));
+	}
+
+	@Test
+	@DisplayName("공개 사진은 로그인 없이 HEAD 요청도 200 (링크 미리보기·캐시 확인용)")
+	void publicPhotoHeadForAnyone() throws Exception {
+		String key = saved("public/listings/photos", "jpg", UploadApiTest.JPG);
+
+		mvc.perform(head("/api/v1/files/" + key))
+			.andExpect(status().isOk())
+			.andExpect(header().string("Content-Type", "image/jpeg"));
 	}
 
 	@Test
