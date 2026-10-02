@@ -143,6 +143,36 @@ class UploadApiTest {
 	}
 
 	@Test
+	@DisplayName("업로드한 파일 크기만큼 하루 사용량이 늘어난다")
+	void countsDailyBytes() throws Exception {
+		upload("listing-photo", "a.jpg", JPG).andExpect(status().isCreated());
+		upload("listing-datasheet", "a.pdf", PDF).andExpect(status().isCreated());
+
+		assertThat(redis.opsForValue().get("upload:bytes:" + userId)).isEqualTo(String.valueOf(JPG.length + PDF.length));
+		assertThat(redis.getExpire("upload:bytes:" + userId)).isBetween(1L, 86_400L);
+	}
+
+	@Test
+	@DisplayName("하루 300MB를 넘기는 업로드는 429 UPLOAD_QUOTA_EXCEEDED이고 저장·사용량 증가가 없다")
+	void dailyQuotaExceeded() throws Exception {
+		long nearlyFull = 300L * 1024 * 1024 - JPG.length + 1;
+		redis.opsForValue().set("upload:bytes:" + userId, String.valueOf(nearlyFull));
+
+		upload("listing-photo", "a.jpg", JPG).andExpect(status().isTooManyRequests())
+			.andExpect(jsonPath("$.code").value("UPLOAD_QUOTA_EXCEEDED"));
+
+		assertThat(redis.opsForValue().get("upload:bytes:" + userId)).isEqualTo(String.valueOf(nearlyFull));
+	}
+
+	@Test
+	@DisplayName("하루 사용량이 딱 300MB가 되는 업로드는 통과한다")
+	void dailyQuotaBoundary() throws Exception {
+		redis.opsForValue().set("upload:bytes:" + userId, String.valueOf(300L * 1024 * 1024 - JPG.length));
+
+		upload("listing-photo", "a.jpg", JPG).andExpect(status().isCreated());
+	}
+
+	@Test
 	@DisplayName("10분에 21번째 업로드는 429")
 	void rateLimited() throws Exception {
 		for (int i = 0; i < 20; i++) {

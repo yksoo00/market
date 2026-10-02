@@ -33,6 +33,9 @@ public class UploadService {
 
 	private static final Duration RECORD_TTL = Duration.ofHours(24);
 
+	/** 사용자당 하루 업로드 용량 (security.md "파일 업로드"). 계정 하나가 디스크를 채우지 못하게 */
+	static final long DAILY_BYTES = 300L * 1024 * 1024;
+
 	private final FileStorage storage;
 
 	private final StringRedisTemplate redis;
@@ -40,6 +43,8 @@ public class UploadService {
 	private final RateLimiter limiter;
 
 	private final Clock clock;
+
+	private final StorageProperties props;
 
 	public String upload(UUID userId, String kindValue, MultipartFile file) throws IOException {
 		limiter.hit("upload:rate:" + userId, 20, Duration.ofMinutes(10));
@@ -58,6 +63,13 @@ public class UploadService {
 			if (!type.matches(in.readNBytes(FileType.HEAD_LENGTH))) {
 				throw new ApiException(ErrorCode.UPLOAD_INVALID_TYPE);
 			}
+		}
+		// 디스크 하한을 하루 사용량보다 먼저 본다 — 서버 사정으로 거부된 업로드가 사용자 한도를 깎지 않게
+		if (storage.usableSpace() - file.getSize() < props.minFree().toBytes()) {
+			throw new ApiException(ErrorCode.STORAGE_FULL);
+		}
+		if (!limiter.tryConsume("upload:bytes:" + userId, file.getSize(), DAILY_BYTES, Duration.ofDays(1))) {
+			throw new ApiException(ErrorCode.UPLOAD_QUOTA_EXCEEDED);
 		}
 
 		String key = kind.newKey(type, clock);

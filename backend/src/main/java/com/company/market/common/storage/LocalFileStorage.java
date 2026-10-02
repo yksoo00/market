@@ -43,6 +43,11 @@ public class LocalFileStorage implements FileStorage {
 		return resolve(key).filter(Files::isRegularFile).map(FileSystemResource::new);
 	}
 
+	@Override
+	public long usableSpace() throws IOException {
+		return Files.getFileStore(Files.createDirectories(root)).getUsableSpace();
+	}
+
 	/** 키 형식 검사가 1차 방어, 루트 밖으로 나가는지 정규화해서 한 번 더 본다 */
 	private Optional<Path> resolve(String key) {
 		if (UploadKind.ofKey(key).isEmpty()) {

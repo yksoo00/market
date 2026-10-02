@@ -13,6 +13,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.core.io.Resource;
+import org.springframework.util.unit.DataSize;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -28,7 +29,7 @@ class LocalFileStorageTest {
 
 	@BeforeEach
 	void setUp() {
-		storage = new LocalFileStorage(new StorageProperties(tempDir.toString()));
+		storage = new LocalFileStorage(new StorageProperties(tempDir.toString(), DataSize.ofMegabytes(1)));
 	}
 
 	@Test

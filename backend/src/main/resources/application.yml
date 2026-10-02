@@ -78,6 +78,7 @@ app:
   domain-root: ${DOMAIN_ROOT:localhost}
   storage:
     root: ${STORAGE_ROOT:./data/uploads}   # 업로드 파일 루트. Compose 는 volume 경로, 로컬 bootRun 은 backend/data/uploads (decisions.md 2026-10-02)
+    min-free: 10GB                          # 디스크 여유 공간이 이보다 적으면 업로드 거부(503). 같은 디스크의 Postgres 보호 (security.md "파일 업로드")
 
 logging:
   level:

@@ -18,4 +18,7 @@ public interface FileStorage {
 	/** 없거나 키 형식이 아니면 empty */
 	Optional<Resource> open(String key);
 
+	/** 저장소가 쓸 수 있는 남은 바이트 */
+	long usableSpace() throws IOException;
+
 }

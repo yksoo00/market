@@ -20,4 +20,5 @@ app:
     password: admin-test-password!1
   storage:
     root: build/test-uploads
+    min-free: 1MB   # 개발 PC 디스크 여유와 무관하게 통과. 하한 동작은 UploadServiceTest 가 본다
   pii-key: dGVzdC1waWkta2V5LXRlc3QtcGlpLWtleS0zMmJ5dGU=   # 테스트 전용. 'test-pii-key-test-pii-key-32byte' 의 base64
