@@ -7,7 +7,8 @@
 ```text
 브라우저 → Next.js (localhost:3000) → Spring Boot (localhost:8080)
                                          ├─ PostgreSQL: users 한 테이블
-                                         └─ Redis: refresh 세션·rate limit
+                                         ├─ Redis: refresh 세션·rate limit·업로드 기록
+                                         └─ 디스크: 업로드 파일 (Compose volume uploads_data)
 ```
 
 - 로컬은 Docker Compose로 PostgreSQL·Redis를 실행하고, Spring은 `bootRun`, 프론트는 `pnpm dev`로 실행한다.
@@ -22,7 +23,8 @@
 | Next.js 16 | 로그인·가입 등 화면 | 인증 화면 중심. 홈 매물은 mock |
 | Spring Boot 4.1, Java 21 | REST API, 인증·회원 처리 | 로그인, refresh/logout, 내 정보, 개인 가입 |
 | PostgreSQL 16 | 영속 데이터 | 계정은 단일 `users` 테이블 |
-| Redis 7 | refresh 세션, rate limit, 임시 인증 | 인증 흐름에 사용 |
+| Redis 7 | refresh 세션, rate limit, 임시 인증, 업로드 기록(24시간) | 인증·업로드 흐름에 사용 |
+| 파일 저장소 | 업로드 파일 (`common/storage`, `STORAGE_ROOT`) | 서버 로컬 디스크. Compose는 volume `uploads_data`를 api-1·api-2가 공유. DB와 함께 백업 (decisions.md 2026-10-02) |
 
 ## 백엔드 구조
 

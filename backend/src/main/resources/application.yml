@@ -35,10 +35,20 @@ spring:
   lifecycle:
     timeout-per-shutdown-phase: 30s  # 무중단 배포: 교체 시 진행 중 요청 마무리 시간
 
+  # 업로드 바깥 상한(가장 큰 용도 10MB 기준). 용도별 상한(사진 5MB 등)은 UploadKind 가 검사
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+
 server:
   port: 8080
   shutdown: graceful
   forward-headers-strategy: native  # caddy 뒤. 클라이언트 IP·https 판단용
+  tomcat:
+    # 상한 초과 업로드의 나머지 본문을 이만큼은 읽고 버린 뒤 413 JSON 을 보낸다. 기본 2MB 면 그보다 큰 초과분은
+    # 연결이 끊겨 브라우저가 413 대신 네트워크 오류를 본다. 이보다 더 크면 끊김 (무한으로 두면 대역폭 낭비)
+    max-swallow-size: 50MB
 
 management:
   endpoints:
@@ -66,6 +76,9 @@ app:
     password: ${ADMIN_PASSWORD:}
   pii-key: ${PII_ENCRYPTION_KEY}    # 이름·휴대폰·CI 컬럼 암호화 키. 32바이트 base64. 바꾸면 전체 재암호화 필요
   domain-root: ${DOMAIN_ROOT:localhost}
+  storage:
+    root: ${STORAGE_ROOT:./data/uploads}   # 업로드 파일 루트. Compose 는 volume 경로, 로컬 bootRun 은 backend/data/uploads (decisions.md 2026-10-02)
+    min-free: 10GB                          # 디스크 여유 공간이 이보다 적으면 업로드 거부(503). 같은 디스크의 Postgres 보호 (security.md "파일 업로드")
 
 logging:
   level:

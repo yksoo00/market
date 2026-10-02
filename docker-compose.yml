@@ -39,6 +39,9 @@ services:
     env_file: .env
     environment:
       LOGGING_STRUCTURED_FORMAT_CONSOLE: ecs # 운영 로그는 JSON(ECS). 로컬 bootRun 은 application.yml 의 텍스트 패턴
+      STORAGE_ROOT: /data/uploads
+    volumes:
+      - uploads_data:/data/uploads # 업로드 파일. api-1·api-2 가 같은 volume 을 본다. DB 와 함께 백업 대상
     expose: ["8080"] # ports 아님. 내부 네트워크만
     depends_on:
       postgres: { condition: service_healthy }
@@ -62,3 +65,4 @@ services:
 volumes:
   pg_data:
   redis_data:
+  uploads_data:
