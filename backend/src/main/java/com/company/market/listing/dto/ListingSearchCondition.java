@@ -25,9 +25,10 @@ public record ListingSearchCondition(
 	public ListingSearchCondition {
 		// 100자 제한은 앞뒤 공백을 뺀 길이 — 검증은 생성된 값에 걸린다
 		q = q == null ? null : q.trim();
-		field = field == null ? "all" : field;
+		// 빈 값(?field=)도 생략과 같게 — 숫자·날짜 파라미터는 빈 값이 null 로 바인딩되는 것과 맞춘다
+		field = field == null || field.isBlank() ? "all" : field;
 		// 기존 목록 호출(파라미터 없음)이 계속 전체를 돌려주게. 화면은 항상 보낸다
-		status = status == null ? "all" : status;
+		status = status == null || status.isBlank() ? "all" : status;
 	}
 
 }

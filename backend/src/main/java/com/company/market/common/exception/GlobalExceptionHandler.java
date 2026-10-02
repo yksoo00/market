@@ -37,12 +37,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 		return ResponseEntity.status(e.getCode().status()).body(ApiError.of(e.getCode(), e.getMessage()));
 	}
 
+	private static final String TYPE_MISMATCH_MESSAGE = "형식이 올바르지 않습니다.";
+
 	/** Bean Validation 실패. 필드명은 요청 DTO 그대로 — 프론트가 그 이름으로 칸 옆에 표시 */
 	@Override
 	protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException e, HttpHeaders headers,
 			HttpStatusCode status, WebRequest request) {
 		Map<String, String> fields = new LinkedHashMap<>();
-		e.getBindingResult().getFieldErrors().forEach(f -> fields.putIfAbsent(f.getField(), f.getDefaultMessage()));
+		// 형 변환 실패(?minPrice=abc)의 기본 문구는 Java 클래스명·입력값을 담고 있어 그대로 내보내지 않는다
+		e.getBindingResult().getFieldErrors().forEach(f -> fields.putIfAbsent(f.getField(),
+				f.isBindingFailure() ? TYPE_MISMATCH_MESSAGE : f.getDefaultMessage()));
 		return ResponseEntity.badRequest().body(ApiError.validation(fields));
 	}
 

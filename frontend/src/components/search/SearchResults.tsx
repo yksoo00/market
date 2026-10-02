@@ -21,7 +21,7 @@ export function SearchResults({ query: initialQuery }: { query: SearchQuery }) {
   const [state, setState] = useState<State>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [moreFailed, setMoreFailed] = useState(false);
+  const [moreFailed, setMoreFailed] = useState<string | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -55,12 +55,12 @@ export function SearchResults({ query: initialQuery }: { query: SearchQuery }) {
   const loadMore = async () => {
     if (!nextCursor) return;
     setLoadingMore(true);
-    setMoreFailed(false);
+    setMoreFailed(null);
     const res = await listingsApi.search(query, nextCursor);
     setLoadingMore(false);
-    // 실패해도 이미 보이는 결과는 그대로 둔다
+    // 실패해도 이미 보이는 결과는 그대로 둔다. 429 는 계속 누르면 한도만 늘어나니 기다리라고 알린다
     if (res.ok) setState({ kind: "ready", items: [...items, ...res.data.items], nextCursor: res.data.nextCursor, total: res.data.total });
-    else setMoreFailed(true);
+    else setMoreFailed(res.code === "RATE_LIMITED" ? r.rateLimited : r.moreFailed);
   };
 
   return (
@@ -78,7 +78,7 @@ export function SearchResults({ query: initialQuery }: { query: SearchQuery }) {
           </button>
           {moreFailed && (
             <span role="alert" className="text-[13px] text-down">
-              {r.moreFailed}
+              {moreFailed}
             </span>
           )}
         </div>

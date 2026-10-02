@@ -2,7 +2,6 @@ package com.company.market.listing.repository;
 
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -56,10 +55,11 @@ public class ListingSearchRepository {
 		// 공백으로 나눈 낱말이 전부 들어 있어야 매칭 (프론트 10-01 규칙과 같음: "DDR4 ECC 32GB" ↔ "DDR4 32GB ECC RDIMM")
 		// (?U): 한글 IME 의 전각 공백(U+3000)·NBSP 도 나눈다 (JS /\s+/ 와 같게)
 		List<String> words = c.q() == null ? List.of()
-				: List.of(c.q().trim().split("(?U)\\s+")).stream().filter(w -> !w.isEmpty()).toList();
+				: List.of(c.q().split("(?U)\\s+")).stream().filter(w -> !w.isEmpty()).toList();
 		for (int i = 0; i < words.size(); i++) {
-			jpql.append(" and lower(").append(scope).append(") like :w").append(i).append(" escape '\\'");
-			params.put("w" + i, "%" + escapeLike(words.get(i).toLowerCase(Locale.ROOT)) + "%");
+			// 소문자 변환은 양쪽 다 DB lower() 로 — Java 와 PostgreSQL 은 İ·Σ 같은 글자를 다르게 바꿔 매칭이 어긋난다
+			jpql.append(" and lower(").append(scope).append(") like lower(:w").append(i).append(") escape '\\'");
+			params.put("w" + i, "%" + escapeLike(words.get(i)) + "%");
 		}
 		switch (c.status()) {
 			case "available" -> jpql.append(" and l.dtExpire is null");

@@ -124,6 +124,21 @@ class ListingSearchApiTest {
 	}
 
 	@Test
+	@DisplayName("형 변환 실패 문구에 Java 내부 정보(클래스명·입력값)를 담지 않는다")
+	void typeMismatchMessageHidesInternals() throws Exception {
+		mvc.perform(get("/api/v1/listings").param("minPrice", "abc"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.minPrice").value("형식이 올바르지 않습니다."));
+	}
+
+	@Test
+	@DisplayName("빈 field·status 는 생략과 같다 (기본값 all)")
+	void blankFieldAndStatusMeanDefault() throws Exception {
+		saveFour();
+		assertThat(regDates("field", "", "status", "")).containsExactly(A, B, C, D);
+	}
+
+	@Test
 	@DisplayName("검색어 100자는 앞뒤 공백을 뺀 길이로 센다")
 	void queryLengthCountsAfterTrim() throws Exception {
 		mvc.perform(get("/api/v1/listings").param("q", "  " + "가".repeat(100) + "  ")).andExpect(status().isOk());
