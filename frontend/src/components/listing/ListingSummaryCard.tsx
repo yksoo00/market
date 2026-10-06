@@ -51,6 +51,13 @@ export function ListingSummaryCard({ detail, owner }: { detail: ListingDetail; o
                 </dd>
               </div>
             ))}
+            {/* 행 수가 홀수면 두 쌍 배치의 마지막 줄 오른쪽이 비어 아래 선이 반만 그어진다 — 선만 있는 빈 칸으로 채운다 */}
+            {infoRows(detail).length % 2 === 1 && (
+              <div aria-hidden="true" className="hidden @lg:contents">
+                <span className="border-b border-line-2" />
+                <span className="border-b border-line-2" />
+              </div>
+            )}
           </dl>
           <ListingActions detail={detail} owner={owner} />
         </div>
