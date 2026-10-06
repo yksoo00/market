@@ -992,4 +992,34 @@ class ListingApiTest {
 			.andExpect(status().isForbidden());
 	}
 
+
+	@Test
+	@DisplayName("이름을 바꿔 새 상품을 만들 때 옛 상품의 데이터시트·사진 키를 물려주지 않는다 — 처음 등록한 다른 판매자의 파일일 수 있다")
+	void renameDoesNotCopyOldProductFiles() throws Exception {
+		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
+		String oldProduct = prodIdOf(userId, mine);
+		jdbc.update("update products set prod_data_sheet = 'private/listings/datasheets/2026/10/other.pdf', prod_photo_1 = 'public/listings/photos/2026/10/other.jpg' where prod_id = ?", oldProduct);
+
+		patchListing(mine, "{\"prodName\":\"완전 새 상품\"}").andExpect(status().isOk());
+
+		String created = prodIdOf(userId, mine);
+		assertThat(created).isNotEqualTo(oldProduct);
+		assertThat(jdbc.queryForObject("select prod_data_sheet from products where prod_id = ?", String.class, created)).isNull();
+		assertThat(jdbc.queryForObject("select prod_photo_1 from products where prod_id = ?", String.class, created)).isNull();
+	}
+
+	@Test
+	@DisplayName("이름을 바꿔 새 상품을 만드는 요청이 업로드 키 오류(400)로 실패하면 상품도 만들어지지 않고 매물은 옛 상품 그대로")
+	void renameThenInvalidUploadKeyRollsBackNewProduct() throws Exception {
+		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
+		String before = prodIdOf(userId, mine);
+		int productsBefore = jdbc.queryForObject("select count(*) from products", Integer.class);
+
+		patchListing(mine, "{\"prodName\":\"완전 새 상품\",\"testReport\":\"private/listings/test-reports/2026/10/not-uploaded.pdf\"}")
+			.andExpect(status().isBadRequest());
+
+		assertThat(prodIdOf(userId, mine)).isEqualTo(before);
+		assertThat(jdbc.queryForObject("select count(*) from products", Integer.class)).isEqualTo(productsBefore);
+	}
+
 }

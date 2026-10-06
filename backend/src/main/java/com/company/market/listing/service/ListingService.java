@@ -187,7 +187,9 @@ public class ListingService {
 			Product target = products.findOrCreate(new ProductDraft(category, name,
 					textOrCurrent(req.prodNo(), current.getProdNo()), brand,
 					textOrCurrent(req.prodMufcDate(), current.getProdMufcDate()),
-					textOrCurrent(req.prodSpecInfo(), current.getProdSpecInfo()), current.getProdDataSheet(), current.getProdPhoto1()));
+					textOrCurrent(req.prodSpecInfo(), current.getProdSpecInfo()),
+					// 옛 상품의 데이터시트·사진은 처음 등록한 다른 판매자의 파일일 수 있어 물려주지 않는다. 사진은 이 매물의 첫 사진
+					null, firstPhoto(listing)));
 			listing.changeProduct(target.getProdId());
 			return target;
 		}
@@ -356,6 +358,14 @@ public class ListingService {
 		if (key != null && !key.isEmpty()) {
 			refs.add(new UploadRef(field, key, kind));
 		}
+	}
+
+	/** 대표 사진 = 비어 있지 않은 첫 사진 칸 (상세 photos 의 첫 장과 같다). 옛 데이터는 첫 칸이 비어 있을 수 있다 */
+	private static String firstPhoto(Listing listing) {
+		return Stream.of(listing.getProdPhoto1(), listing.getProdPhoto2(), listing.getProdPhoto3(), listing.getProdImage4())
+			.filter(Objects::nonNull)
+			.findFirst()
+			.orElse(null);
 	}
 
 	private static Set<String> storedFileKeys(Listing listing) {

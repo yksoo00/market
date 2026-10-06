@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { daysToMonths, monthsToDays } from "@/lib/listingExtra";
 import { prodStateFromStored } from "@/lib/listingEdit";
 import { isValidDate } from "@/lib/search";
@@ -71,26 +72,39 @@ export function diffToRowPatch(initial: RowEditValues, current: RowEditValues): 
   return req;
 }
 
+/** 칸 검사 규칙 (zod). 수치는 등록·수정 폼과 같다 (docs/security.md "입력 검증 > 매물") */
+const rowEditSchema = (today: string) =>
+  z.object({
+    prodName: z.string().trim().min(1, v.required).max(50, v.prodName),
+    prodBrand: z.string().trim().min(1, v.required).max(50, v.prodBrand),
+    prodNo: z.string().trim().max(20, v.prodNo),
+    // 비우기("")는 통과. YYYY-MM-DD 문자열은 사전순 = 날짜순
+    prodMufcDate: z.string().superRefine((s, ctx) => {
+      if (s === "") return;
+      if (!isValidDate(s)) ctx.addIssue({ code: "custom", message: v.date });
+      else if (s > today) ctx.addIssue({ code: "custom", message: v.prodMufcDate });
+    }),
+    description: z.string().trim().max(MAX_DESCRIPTION, v.description),
+  });
+
+const CHECKED_FIELDS = ["prodName", "prodBrand", "prodNo", "prodMufcDate", "description"] as const;
+
 /**
- * 칸별 오류 문구(없으면 {}). 수치는 등록·수정 폼과 같다 (docs/security.md "입력 검증 > 매물").
- * 상품상태는 검사하지 않는다 — 고르지 않았으면 diff 가 보내지 않으므로 서버 값이 그대로 남는다.
- * today = 한국 날짜 YYYY-MM-DD (제조일은 오늘까지)
+ * 칸별 오류 문구(없으면 {}). **처음 값에서 바뀐 칸만** 본다 — 옛 데이터(날짜로 안 읽히는 제조일, 50자를 넘는 이름)가 그 칸을
+ * 안 건드린 수정까지 막지 않게 (서버도 저장값과 같은 날짜·납기일은 건너뛴다). 상품상태는 검사하지 않는다 — 고르지 않았으면
+ * diff 가 보내지 않으므로 서버 값이 그대로 남는다. today = 한국 날짜 YYYY-MM-DD (제조일은 오늘까지)
  */
-export function validateRowEdit(values: RowEditValues, today: string): Record<string, string> {
+export function validateRowEdit(initial: RowEditValues, values: RowEditValues, today: string): Record<string, string> {
+  const result = rowEditSchema(today).safeParse(values);
+  if (result.success) return {};
   const errors: Record<string, string> = {};
-  const name = values.prodName.trim();
-  if (name === "") errors.prodName = v.required;
-  else if (name.length > 50) errors.prodName = v.prodName;
-  const brand = values.prodBrand.trim();
-  if (brand === "") errors.prodBrand = v.required;
-  else if (brand.length > 50) errors.prodBrand = v.prodBrand;
-  if (values.prodNo.trim().length > 20) errors.prodNo = v.prodNo;
-  if (values.prodMufcDate !== "") {
-    if (!isValidDate(values.prodMufcDate)) errors.prodMufcDate = v.date;
-    // YYYY-MM-DD 문자열은 사전순 = 날짜순
-    else if (values.prodMufcDate > today) errors.prodMufcDate = v.prodMufcDate;
+  for (const issue of result.error.issues) {
+    const field = issue.path[0];
+    if (typeof field !== "string" || errors[field]) continue;
+    if (!(CHECKED_FIELDS as readonly string[]).includes(field)) continue;
+    if (initial[field as (typeof CHECKED_FIELDS)[number]] === values[field as (typeof CHECKED_FIELDS)[number]]) continue;
+    errors[field] = issue.message;
   }
-  if (values.description.trim().length > MAX_DESCRIPTION) errors.description = v.description;
   return errors;
 }
 

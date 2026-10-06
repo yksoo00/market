@@ -105,31 +105,41 @@ describe("diffToRowPatch", () => {
 
 describe("validateRowEdit", () => {
   const today = "2026-10-06";
+  const check = (over: Partial<RowEditValues>) => validateRowEdit(initial, { ...initial, ...over }, today);
 
   it("정상 값이면 오류 없음", () => {
-    expect(validateRowEdit(initial, today)).toEqual({});
+    expect(validateRowEdit(initial, { ...initial }, today)).toEqual({});
   });
 
   it("상품명·제조사는 공백뿐이면 필수 오류, 50자 넘으면 길이 오류", () => {
-    expect(validateRowEdit({ ...initial, prodName: "   " }, today).prodName).toMatch(/필수/);
-    expect(validateRowEdit({ ...initial, prodBrand: "" }, today).prodBrand).toMatch(/필수/);
-    expect(validateRowEdit({ ...initial, prodName: "가".repeat(51) }, today).prodName).toMatch(/50자/);
+    expect(check({ prodName: "   " }).prodName).toMatch(/필수/);
+    expect(check({ prodBrand: "" }).prodBrand).toMatch(/필수/);
+    expect(check({ prodName: "가".repeat(51) }).prodName).toMatch(/50자/);
   });
 
   it("상품번호 20자 초과, 설명 200자 초과", () => {
-    expect(validateRowEdit({ ...initial, prodNo: "A".repeat(21) }, today).prodNo).toMatch(/20자/);
-    expect(validateRowEdit({ ...initial, description: "가".repeat(201) }, today).description).toMatch(/200자/);
+    expect(check({ prodNo: "A".repeat(21) }).prodNo).toMatch(/20자/);
+    expect(check({ description: "가".repeat(201) }).description).toMatch(/200자/);
   });
 
   it("제조일: 없는 날짜·미래는 오류, 비우기와 오늘은 통과", () => {
-    expect(validateRowEdit({ ...initial, prodMufcDate: "2026-13-01" }, today).prodMufcDate).toBeDefined();
-    expect(validateRowEdit({ ...initial, prodMufcDate: "2026-10-07" }, today).prodMufcDate).toBeDefined();
-    expect(validateRowEdit({ ...initial, prodMufcDate: "2026-10-06" }, today)).toEqual({});
-    expect(validateRowEdit({ ...initial, prodMufcDate: "" }, today)).toEqual({});
+    expect(check({ prodMufcDate: "2026-13-01" }).prodMufcDate).toBeDefined();
+    expect(check({ prodMufcDate: "2026-10-07" }).prodMufcDate).toBeDefined();
+    expect(check({ prodMufcDate: "2026-10-06" })).toEqual({});
+    expect(check({ prodMufcDate: "" })).toEqual({});
   });
 
   it("상품상태를 못 고른(빈 값, 옛 형식 매핑 실패) 채로 상태를 안 건드렸으면 통과 — 보내지 않으니까", () => {
-    expect(validateRowEdit({ ...initial, prodState: "" }, today).prodState).toBeUndefined();
+    expect(check({ prodState: "" }).prodState).toBeUndefined();
+  });
+
+  it("처음부터 있던 값은 검사하지 않는다 — 옛 데이터(날짜로 안 읽히는 제조일·긴 이름)가 다른 칸 수정을 막지 않게", () => {
+    const legacy = { ...initial, prodMufcDate: "2019", prodName: "가".repeat(60) };
+    expect(validateRowEdit(legacy, { ...legacy }, today)).toEqual({});
+    expect(validateRowEdit(legacy, { ...legacy, prodState: "신품" }, today)).toEqual({});
+    // 건드리면 그때부터 검사
+    expect(validateRowEdit(legacy, { ...legacy, prodMufcDate: "2019-13-45" }, today).prodMufcDate).toBeDefined();
+    expect(validateRowEdit(legacy, { ...legacy, prodName: "가".repeat(61) }, today).prodName).toMatch(/50자/);
   });
 });
 

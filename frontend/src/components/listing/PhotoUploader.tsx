@@ -34,10 +34,12 @@ interface Props {
   onUploadingChange: (uploading: boolean) => void;
   /** 검증·서버 오류 (fields.photos) */
   error?: string;
+  /** 방금 고른 사진의 문제(개수 초과·형식·크기·업로드 실패). 이 폼이 숨겨져 있어도 부모가 알 수 있게 */
+  onProblemChange?: (problem: string | null) => void;
 }
 
 /** 사진 최대 4장. 고르는 즉시 올리고(2단계 업로드) 키만 폼 값으로 넘긴다. 미리보기는 고른 파일 자체 */
-export function PhotoUploader({ value, initialKeys = [], onChange, onUploadingChange, error }: Props) {
+export function PhotoUploader({ value, initialKeys = [], onChange, onUploadingChange, error, onProblemChange }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const nextId = useRef(initialKeys.length);
   const [slots, setSlots] = useState<Slot[]>(() =>
@@ -101,6 +103,8 @@ export function PhotoUploader({ value, initialKeys = [], onChange, onUploadingCh
   const slotErrors = slots.flatMap((s) => (s.status === "error" && s.message ? [s.message] : []));
   // 여러 장이 같은 이유로 실패하면 같은 문구가 반복된다 → 한 번만 (key 로도 쓰므로 중복 금지)
   const messages = [...new Set([error, notice, ...slotErrors].filter((m): m is string => Boolean(m)))];
+  const problem = [...new Set([notice, ...slotErrors].filter((m): m is string => Boolean(m)))].join(" · ") || null;
+  useEffect(() => onProblemChange?.(problem), [problem, onProblemChange]);
 
   return (
     // 라벨 왼쪽 배치 — 다른 칸(FieldShell inline)과 같은 격자

@@ -44,7 +44,7 @@ public enum ErrorCode {
 	// 매물
 	LISTING_DUPLICATE_REG_TIME(HttpStatus.CONFLICT, "같은 시각에 이미 등록된 매물이 있습니다. 다시 시도해 주세요."),
 	LISTING_NOT_FOUND(HttpStatus.NOT_FOUND, "매물을 찾을 수 없습니다."),
-	PRODUCT_SHARED(HttpStatus.UNPROCESSABLE_ENTITY, "다른 판매자와 같이 쓰는 상품 정보라 고칠 수 없습니다."),
+	PRODUCT_SHARED(HttpStatus.UNPROCESSABLE_ENTITY, "다른 매물과 같이 쓰는 상품 정보라 고칠 수 없습니다."),
 
 	// 업로드
 	UPLOAD_INVALID_TYPE(HttpStatus.BAD_REQUEST, "올릴 수 없는 파일 형식입니다."),

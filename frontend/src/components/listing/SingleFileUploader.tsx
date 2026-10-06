@@ -33,6 +33,8 @@ interface Props {
   onUploadingChange: (uploading: boolean) => void;
   /** 검증·서버 오류 (fields.<칸>) */
   error?: string;
+  /** 방금 업로드·고른 파일의 문제(형식·크기·업로드 실패). 이 폼이 숨겨져 있어도 부모가 알 수 있게 */
+  onProblemChange?: (problem: string | null) => void;
 }
 
 /** 파일 1개 업로더 (데이터시트·대체품·테스트리포트·정품인증서). 새로 고르면 바꾼다 */
@@ -48,6 +50,7 @@ export function SingleFileUploader({
   onChange,
   onUploadingChange,
   error,
+  onProblemChange,
 }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [state, setState] = useState<State>(() =>
@@ -110,6 +113,7 @@ export function SingleFileUploader({
   // 서버·검증 오류(error)와 방금 업로드의 문제(problem)를 따로 보인다. 서버가 "다시 올려 주세요"라고 한 뒤
   // 다시 올리다 실패하면 둘 다 의미가 있고, 실패 원인·[다시 시도]가 서버 문구에 가려지면 안 된다
   const messages = [...new Set([error, problem].filter((m): m is string => Boolean(m)))];
+  useEffect(() => onProblemChange?.(problem), [problem, onProblemChange]);
 
   return (
     // 라벨 왼쪽 배치 — 다른 칸(FieldShell inline)과 같은 격자

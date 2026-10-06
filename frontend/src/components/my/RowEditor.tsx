@@ -120,7 +120,10 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
   // 제조일 범위의 "오늘". 연 날 기준으로 고정 (자정을 넘겨도 서버가 다시 본다)
   const [today] = useState(() => todayInSeoul());
   const [panel, setPanel] = useState<Panel | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  // 서버가 돌려준 칸 오류. 그 칸을 고치면 지운다. 클라이언트 검사(clientErrors)는 입력할 때마다 다시 계산한다
+  const [serverErrors, setServerErrors] = useState<Record<string, string>>({});
+  // 숨은 패널 안 업로드 문제(형식·크기·실패) — 패널 단추를 붉게 하고 그 패널을 연다
+  const [problems, setProblems] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [unreachable, setUnreachable] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -129,30 +132,43 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
   const patch = diffToRowPatch(initial, values);
   const changed = Object.keys(patch).length > 0;
   const anyUploading = Object.values(uploading).some(Boolean);
+  // 입력 즉시 검사 (바뀐 칸만). 오류가 있으면 [저장]을 막는다
+  const clientErrors = useMemo(() => validateRowEdit(initial, values, today), [initial, values, today]);
+  const errors = { ...clientErrors, ...serverErrors, ...problems };
+  const invalid = Object.keys(clientErrors).length > 0;
 
   const set = useCallback(<K extends keyof RowEditValues>(key: K, value: RowEditValues[K]) => {
     setValues((v) => ({ ...v, [key]: value }));
-    // 고치면 그 칸의 오류는 지운다
-    setErrors((e) => {
+    // 고치면 그 칸의 서버 오류는 지운다
+    setServerErrors((e) => {
       if (!(key in e)) return e;
       return Object.fromEntries(Object.entries(e).filter(([k]) => k !== key));
     });
   }, []);
   // 업로더의 effect 의존성이라 참조가 바뀌지 않게
   const setPhotos = useCallback((keys: string[]) => set("photos", keys), [set]);
+  // 업로더의 effect 의존성이라 참조가 바뀌지 않게 (칸마다 하나씩)
+  const problemSetters = useMemo(() => {
+    const make = (name: keyof RowEditValues, panel: Panel) => (problem: string | null) =>
+      setProblems((p) => {
+        if ((p[name] ?? null) === problem) return p;
+        if (problem === null) return Object.fromEntries(Object.entries(p).filter(([k]) => k !== name));
+        setPanel(panel);
+        return { ...p, [name]: problem };
+      });
+    return {
+      photos: make("photos", "photos"),
+      listingDataSheet: make("listingDataSheet", "dataSheet"),
+      replaceProd: make("replaceProd", "replaceProd"),
+      testReport: make("testReport", "testReport"),
+      certificateOfAuthen: make("certificateOfAuthen", "certificate"),
+    };
+  }, []);
   const setUploadingOf = (name: string) => (u: boolean) => setUploading((p) => (p[name] === u ? p : { ...p, [name]: u }));
   const setPhotosUploading = useCallback((u: boolean) => setUploading((p) => (p.photos === u ? p : { ...p, photos: u })), []);
 
   const save = async () => {
-    if (!changed || anyUploading || saving) return;
-    const found = validateRowEdit(values, today);
-    setErrors(found);
-    if (Object.keys(found).length > 0) {
-      setFormError(null);
-      const bad = (Object.keys(found) as (keyof RowEditValues)[]).map((k) => FIELD_TO_PANEL[k]).find(Boolean);
-      if (bad) setPanel(bad);
-      return;
-    }
+    if (!changed || anyUploading || saving || invalid) return;
     setFormError(null);
     setUnreachable(false);
     setSaving(true);
@@ -171,7 +187,7 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
       if (mapped) known[mapped] = message;
       else unmatched ??= message;
     }
-    setErrors(known);
+    setServerErrors(result.code === "PRODUCT_SHARED" ? Object.fromEntries(Object.keys(known).map((k) => [k, listing.errors.PRODUCT_SHARED])) : known);
     const open = (Object.keys(known) as (keyof RowEditValues)[]).map((k) => FIELD_TO_PANEL[k]).find(Boolean);
     if (open) setPanel(open);
     // 칸 오류가 있으면 그 칸에(못 찾은 건 행 위), 없으면 코드별 문구 → 서버 문구
@@ -202,7 +218,7 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
           <button
             type="button"
             onClick={() => void save()}
-            disabled={!changed || anyUploading || saving}
+            disabled={!changed || anyUploading || saving || invalid}
             className="h-8.5 px-4 rounded-md bg-primary text-white text-sm font-bold hover:bg-primary-dark disabled:opacity-40 disabled:pointer-events-none"
           >
             {saving ? r.saving : r.save}
@@ -273,6 +289,7 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
                     maxLength={60}
                     aria-label={c.prodName}
                     aria-invalid={Boolean(errors.prodName)}
+                    aria-describedby={errors.prodName ? "re-prodName-error" : undefined}
                     className={inputClass}
                   />
                 </Cell>
@@ -286,6 +303,7 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
                     maxLength={30}
                     aria-label={c.prodNo}
                     aria-invalid={Boolean(errors.prodNo)}
+                    aria-describedby={errors.prodNo ? "re-prodNo-error" : undefined}
                     className={cn(inputClass, "font-mono")}
                   />
                 </Cell>
@@ -299,6 +317,7 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
                     maxLength={60}
                     aria-label={c.brand}
                     aria-invalid={Boolean(errors.prodBrand)}
+                    aria-describedby={errors.prodBrand ? "re-prodBrand-error" : undefined}
                     className={inputClass}
                   />
                 </Cell>
@@ -313,6 +332,7 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
                     onChange={(e) => set("prodMufcDate", e.target.value)}
                     aria-label={c.mufcDate}
                     aria-invalid={Boolean(errors.prodMufcDate)}
+                    aria-describedby={errors.prodMufcDate ? "re-prodMufcDate-error" : undefined}
                     className={cn(inputClass, "px-1.5 text-xs")}
                   />
                 </Cell>
@@ -325,6 +345,7 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
                     onChange={(e) => set("prodState", e.target.value)}
                     aria-label={c.state}
                     aria-invalid={Boolean(errors.prodState)}
+                    aria-describedby={errors.prodState ? "re-prodState-error" : undefined}
                     className={inputClass}
                   >
                     {/* 옛 형식 값이라 구간에 못 맞추면 빈 값 — 안 고르면 보내지 않아 서버 값이 그대로 남는다 */}
@@ -348,6 +369,7 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
                     onChange={(e) => set("warrantyMonths", Number(e.target.value))}
                     aria-label={my.mine.row.warranty}
                     aria-invalid={Boolean(errors.warrantyMonths)}
+                    aria-describedby={errors.warrantyMonths ? "re-warranty-error" : undefined}
                     className={inputClass}
                   >
                     {WARRANTY_MONTHS.map((m) => (
@@ -366,6 +388,7 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
                     onChange={(e) => set("warrantyCoverage", e.target.value)}
                     aria-label={c.coverage}
                     aria-invalid={Boolean(errors.warrantyCoverage)}
+                    aria-describedby={errors.warrantyCoverage ? "re-coverage-error" : undefined}
                     className={inputClass}
                   >
                     {WARRANTY_COVERAGES.map((v) => (
@@ -420,6 +443,7 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
             initialKey={initial.listingDataSheet || undefined}
             onChange={(key) => set("listingDataSheet", key)}
             onUploadingChange={setUploadingOf("listingDataSheet")}
+            onProblemChange={problemSetters.listingDataSheet}
             error={errors.listingDataSheet}
           />
         </div>
@@ -430,6 +454,7 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
             initialKeys={initial.photos}
             onChange={setPhotos}
             onUploadingChange={setPhotosUploading}
+            onProblemChange={problemSetters.photos}
             error={errors.photos}
           />
         </div>
@@ -449,6 +474,7 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
                 initialKey={initial[spec.field] || undefined}
                 onChange={(key) => set(spec.field, key)}
                 onUploadingChange={setUploadingOf(spec.field)}
+                onProblemChange={problemSetters[spec.field]}
                 error={errors[spec.field]}
               />
             </div>

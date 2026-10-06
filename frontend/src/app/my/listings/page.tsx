@@ -1,9 +1,7 @@
 import type { Metadata } from "next";
 import { RequireLogin } from "@/components/auth/RequireLogin";
 import { MobileTabBar } from "@/components/common/MobileTabBar";
-import { FilterBar } from "@/components/search/FilterBar";
-import { SearchForm } from "@/components/search/SearchForm";
-import { SearchResults } from "@/components/search/SearchResults";
+import { MyListingsView } from "@/components/my/MyListingsView";
 import { buildSearchHref, parseSearchParams, type RawSearchParams } from "@/lib/search";
 import { my } from "@/messages/my";
 
@@ -20,9 +18,7 @@ export default async function MyListingsPage({ searchParams }: { searchParams: P
         <div className="w-full max-w-300 mx-auto flex flex-col gap-3 @md:gap-4 pb-3 @md:pb-6">
           <h1 className="px-1 text-xl font-bold">{my.mine.title}</h1>
           <RequireLogin>
-            <SearchForm key={`form-${key}`} query={query} scope="mine" />
-            <FilterBar key={`filter-${key}`} query={query} scope="mine" />
-            <SearchResults key={key} query={query} scope="mine" />
+            <MyListingsView query={query} viewKey={key} />
           </RequireLogin>
         </div>
       </main>
