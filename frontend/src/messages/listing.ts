@@ -176,6 +176,7 @@ export const listing = {
     quote: "견적 요청",
     buy: "구매",
     edit: "수정",
+    addExtra: "판매정보 추가",
     remove: "삭제",
     pendingTrade: "구매·견적 요청은 준비 중이에요. 거래 방식이 정해지면 열립니다.",
     dismiss: "알림 닫기",
