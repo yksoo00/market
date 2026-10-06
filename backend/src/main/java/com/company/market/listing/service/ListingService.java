@@ -28,6 +28,8 @@ import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.ListingId;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.dto.ListingCreateRequest;
+import com.company.market.listing.dto.ListingMineItemResponse;
+import com.company.market.listing.dto.ListingMinePageResponse;
 import com.company.market.listing.dto.ListingPageResponse;
 import com.company.market.listing.dto.ListingResponse;
 import com.company.market.listing.dto.ListingSearchCondition;
@@ -57,6 +59,9 @@ public class ListingService {
 	private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
 	private static final int PAGE_SIZE = 20;
+
+	/** 판매정보 추가등록 보증기간 드롭다운(없음·1·3·6·12·24·36개월 × 30일). 자유 숫자를 받으면 365·360 처럼 같은 뜻의 값이 흩어진다 (decisions.md 2026-10-06) */
+	static final Set<Integer> WARRANTY_DAYS = Set.of(0, 30, 90, 180, 360, 720, 1080);
 
 	private final ListingRepository listings;
 
@@ -129,6 +134,11 @@ public class ListingService {
 		}
 		// 이미 저장된 납기일을 그대로 다시 보내면(수정 화면이 모든 칸을 보낼 때) 지난 날짜여도 통과
 		validateDates(null, Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
+		// 저장된 값과 같으면 통과 — 옛 값(365)이 있는 매물의 다른 칸 수정이 막히지 않게 (납기일과 같은 이유)
+		if (req.warrantyPeriod() != null && !WARRANTY_DAYS.contains(req.warrantyPeriod())
+				&& !req.warrantyPeriod().equals(listing.getWarrantyPeriod())) {
+			throw new ValidationException(Map.of("warrantyPeriod", "보증기간은 목록에서 고른 값이어야 합니다."));
+		}
 		int effectiveMinOrderQuantity = req.minOrderQuantity() == null ? listing.getMinOrderQuantity() : req.minOrderQuantity();
 		int effectiveSalesQuantity = req.salesQuantity() == null ? listing.getSalesQuantity() : req.salesQuantity();
 		if (effectiveMinOrderQuantity > effectiveSalesQuantity) {
@@ -182,6 +192,21 @@ public class ListingService {
 		List<ListingSearchItemResponse> items = page.stream().map(r -> toSearchItem((Listing) r[0], (Product) r[1])).toList();
 		String nextCursor = hasMore ? encodeCursor((Listing) page.get(page.size() - 1)[0]) : null;
 		return new ListingPageResponse(items, nextCursor, searchRepository.count(condition));
+	}
+
+	/** 내 매물만 최신순 20개씩. 커서는 regDate 하나 — 같은 사용자의 regDate 는 유일하다. 깨진 커서는 첫 페이지 */
+	public ListingMinePageResponse mine(UUID userId, String cursor) {
+		String after = cursor != null && cursor.matches("\\d{14}") ? cursor : null;
+		List<Object[]> rows = searchRepository.findMinePage(userId, after, PAGE_SIZE + 1);
+		boolean hasMore = rows.size() > PAGE_SIZE;
+		List<Object[]> page = hasMore ? rows.subList(0, PAGE_SIZE) : rows;
+		List<ListingMineItemResponse> items = page.stream().map(r -> {
+			Listing l = (Listing) r[0];
+			Product p = (Product) r[1];
+			return new ListingMineItemResponse(l.getUserId(), l.getRegDate(), p.getProdNo(), p.getProdName(), p.getProdBrand(),
+					l.extraFilledCount());
+		}).toList();
+		return new ListingMinePageResponse(items, hasMore ? ((Listing) page.get(page.size() - 1)[0]).getRegDate() : null);
 	}
 
 	/** 커서는 "regDate_userId". reg_date 만으로는 같은 초의 다른 사용자를 페이지 경계에서 건너뛸 수 있어 튜플로 묶는다 */
