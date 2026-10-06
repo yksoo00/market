@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { RowEditor } from "@/components/my/RowEditor";
 import { ResultList } from "@/components/search/ResultList";
+import { authApi } from "@/lib/api/auth";
 import { listingsApi } from "@/lib/api/listings";
 import { applyDetailToItem } from "@/lib/rowEdit";
 import type { SearchQuery, SearchScope } from "@/lib/search";
@@ -37,6 +38,18 @@ export function SearchResults({
   const [editing, setEditing] = useState<ListingSearchItem | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const savedScroll = useRef(0);
+  // 내 판매글: 내 글에만 [수정]을 그리려고 로그인한 사용자 id 를 안다 (아직 모르면 버튼을 그리지 않는다)
+  const [meId, setMeId] = useState<string | null>(null);
+  useEffect(() => {
+    if (scope !== "mine") return;
+    let alive = true;
+    void authApi.me().then((res) => {
+      if (alive && res.ok) setMeId(res.data.id);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [scope]);
   // 뒤로가기 등으로 이 화면이 다시 마운트되면 부모가 "수정 중"으로 남지 않게
   useEffect(() => () => onEditingChange?.(false), [onEditingChange]);
 
@@ -124,7 +137,7 @@ export function SearchResults({
 
   return (
     <div ref={rootRef} className="contents">
-      <ResultList items={items} query={query} total={total} scope={scope} onEdit={scope === "mine" ? startEdit : undefined} />
+      <ResultList items={items} query={query} total={total} scope={scope} onEdit={scope === "mine" ? startEdit : undefined} ownerId={meId} />
       {nextCursor && (
         <div className="flex items-center justify-center gap-2 pt-1">
           <button

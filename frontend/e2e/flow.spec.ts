@@ -107,6 +107,10 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await expect(rowOf(page, prodName)).toBeVisible();
   });
 
+  await test.step("[수정]은 내 글에만 — 남의 글이 섞여 나와도 수정 버튼은 내 글 한 줄뿐", async () => {
+    await expect(page.getByRole("table").getByRole("button", { name: /수정$/ })).toHaveCount(1);
+  });
+
   await test.step("내 글만 보인다 — 헤더 줄 + 방금 등록한 글 한 줄 (다른 사용자 글은 없다)", async () => {
     await expect(page.getByRole("table").getByRole("row")).toHaveCount(2);
   });

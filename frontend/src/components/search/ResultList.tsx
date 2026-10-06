@@ -6,6 +6,7 @@ import { useState, type MouseEvent, type ReactNode } from "react";
 import { Icon } from "@/components/common/Icon";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatPrice } from "@/lib/format";
+import { isOwner } from "@/lib/listingDetail";
 import { activeFilterCount, buildSearchHref, clearFilters, listingHref, type SearchQuery, type SearchScope } from "@/lib/search";
 import { my } from "@/messages/my";
 import { search as t } from "@/messages/search";
@@ -61,12 +62,15 @@ interface Props {
   scope?: SearchScope;
   /** mine 모드에서 표의 [수정] 을 눌렀을 때 (행 안 수정). 없으면 [수정] 은 수정 화면 링크 */
   onEdit?: (item: ListingSearchItem) => void;
+  /** mine 모드: 로그인한 사용자 id. 내 글에만 [수정]을 그린다 (서버가 mine=true 로 거르지 못해도 남의 글에 수정 버튼이 뜨지 않게) */
+  ownerId?: string | null;
 }
 
 // 선택 상태는 결과 집합마다 새로 시작한다 — 페이지에서 key={buildSearchHref(query)}로 다시 마운트
-export function ResultList({ items, query, total, scope = "search", onEdit }: Props) {
+export function ResultList({ items, query, total, scope = "search", onEdit, ownerId = null }: Props) {
   const router = useRouter();
   const mine = scope === "mine";
+  const canEdit = (item: ListingSearchItem) => mine && isOwner(ownerId, item.userId);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   // seq: 같은 문구가 연달아 나와도 알림 요소를 새로 그려 스크린리더가 다시 읽게 한다 (key 로 사용)
   const [notice, setNotice] = useState<number | null>(null);
@@ -202,7 +206,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit }: Pr
                   ))}
                   {mine && (
                     <td className="sticky right-0 z-10 bg-surface group-hover:bg-bg px-2 text-center border-l border-line-2" onClick={stop}>
-                      <EditButton item={item} onEdit={onEdit} />
+                      {canEdit(item) && <EditButton item={item} onEdit={onEdit} />}
                     </td>
                   )}
                 </tr>
@@ -247,7 +251,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit }: Pr
                 </div>
                 <ExtraChips item={item} />
                 {/* 좁은 카드는 칸 단위 편집이 어려워 행 안 수정 대신 수정 화면으로 간다 */}
-                {mine && (
+                {canEdit(item) && (
                   <div onClick={stop}>
                     <Link
                       href={`${listingHref(item)}/edit`}
