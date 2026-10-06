@@ -28,6 +28,8 @@ import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.ListingId;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.dto.ListingCreateRequest;
+import com.company.market.listing.dto.ListingMineItemResponse;
+import com.company.market.listing.dto.ListingMinePageResponse;
 import com.company.market.listing.dto.ListingPageResponse;
 import com.company.market.listing.dto.ListingResponse;
 import com.company.market.listing.dto.ListingSearchCondition;
@@ -182,6 +184,21 @@ public class ListingService {
 		List<ListingSearchItemResponse> items = page.stream().map(r -> toSearchItem((Listing) r[0], (Product) r[1])).toList();
 		String nextCursor = hasMore ? encodeCursor((Listing) page.get(page.size() - 1)[0]) : null;
 		return new ListingPageResponse(items, nextCursor, searchRepository.count(condition));
+	}
+
+	/** 내 매물만 최신순 20개씩. 커서는 regDate 하나 — 같은 사용자의 regDate 는 유일하다. 깨진 커서는 첫 페이지 */
+	public ListingMinePageResponse mine(UUID userId, String cursor) {
+		String after = cursor != null && cursor.matches("\\d{14}") ? cursor : null;
+		List<Object[]> rows = searchRepository.findMinePage(userId, after, PAGE_SIZE + 1);
+		boolean hasMore = rows.size() > PAGE_SIZE;
+		List<Object[]> page = hasMore ? rows.subList(0, PAGE_SIZE) : rows;
+		List<ListingMineItemResponse> items = page.stream().map(r -> {
+			Listing l = (Listing) r[0];
+			Product p = (Product) r[1];
+			return new ListingMineItemResponse(l.getUserId(), l.getRegDate(), p.getProdNo(), p.getProdName(), p.getProdBrand(),
+					l.extraFilledCount());
+		}).toList();
+		return new ListingMinePageResponse(items, hasMore ? ((Listing) page.get(page.size() - 1)[0]).getRegDate() : null);
 	}
 
 	/** 커서는 "regDate_userId". reg_date 만으로는 같은 초의 다른 사용자를 페이지 경계에서 건너뛸 수 있어 튜플로 묶는다 */
