@@ -9,8 +9,9 @@ export default function HomePage() {
   return (
     <>
       {/* 문구·검색·아이콘, 구매대행·경매 자리, 실시간 두 줄을 한 덩어리로 세로 가운데(태블릿 이상).
-          실시간은 줄마다 카드가 옆으로 이어지고 가로 스크롤 — 높이가 고정이라 페이지는 세로 스크롤 없음 */}
-      <main className="flex-1 min-h-0 px-4 @md:px-6 py-3 @md:py-5 flex flex-col @md:justify-center gap-3 @md:gap-6">
+          실시간은 줄마다 카드가 옆으로 이어지고 가로 스크롤 — 높이가 고정이라 보통 세로 스크롤 없음.
+          블록이 전부 shrink-0 이라 화면이 아주 낮으면(가로 모바일·확대 배율) 잘리므로 그때만 main 이 스크롤한다 */}
+      <main className="flex-1 min-h-0 overflow-y-auto px-4 @md:px-6 py-3 @md:py-5 flex flex-col @md:justify-center-safe gap-3 @md:gap-6">
         <section className="shrink-0 w-full max-w-220 mx-auto flex flex-col gap-3 @md:gap-5">
           <h1 className="-mb-1 @md:-mb-2 text-center text-[17px] @md:text-xl font-bold text-ink">{t.tagline}</h1>
           <SearchBox />
