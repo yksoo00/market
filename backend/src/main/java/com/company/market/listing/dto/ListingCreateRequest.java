@@ -36,10 +36,13 @@ public record ListingCreateRequest(
 		@Size(max = 100) String listingDataSheet,
 		@Size(max = 4) List<@NotBlank @Size(max = 100) String> photos) {
 
-	/** "신품" 또는 "신품대비 N%"(N = 1~99). 레거시 형식을 고정해 값이 제각각 쌓이지 않게 (security.md "매물") */
-	public static final String PROD_STATE_PATTERN = "^(신품|신품대비 [1-9][0-9]?%)$";
+	/**
+	 * 등록 폼 드롭다운의 구간 값만 (2026-10-06, security.md "매물"). 위쪽은 10% 단위로 촘촘하게, 50% 미만은 하나로.
+	 * 자유 숫자(신품대비 N%)를 받으면 비교·필터가 어려워 구간으로 고정한다. 옛 값(신품대비 70% 등)은 DB 에 남지만 새로 쓸 수 없다
+	 */
+	public static final String PROD_STATE_PATTERN = "^(신품|신품대비 (90~99|80~89|70~79|60~69|50~59)%|신품대비 50% 미만)$";
 
-	public static final String PROD_STATE_MESSAGE = "상품상태는 '신품' 또는 '신품대비 N%'(N은 1~99) 형식이어야 합니다.";
+	public static final String PROD_STATE_MESSAGE = "상품상태는 목록에서 고른 값이어야 합니다 (신품, 신품대비 90~99% … 50% 미만).";
 
 	/** 빈 문자열은 "비우기"(수정) 또는 "없음"(등록) — 파일 칸과 같은 규칙 */
 	public static final String DELIVERY_DATE_PATTERN = "^(\\d{4}-\\d{2}-\\d{2})?$";
