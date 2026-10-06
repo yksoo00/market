@@ -17,6 +17,7 @@ public enum ErrorCode {
 	NOT_FOUND(HttpStatus.NOT_FOUND, "없는 경로입니다."),
 	RATE_LIMITED(HttpStatus.TOO_MANY_REQUESTS, "시도가 너무 많습니다. 잠시 후 다시 시도하세요."),
 	INTERNAL(HttpStatus.INTERNAL_SERVER_ERROR, "일시적인 오류가 발생했습니다."),
+	REQUEST_IN_PROGRESS(HttpStatus.CONFLICT, "같은 요청을 처리하고 있습니다. 잠시 후 다시 시도해 주세요."),
 
 	// 인증
 	INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 맞지 않습니다."),

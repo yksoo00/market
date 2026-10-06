@@ -485,6 +485,105 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.data.deliveryDate").value(org.hamcrest.Matchers.nullValue()));
 	}
 
+	@Test
+	@DisplayName("서비스 입력 검증 실패(최소주문량 > 판매수량, 남의 파일 키)는 등록·수정 한도를 깎지 않는다")
+	void validationFailureDoesNotConsumeRateLimit() throws Exception {
+		createWithFields("노트북 R1", "\"minOrderQuantity\":5").andExpect(status().isBadRequest());
+		createWithPhoto(uploaded(otherUserCookie(), UploadKind.LISTING_PHOTO), "노트북 R2").andExpect(status().isBadRequest());
+		assertThat(redis.opsForValue().get("listing:create:" + userId)).isIn(null, "0");
+
+		String regDate = createListing(authCookie);
+		assertThat(redis.opsForValue().get("listing:create:" + userId)).isEqualTo("1");
+
+		patchListing(regDate, "{\"minOrderQuantity\":99}").andExpect(status().isBadRequest());
+		assertThat(redis.opsForValue().get("listing:update:" + userId)).isIn(null, "0");
+		patchListing(regDate, "{\"salesUnitPrice\":900}").andExpect(status().isOk());
+		assertThat(redis.opsForValue().get("listing:update:" + userId)).isEqualTo("1");
+	}
+
+	@Test
+	@DisplayName("같은 Idempotency-Key 로 다시 등록하면(응답 유실 후 재시도) 새로 만들지 않고 처음 매물을 돌려준다")
+	void idempotentCreateReturnsFirstListing() throws Exception {
+		String key = UUID.randomUUID().toString();
+		String first = createIdempotent(key, "노트북 I1").andExpect(status().isCreated())
+			.andReturn().getResponse().getContentAsString().replaceAll(".*\"regDate\":\"([^\"]+)\".*", "$1");
+
+		createIdempotent(key, "노트북 I1").andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.regDate").value(first))
+			.andExpect(jsonPath("$.data.prodName").value("노트북 I1"));
+		assertThat(listingRepository.count()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("한도를 다 쓴 뒤에도 같은 키 재요청은 처음 매물을 돌려주고, 재전송·처리 중 응답은 한도를 깎지 않는다")
+	void idempotentReplayIgnoresRateLimit() throws Exception {
+		String key = UUID.randomUUID().toString();
+		createIdempotent(key, "노트북 I7").andExpect(status().isCreated());
+		redis.opsForValue().set("listing:create:" + userId, "10");
+
+		createIdempotent(key, "노트북 I7").andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.prodName").value("노트북 I7"));
+		String pending = UUID.randomUUID().toString();
+		redis.opsForValue().set("idem:listing-create:" + userId + ":" + pending, "PENDING");
+		createIdempotent(pending, "노트북 I8").andExpect(status().isConflict());
+		assertThat(redis.opsForValue().get("listing:create:" + userId)).isEqualTo("10");
+	}
+
+	@Test
+	@DisplayName("같은 키의 첫 요청이 아직 처리 중이면 409 REQUEST_IN_PROGRESS")
+	void idempotentCreateInProgress() throws Exception {
+		String key = UUID.randomUUID().toString();
+		redis.opsForValue().set("idem:listing-create:" + userId + ":" + key, "PENDING");
+
+		createIdempotent(key, "노트북 I2").andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("REQUEST_IN_PROGRESS"));
+		assertThat(listingRepository.count()).isZero();
+	}
+
+	@Test
+	@DisplayName("키를 쓴 요청이 실패하면 키를 풀어, 고쳐서 같은 키로 다시 보내면 등록된다")
+	void idempotencyKeyReleasedOnFailure() throws Exception {
+		String key = UUID.randomUUID().toString();
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).header("Idempotency-Key", key)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"ELEC0001","prodName":"노트북 I3","prodBrand":"삼성",
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,"minOrderQuantity":5}
+					"""))
+			.andExpect(status().isBadRequest());
+
+		createIdempotent(key, "노트북 I3").andExpect(status().isCreated());
+	}
+
+	@Test
+	@DisplayName("다른 사용자가 같은 키를 써도 서로 영향이 없다")
+	void idempotencyKeyIsPerUser() throws Exception {
+		String key = UUID.randomUUID().toString();
+		createIdempotent(key, "노트북 I4").andExpect(status().isCreated());
+
+		mvc.perform(post("/api/v1/listings").cookie(otherUserCookie()).header("Idempotency-Key", key)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"ELEC0001","prodName":"노트북 I5","prodBrand":"삼성",
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					"""))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.prodName").value("노트북 I5"));
+	}
+
+	@Test
+	@DisplayName("Idempotency-Key 가 UUID 형식이 아니면 400 BAD_REQUEST")
+	void rejectsMalformedIdempotencyKey() throws Exception {
+		createIdempotent("not-a-uuid", "노트북 I6").andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("BAD_REQUEST"));
+	}
+
+	private ResultActions createIdempotent(String key, String prodName) throws Exception {
+		return mvc.perform(post("/api/v1/listings").cookie(authCookie).header("Idempotency-Key", key)
+			.contentType(MediaType.APPLICATION_JSON).content("""
+				{"categoryCode":"ELEC0001","prodName":"%s","prodBrand":"삼성",
+				 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+				""".formatted(prodName)));
+	}
+
 	private ResultActions createWithFields(String prodName, String extraJson) throws Exception {
 		return mvc.perform(post("/api/v1/listings").cookie(authCookie)
 			.contentType(MediaType.APPLICATION_JSON).content("""

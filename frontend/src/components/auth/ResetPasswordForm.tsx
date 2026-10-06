@@ -17,7 +17,7 @@ const fields = ["password", "passwordConfirm"] as const;
 export function ResetPasswordForm({ token }: { token: string }) {
   const form = useForm<NewPasswordInput>({
     resolver: zodResolver(newPasswordSchema),
-    mode: "onBlur",
+    mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: { password: "", passwordConfirm: "" },
   });

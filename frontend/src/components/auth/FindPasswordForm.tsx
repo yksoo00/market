@@ -23,7 +23,7 @@ const fields = ["loginId", "password", "passwordConfirm"] as const;
 export function FindPasswordForm() {
   const form = useForm<ResetPasswordInput>({
     resolver: zodResolver(resetPasswordSchema),
-    mode: "onBlur",
+    mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: { loginId: "", password: "", passwordConfirm: "" },
   });

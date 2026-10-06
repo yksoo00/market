@@ -31,7 +31,7 @@ export function FilterBar({ query }: { query: SearchQuery }) {
     formState: { errors, isValid },
   } = useForm<SearchFilterInput, unknown, SearchFilterOutput>({
     resolver: zodResolver(searchFilterSchema),
-    mode: "onBlur",
+    mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: filterDefaults(query),
   });

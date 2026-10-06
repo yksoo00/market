@@ -120,7 +120,7 @@
 
 - 검사: 확장자 + **매직 바이트** (Content-Type 신뢰 안 함). 빈 파일 거부. multipart 바깥 상한 10MB 초과도 413 `UPLOAD_TOO_LARGE`.
 - 저장: 서버 디스크 `<STORAGE_ROOT>/<폴더>/yyyy/MM/<uuid>.<ext>`. 원본 파일명 사용 안 함. 키 형식(정규식)이 아니면 저장·열람·등록 모두 거부 (`../` 경로 조작 차단).
-- 소유: 업로드 시 Redis `upload:<key>` = `<userId>|<kind>` 24시간. 등록·수정은 본인이 그 용도로 올린 키만 받고(아니면 400 VALIDATION "파일을 다시 올려 주세요."), 저장 후 기록을 지워 재사용 불가. 수정 시 그 매물에 이미 저장된 키는 통과.
+- 소유: 업로드 시 Redis `upload:<key>` = `<userId>|<kind>` 24시간. 등록·수정은 본인이 그 용도로 올린 키만 받고(아니면 400 VALIDATION "파일을 다시 올려 주세요."). 확인과 동시에 `upload-claim:<key>`로 옮겨 선점(Lua 한 번)해 같은 키로 동시에 두 매물을 만들 수 없고, 커밋되면 지우고(재사용 불가) 롤백되면 되돌린다(다시 올리지 않아도 됨). 수정 시 그 매물에 이미 저장된 키는 통과.
 - 열람: `GET /api/v1/files/{key}`. `public/`은 누구나(1년 immutable 캐시), `private/`은 로그인(no-cache, private). `X-Content-Type-Options: nosniff`.
 - rate: 업로드 20회/10분/사용자.
 - 용량 (2026-10-02): 사용자당 **하루 300MB** (Redis `upload:bytes:<userId>`, 넘으면 429 `UPLOAD_QUOTA_EXCEEDED`, 거부된 업로드는 사용량에 안 셈). 디스크 여유 공간이 **10GB** 미만이 되는 업로드는 거부 (503 `STORAGE_FULL`, `app.storage.min-free`) — 계정 여러 개로 채워도 같은 디스크의 Postgres가 멈추지 않게. 횟수 한도만으로는 10MB × 20회 × 하루 = 약 29GB까지 쓸 수 있어서 둘을 더했다.
@@ -143,6 +143,10 @@
 | 검색 API (비로그인)          | IP 분당 60                                  |
 
 초과 시 429 + `Retry-After`. 관리자 role은 제외.
+
+매물 등록(위 표 "상품 등록", `listing:create`)·수정은 입력 검증 실패(400 `VALIDATION`)를 세지 않는다 (`RateLimiter.hitUnlessInvalid`). Bean Validation 실패는 원래 메서드 전에 끝나 안 세는데, 서비스 검증(최소주문량 ≤ 판매수량, 날짜 범위, 파일 키)만 세면 고쳐서 다시 보내는 사용자가 막힌다. 검증 실패는 아무것도 만들지 않는다.
+
+**중복 생성 방지 (Idempotency-Key)** 매물 등록은 `Idempotency-Key` 헤더(UUID, 선택)를 받는다. Redis `idem:listing-create:<userId>:<key>`에 처리 중이면 `PENDING`(1분), 끝나면 만든 매물의 `regDate`(24시간). 같은 키가 다시 오면 처리 중은 409 `REQUEST_IN_PROGRESS`, 끝났으면 처음 매물을 그대로 201로 돌려준다. 실패하면 키를 풀어 고쳐서 같은 키로 다시 보낼 수 있다. UUID가 아니면 400 `BAD_REQUEST`. 키는 사용자별이라 남의 키와 겹치지 않는다. 멱등 검사가 rate limit보다 먼저라 재전송·409는 한도를 깎지 않는다 (한도의 마지막 등록을 다시 받을 때 429가 나지 않게). CORS 허용 헤더에 추가. 프론트는 폼을 연 동안 같은 키 하나를 쓴다 — 실패한 요청의 키는 서버가 풀므로 고쳐 다시 내도 되고, 429 뒤에 키를 바꾸면 응답이 유실된 첫 등록과 겹쳐 두 개가 생길 수 있어서.
 
 ## 네트워크·인프라
 

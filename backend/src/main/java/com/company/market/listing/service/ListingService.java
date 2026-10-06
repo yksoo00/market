@@ -85,7 +85,7 @@ public class ListingService {
 		photos.forEach(p -> files.add(new UploadRef("photos", p, UploadKind.LISTING_PHOTO)));
 		addRef(files, "listingDataSheet", req.listingDataSheet(), UploadKind.LISTING_DATASHEET);
 		addRef(files, "productDataSheet", req.productDataSheet(), UploadKind.LISTING_DATASHEET);
-		uploads.verifyOwned(userId, files);
+		uploads.claim(userId, files);
 
 		Product product = products.findOrCreate(new ProductDraft(req.categoryCode(), req.prodName().trim(), req.prodNo(),
 				req.prodBrand().trim(), req.prodMufcDate(), req.prodSpecInfo(), req.productDataSheet(), firstPhoto));
@@ -116,7 +116,6 @@ public class ListingService {
 		catch (DataIntegrityViolationException e) {
 			throw new ApiException(ErrorCode.LISTING_DUPLICATE_REG_TIME);
 		}
-		uploads.release(files.stream().map(UploadRef::key).toList());
 
 		return toResponse(listing, product);
 	}
@@ -148,12 +147,9 @@ public class ListingService {
 		// 용도가 맞는지는 키 형식으로 여전히 본다 (기존 사진 키를 테스트리포트 칸에 옮기는 것 차단)
 		Set<String> stored = storedFileKeys(listing);
 		files.removeIf(f -> stored.contains(f.key()) && UploadKind.ofKey(f.key()).filter(f.kind()::equals).isPresent());
-		uploads.verifyOwned(requesterId, files);
+		uploads.claim(requesterId, files);
 
 		listing.applyUpdate(req, LocalDateTime.now(clock).format(REG_DATE_FORMAT));
-		// 커밋 전에 기록을 지우지만 flush 로 DB 오류는 먼저 드러난다. 그 뒤 커밋이 실패하면 사용자는 다시 올리면 된다
-		listings.flush();
-		uploads.release(files.stream().map(UploadRef::key).toList());
 		return toResponse(listing, products.get(listing.getProdId()));
 	}
 
