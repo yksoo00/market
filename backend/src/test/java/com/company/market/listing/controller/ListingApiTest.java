@@ -515,6 +515,21 @@ class ListingApiTest {
 	}
 
 	@Test
+	@DisplayName("한도를 다 쓴 뒤에도 같은 키 재요청은 처음 매물을 돌려주고, 재전송·처리 중 응답은 한도를 깎지 않는다")
+	void idempotentReplayIgnoresRateLimit() throws Exception {
+		String key = UUID.randomUUID().toString();
+		createIdempotent(key, "노트북 I7").andExpect(status().isCreated());
+		redis.opsForValue().set("listing:create:" + userId, "10");
+
+		createIdempotent(key, "노트북 I7").andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.prodName").value("노트북 I7"));
+		String pending = UUID.randomUUID().toString();
+		redis.opsForValue().set("idem:listing-create:" + userId + ":" + pending, "PENDING");
+		createIdempotent(pending, "노트북 I8").andExpect(status().isConflict());
+		assertThat(redis.opsForValue().get("listing:create:" + userId)).isEqualTo("10");
+	}
+
+	@Test
 	@DisplayName("같은 키의 첫 요청이 아직 처리 중이면 409 REQUEST_IN_PROGRESS")
 	void idempotentCreateInProgress() throws Exception {
 		String key = UUID.randomUUID().toString();

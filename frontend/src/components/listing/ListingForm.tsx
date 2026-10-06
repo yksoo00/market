@@ -67,7 +67,7 @@ export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
   );
 
   const uploading = photosUploading || datasheetUploading;
-  // 성공 후 이동하는 동안 버튼이 다시 켜지면 한 번 더 눌려 매물이 두 개 생길 수 있다 (서버 중복 방어는 같은 초뿐)
+  // 성공 후 이동하는 동안 버튼을 계속 막는다. 다시 눌려도 같은 Idempotency-Key 라 서버가 새로 만들지 않지만 요청을 아끼고 이동을 흔들지 않게
   const [done, setDone] = useState(false);
 
   // 최소주문량 ≤ 판매수량은 두 칸에 걸친 규칙인데, blur 검사는 blur 한 칸의 오류만 갱신한다.

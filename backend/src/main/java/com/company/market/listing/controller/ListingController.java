@@ -45,9 +45,12 @@ public class ListingController {
 	public ResponseEntity<ApiResponse<ListingResponse>> create(@AuthenticationPrincipal AuthenticatedUser me,
 			@Valid @RequestBody ListingCreateRequest req,
 			@RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey) {
-		ListingResponse created = limiter.hitUnlessInvalid("listing:create:" + me.id(), 10, Duration.ofHours(1),
-				() -> idempotency.run("listing-create", me.id(), idempotencyKey, () -> listings.create(me.id(), req),
-						ListingResponse::regDate, regDate -> listings.get(me.id(), regDate)));
+		// 멱등 검사가 한도보다 바깥 — 응답이 유실된 등록의 재요청(결과 재전송·처리 중 409)은 새로 만들지 않으므로 세지 않는다.
+		// 안쪽이면 한도의 마지막 등록을 다시 받으려다 429 를 받아 등록이 실패한 줄 안다
+		ListingResponse created = idempotency.run("listing-create", me.id(), idempotencyKey,
+				() -> limiter.hitUnlessInvalid("listing:create:" + me.id(), 10, Duration.ofHours(1),
+						() -> listings.create(me.id(), req)),
+				ListingResponse::regDate, regDate -> listings.get(me.id(), regDate));
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(created));
 	}
 

@@ -80,7 +80,9 @@ export function DatasheetUploader({ value, onChange, onUploadingChange, error }:
     setFailed(null);
   };
 
-  const message = error ?? problem;
+  // 서버·검증 오류(error)와 방금 업로드의 문제(problem)를 따로 보인다. 서버가 "다시 올려 주세요"라고 한 뒤
+  // 다시 올리다 실패하면 둘 다 의미가 있고, 실패 원인·[다시 시도]가 서버 문구에 가려지면 안 된다
+  const messages = [...new Set([error, problem].filter((m): m is string => Boolean(m)))];
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -109,16 +111,16 @@ export function DatasheetUploader({ value, onChange, onUploadingChange, error }:
         )}
       </div>
       <input ref={inputRef} type="file" accept={acceptOf("pdf")} onChange={onPick} className="hidden" tabIndex={-1} aria-hidden="true" />
-      {message && (
-        <p role="alert" className="flex items-center gap-2 text-xs text-down">
-          <span className="min-w-0">{message}</span>
-          {failed && !error && !uploading && (
+      {messages.map((m) => (
+        <p key={m} role="alert" className="flex items-center gap-2 text-xs text-down">
+          <span className="min-w-0">{m}</span>
+          {m === problem && failed && !uploading && (
             <button type="button" onClick={() => send(failed)} className="shrink-0 font-medium text-primary hover:underline">
               {t.uploadRetry}
             </button>
           )}
         </p>
-      )}
+      ))}
     </div>
   );
 }
