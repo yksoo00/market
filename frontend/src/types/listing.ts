@@ -49,7 +49,12 @@ export interface ListingCreated {
 }
 
 /** POST /api/v1/uploads 의 kind 중 매물 등록 폼이 쓰는 것 */
-export type ListingUploadKind = "listing-photo" | "listing-datasheet";
+export type ListingUploadKind =
+  | "listing-photo"
+  | "listing-datasheet"
+  | "listing-test-report"
+  | "listing-certificate"
+  | "listing-replace-prod";
 
 /** 검색 결과 행. 백엔드 검색 API를 만들 때 DTO를 이와 1:1로 맞춘다 */
 export interface ListingSearchItem {

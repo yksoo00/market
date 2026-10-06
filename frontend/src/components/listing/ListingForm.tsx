@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { cn } from "cn";
 import { FieldShell, FormField, useFieldStatus } from "@/components/auth/FormField";
 import { FormError, SubmitButton } from "@/components/auth/FormStatus";
-import { DatasheetUploader } from "@/components/listing/DatasheetUploader";
+import { SingleFileUploader } from "@/components/listing/SingleFileUploader";
 import { PhotoUploader } from "@/components/listing/PhotoUploader";
 import { ProdStateField } from "@/components/listing/ProdStateField";
 import { applyServerError } from "@/lib/form";
@@ -135,7 +135,18 @@ export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
             <PhotoUploader value={photos} onChange={setPhotos} onUploadingChange={setPhotosUploading} error={errors.photos?.message} />
           </Wide>
           <Wide>
-            <DatasheetUploader value={datasheet} onChange={setDatasheet} onUploadingChange={setDatasheetUploading} error={errors.listingDataSheet?.message} />
+            <SingleFileUploader
+              uploadKind="listing-datasheet"
+              checkKind="pdf"
+              label={t.datasheet}
+              hint={t.datasheetHint}
+              pickLabel={t.datasheetPick}
+              removeLabel={t.datasheetRemove}
+              value={datasheet}
+              onChange={setDatasheet}
+              onUploadingChange={setDatasheetUploading}
+              error={errors.listingDataSheet?.message}
+            />
           </Wide>
         </Section>
 

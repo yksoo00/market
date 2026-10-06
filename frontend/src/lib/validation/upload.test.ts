@@ -42,3 +42,19 @@ describe("acceptOf", () => {
     expect(acceptOf("image")).toBe(".jpg,.jpeg,.png,.webp");
   });
 });
+
+describe("doc (대체품·테스트리포트·정품인증서: pdf·jpg·png)", () => {
+  it("pdf·jpg·jpeg·png 는 통과(대소문자 무시)", () => {
+    for (const name of ["a.pdf", "a.JPG", "a.jpeg", "a.PNG"]) {
+      expect(checkUpload("doc", { name, size: 10 })).toBeNull();
+    }
+  });
+
+  it("그 밖 형식은 거부하고, 10MB 를 넘거나 빈 파일도 거부", () => {
+    expect(checkUpload("doc", { name: "a.xlsx", size: 10 })).toBe(t.format.doc);
+    expect(checkUpload("doc", { name: "a.webp", size: 10 })).toBe(t.format.doc);
+    expect(checkUpload("doc", { name: "a.pdf", size: 10 * MB + 1 })).toBe(t.size.doc);
+    expect(checkUpload("doc", { name: "a.pdf", size: 0 })).toBe(t.empty);
+    expect(acceptOf("doc")).toBe(".pdf,.jpg,.jpeg,.png");
+  });
+});

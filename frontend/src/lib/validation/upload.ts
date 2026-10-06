@@ -4,12 +4,14 @@ import { upload as t } from "@/messages/upload";
 // 매직 바이트 검사는 백엔드 몫 (브라우저가 주는 Content-Type 은 믿지 않는다).
 const MB = 1024 * 1024;
 
-export type UploadKind = "excel" | "pdf" | "image";
+export type UploadKind = "excel" | "pdf" | "image" | "doc";
 
 const rules: Record<UploadKind, { exts: string[]; maxBytes: number }> = {
   excel: { exts: [".xlsx", ".xls"], maxBytes: 10 * MB },
   pdf: { exts: [".pdf"], maxBytes: 10 * MB },
   image: { exts: [".jpg", ".jpeg", ".png", ".webp"], maxBytes: 5 * MB },
+  // 대체품·테스트리포트·정품인증서 (UploadKind 서버 정책: pdf·jpg·png, 10MB)
+  doc: { exts: [".pdf", ".jpg", ".jpeg", ".png"], maxBytes: 10 * MB },
 };
 
 export function acceptOf(kind: UploadKind): string {
