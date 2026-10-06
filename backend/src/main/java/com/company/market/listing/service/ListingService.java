@@ -60,6 +60,9 @@ public class ListingService {
 
 	private static final int PAGE_SIZE = 20;
 
+	/** 판매정보 추가등록 보증기간 드롭다운(없음·1·3·6·12·24·36개월 × 30일). 자유 숫자를 받으면 365·360 처럼 같은 뜻의 값이 흩어진다 (decisions.md 2026-10-06) */
+	static final Set<Integer> WARRANTY_DAYS = Set.of(0, 30, 90, 180, 360, 720, 1080);
+
 	private final ListingRepository listings;
 
 	private final ListingSearchRepository searchRepository;
@@ -131,6 +134,11 @@ public class ListingService {
 		}
 		// 이미 저장된 납기일을 그대로 다시 보내면(수정 화면이 모든 칸을 보낼 때) 지난 날짜여도 통과
 		validateDates(null, Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
+		// 저장된 값과 같으면 통과 — 옛 값(365)이 있는 매물의 다른 칸 수정이 막히지 않게 (납기일과 같은 이유)
+		if (req.warrantyPeriod() != null && !WARRANTY_DAYS.contains(req.warrantyPeriod())
+				&& !req.warrantyPeriod().equals(listing.getWarrantyPeriod())) {
+			throw new ValidationException(Map.of("warrantyPeriod", "보증기간은 목록에서 고른 값이어야 합니다."));
+		}
 		int effectiveMinOrderQuantity = req.minOrderQuantity() == null ? listing.getMinOrderQuantity() : req.minOrderQuantity();
 		int effectiveSalesQuantity = req.salesQuantity() == null ? listing.getSalesQuantity() : req.salesQuantity();
 		if (effectiveMinOrderQuantity > effectiveSalesQuantity) {

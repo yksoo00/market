@@ -530,6 +530,29 @@ class ListingApiTest {
 	}
 
 	@Test
+	@DisplayName("보증기간은 허용 일수(0·30·90·180·360·720·1080)만 받는다")
+	void warrantyPeriodAllowsOnlyListedDays() throws Exception {
+		String regDate = createListing(authCookie);
+		for (int ok : new int[] { 0, 30, 90, 180, 360, 720, 1080 }) {
+			patchListing(regDate, "{\"warrantyPeriod\":%d}".formatted(ok)).andExpect(status().isOk());
+		}
+		for (int bad : new int[] { 1, 365, 1081 }) {
+			patchListing(regDate, "{\"warrantyPeriod\":%d}".formatted(bad)).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.fields.warrantyPeriod").isString());
+		}
+	}
+
+	@Test
+	@DisplayName("이미 저장된 옛 보증 일수(365)를 그대로 보내면 통과한다 — 다른 칸 수정이 막히지 않게")
+	void warrantyPeriodSameAsStoredPasses() throws Exception {
+		String regDate = createListing(authCookie);
+		jdbc.update("update listings set warranty_period = 365 where user_id = ? and reg_date = ?", userId, regDate);
+
+		patchListing(regDate, "{\"warrantyPeriod\":365,\"salesUnitPrice\":900}").andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.warrantyPeriod").value(365));
+	}
+
+	@Test
 	@DisplayName("같은 키의 첫 요청이 아직 처리 중이면 409 REQUEST_IN_PROGRESS")
 	void idempotentCreateInProgress() throws Exception {
 		String key = UUID.randomUUID().toString();
