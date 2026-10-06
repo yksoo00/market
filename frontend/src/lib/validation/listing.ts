@@ -11,6 +11,20 @@ const MAX_QUANTITY = 100_000;
 export const MAX_PHOTOS = 4;
 export const MAX_DESCRIPTION = 200;
 
+/**
+ * 상품상태 드롭다운 값 = 저장 값. 백엔드 ListingCreateRequest.PROD_STATE_PATTERN 과 같은 목록 (2026-10-06).
+ * 위쪽은 10% 단위로 촘촘하게(100%와 80%대를 한 구간으로 묶으면 차이가 너무 커서), 50% 미만은 하나로
+ */
+export const PROD_STATES = [
+  "신품",
+  "신품대비 90~99%",
+  "신품대비 80~89%",
+  "신품대비 70~79%",
+  "신품대비 60~69%",
+  "신품대비 50~59%",
+  "신품대비 50% 미만",
+] as const;
+
 const requiredText = (max: number, message: string) => z.string().trim().min(1, v.required).max(max, message);
 const optionalText = (max: number, message: string) =>
   z
@@ -48,8 +62,7 @@ export function listingFormSchema(today: string) {
       prodNo: optionalText(20, v.prodNo),
       prodMufcDate: optionalDate,
       prodSpecInfo: optionalText(100, v.prodSpecInfo),
-      condition: z.enum(["new", "used"]),
-      usedPercent: z.string(),
+      prodState: z.string().refine((s) => (PROD_STATES as readonly string[]).includes(s), v.prodState),
       salesUnitPrice: requiredInt(0, MAX_PRICE, v.salesUnitPrice),
       salesQuantity: requiredInt(1, MAX_QUANTITY, v.salesQuantity),
       stockQuantity: optionalInt(0, MAX_QUANTITY, v.stockQuantity),
@@ -62,9 +75,6 @@ export function listingFormSchema(today: string) {
     })
     // zod 4는 칸 검사가 실패해도 이 단계를 돈다 → 값이 이미 변환된 타입일 때만 비교한다
     .superRefine((d, ctx) => {
-      if (d.condition === "used" && !/^[1-9]\d?$/.test(d.usedPercent)) {
-        ctx.addIssue({ code: "custom", path: ["usedPercent"], message: v.usedPercent });
-      }
       if (typeof d.minOrderQuantity === "number" && typeof d.salesQuantity === "number" && d.minOrderQuantity > d.salesQuantity) {
         ctx.addIssue({ code: "custom", path: ["minOrderQuantity"], message: v.minOrderOverSales });
       }
@@ -75,8 +85,7 @@ export function listingFormSchema(today: string) {
       if (typeof d.deliveryDate === "string" && d.deliveryDate < today) {
         ctx.addIssue({ code: "custom", path: ["deliveryDate"], message: v.deliveryDate });
       }
-    })
-    .transform((d) => ({ ...d, usedPercent: d.condition === "used" ? Number(d.usedPercent) : undefined }));
+    });
 }
 
 export type ListingFormInput = z.input<ReturnType<typeof listingFormSchema>>;
@@ -89,8 +98,7 @@ export const emptyListingForm: ListingFormInput = {
   prodNo: "",
   prodMufcDate: "",
   prodSpecInfo: "",
-  condition: "new",
-  usedPercent: "",
+  prodState: "",
   salesUnitPrice: "",
   salesQuantity: "",
   stockQuantity: "",

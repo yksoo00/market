@@ -96,8 +96,9 @@ export function PhotoUploader({ value, onChange, onUploadingChange, error }: Pro
   const messages = [...new Set([error, notice, ...slotErrors].filter((m): m is string => Boolean(m)))];
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label className="text-[13px] text-ink-2">
+    // 라벨 왼쪽 배치 — 다른 칸(FieldShell inline)과 같은 격자
+    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-3 gap-y-1.5">
+      <Label className="min-h-11 flex-wrap gap-x-1 gap-y-0 leading-tight text-[13px] text-ink-2">
         {t.photos}
         <span className="font-normal text-ink-3">{t.photosHint}</span>
       </Label>
@@ -150,7 +151,7 @@ export function PhotoUploader({ value, onChange, onUploadingChange, error }: Pro
       </div>
       <input ref={inputRef} type="file" multiple accept={acceptOf("image")} onChange={onPick} className="hidden" tabIndex={-1} aria-hidden="true" />
       {messages.map((m) => (
-        <p key={m} role="alert" className="text-xs text-down">
+        <p key={m} role="alert" className="col-start-2 text-xs text-down">
           {m}
         </p>
       ))}

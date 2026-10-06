@@ -1,60 +1,39 @@
 "use client";
 
-import { useFormContext, useWatch } from "react-hook-form";
+import { useFormContext } from "react-hook-form";
 import { cn } from "cn";
 import { FieldShell, statusClass, useFieldStatus } from "@/components/auth/FormField";
-import { Input } from "@/components/ui/input";
-import type { ListingFormInput } from "@/lib/validation/listing";
+import { PROD_STATES, type ListingFormInput } from "@/lib/validation/listing";
 import { listing } from "@/messages/listing";
 
 const t = listing.form;
 
-/** 상품상태: [신품][중고] + 중고면 "신품대비 __ %". 저장 값은 "신품" 또는 "신품대비 N%" (lib/listingForm) */
+/** 상품상태 드롭다운. 고른 값이 그대로 저장 값 (PROD_STATES, 백엔드 PROD_STATE_PATTERN 과 같은 목록) */
 export function ProdStateField() {
-  const { control, register, setValue, clearErrors } = useFormContext<ListingFormInput>();
-  const condition = useWatch({ control, name: "condition" });
-  const percent = useFieldStatus<ListingFormInput>("usedPercent");
-  // 서버가 prodState 를 거부하면 condition 칸에 오류를 붙인다 (ListingForm)
-  const conditionStatus = useFieldStatus<ListingFormInput>("condition");
+  const { register } = useFormContext<ListingFormInput>();
+  const { error, valid, touched } = useFieldStatus<ListingFormInput>("prodState");
 
   return (
-    // htmlFor 로 오류 문구 id(usedPercent-error)가 생기고 % 칸이 aria-describedby 로 가리킨다
-    <FieldShell label={t.condition} htmlFor="usedPercent" error={conditionStatus.error ?? (condition === "used" ? percent.error : undefined)}>
-      <div className="flex flex-wrap items-center gap-2">
-        <div role="group" aria-label={t.condition} className="grid grid-cols-2 gap-2 w-[180px]">
-          {(["new", "used"] as const).map((value) => {
-            const selected = condition === value;
-            return (
-              <button
-                key={value}
-                type="button"
-                aria-pressed={selected}
-                onClick={() => setValue("condition", value, { shouldValidate: true, shouldDirty: true })}
-                className={`h-11 rounded-md border text-sm font-medium transition-colors ${selected ? "border-primary bg-primary-soft text-primary-dark" : "border-line bg-surface text-ink-2 hover:border-primary"}`}
-              >
-                {value === "new" ? t.conditionNew : t.conditionUsed}
-              </button>
-            );
-          })}
-        </div>
-        {condition === "used" && (
-          <label className="flex items-center gap-2 text-[13px] text-ink-2">
-            {t.usedPercentPrefix}
-            <Input
-              // 서버가 prodState 를 거부해 condition 에 붙인 오류는 % 를 고치면 지운다 (안 그러면 고쳐도 옛 문구가 남음)
-              {...register("usedPercent", { onChange: () => clearErrors("condition") })}
-              id="usedPercent"
-              aria-label={t.usedPercentLabel}
-              aria-describedby={percent.error ? "usedPercent-error" : undefined}
-              aria-invalid={percent.touched && Boolean(percent.error)}
-              inputMode="numeric"
-              maxLength={2}
-              className={cn(statusClass(percent.valid), "w-20 font-mono tabular-nums text-right")}
-            />
-            %
-          </label>
+    <FieldShell label={t.prodState} htmlFor="prodState" error={error} inline>
+      <select
+        id="prodState"
+        {...register("prodState")}
+        aria-invalid={touched && Boolean(error)}
+        aria-describedby={error ? "prodState-error" : undefined}
+        className={cn(
+          statusClass(valid),
+          "w-full rounded-md border border-line outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 aria-invalid:border-down",
         )}
-      </div>
+      >
+        <option value="" disabled>
+          {t.prodStatePlaceholder}
+        </option>
+        {PROD_STATES.map((s) => (
+          <option key={s} value={s}>
+            {s}
+          </option>
+        ))}
+      </select>
     </FieldShell>
   );
 }

@@ -20,13 +20,12 @@ import type { ListingCreated } from "@/types/listing";
 
 const t = listing.form;
 
-// 서버 fields 를 붙일 수 있는 칸. 서버 필드명 = 요청 필드명이고, prodState 만 폼 칸(condition)으로 옮긴다
+// 서버 fields 를 붙일 수 있는 칸. 서버 필드명 = 요청 필드명 = 폼 칸 이름
 const fields = [
-  "categoryCode", "prodName", "prodBrand", "prodNo", "prodMufcDate", "prodSpecInfo", "condition", "usedPercent",
+  "categoryCode", "prodName", "prodBrand", "prodNo", "prodMufcDate", "prodSpecInfo", "prodState",
   "salesUnitPrice", "salesQuantity", "stockQuantity", "minOrderQuantity", "orderUnit", "deliveryDate", "description",
   "photos", "listingDataSheet",
 ] as const;
-const serverFieldMap: Record<string, (typeof fields)[number]> = { prodState: "condition" };
 
 interface Props {
   initialValues: ListingFormInput;
@@ -88,10 +87,7 @@ export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
       return;
     }
     setUnreachable(result.code === UNREACHABLE);
-    const mapped = result.fields
-      ? { ...result, fields: Object.fromEntries(Object.entries(result.fields).map(([k, m]) => [serverFieldMap[k] ?? k, m])) }
-      : result;
-    setFormError(applyServerError(mapped, setError, fields, listing.errors));
+    setFormError(applyServerError(result, setError, fields, listing.errors));
   });
 
   return (
@@ -101,23 +97,22 @@ export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
         <FormError message={formError} onRetry={unreachable && !uploading && !isSubmitting ? () => void submit() : undefined} />
 
         <Section title={t.sectionProduct}>
-          <FormField<ListingFormInput> name="categoryCode" label={t.categoryCode} hint={t.categoryHint} placeholder={t.categoryPlaceholder} maxLength={10} />
-          <FormField<ListingFormInput> name="prodBrand" label={t.prodBrand} placeholder={t.prodBrandPlaceholder} maxLength={50} />
+          <FormField<ListingFormInput> inline name="categoryCode" label={t.categoryCode} hint={t.categoryHint} placeholder={t.categoryPlaceholder} maxLength={10} />
+          <FormField<ListingFormInput> inline name="prodBrand" label={t.prodBrand} placeholder={t.prodBrandPlaceholder} maxLength={50} />
           <Wide>
-            <FormField<ListingFormInput> name="prodName" label={t.prodName} placeholder={t.prodNamePlaceholder} maxLength={50} />
+            <FormField<ListingFormInput> inline name="prodName" label={t.prodName} placeholder={t.prodNamePlaceholder} maxLength={50} />
           </Wide>
-          <FormField<ListingFormInput> name="prodNo" label={t.prodNo} placeholder={t.prodNoPlaceholder} maxLength={20} className="font-mono" />
-          <FormField<ListingFormInput> name="prodMufcDate" label={t.prodMufcDate} type="date" max={today} />
+          <FormField<ListingFormInput> inline name="prodNo" label={t.prodNo} placeholder={t.prodNoPlaceholder} maxLength={20} className="font-mono" />
+          <FormField<ListingFormInput> inline name="prodMufcDate" label={t.prodMufcDate} type="date" max={today} />
           <Wide>
-            <FormField<ListingFormInput> name="prodSpecInfo" label={t.prodSpecInfo} placeholder={t.prodSpecInfoPlaceholder} maxLength={100} />
+            <FormField<ListingFormInput> inline name="prodSpecInfo" label={t.prodSpecInfo} placeholder={t.prodSpecInfoPlaceholder} maxLength={100} />
           </Wide>
         </Section>
 
         <Section title={t.sectionSale}>
-          <Wide>
-            <ProdStateField />
-          </Wide>
+          <ProdStateField />
           <FormField<ListingFormInput>
+            inline
             name="salesUnitPrice"
             label={t.salesUnitPrice}
             inputMode="numeric"
@@ -129,7 +124,7 @@ export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
           <NumberField name="stockQuantity" label={t.stockQuantity} placeholder={t.stockQuantityPlaceholder} />
           <NumberField name="minOrderQuantity" label={t.minOrderQuantity} placeholder={t.defaultOne} />
           <NumberField name="orderUnit" label={t.orderUnit} placeholder={t.defaultOne} />
-          <FormField<ListingFormInput> name="deliveryDate" label={t.deliveryDate} type="date" min={today} />
+          <FormField<ListingFormInput> inline name="deliveryDate" label={t.deliveryDate} type="date" min={today} />
         </Section>
 
         <Section title={t.sectionDetail}>
@@ -166,7 +161,7 @@ function Wide({ children }: { children: ReactNode }) {
 }
 
 function NumberField({ name, label, placeholder }: { name: "salesQuantity" | "stockQuantity" | "minOrderQuantity" | "orderUnit"; label: string; placeholder?: string }) {
-  return <FormField<ListingFormInput> name={name} label={label} placeholder={placeholder} inputMode="numeric" maxLength={6} className="font-mono tabular-nums" />;
+  return <FormField<ListingFormInput> inline name={name} label={label} placeholder={placeholder} inputMode="numeric" maxLength={6} className="font-mono tabular-nums" />;
 }
 
 function DescriptionField() {
@@ -174,7 +169,7 @@ function DescriptionField() {
   const { register, control } = useFormContext<ListingFormInput>();
   const value = useWatch({ control, name: "description" });
   return (
-    <FieldShell label={t.description} htmlFor="description" error={error} note={<span className="text-ink-3">{value.length}/{MAX_DESCRIPTION}</span>}>
+    <FieldShell inline label={t.description} htmlFor="description" error={error} note={<span className="text-ink-3">{value.length}/{MAX_DESCRIPTION}</span>}>
       <textarea
         id="description"
         rows={4}

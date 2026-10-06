@@ -8,6 +8,7 @@ const output = (over: Partial<ListingFormInput>) => {
     categoryCode: " ELEC0001 ",
     prodName: "R740",
     prodBrand: "Dell",
+    prodState: "신품",
     salesUnitPrice: "1000",
     salesQuantity: "3",
     ...over,
@@ -38,8 +39,8 @@ describe("toCreateRequest", () => {
     });
   });
 
-  it("중고 85 → 신품대비 85%", () => {
-    expect(toCreateRequest(output({ condition: "used", usedPercent: "85" })).prodState).toBe("신품대비 85%");
+  it("상품상태는 고른 값 그대로", () => {
+    expect(toCreateRequest(output({ prodState: "신품대비 80~89%" })).prodState).toBe("신품대비 80~89%");
   });
 
   it("제조일은 yyyyMMdd, 납기일은 그대로", () => {

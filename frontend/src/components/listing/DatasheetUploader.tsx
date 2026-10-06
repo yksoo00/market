@@ -85,12 +85,13 @@ export function DatasheetUploader({ value, onChange, onUploadingChange, error }:
   const messages = [...new Set([error, problem].filter((m): m is string => Boolean(m)))];
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label className="text-[13px] text-ink-2">
+    // 라벨 왼쪽 배치 — 다른 칸(FieldShell inline)과 같은 격자
+    <div className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-3 gap-y-1.5">
+      <Label className="min-h-11 flex-wrap gap-x-1 gap-y-0 leading-tight text-[13px] text-ink-2">
         {t.datasheet}
         <span className="font-normal text-ink-3">{t.datasheetHint}</span>
       </Label>
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="min-h-11 flex items-center gap-2 min-w-0">
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
@@ -112,7 +113,7 @@ export function DatasheetUploader({ value, onChange, onUploadingChange, error }:
       </div>
       <input ref={inputRef} type="file" accept={acceptOf("pdf")} onChange={onPick} className="hidden" tabIndex={-1} aria-hidden="true" />
       {messages.map((m) => (
-        <p key={m} role="alert" className="flex items-center gap-2 text-xs text-down">
+        <p key={m} role="alert" className="col-start-2 flex items-center gap-2 text-xs text-down">
           <span className="min-w-0">{m}</span>
           {m === problem && failed && !uploading && (
             <button type="button" onClick={() => send(failed)} className="shrink-0 font-medium text-primary hover:underline">

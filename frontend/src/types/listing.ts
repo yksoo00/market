@@ -27,7 +27,7 @@ export interface ListingCreateRequest {
   prodSpecInfo?: string;
   productDataSheet?: string;
   tradeType: string;
-  /** "신품" 또는 "신품대비 N%" */
+  /** 드롭다운 구간 값 (lib/validation/listing PROD_STATES) */
   prodState: string;
   salesUnitPrice: number;
   salesQuantity: number;
