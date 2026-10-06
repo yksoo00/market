@@ -72,6 +72,7 @@ export const listing = {
     datasheetPick: "PDF 선택",
     datasheetRemove: "데이터시트 삭제",
     submit: "등록",
+    submitAndExtra: "등록하고 판매정보 추가",
   },
   // 칸별 오류. "무엇이 왜 틀렸고 어떻게 고치나" (rules/frontend.md). 수치는 docs/security.md "매물"
   validation: {

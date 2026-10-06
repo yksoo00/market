@@ -6,6 +6,7 @@ import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormField } from "@/components/auth/FormField";
 import { FormError, SubmitButton } from "@/components/auth/FormStatus";
+import { Button } from "@/components/ui/button";
 import { SingleFileUploader } from "@/components/listing/SingleFileUploader";
 import { DescriptionField, NumberField, Section, Wide } from "@/components/listing/ListingFormFields";
 import { PhotoUploader } from "@/components/listing/PhotoUploader";
@@ -30,12 +31,14 @@ const fields = [
 interface Props {
   initialValues: ListingFormInput;
   submitLabel: string;
+  /** 있으면 [등록] 옆에 둘째 버튼: 같은 등록을 하고 상세 대신 판매정보 추가등록 화면으로 간다 */
+  secondarySubmitLabel?: string;
   /** 등록·수정 화면이 각자 API 를 넘긴다 (수정 화면 재사용 대비) */
   onSubmit: (values: ListingFormOutput) => Promise<ApiResult<ListingCreated>>;
 }
 
 /** 매물 등록 폼. 규격은 design.md "매물 등록 폼", 스펙 docs/superpowers/specs/2026-10-02-listing-create-design.md */
-export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
+export function ListingForm({ initialValues, submitLabel, secondarySubmitLabel, onSubmit }: Props) {
   const router = useRouter();
   // 제조일·납기일 범위 기준. 폼을 연 날 기준으로 고정 (자정을 넘겨도 서버가 다시 본다)
   const [today] = useState(() => todayInSeoul());
@@ -68,6 +71,8 @@ export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
   const uploading = photosUploading || datasheetUploading;
   // 성공 후 이동하는 동안 버튼을 계속 막는다. 다시 눌려도 같은 Idempotency-Key 라 서버가 새로 만들지 않지만 요청을 아끼고 이동을 흔들지 않게
   const [done, setDone] = useState(false);
+  // 등록 뒤 어디로 갈지 = 마지막으로 누른 버튼의 뜻. 실패 뒤 [다시 시도]도 같은 곳으로 간다. Enter 제출은 기본(상세)
+  const [intent, setIntent] = useState<"detail" | "extra">("detail");
 
   // 최소주문량 ≤ 판매수량은 두 칸에 걸친 규칙인데, blur 검사는 blur 한 칸의 오류만 갱신한다.
   // 판매수량이 바뀌면 최소주문량 오류도 다시 계산해야 "버튼은 꺼졌는데 오류 문구가 없는" 상태가 안 생긴다
@@ -77,24 +82,35 @@ export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
     if (isTouched || form.formState.isSubmitted) void form.trigger("minOrderQuantity");
   }, [salesQuantity, form]);
 
-  const submit = handleSubmit(async (values) => {
-    setFormError(null);
-    setUnreachable(false);
-    const result = await onSubmit(values);
-    if (result.ok) {
-      setDone(true);
-      router.push(`/listings/${result.data.userId}/${result.data.regDate}`);
-      return;
-    }
-    setUnreachable(result.code === UNREACHABLE);
-    setFormError(applyServerError(result, setError, fields, listing.errors));
-  });
+  const submitTo = (target: "detail" | "extra") =>
+    handleSubmit(async (values) => {
+      setFormError(null);
+      setUnreachable(false);
+      const result = await onSubmit(values);
+      if (result.ok) {
+        setDone(true);
+        const base = `/listings/${result.data.userId}/${result.data.regDate}`;
+        router.push(target === "extra" ? `${base}/extra` : base);
+        return;
+      }
+      setUnreachable(result.code === UNREACHABLE);
+      setFormError(applyServerError(result, setError, fields, listing.errors));
+    });
+  const submit = submitTo("detail");
+  const submitExtra = submitTo("extra");
 
   return (
     <FormProvider {...form}>
-      <form onSubmit={submit} noValidate className="flex flex-col gap-6">
+      <form
+        onSubmit={(e) => {
+          setIntent("detail");
+          void submit(e);
+        }}
+        noValidate
+        className="flex flex-col gap-6"
+      >
         {/* 다시 시도도 [등록]과 같은 조건 — 업로드 중이면 키가 없어 사진이 빠진다 */}
-        <FormError message={formError} onRetry={unreachable && !uploading && !isSubmitting ? () => void submit() : undefined} />
+        <FormError message={formError} onRetry={unreachable && !uploading && !isSubmitting ? () => void (intent === "extra" ? submitExtra() : submit()) : undefined} />
 
         <Section title={t.sectionProduct}>
           <FormField<ListingFormInput> inline name="categoryCode" label={t.categoryCode} hint={t.categoryHint} placeholder={t.categoryPlaceholder} maxLength={10} />
@@ -151,7 +167,27 @@ export function ListingForm({ initialValues, submitLabel, onSubmit }: Props) {
         </Section>
 
         {/* 업로드 중엔 키가 아직 없어 제출하면 사진이 빠진다 → 막는다 */}
-        <SubmitButton label={submitLabel} disabled={!isValid || uploading || done} submitting={isSubmitting} />
+        {secondarySubmitLabel ? (
+          <div className="flex flex-col gap-2 @min-[36rem]:flex-row">
+            <div className="@min-[36rem]:flex-1 [&>button]:w-full">
+              <SubmitButton label={submitLabel} disabled={!isValid || uploading || done || (isSubmitting && intent === "extra")} submitting={isSubmitting && intent === "detail"} />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!isValid || uploading || done || isSubmitting}
+              onClick={() => {
+                setIntent("extra");
+                void submitExtra();
+              }}
+              className="h-11 w-full @min-[36rem]:flex-1 text-[15px] font-bold border-primary text-primary hover:bg-primary-soft hover:text-primary-dark"
+            >
+              {secondarySubmitLabel}
+            </Button>
+          </div>
+        ) : (
+          <SubmitButton label={submitLabel} disabled={!isValid || uploading || done} submitting={isSubmitting} />
+        )}
       </form>
     </FormProvider>
   );

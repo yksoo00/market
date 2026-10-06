@@ -191,7 +191,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
                     </td>
                   )}
                   <td className={`sticky ${mine ? "left-0 pl-3" : "left-10"} z-10 bg-surface group-hover:bg-bg px-2 truncate font-medium border-r border-line-2`} title={item.prodName}>
-                    <Link href={listingHref(item)} onClick={stop} className="hover:text-primary">
+                    <Link href={listingHref(item)} onClick={stop} data-tile={mine ? "reset" : undefined} className="hover:text-primary">
                       {item.prodName}
                     </Link>
                   </td>
@@ -233,7 +233,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
                 </div>
               )}
               <div className="min-w-0 grow flex flex-col gap-1">
-                <Link href={listingHref(item)} onClick={stop} className="truncate text-sm font-medium">
+                <Link href={listingHref(item)} onClick={stop} data-tile={mine ? "reset" : undefined} className="truncate text-sm font-medium">
                   {item.prodName}
                 </Link>
                 <p className="truncate text-xs text-ink-2">
