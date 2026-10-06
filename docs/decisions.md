@@ -400,6 +400,14 @@
 - 대안: `/my`에 단순 목록 — 많아지면 못 찾아 탈락(이 항목이 대체). 허브 없이 `/my/listings`만 — 메뉴가 "마이페이지"를 가리킬 곳이 필요해 탈락.
 - 재검토 조건: 상품마스터가 다 만들어졌을 때(고르기로 교체), 구매 기능이 생겼을 때(내 구매목록 채움), 표에 없는 칸도 행 안에서 고쳐야 할 때. 스펙: `docs/superpowers/specs/2026-10-06-my-listings-design.md`.
 
+## 2026-10-06 개발 서버를 localhost 와 다른 주소로 함께 쓴다 — 주소는 .env, API 는 같은 주소의 /api
+
+- 결정: VM 에 `pnpm dev` 를 띄우고 다른 PC 에서 사설 IP 로 들어가도 localhost 와 같이 동작하게 한다. 실제 주소·IP 는 코드·문서·커밋에 쓰지 않고 `.env`(백엔드)·`frontend/.env.local`(프론트)에만 둔다(사용자 지시). 프론트: `NEXT_PUBLIC_API_URL=same-origin`(또는 빈 값)이면 브라우저는 접속한 주소의 `/api` 만 부르고 `next.config.ts` 의 rewrites 가 `API_PROXY_TARGET`(기본 localhost:8080)으로 넘긴다. `DEV_ALLOWED_ORIGINS`(쉼표, 호스트 이름만)로 Next 개발 서버의 cross-origin 차단을 푼다. 백엔드: `ALLOWED_ORIGINS`(쉼표 목록)로 허용 출처를 APP_URL 에 더하고, `COOKIE_SECURE=false` 로 http 에서 쿠키가 저장되게 한다 — 둘 다 기본값은 지금과 같고(`COOKIE_SECURE` 는 `APP_ENV=local` 이 아니면 false 로 기동 못 함).
+- 이유: 설정이 없으면 (1) Next 16 개발 서버가 localhost 밖에서 오는 JS 요청을 403 으로 막아 화면이 안 눌리고(재현: Origin 이 localhost 면 200, 사설 IP 면 403) (2) 브라우저의 localhost:8080 은 접속하는 PC 자신이라 API 에 못 닿고 (3) Secure 쿠키는 http 사설 IP 에서 저장되지 않아 로그인이 유지되지 않는다. 같은 주소의 /api 로 부르면 접속 주소가 바뀌어도 API 주소를 따로 맞출 필요가 없고 CORS 도 거치지 않는다.
+- 감수: `ALLOWED_ORIGINS` 를 운영에 두면 CSRF 방어(Origin 검사)가 넓어지므로 운영 `.env` 에는 두지 않는다(와일드카드 없음, 목록만). 개발 서버를 거치는 프록시라 큰 업로드(10MB)는 개발 서버 한도에 걸릴 수 있다 — 안 되면 `NEXT_PUBLIC_API_URL` 에 직접 주소를 쓴다.
+- 대안: IP 를 next.config·application.yml 에 박기 — 커밋에 개인 IP 가 남아 탈락(사용자 지적). API 주소를 접속 호스트로 계산(`hostname:8080`) — 백엔드 포트도 열어야 하고 CORS 가 필요해 탈락.
+- 재검토 조건: 스테이징·운영에 올릴 때(https·실제 도메인이면 이 설정은 필요 없음), 업로드가 개발 프록시에서 막힐 때.
+
 ## 미정 (결정 필요)
 
 - 견적서 형식 샘플 확보 (구조화 정확도가 여기에 달림) (AI 보류)

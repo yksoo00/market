@@ -60,11 +60,11 @@ public class SecurityConfig {
 		return http.build();
 	}
 
-	/** 프론트 도메인 하나만. 와일드카드 금지, 쿠키 인증이라 credentials 허용 (security.md "네트워크") */
+	/** 허용 목록(APP_URL + ALLOWED_ORIGINS)의 프론트 출처만. 와일드카드 금지, 쿠키 인증이라 credentials 허용 (security.md "네트워크") */
 	@Bean
 	CorsConfigurationSource corsConfigurationSource(AppProperties props) {
 		CorsConfiguration cors = new CorsConfiguration();
-		cors.setAllowedOrigins(List.of(props.appUrl()));
+		cors.setAllowedOrigins(props.allowedOriginList());
 		cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 		cors.setAllowedHeaders(List.of("Content-Type", "Accept", "Idempotency-Key"));
 		cors.setAllowCredentials(true);

@@ -66,7 +66,9 @@ app:
     secret: ${JWT_SECRET}
     access-ttl-minutes: ${JWT_ACCESS_TTL_MIN:15}
     refresh-ttl-days: ${JWT_REFRESH_TTL_DAYS:30}
-  app-url: ${APP_URL:http://localhost:3000}   # CORS·Origin 검사에 허용하는 유일한 프론트 출처
+  app-url: ${APP_URL:http://localhost:3000}   # CORS·Origin 검사에 허용하는 프론트 출처. 로그인 뒤 이동 같은 서버가 만드는 주소의 기준이기도 하다
+  allowed-origins: ${ALLOWED_ORIGINS:}        # 쉼표 목록. APP_URL 말고 더 허용할 출처 (개발 서버를 다른 주소로도 쓸 때만). 비우면 APP_URL 하나
+  cookie-secure: ${COOKIE_SECURE:true}        # false 는 APP_ENV=local 에서만 (http 로 쓰는 로컬 개발). 운영에서 false 면 기동 실패
   identity-verification:
     provider: ${IDENTITY_VERIFICATION_PROVIDER:pass}   # 기본값은 안전한 쪽(stub 거부). 로컬 .env 에서만 stub
   terms:

@@ -1,7 +1,8 @@
 import { UNREACHABLE, type ApiResult } from "@/types/api";
+import { resolveApiBase } from "@/lib/api/base";
 import { common as t } from "@/messages/common";
 
-export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+export const API_BASE = resolveApiBase(process.env.NEXT_PUBLIC_API_URL);
 const REFRESH_PATH = "/api/v1/auth/refresh";
 
 /**
