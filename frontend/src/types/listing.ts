@@ -130,3 +130,24 @@ export interface ListingDetail {
   /** 등록일 + 보증 일수, YYYY-MM-DD */
   warrantyUntil: string | null;
 }
+
+/** PATCH /api/v1/listings/{userId}/{regDate} 요청. 백엔드 ListingUpdateRequest 와 1:1 — 생략 = 안 바꿈, 파일·납기일·설명 칸의 "" = 비우기 */
+export interface ListingUpdateRequest {
+  prodState?: string;
+  salesUnitPrice?: number;
+  salesQuantity?: number;
+  minOrderQuantity?: number;
+  orderUnit?: number;
+  deliveryDate?: string;
+  stockQuantity?: number;
+  description?: string;
+  listingDataSheet?: string;
+  photos?: string[];
+  /** 일수. 화면은 개월 드롭다운(개월 × 30) */
+  warrantyPeriod?: number;
+  /** 대체 / 환불. "" = 비우기 */
+  warrantyCoverage?: string;
+  replaceProd?: string;
+  testReport?: string;
+  certificateOfAuthen?: string;
+}
