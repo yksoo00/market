@@ -40,12 +40,21 @@ public class AuthCookies {
 	/** localhost 면 Domain 속성을 안 붙인다 (브라우저가 거부). 운영은 루트 도메인으로 app./api. 공유 */
 	private final String domain;
 
+	/** 운영은 항상 true. false 는 http 로 쓰는 로컬 개발에서만 (AppProperties 가 local 이 아니면 기동을 막는다) */
+	private final boolean secure;
+
 	public AuthCookies(AppProperties props, JwtProvider jwt) {
 		this.accessTtl = jwt.accessTtl();
 		this.refreshTtl = Duration.ofDays(props.jwt().refreshTtlDays());
+		this.secure = props.cookieSecure();
 		String appHost = URI.create(props.appUrl()).getHost();
-		this.domain = appHost == null || "localhost".equalsIgnoreCase(appHost)
-			|| "127.0.0.1".equals(appHost) || "::1".equals(appHost) ? null : props.domainRoot();
+		// 로컬 개발(local)이거나 호스트가 localhost·IP 주소면 Domain 을 안 붙인다 — 브라우저가 호스트와 안 맞는 Domain 을 거부해 로그인이 안 남는다
+		this.domain = props.isLocal() || appHost == null || "localhost".equalsIgnoreCase(appHost) || isIpLiteral(appHost) ? null
+				: props.domainRoot();
+	}
+
+	private static boolean isIpLiteral(String host) {
+		return host.matches("\\d{1,3}(\\.\\d{1,3}){3}") || host.startsWith("[") || host.contains(":");
 	}
 
 	public void setLogin(HttpServletResponse res, String accessToken, String refreshToken, boolean remember) {
@@ -76,7 +85,7 @@ public class AuthCookies {
 	}
 
 	private ResponseCookie build(String name, String value, String path, Duration maxAge) {
-		ResponseCookie.ResponseCookieBuilder b = ResponseCookie.from(name, value).httpOnly(true).secure(true).sameSite("Lax").path(path);
+		ResponseCookie.ResponseCookieBuilder b = ResponseCookie.from(name, value).httpOnly(true).secure(secure).sameSite("Lax").path(path);
 		if (maxAge != null) {
 			b.maxAge(maxAge);
 		}

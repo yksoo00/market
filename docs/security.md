@@ -27,8 +27,8 @@
   - "로그인 유지"(remember) 여부를 Redis 세션 값에 함께 저장해 회전 때도 같은 종류(영구/세션) 쿠키를 낸다.
   - refresh 쿠키는 `Path=/api/v1/auth` 로 좁혀 다른 API 호출에 실리지 않게.
   - 로그인은 트랜잭션 밖에서 bcrypt 를 돈다(커넥션 점유 방지). 없는 아이디도 더미 해시와 비교해 응답 시간을 맞춘다.
-- 전달: 둘 다 **httpOnly, Secure, SameSite=Lax** 쿠키. `Domain=.{루트}` 로 app./api. 공유. `localStorage` 금지.
-- CSRF: SameSite=Lax + 상태 변경 API는 `Origin` 헤더 검사 (허용: `https://app.{루트}`). 쿠키 인증이므로 필요. Origin 이 **없는** 요청(Bruno·서버 간 호출)은 브라우저가 아니라 CSRF 대상이 아니므로 통과 — 브라우저는 크로스 사이트 POST 에 항상 Origin 을 보낸다.
+- 전달: 둘 다 **httpOnly, Secure, SameSite=Lax** 쿠키 (`COOKIE_SECURE=false` 는 http 로 쓰는 로컬 개발에서만 — `APP_ENV=local` 이 아니면 기동 실패). `Domain=.{루트}` 로 app./api. 공유. `localStorage` 금지.
+- CSRF: SameSite=Lax + 상태 변경 API는 `Origin` 헤더 검사 (허용: `https://app.{루트}(APP_URL, 개발 서버를 다른 주소로도 쓸 때만 `ALLOWED_ORIGINS` 의 출처 추가 — 운영 `.env` 에는 두지 않는다)`). 쿠키 인증이므로 필요. Origin 이 **없는** 요청(Bruno·서버 간 호출)은 브라우저가 아니라 CSRF 대상이 아니므로 통과 — 브라우저는 크로스 사이트 POST 에 항상 Origin 을 보낸다.
 - 비밀번호(아이디·기업 가입 시): bcrypt cost 12. 규칙은 아래 "입력 검증". 유출 비밀번호 목록 검사는 2단계.
 - 아이디·비밀번호 찾기 API는 아직 구현되지 않았다. CI/DI를 저장하는 테이블도 없으므로 CI 대조 방식은 현재 제공하지 않는다.
 - 기업 회원 비밀번호 찾기는 사업자등록번호 + 담당자 이메일 → 재설정 링크(랜덤 토큰, **30분**, 1회용). 계정 존재 여부는 응답으로 알려주지 않음. 담당자가 바뀌어 이메일을 못 쓰면 고객센터 수동.
@@ -159,7 +159,7 @@
 - HTTP 보안 헤더는 외부 공개 전 프록시 또는 Spring에 설정한다. CSP는 프론트(Vercel)에서.
   - X-Frame-Options/CSP `frame-ancestors` 설정 시 same-origin(`'self'`)은 허용해야 함 — 타일 워크스페이스가 서브 타일을 same-origin iframe으로 띄움 (`docs/decisions.md` 2026-09-29).
   - 프론트 CSP를 넣을 때 매물 상세가 깨지지 않으려면 `frame-src blob:`(비공개 PDF를 blob으로 iframe에), `img-src`에 API 출처(업로드 사진)가 필요 (`docs/decisions.md` 2026-10-02 매물 상세).
-- CORS: `https://app.{루트}` 만. 와일드카드 금지. credentials 허용.
+- CORS·Origin 검사: `https://app.{루트}`(APP_URL)만. 와일드카드 금지. credentials 허용. 개발 서버를 다른 주소로도 쓸 때만 `ALLOWED_ORIGINS`(쉼표 목록)로 출처를 더한다 — 운영 `.env` 에는 두지 않는다.
 - OS: 자동 보안 업데이트, fail2ban(SSH), 불필요 서비스 제거. 월 1회 `docker compose pull` 로 베이스 이미지 갱신.
 
 ## 비밀값

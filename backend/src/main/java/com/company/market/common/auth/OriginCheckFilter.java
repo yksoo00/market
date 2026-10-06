@@ -25,12 +25,13 @@ public class OriginCheckFilter extends OncePerRequestFilter {
 
 	private static final Set<String> SAFE_METHODS = Set.of("GET", "HEAD", "OPTIONS");
 
-	private final String allowedOrigin;
+	private final Set<String> allowedOrigins;
 
 	private final ObjectMapper json;
 
 	public OriginCheckFilter(AppProperties props, ObjectMapper json) {
-		this.allowedOrigin = props.appUrl();
+		// allowedOriginList() 가 이미 소문자·중복 제거
+		this.allowedOrigins = Set.copyOf(props.allowedOriginList());
 		this.json = json;
 	}
 
@@ -38,7 +39,7 @@ public class OriginCheckFilter extends OncePerRequestFilter {
 	protected void doFilterInternal(HttpServletRequest req, HttpServletResponse res, FilterChain chain)
 			throws ServletException, IOException {
 		String origin = req.getHeader(HttpHeaders.ORIGIN);
-		if (!SAFE_METHODS.contains(req.getMethod()) && origin != null && !origin.equalsIgnoreCase(allowedOrigin)) {
+		if (!SAFE_METHODS.contains(req.getMethod()) && origin != null && !allowedOrigins.contains(origin.toLowerCase())) {
 			res.setStatus(HttpServletResponse.SC_FORBIDDEN);
 			res.setContentType(MediaType.APPLICATION_JSON_VALUE);
 			json.writeValue(res.getWriter(), ApiError.of(ErrorCode.FORBIDDEN, "허용되지 않은 출처입니다."));

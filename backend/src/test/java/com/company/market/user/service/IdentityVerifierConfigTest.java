@@ -14,7 +14,7 @@ class IdentityVerifierConfigTest {
 	private static final PiiHasher HASHER = new PiiHasher("dGVzdC1waWkta2V5LXRlc3QtcGlpLWtleS0zMmJ5dGU=");
 
 	private static AppProperties props(String env, String provider) {
-		return new AppProperties(env, null, null, new AppProperties.IdentityVerification(provider), null, null, null);
+		return new AppProperties(env, null, null, new AppProperties.IdentityVerification(provider), null, null, null, true, null);
 	}
 
 	@Test
