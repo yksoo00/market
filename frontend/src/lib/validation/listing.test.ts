@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emptyListingForm, listingFormSchema, type ListingFormInput } from "./listing";
+import { emptyListingForm, listingFormSchema, PROD_STATES, type ListingFormInput } from "./listing";
 
 const schema = listingFormSchema("2026-10-02");
 const valid: ListingFormInput = {
@@ -7,6 +7,7 @@ const valid: ListingFormInput = {
   categoryCode: "ELEC0001",
   prodName: "PowerEdge R740",
   prodBrand: "Dell",
+  prodState: "신품",
   salesUnitPrice: "1000",
   salesQuantity: "1",
 };
@@ -66,13 +67,10 @@ describe("listingFormSchema", () => {
     expect(parse({ salesQuantity: "5", minOrderQuantity: "5" }).success).toBe(true);
   });
 
-  it("중고면 % 1~99 정수 필수, 신품이면 % 무시", () => {
-    for (const bad of ["", "0", "100", "05", "1.5"]) {
-      expect(errorPaths({ condition: "used", usedPercent: bad })).toEqual(["usedPercent"]);
-    }
-    expect(parse({ condition: "used", usedPercent: "1" }).data?.usedPercent).toBe(1);
-    expect(parse({ condition: "used", usedPercent: "99" }).success).toBe(true);
-    expect(parse({ condition: "new", usedPercent: "abc" }).success).toBe(true);
+  it("상품상태는 드롭다운 값만, 안 고르면 필수 오류", () => {
+    for (const ok of PROD_STATES) expect(parse({ prodState: ok }).success).toBe(true);
+    expect(errorPaths({ prodState: "" })).toEqual(["prodState"]);
+    expect(errorPaths({ prodState: "신품대비 70%" })).toEqual(["prodState"]);
   });
 
   it("제조일은 오늘까지, 납기일은 오늘부터, 없는 날짜 거부", () => {

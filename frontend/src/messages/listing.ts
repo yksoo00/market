@@ -1,3 +1,4 @@
+import type { PROD_STATES } from "@/lib/validation/listing";
 export const listing = {
   // 서버 코드 → 문구. 없는 코드는 서버 message 그대로
   errors: {
@@ -31,11 +32,18 @@ export const listing = {
     prodMufcDate: "제조일",
     prodSpecInfo: "사양 요약",
     prodSpecInfoPlaceholder: "예: Xeon Silver 4210 ×2 / 64GB / 2U",
-    condition: "상품상태",
-    conditionNew: "신품",
-    conditionUsed: "중고",
-    usedPercentPrefix: "신품대비",
-    usedPercentLabel: "신품대비 상태(%)",
+    prodState: "상품상태",
+    prodStatePlaceholder: "선택하세요",
+    // 드롭다운에 보이는 문구. 값(PROD_STATES)은 서버 PROD_STATE_PATTERN 과 묶여 있어 문구만 바꿔도 저장 값은 그대로
+    prodStateOptions: {
+      "신품": "신품",
+      "신품대비 90~99%": "신품대비 90~99%",
+      "신품대비 80~89%": "신품대비 80~89%",
+      "신품대비 70~79%": "신품대비 70~79%",
+      "신품대비 60~69%": "신품대비 60~69%",
+      "신품대비 50~59%": "신품대비 50~59%",
+      "신품대비 50% 미만": "신품대비 50% 미만",
+    } as Record<(typeof PROD_STATES)[number], string>,
     salesUnitPrice: "단가(원)",
     salesQuantity: "판매수량",
     stockQuantity: "재고수량",
@@ -78,7 +86,7 @@ export const listing = {
     minOrderQuantity: "최소주문량은 1 이상 100,000 이하 숫자로 입력하세요",
     minOrderOverSales: "최소주문량은 판매수량보다 클 수 없어요",
     orderUnit: "주문단위는 1 이상 100,000 이하 숫자로 입력하세요",
-    usedPercent: "중고 상태는 신품대비 1~99 사이 숫자로 입력하세요",
+    prodState: "상품상태를 목록에서 고르세요",
     prodMufcDate: "제조일은 오늘이나 그 이전 날짜로 입력하세요",
     deliveryDate: "납기일은 오늘이나 그 이후 날짜로 입력하세요",
     date: "올바른 날짜를 입력하세요",

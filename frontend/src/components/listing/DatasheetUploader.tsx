@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Loader2 } from "lucide-react";
+import { cn } from "cn";
+import { inlineBelow, inlineLabel, inlineShell } from "@/components/auth/FormField";
 import { Icon } from "@/components/common/Icon";
 import { Label } from "@/components/ui/label";
 import { uploadFile } from "@/lib/api/uploads";
@@ -85,12 +87,13 @@ export function DatasheetUploader({ value, onChange, onUploadingChange, error }:
   const messages = [...new Set([error, problem].filter((m): m is string => Boolean(m)))];
 
   return (
-    <div className="flex flex-col gap-1.5">
-      <Label className="text-[13px] text-ink-2">
+    // 라벨 왼쪽 배치 — 다른 칸(FieldShell inline)과 같은 격자
+    <div className={cn("flex flex-col gap-1.5", inlineShell)}>
+      <Label className={cn("text-[13px] text-ink-2", inlineLabel)}>
         {t.datasheet}
         <span className="font-normal text-ink-3">{t.datasheetHint}</span>
       </Label>
-      <div className="flex items-center gap-2 min-w-0">
+      <div className="@md:min-h-11 flex items-center gap-2 min-w-0">
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
@@ -112,7 +115,7 @@ export function DatasheetUploader({ value, onChange, onUploadingChange, error }:
       </div>
       <input ref={inputRef} type="file" accept={acceptOf("pdf")} onChange={onPick} className="hidden" tabIndex={-1} aria-hidden="true" />
       {messages.map((m) => (
-        <p key={m} role="alert" className="flex items-center gap-2 text-xs text-down">
+        <p key={m} role="alert" className={cn("flex items-center gap-2 text-xs text-down", inlineBelow)}>
           <span className="min-w-0">{m}</span>
           {m === problem && failed && !uploading && (
             <button type="button" onClick={() => send(failed)} className="shrink-0 font-medium text-primary hover:underline">

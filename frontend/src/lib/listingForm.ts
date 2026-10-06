@@ -18,7 +18,7 @@ export function toCreateRequest(v: ListingFormOutput): ListingCreateRequest {
     prodName: v.prodName,
     prodBrand: v.prodBrand,
     tradeType: TRADE_TYPE,
-    prodState: v.condition === "used" ? `신품대비 ${v.usedPercent}%` : "신품",
+    prodState: v.prodState,
     salesUnitPrice: v.salesUnitPrice,
     salesQuantity: v.salesQuantity,
   };

@@ -414,13 +414,14 @@ class ListingApiTest {
 	}
 
 	@Test
-	@DisplayName("상품상태는 '신품' 또는 '신품대비 1~99%'만 받는다")
+	@DisplayName("상품상태는 드롭다운 구간 값(신품, 신품대비 90~99% … 50~59%, 50% 미만)만 받는다")
 	void prodStateFormat() throws Exception {
 		String regDate = createListing(authCookie);
-		for (String ok : new String[] { "신품", "신품대비 1%", "신품대비 99%" }) {
+		for (String ok : new String[] { "신품", "신품대비 90~99%", "신품대비 80~89%", "신품대비 70~79%", "신품대비 60~69%",
+				"신품대비 50~59%", "신품대비 50% 미만" }) {
 			patchListing(regDate, "{\"prodState\":\"%s\"}".formatted(ok)).andExpect(status().isOk());
 		}
-		for (String bad : new String[] { "new", "신품대비 0%", "신품대비 100%", "신품대비 05%" }) {
+		for (String bad : new String[] { "new", "신품대비 70%", "신품대비 40~49%", "신품대비 90~100%", "신품대비 50%미만" }) {
 			patchListing(regDate, "{\"prodState\":\"%s\"}".formatted(bad)).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.fields.prodState").isString());
 		}
