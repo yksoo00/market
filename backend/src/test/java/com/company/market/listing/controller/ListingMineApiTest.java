@@ -165,42 +165,6 @@ class ListingMineApiTest {
 			.andExpect(jsonPath("$.data.items", hasSize(1)));
 	}
 
-	@Test
-	@DisplayName("가격·수량·거래상태·대표 사진을 돌려준다")
-	void mineReturnsPriceQuantityStatusAndPhoto() throws Exception {
-		save(userId, "ELEC00010001", "20261001090001", "A", "public/listings/photos/2026/10/a.jpg");
-
-		mvc.perform(get("/api/v1/listings/mine").cookie(auth))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.items[0].salesUnitPrice").value(1000))
-			.andExpect(jsonPath("$.data.items[0].salesQuantity").value(1))
-			.andExpect(jsonPath("$.data.items[0].tradeStatus").value("available"))
-			.andExpect(jsonPath("$.data.items[0].photo").value("public/listings/photos/2026/10/a.jpg"));
-	}
-
-	@Test
-	@DisplayName("거래완료 글은 completed, 사진이 없으면 photo 는 null")
-	void mineCompletedStatusAndNoPhoto() throws Exception {
-		save(userId, "ELEC00010001", "20261001090001", "A");
-		jdbc.update("update listings set dt_expire = 20261002000000 where user_id = ?", userId);
-
-		mvc.perform(get("/api/v1/listings/mine").cookie(auth))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.items[0].tradeStatus").value("completed"))
-			.andExpect(jsonPath("$.data.items[0].photo").value(nullValue()));
-	}
-
-	@Test
-	@DisplayName("대표 사진은 상세와 같이 비어 있지 않은 첫 사진 칸 — 첫 칸이 비고 둘째 칸만 있는 옛 매물도 사진이 나온다")
-	void mineFirstNonNullPhoto() throws Exception {
-		save(userId, "ELEC00010001", "20261001090001", "A");
-		jdbc.update("update listings set prod_photo_2 = ? where user_id = ?", "public/listings/photos/2026/10/b.jpg", userId);
-
-		mvc.perform(get("/api/v1/listings/mine").cookie(auth))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.items[0].photo").value("public/listings/photos/2026/10/b.jpg"));
-	}
-
 	private UUID newUser(String loginId, String phone) {
 		return users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
 			.nickname(loginId).email(loginId + "@example.com").name("홍길동").phone(phone).phoneHash(hasher.hash(phone))
@@ -208,14 +172,10 @@ class ListingMineApiTest {
 	}
 
 	private void save(UUID owner, String prodId, String regDate, String name) {
-		save(owner, prodId, regDate, name, null);
-	}
-
-	private void save(UUID owner, String prodId, String regDate, String name, String photo) {
 		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("ELEC0001").prodName(name)
 			.prodBrand("삼성").regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(owner).regDate(regDate).prodId(prodId).tradeType("등록")
-			.prodState("신품").salesUnitPrice(1000).salesQuantity(1).minOrderQuantity(1).orderUnit(1).stockQuantity(1).prodPhoto1(photo)
+			.prodState("신품").salesUnitPrice(1000).salesQuantity(1).minOrderQuantity(1).orderUnit(1).stockQuantity(1)
 			.build());
 	}
 

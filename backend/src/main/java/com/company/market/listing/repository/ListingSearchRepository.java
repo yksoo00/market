@@ -21,11 +21,11 @@ public class ListingSearchRepository {
 
 	private final EntityManager em;
 
-	/** 각 행은 [Listing, Product]. after* 가 있으면 그 커서 다음부터 */
-	public List<Object[]> findPage(ListingSearchCondition c, String afterRegDate, UUID afterUserId, int limit) {
+	/** 각 행은 [Listing, Product]. ownerId 가 있으면 그 사용자 글만, after* 가 있으면 그 커서 다음부터 */
+	public List<Object[]> findPage(ListingSearchCondition c, UUID ownerId, String afterRegDate, UUID afterUserId, int limit) {
 		Map<String, Object> params = new HashMap<>();
 		StringBuilder jpql = new StringBuilder("select l, p from Listing l join Product p on p.prodId = l.prodId where 1=1");
-		appendConditions(jpql, params, c);
+		appendConditions(jpql, params, c, ownerId);
 		if (afterRegDate != null) {
 			jpql.append(" and (l.regDate < :cr or (l.regDate = :cr and l.userId < :cu))");
 			params.put("cr", afterRegDate);
@@ -52,16 +52,21 @@ public class ListingSearchRepository {
 		return query.setMaxResults(limit).getResultList();
 	}
 
-	public long count(ListingSearchCondition c) {
+	public long count(ListingSearchCondition c, UUID ownerId) {
 		Map<String, Object> params = new HashMap<>();
 		StringBuilder jpql = new StringBuilder("select count(l) from Listing l join Product p on p.prodId = l.prodId where 1=1");
-		appendConditions(jpql, params, c);
+		appendConditions(jpql, params, c, ownerId);
 		TypedQuery<Long> query = em.createQuery(jpql.toString(), Long.class);
 		params.forEach(query::setParameter);
 		return query.getSingleResult();
 	}
 
-	private static void appendConditions(StringBuilder jpql, Map<String, Object> params, ListingSearchCondition c) {
+	private static void appendConditions(StringBuilder jpql, Map<String, Object> params, ListingSearchCondition c, UUID ownerId) {
+		// ownerId 가 있으면 그 사용자 글만 (mine=true — id 는 인증 정보에서 온 값이라 파라미터 바인딩만 한다)
+		if (ownerId != null) {
+			jpql.append(" and l.userId = :owner");
+			params.put("owner", ownerId);
+		}
 		String scope = switch (c.field()) {
 			case "name" -> "concat(p.prodName, ' ', coalesce(p.prodNo, ''))";
 			case "brand" -> "p.prodBrand";

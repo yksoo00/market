@@ -20,6 +20,8 @@ public record ListingSearchCondition(
 		@Min(0) @Max(1_000_000_000) Integer minPrice,
 		@Min(0) @Max(1_000_000_000) Integer maxPrice,
 		@DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate deliveryBy,
+		// true 면 요청자 본인 글만. 로그인 필수 — 본인 id 는 이 값이 아니라 인증 정보에서만 가져온다 (컨트롤러)
+		Boolean mine,
 		String cursor) {
 
 	public ListingSearchCondition {
@@ -29,6 +31,10 @@ public record ListingSearchCondition(
 		field = field == null || field.isBlank() ? "all" : field;
 		// 기존 목록 호출(파라미터 없음)이 계속 전체를 돌려주게. 화면은 항상 보낸다
 		status = status == null || status.isBlank() ? "all" : status;
+	}
+
+	public boolean mineOnly() {
+		return Boolean.TRUE.equals(mine);
 	}
 
 }

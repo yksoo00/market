@@ -5,6 +5,8 @@ import java.util.UUID;
 
 import com.company.market.common.api.ApiResponse;
 import com.company.market.common.auth.AuthenticatedUser;
+import com.company.market.common.exception.ApiException;
+import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.idempotency.IdempotencyGuard;
 import com.company.market.common.ratelimit.RateLimiter;
 import com.company.market.listing.dto.ListingCreateRequest;
@@ -59,11 +61,15 @@ public class ListingController {
 	@GetMapping
 	public ApiResponse<ListingPageResponse> list(@AuthenticationPrincipal AuthenticatedUser me,
 			@Valid @ModelAttribute ListingSearchCondition condition, HttpServletRequest req) {
+		// mine=true 는 본인 글만이라 로그인이 필요하다. id 는 인증 정보에서만 (쿼리 파라미터로 받지 않음)
+		if (condition.mineOnly() && me == null) {
+			throw new ApiException(ErrorCode.UNAUTHENTICATED);
+		}
 		// 비로그인 검색만 IP 기준 제한 (security.md "검색 API (비로그인)")
 		if (me == null) {
 			limiter.hit("listing:search:ip:" + req.getRemoteAddr(), 60, Duration.ofMinutes(1));
 		}
-		return ApiResponse.of(listings.search(condition));
+		return ApiResponse.of(listings.search(condition, condition.mineOnly() ? me.id() : null));
 	}
 
 	/** 내 매물만 (본인 id 는 인증 정보에서). 읽기라 rate limit 은 두지 않는다 */

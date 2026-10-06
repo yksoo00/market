@@ -19,6 +19,7 @@ params:query {
   ~maxPrice: 1000000
   ~deliveryBy: 2026-12-31
   ~cursor:
+  ~mine: true
 }
 
 docs {
@@ -28,6 +29,7 @@ docs {
   - field: all(상품명+상품번호+제조사, 기본) | name(상품명+상품번호) | brand(제조사)
   - status: available | completed | all(기본 — 파라미터 없는 호출은 전체)
   - minStock(0~100,000), minPrice·maxPrice(0~10억, 최소 ≤ 최대), deliveryBy(YYYY-MM-DD, 납기일 없는 매물 제외)
+  - mine: true 면 요청자 본인 글만 (로그인 필요 — 없으면 401 UNAUTHENTICATED). 본인 id 는 인증 정보에서만, 다른 조건과 함께 쓴다
   - cursor: 앞 응답의 nextCursor
   200 { ok, data: { items: [ListingSearchItemResponse], nextCursor, total } }. 등록일시 내림차순, 20건씩.
   total 은 같은 조건의 전체 개수(페이지와 무관). nextCursor 가 null 이면 마지막 페이지.

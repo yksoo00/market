@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { RequireLogin } from "@/components/auth/RequireLogin";
 import { MobileTabBar } from "@/components/common/MobileTabBar";
-import { MyListings } from "@/components/my/MyListings";
 import { MyProfile } from "@/components/my/MyProfile";
 import { my } from "@/messages/my";
 
@@ -19,8 +18,6 @@ export default function MyPage() {
           <div className="bg-surface border border-line rounded-md p-5 @md:p-6">
             <RequireLogin>
               <MyProfile />
-              <h2 className="mb-3 text-[15px] font-bold">{my.listings.title}</h2>
-              <MyListings />
             </RequireLogin>
           </div>
         </div>

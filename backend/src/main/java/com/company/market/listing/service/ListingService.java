@@ -179,19 +179,20 @@ public class ListingService {
 		return toResponse(listing, products.get(listing.getProdId()));
 	}
 
-	public ListingPageResponse search(ListingSearchCondition condition) {
+	/** ownerId = null 이면 전체, 있으면 그 사용자 글만 (컨트롤러가 mine=true 일 때 인증 정보에서 넣는다) */
+	public ListingPageResponse search(ListingSearchCondition condition, UUID ownerId) {
 		if (condition.minPrice() != null && condition.maxPrice() != null && condition.minPrice() > condition.maxPrice()) {
 			throw new ValidationException(Map.of("maxPrice", "최대 가격은 최소 가격보다 크거나 같아야 합니다."));
 		}
 		Optional<Cursor> cursor = decodeCursor(condition.cursor());
-		List<Object[]> rows = searchRepository.findPage(condition, cursor.map(Cursor::regDate).orElse(null),
+		List<Object[]> rows = searchRepository.findPage(condition, ownerId, cursor.map(Cursor::regDate).orElse(null),
 				cursor.map(Cursor::userId).orElse(null), PAGE_SIZE + 1);
 		boolean hasMore = rows.size() > PAGE_SIZE;
 		List<Object[]> page = hasMore ? rows.subList(0, PAGE_SIZE) : rows;
 
 		List<ListingSearchItemResponse> items = page.stream().map(r -> toSearchItem((Listing) r[0], (Product) r[1])).toList();
 		String nextCursor = hasMore ? encodeCursor((Listing) page.get(page.size() - 1)[0]) : null;
-		return new ListingPageResponse(items, nextCursor, searchRepository.count(condition));
+		return new ListingPageResponse(items, nextCursor, searchRepository.count(condition, ownerId));
 	}
 
 	/** 내 매물만 최신순 20개씩. 커서는 regDate 하나 — 같은 사용자의 regDate 는 유일하다. 깨진 커서는 첫 페이지 */
@@ -204,7 +205,7 @@ public class ListingService {
 			Listing l = (Listing) r[0];
 			Product p = (Product) r[1];
 			return new ListingMineItemResponse(l.getUserId(), l.getRegDate(), p.getProdNo(), p.getProdName(), p.getProdBrand(),
-					l.extraFilledCount(), l.getSalesUnitPrice(), l.getSalesQuantity(), l.tradeStatus(), firstPhoto(l));
+					l.extraFilledCount());
 		}).toList();
 		return new ListingMinePageResponse(items, hasMore ? ((Listing) page.get(page.size() - 1)[0]).getRegDate() : null);
 	}
@@ -293,14 +294,6 @@ public class ListingService {
 		if (key != null && !key.isEmpty()) {
 			refs.add(new UploadRef(field, key, kind));
 		}
-	}
-
-	/** 대표 사진 = 비어 있지 않은 첫 사진 칸 (상세 photos 의 첫 장과 같다). 옛 데이터는 첫 칸이 비어 있을 수 있다 */
-	private static String firstPhoto(Listing listing) {
-		return Stream.of(listing.getProdPhoto1(), listing.getProdPhoto2(), listing.getProdPhoto3(), listing.getProdImage4())
-			.filter(Objects::nonNull)
-			.findFirst()
-			.orElse(null);
 	}
 
 	private static Set<String> storedFileKeys(Listing listing) {
