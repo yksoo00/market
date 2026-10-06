@@ -3,11 +3,13 @@ export const upload = {
     excel: "엑셀 파일(.xlsx, .xls)만 올릴 수 있어요. 파일 형식을 확인하세요",
     pdf: "PDF 파일(.pdf)만 올릴 수 있어요. 파일 형식을 확인하세요",
     image: "이미지는 jpg, png, webp만 올릴 수 있어요. 파일 형식을 확인하세요",
+    doc: "PDF 또는 이미지(jpg, png)만 올릴 수 있어요. 파일 형식을 확인하세요",
   },
   size: {
     excel: "엑셀 파일은 10MB 이하로 올려 주세요",
     pdf: "PDF 파일은 10MB 이하로 올려 주세요",
     image: "이미지는 한 장에 5MB 이하로 올려 주세요",
+    doc: "파일은 10MB 이하로 올려 주세요",
   },
   empty: "빈 파일이에요. 내용이 있는 파일을 선택하세요",
   // 서버 코드 → 문구 (POST /api/v1/uploads). 없는 코드는 서버 message 그대로

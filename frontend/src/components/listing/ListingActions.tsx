@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Icon } from "@/components/common/Icon";
@@ -51,9 +52,9 @@ export function ListingActions({ detail, owner }: { detail: ListingDetail; owner
       <div className="flex flex-wrap items-center gap-2">
         {owner ? (
           <>
-            <button type="button" onClick={() => pending(t.pendingEdit)} className={outline}>
+            <Link href={`/listings/${detail.userId}/${detail.regDate}/edit`} className={`${outline} inline-flex items-center`}>
               {t.edit}
-            </button>
+            </Link>
             <button type="button" onClick={remove} disabled={deleting} className={filled}>
               {t.remove}
             </button>

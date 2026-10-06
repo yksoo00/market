@@ -7,6 +7,7 @@ import { inlineBelow, inlineLabel, inlineShell } from "@/components/auth/FormFie
 import { Icon } from "@/components/common/Icon";
 import { Label } from "@/components/ui/label";
 import { uploadFile } from "@/lib/api/uploads";
+import { fileUrl } from "@/lib/files";
 import { uploadErrorMessage } from "@/lib/uploadError";
 import { MAX_PHOTOS } from "@/lib/validation/listing";
 import { acceptOf, checkUpload } from "@/lib/validation/upload";
@@ -17,8 +18,8 @@ const t = listing.form;
 interface Slot {
   id: number;
   previewUrl: string;
-  /** 실패하면 같은 파일로 다시 올린다 (고르기부터 다시 하지 않게) */
-  file: File;
+  /** 실패하면 같은 파일로 다시 올린다 (고르기부터 다시 하지 않게). 이미 저장된 사진(수정 화면)엔 없다 */
+  file?: File;
   key?: string;
   status: "uploading" | "done" | "error";
   message?: string;
@@ -27,6 +28,8 @@ interface Slot {
 interface Props {
   /** 업로드가 끝난 키 (칸 순서) */
   value: string[];
+  /** 수정 화면: 이미 저장된 사진 키로 시작한다 (미리보기는 서버 파일 주소) */
+  initialKeys?: string[];
   onChange: (keys: string[]) => void;
   onUploadingChange: (uploading: boolean) => void;
   /** 검증·서버 오류 (fields.photos) */
@@ -34,13 +37,15 @@ interface Props {
 }
 
 /** 사진 최대 4장. 고르는 즉시 올리고(2단계 업로드) 키만 폼 값으로 넘긴다. 미리보기는 고른 파일 자체 */
-export function PhotoUploader({ value, onChange, onUploadingChange, error }: Props) {
+export function PhotoUploader({ value, initialKeys = [], onChange, onUploadingChange, error }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
-  const nextId = useRef(0);
-  const [slots, setSlots] = useState<Slot[]>([]);
+  const nextId = useRef(initialKeys.length);
+  const [slots, setSlots] = useState<Slot[]>(() =>
+    initialKeys.map((key, id) => ({ id, previewUrl: fileUrl(key), key, status: "done" as const })),
+  );
   const [notice, setNotice] = useState<string | null>(null);
 
-  // TODO(수정 화면): 지금은 빈 칸에서 시작해 마운트 때 [] 를 폼에 넣는다. 수정 화면에서 쓰려면 slots 를 value(기존 키)로 초기화해야 기존 사진이 안 지워진다
+  // initialKeys 로 시작하면 키 합이 폼 값과 같아 마운트 때 폼에 아무것도 넣지 않는다. 없으면 [] 를 넣는다
   // 부모(폼) 값과 업로드 상태를 칸 상태에서 계산해 알린다. 같은 값이면 알리지 않아 폼이 불필요하게 다시 검증하지 않게
   // 배열은 렌더마다 새로 생겨 effect 의존성으로 못 쓴다 → 문자열로 비교 (키에는 "|"가 없다: 폴더/uuid.확장자)
   const joinedKeys = slots.flatMap((s) => (s.status === "done" && s.key ? [s.key] : [])).join("|");
@@ -55,7 +60,7 @@ export function PhotoUploader({ value, onChange, onUploadingChange, error }: Pro
   useEffect(() => {
     slotsRef.current = slots;
   }, [slots]);
-  useEffect(() => () => slotsRef.current.forEach((s) => URL.revokeObjectURL(s.previewUrl)), []);
+  useEffect(() => () => slotsRef.current.forEach(revokePreview), []);
 
   const update = (id: number, patch: Partial<Slot>) => setSlots((list) => list.map((s) => (s.id === id ? { ...s, ...patch } : s)));
   // 그사이 칸을 지웠으면 update 가 아무것도 바꾸지 않는다
@@ -79,15 +84,15 @@ export function PhotoUploader({ value, onChange, onUploadingChange, error }: Pro
     }
     setNotice(messages.length > 0 ? messages.join(" · ") : null);
 
-    const added: Slot[] = accepted.map((file) => ({ id: nextId.current++, previewUrl: URL.createObjectURL(file), file, status: "uploading" }));
-    setSlots((list) => [...list, ...added]);
-    for (const slot of added) send(slot.id, slot.file);
+    const added = accepted.map((file) => ({ slot: { id: nextId.current++, previewUrl: URL.createObjectURL(file), file, status: "uploading" } as Slot, file }));
+    setSlots((list) => [...list, ...added.map((a) => a.slot)]);
+    for (const { slot, file } of added) send(slot.id, file);
   };
 
   const remove = (id: number) => {
     setSlots((list) => {
       const slot = list.find((s) => s.id === id);
-      if (slot) URL.revokeObjectURL(slot.previewUrl);
+      if (slot) revokePreview(slot);
       return list.filter((s) => s.id !== id);
     });
   };
@@ -115,11 +120,11 @@ export function PhotoUploader({ value, onChange, onUploadingChange, error }: Pro
                 {t.photoMain}
               </span>
             )}
-            {slot.status === "error" && (
+            {slot.status === "error" && slot.file && (
               <button
                 type="button"
                 aria-label={t.photoRetry(i + 1)}
-                onClick={() => send(slot.id, slot.file)}
+                onClick={() => slot.file && send(slot.id, slot.file)}
                 className="absolute inset-0 m-auto size-10 rounded-full bg-surface border border-line flex items-center justify-center text-ink-2 hover:border-primary hover:text-primary"
               >
                 <RotateCw size={18} />
@@ -159,4 +164,9 @@ export function PhotoUploader({ value, onChange, onUploadingChange, error }: Pro
       ))}
     </div>
   );
+}
+
+// 서버 파일 주소(기존 사진)는 해제할 것이 없다 — 고른 파일의 blob URL 만
+function revokePreview(slot: Slot) {
+  if (slot.previewUrl.startsWith("blob:")) URL.revokeObjectURL(slot.previewUrl);
 }
