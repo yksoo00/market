@@ -29,6 +29,20 @@ export const my = {
     editColumn: "수정",
     edit: "수정",
     editAria: (name: string) => `${name} 수정`,
+    // 행 안 수정 (RowEditor)
+    row: {
+      loading: "수정할 내용을 불러오는 중…",
+      loadFailed: "수정할 내용을 불러오지 못했어요.",
+      retry: "다시 시도",
+      editing: (name: string) => `${name} 수정 중`,
+      save: "저장",
+      saving: "저장 중…",
+      cancel: "취소",
+      noChange: "바꾼 내용이 없어요",
+      warranty: "보증기간",
+      panelHas: "입력됨",
+      panelNone: "없음",
+    },
   },
   // /my/purchases — 구매 기능(구매요청·견적·발주)이 생기면 채운다
   purchases: {

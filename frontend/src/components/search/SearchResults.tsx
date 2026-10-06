@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { RowEditor } from "@/components/my/RowEditor";
 import { ResultList } from "@/components/search/ResultList";
 import { listingsApi } from "@/lib/api/listings";
+import { applyDetailToItem } from "@/lib/rowEdit";
 import type { SearchQuery, SearchScope } from "@/lib/search";
 import { search as t } from "@/messages/search";
 import type { ListingSearchItem } from "@/types/listing";
@@ -22,6 +24,22 @@ export function SearchResults({ query: initialQuery, scope = "search" }: { query
   const [attempt, setAttempt] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [moreFailed, setMoreFailed] = useState<string | null>(null);
+  // 내 판매글(mine): 수정 중인 행. 있으면 목록 대신 그 행의 편집기만 보인다 (다른 행·[더 보기]는 숨김)
+  const [editing, setEditing] = useState<ListingSearchItem | null>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const savedScroll = useRef(0);
+
+  // 수정을 시작·끝낼 때 칸(main)의 스크롤 위치를 되돌려 보던 자리로 돌아오게
+  const scroller = () => rootRef.current?.closest("main") ?? null;
+  const startEdit = (item: ListingSearchItem) => {
+    savedScroll.current = scroller()?.scrollTop ?? 0;
+    setEditing(item);
+    scroller()?.scrollTo({ top: 0 });
+  };
+  const stopEdit = () => {
+    setEditing(null);
+    requestAnimationFrame(() => scroller()?.scrollTo({ top: savedScroll.current }));
+  };
 
   useEffect(() => {
     let alive = true;
@@ -63,9 +81,30 @@ export function SearchResults({ query: initialQuery, scope = "search" }: { query
     else setMoreFailed(res.code === "RATE_LIMITED" ? r.rateLimited : r.moreFailed);
   };
 
+  if (editing) {
+    return (
+      <div ref={rootRef}>
+        <RowEditor
+          item={editing}
+          onCancel={stopEdit}
+          onSaved={(detail) => {
+            // 저장 응답으로 그 행만 갱신 (새 상품으로 옮겨졌으면 그 상품 값)
+            setState({
+              kind: "ready",
+              items: items.map((i) => (i.userId === editing.userId && i.regDate === editing.regDate ? applyDetailToItem(i, detail) : i)),
+              nextCursor,
+              total,
+            });
+            stopEdit();
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
-    <>
-      <ResultList items={items} query={query} total={total} scope={scope} />
+    <div ref={rootRef} className="contents">
+      <ResultList items={items} query={query} total={total} scope={scope} onEdit={scope === "mine" ? startEdit : undefined} />
       {nextCursor && (
         <div className="flex items-center justify-center gap-2 pt-1">
           <button
@@ -83,7 +122,7 @@ export function SearchResults({ query: initialQuery, scope = "search" }: { query
           )}
         </div>
       )}
-    </>
+    </div>
   );
 }
 
