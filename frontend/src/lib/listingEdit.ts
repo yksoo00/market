@@ -66,8 +66,11 @@ export function diffToUpdateRequest(initial: ListingEditValues, current: Listing
   for (const key of numberFields) {
     if (initial[key] !== current[key]) req[key] = Number(current[key]);
   }
+  // 설명은 폼이 앞뒤 공백을 잘라 보내므로(zod trim) 같은 기준으로 비교한다 — 공백만 바꾼 걸 "바뀜"으로 보면 [저장]이 켜지는데 보낼 게 없다
+  const trimmed = { ...current, description: current.description.trim() };
   for (const key of textFields) {
-    if (initial[key] !== current[key]) req[key] = current[key];
+    const before = key === "description" ? initial.description.trim() : initial[key];
+    if (before !== trimmed[key]) req[key] = trimmed[key];
   }
   // 배열은 순서도 비교 — 첫 장이 대표 사진이다
   if (initial.photos.join("|") !== current.photos.join("|")) req.photos = [...current.photos];

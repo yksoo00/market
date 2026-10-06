@@ -121,3 +121,11 @@ describe("diffToUpdateRequest", () => {
     expect("listingDataSheet" in diffToUpdateRequest(initial, { ...initial })).toBe(false);
   });
 });
+
+describe("diffToUpdateRequest 공백", () => {
+  it("설명 앞뒤 공백만 바뀐 건 바뀐 것이 아니다 (폼은 공백을 잘라 보낸다)", () => {
+    const initial = { ...editInitialValues(detail), description: "abc" };
+    expect(diffToUpdateRequest(initial, { ...initial, description: "abc " })).toEqual({});
+    expect(diffToUpdateRequest(initial, { ...initial, description: " abcd " })).toEqual({ description: "abcd" });
+  });
+});
