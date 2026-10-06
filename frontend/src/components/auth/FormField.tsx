@@ -42,23 +42,29 @@ interface ShellProps {
   children: ReactNode;
 }
 
+// 라벨 왼쪽 배치(inline)의 격자. 칸 폭 @md(768) 이상에서만 — 좁으면 입력이 200px 안팎으로 줄어 placeholder 가 잘려 위 라벨로 쌓는다.
+// 사진·데이터시트 업로더도 같은 격자를 써서 칸끼리 어긋나지 않게 export
+export const inlineShell = "@md:grid @md:grid-cols-[6.5rem_minmax(0,1fr)] @md:gap-x-3";
+// min-h-11 = 입력 높이(44)라 라벨이 첫 줄 가운데에. self-start 로 여러 줄 칸(설명·사진)에서도 위에 붙는다 (stretch 면 행 한가운데)
+export const inlineLabel = "@md:min-h-11 @md:self-start @md:flex-wrap @md:gap-x-1 @md:gap-y-0 @md:leading-tight";
+export const inlineBelow = "@md:col-start-2";
+
 /** 라벨 + 입력 자리 + 오류 문구 */
 export function FieldShell({ label, htmlFor, hint, error, note, inline = false, children }: ShellProps) {
   const errorId = htmlFor ? `${htmlFor}-error` : undefined;
   return (
-    <div className={inline ? "grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-3 gap-y-1.5" : "flex flex-col gap-1.5"}>
-      {/* inline: 라벨 높이를 입력(44)과 맞춰 첫 줄 가운데에. 여러 줄 칸(설명·사진)에서도 위에 붙는다 */}
-      <Label htmlFor={htmlFor} className={cn("text-[13px] text-ink-2", inline && "min-h-11 flex-wrap gap-x-1 gap-y-0 leading-tight")}>
+    <div className={cn("flex flex-col gap-1.5", inline && inlineShell)}>
+      <Label htmlFor={htmlFor} className={cn("text-[13px] text-ink-2", inline && inlineLabel)}>
         {label}
         {hint && <span className="font-normal text-ink-3">{hint}</span>}
       </Label>
       {children}
       {error ? (
-        <p id={errorId} role="alert" className={cn("text-xs text-down", inline && "col-start-2")}>
+        <p id={errorId} role="alert" className={cn("text-xs text-down", inline && inlineBelow)}>
           {error}
         </p>
       ) : (
-        note && <p className={cn("text-xs", inline && "col-start-2")}>{note}</p>
+        note && <p className={cn("text-xs", inline && inlineBelow)}>{note}</p>
       )}
     </div>
   );

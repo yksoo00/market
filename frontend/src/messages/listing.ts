@@ -1,3 +1,4 @@
+import type { PROD_STATES } from "@/lib/validation/listing";
 export const listing = {
   // 서버 코드 → 문구. 없는 코드는 서버 message 그대로
   errors: {
@@ -33,6 +34,16 @@ export const listing = {
     prodSpecInfoPlaceholder: "예: Xeon Silver 4210 ×2 / 64GB / 2U",
     prodState: "상품상태",
     prodStatePlaceholder: "선택하세요",
+    // 드롭다운에 보이는 문구. 값(PROD_STATES)은 서버 PROD_STATE_PATTERN 과 묶여 있어 문구만 바꿔도 저장 값은 그대로
+    prodStateOptions: {
+      "신품": "신품",
+      "신품대비 90~99%": "신품대비 90~99%",
+      "신품대비 80~89%": "신품대비 80~89%",
+      "신품대비 70~79%": "신품대비 70~79%",
+      "신품대비 60~69%": "신품대비 60~69%",
+      "신품대비 50~59%": "신품대비 50~59%",
+      "신품대비 50% 미만": "신품대비 50% 미만",
+    } as Record<(typeof PROD_STATES)[number], string>,
     salesUnitPrice: "단가(원)",
     salesQuantity: "판매수량",
     stockQuantity: "재고수량",

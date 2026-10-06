@@ -20,17 +20,20 @@ export function ProdStateField() {
         {...register("prodState")}
         aria-invalid={touched && Boolean(error)}
         aria-describedby={error ? "prodState-error" : undefined}
+        // statusClass 를 뒤에 — cn(tailwind-merge)이 뒤쪽을 남겨서, 앞에 두면 border-line 이 통과(초록) 테두리를 지운다.
+        // 오류 모양은 Input 과 같게(빨간 테두리 + 링)
         className={cn(
+          "w-full rounded-md border border-line outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20",
           statusClass(valid),
-          "w-full rounded-md border border-line outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 aria-invalid:border-down",
         )}
       >
-        <option value="" disabled>
+        {/* disabled 가 아니라 hidden: disabled 면 서버 렌더 HTML 에서 브라우저가 '신품'을 먼저 골라 보여 주다 하이드레이션 뒤 바뀐다 */}
+        <option value="" hidden>
           {t.prodStatePlaceholder}
         </option>
         {PROD_STATES.map((s) => (
           <option key={s} value={s}>
-            {s}
+            {t.prodStateOptions[s]}
           </option>
         ))}
       </select>
