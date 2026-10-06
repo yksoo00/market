@@ -156,3 +156,20 @@ export interface ListingUpdateRequest {
   testReport?: string;
   certificateOfAuthen?: string;
 }
+
+/** GET /api/v1/listings/mine 의 한 줄. 백엔드 ListingMineItemResponse 와 1:1 */
+export interface ListingMineItem {
+  userId: string;
+  /** yyyyMMddHHmmss */
+  regDate: string;
+  prodNo: string | null;
+  prodName: string;
+  prodBrand: string;
+  /** 보증기간·불량지원·대체품·테스트리포트·인증서 중 채운 개수 (0~5) */
+  extraFilled: number;
+}
+
+export interface ListingMinePage {
+  items: ListingMineItem[];
+  nextCursor: string | null;
+}

@@ -16,7 +16,7 @@ import { upload } from "@/messages/upload";
 
 const t = home.quick;
 
-// TODO(페이지 미구현): 임시 경로. 각 화면을 만들 때 실제 경로로 바꾼다 (sellManual 은 구현됨)
+// TODO(페이지 미구현): 임시 경로. 각 화면을 만들 때 실제 경로로 바꾼다 (sellManual·sellExtra 는 구현됨)
 const routes = {
   sellManual: "/listings/new",
   sellExtra: "/listings/extra",

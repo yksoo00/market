@@ -55,6 +55,9 @@ export function ListingActions({ detail, owner }: { detail: ListingDetail; owner
             <Link href={`/listings/${detail.userId}/${detail.regDate}/edit`} className={`${outline} inline-flex items-center`}>
               {t.edit}
             </Link>
+            <Link href={`/listings/${detail.userId}/${detail.regDate}/extra`} className={`${outline} inline-flex items-center`}>
+              {t.addExtra}
+            </Link>
             <button type="button" onClick={remove} disabled={deleting} className={filled}>
               {t.remove}
             </button>
