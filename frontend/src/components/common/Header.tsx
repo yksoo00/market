@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/common/Icon";
 import { useTileWorkspace } from "@/components/common/TileWorkspaceContext";
+import { UserMenu } from "@/components/common/UserMenu";
 import { useIsFramed } from "@/hooks/useIsFramed";
 import { authApi } from "@/lib/api/auth";
 import { screenOf } from "@/lib/tileScreens";
@@ -15,13 +16,11 @@ const navHrefs = ["/listings", "/requests", "/prices", "/business", "/support"];
 export function Header() {
   // 경로 전체가 아니라 "로그인 화면인가"만 본다 (아래 effect 주석)
   // 로그인은 타일 큐의 칸(iframe)에서도 일어나므로 주소창 칸이든 다른 칸이든 로그인 화면이 열려 있는지를 본다
-  const { panes } = useTileWorkspace();
+  const { panes, open } = useTileWorkspace();
   const onLoginPage = usePathname() === "/login" || panes.some((p) => screenOf(p.path).id === "login");
   const framed = useIsFramed();
-  const [profile, setProfile] = useState<{ nickname: string } | null>(null);
+  const [profile, setProfile] = useState<{ nickname: string; kind: "PERSONAL" | "BUSINESS" } | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
-  const [logoutError, setLogoutError] = useState(false);
 
   useEffect(() => {
     // 서브 타일(iframe) 안에서는 헤더 자체를 안 그리므로 세션 조회도 건너뛴다.
@@ -39,19 +38,6 @@ export function Header() {
     // 이동으로 끝나므로, /login에 들어오고 나갈 때만 세션을 다시 확인한다. 경로가 바뀔 때마다 조회하면
     // 비로그인 사용자는 이동마다 401 + refresh 시도 요청이 나간다.
   }, [framed, onLoginPage]);
-
-  const logout = async () => {
-    setLoggingOut(true);
-    setLogoutError(false);
-    const result = await authApi.logout();
-    if (result.ok) {
-      setProfile(null);
-      setSessionChecked(true);
-    } else {
-      setLogoutError(true);
-    }
-    setLoggingOut(false);
-  };
 
   if (framed) return null;
 
@@ -79,15 +65,16 @@ export function Header() {
         <Icon name="bell" />
       </Link>
       {profile ? (
-        <div className="flex items-center gap-3">
-          <span className="max-w-36 truncate text-[13px] font-semibold text-white" title={profile.nickname}>
-            {profile.nickname}님
-          </span>
-          <button type="button" onClick={() => void logout()} disabled={loggingOut} className="text-[13px] text-on-primary hover:text-white disabled:opacity-60">
-            {loggingOut ? "로그아웃 중…" : "로그아웃"}
-          </button>
-          {logoutError && <span role="alert" className="text-xs text-white">로그아웃 실패</span>}
-        </div>
+        <UserMenu
+          nickname={profile.nickname}
+          kind={profile.kind}
+          onLoggedOut={() => {
+            setProfile(null);
+            setSessionChecked(true);
+            // 마이페이지처럼 로그인이 필요한 화면(옆 칸 포함)에 이전 사용자의 내용이 남지 않게 홈 전체화면으로 리셋 (로고와 같은 동작)
+            open(panes[0]?.key ?? "", "/", true);
+          }}
+        />
       ) : sessionChecked ? (
         <>
           <Link href="/login" className="text-[13px] text-on-primary hover:text-white">

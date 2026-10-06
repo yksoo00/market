@@ -167,6 +167,11 @@ export interface ListingMineItem {
   prodBrand: string;
   /** 보증기간·불량지원·대체품·테스트리포트·인증서 중 채운 개수 (0~5) */
   extraFilled: number;
+  salesUnitPrice: number | null;
+  salesQuantity: number | null;
+  tradeStatus: "available" | "completed";
+  /** 대표 사진 키 (공개 경로). 없으면 null */
+  photo: string | null;
 }
 
 export interface ListingMinePage {
