@@ -204,7 +204,7 @@ public class ListingService {
 			Listing l = (Listing) r[0];
 			Product p = (Product) r[1];
 			return new ListingMineItemResponse(l.getUserId(), l.getRegDate(), p.getProdNo(), p.getProdName(), p.getProdBrand(),
-					l.extraFilledCount());
+					l.extraFilledCount(), l.getSalesUnitPrice(), l.getSalesQuantity(), l.tradeStatus(), l.getProdPhoto1());
 		}).toList();
 		return new ListingMinePageResponse(items, hasMore ? ((Listing) page.get(page.size() - 1)[0]).getRegDate() : null);
 	}
