@@ -36,6 +36,7 @@ docker compose logs -f <service>
 pnpm dev / pnpm build
 pnpm typecheck / pnpm lint          # typecheck는 next typegen 포함
 pnpm test                           # Vitest (lib·hook 단위. *.test.ts)
+pnpm e2e                            # Playwright 핵심 흐름 (e2e/*.spec.ts). 백엔드·compose 먼저 실행, 가입 한도 시간당 5회
 ```
 
 ## 저장소 구조
