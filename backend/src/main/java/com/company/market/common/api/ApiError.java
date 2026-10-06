@@ -17,6 +17,10 @@ public record ApiError(boolean ok, String code, String message, Map<String, Stri
 		return new ApiError(false, code.name(), message, null);
 	}
 
+	public static ApiError of(ErrorCode code, String message, Map<String, String> fields) {
+		return new ApiError(false, code.name(), message, fields);
+	}
+
 	/** ErrorCode 에 없는 상태(MVC 표준 예외의 405·415 등)용. 코드는 HTTP 상태 이름 */
 	public static ApiError ofStatus(String httpStatusName, String message) {
 		return new ApiError(false, httpStatusName, message, null);

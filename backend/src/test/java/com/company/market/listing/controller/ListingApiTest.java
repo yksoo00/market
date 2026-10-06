@@ -872,4 +872,124 @@ class ListingApiTest {
 			.andExpect(status().isUnauthorized());
 	}
 
+
+	// ---- 상품 칸 수정 (스펙 2026-10-06-my-listings "상품 칸 규칙") ----
+
+	private String createProduct(Cookie cookie, String name, String brand, String prodNo) throws Exception {
+		MvcResult created = mvc.perform(post("/api/v1/listings").cookie(cookie)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"ELEC0001","prodName":"%s","prodBrand":"%s","prodNo":%s,
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":500000,"salesQuantity":1}
+					""".formatted(name, brand, prodNo == null ? "null" : "\"" + prodNo + "\"")))
+			.andExpect(status().isCreated()).andReturn();
+		return created.getResponse().getContentAsString().replaceAll(".*\"regDate\":\"([^\"]+)\".*", "$1");
+	}
+
+	private String prodIdOf(UUID owner, String regDate) {
+		return jdbc.queryForObject("select prod_id from listings where user_id = ? and reg_date = ?", String.class, owner, regDate);
+	}
+
+	private UUID userIdOf(Cookie cookie) {
+		return jdbc.queryForObject("select id from users where user_id = ?", UUID.class, cookie == authCookie ? "listingapitester" : "listingapiother");
+	}
+
+	@Test
+	@DisplayName("상품명을 바꾸면 그 이름의 기존 상품으로 옮기고 응답은 그 상품 값 — 옛 상품과 남의 매물은 그대로")
+	void changingNameRelinksToExistingProduct() throws Exception {
+		Cookie other = otherUserCookie();
+		String otherReg = createProduct(other, "R750", "삼성", "R750-X");
+		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
+		String before = prodIdOf(userId, mine);
+		String target = prodIdOf(userIdOf(other), otherReg);
+
+		patchListing(mine, "{\"prodName\":\"R750\"}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.prodId").value(target))
+			.andExpect(jsonPath("$.data.prodNo").value("R750-X"));
+
+		assertThat(prodIdOf(userId, mine)).isEqualTo(target);
+		assertThat(prodIdOf(userIdOf(other), otherReg)).isEqualTo(target);
+		assertThat(jdbc.queryForObject("select count(*) from products where prod_id = ?", Integer.class, before)).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select count(*) from products", Integer.class)).isEqualTo(2);
+	}
+
+	@Test
+	@DisplayName("없는 이름이면 보낸 값으로 새 상품을 만들고 이 매물만 옮긴다 — 같은 상품을 쓰던 남의 매물은 그대로")
+	void changingNameCreatesNewProductOnlyForThisListing() throws Exception {
+		Cookie other = otherUserCookie();
+		String otherReg = createProduct(other, "노트북 U", "삼성", null);
+		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
+		String shared = prodIdOf(userId, mine);
+
+		patchListing(mine, "{\"prodName\":\" 완전 새 상품 \",\"prodNo\":\"NEW-1\"}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.prodName").value("완전 새 상품"))
+			.andExpect(jsonPath("$.data.prodNo").value("NEW-1"));
+
+		assertThat(prodIdOf(userId, mine)).isNotEqualTo(shared);
+		assertThat(prodIdOf(userIdOf(other), otherReg)).isEqualTo(shared);
+		assertThat(jdbc.queryForObject("select prod_name from products where prod_id = ?", String.class, shared)).isEqualTo("노트북 U");
+	}
+
+	@Test
+	@DisplayName("이름·제조사 그대로 번호만 바꾸면 — 이 매물만 쓰는 상품이면 상품마스터를 고친다")
+	void editingProductFieldsWhenNotShared() throws Exception {
+		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
+
+		patchListing(mine, "{\"prodNo\":\"N-1\",\"prodSpecInfo\":\"16GB\"}")
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.prodNo").value("N-1"));
+
+		assertThat(jdbc.queryForObject("select prod_no from products where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("N-1");
+		assertThat(jdbc.queryForObject("select prod_spec_info from products where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("16GB");
+	}
+
+	@Test
+	@DisplayName("이름·제조사 그대로 번호만 바꾸는데 다른 매물도 그 상품을 쓰면 422 PRODUCT_SHARED, fields.prodNo")
+	void editingSharedProductFieldsIsRejected() throws Exception {
+		createProduct(otherUserCookie(), "노트북 U", "삼성", "OLD");
+		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
+
+		patchListing(mine, "{\"prodNo\":\"N-2\"}")
+			.andExpect(status().isUnprocessableEntity())
+			.andExpect(jsonPath("$.code").value("PRODUCT_SHARED"))
+			.andExpect(jsonPath("$.fields.prodNo").isString());
+
+		assertThat(jdbc.queryForObject("select prod_no from products where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("OLD");
+	}
+
+	@Test
+	@DisplayName("상품 칸이 422 로 막히면 같은 요청의 매물 칸(상품상태)도 안 바뀐다")
+	void productRejectionRollsBackListingFields() throws Exception {
+		createProduct(otherUserCookie(), "노트북 U", "삼성", "OLD");
+		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
+
+		patchListing(mine, "{\"prodNo\":\"N-3\",\"prodState\":\"신품대비 90~99%\"}")
+			.andExpect(status().isUnprocessableEntity());
+
+		assertThat(jdbc.queryForObject("select prod_state from listings where user_id = ? and reg_date = ?", String.class, userId, mine)).isEqualTo("신품");
+	}
+
+	@Test
+	@DisplayName("상품 칸 검증: 상품명 공백·51자, 제조일 미래, 카테고리 공백은 400 VALIDATION")
+	void productFieldValidation() throws Exception {
+		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
+
+		patchListing(mine, "{\"prodName\":\"   \"}").andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.prodName").isString());
+		patchListing(mine, "{\"prodName\":\"%s\"}".formatted("가".repeat(51))).andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.prodName").isString());
+		patchListing(mine, "{\"prodBrand\":\"\"}").andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.prodBrand").isString());
+		patchListing(mine, "{\"categoryCode\":\" \"}").andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.categoryCode").isString());
+		patchListing(mine, "{\"prodMufcDate\":\"20991231\"}").andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.prodMufcDate").isString());
+	}
+
+	@Test
+	@DisplayName("남의 매물의 상품 칸은 고칠 수 없다 — 403")
+	void cannotEditOthersProductFields() throws Exception {
+		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
+
+		mvc.perform(patch("/api/v1/listings/" + userId + "/" + mine).cookie(otherUserCookie())
+				.contentType(MediaType.APPLICATION_JSON).content("{\"prodName\":\"해킹\"}"))
+			.andExpect(status().isForbidden());
+	}
+
 }

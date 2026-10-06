@@ -133,7 +133,12 @@ public class Listing implements Persistable<ListingId> {
 		this.spareCol = spareCol;
 	}
 
-	/** null 이 아닌 필드만 반영 (PATCH 부분수정). 상품마스터용 필드는 대상 아님 */
+	/** 이 매물만 다른 상품마스터로 옮긴다 (남의 매물은 그대로) */
+	public void changeProduct(String prodId) {
+		this.prodId = prodId;
+	}
+
+	/** null 이 아닌 필드만 반영 (PATCH 부분수정). 상품마스터 칸은 ListingService 가 따로 처리 */
 	public void applyUpdate(ListingUpdateRequest req, String dtUpdate) {
 		if (req.tradeType() != null) {
 			this.tradeType = req.tradeType();
