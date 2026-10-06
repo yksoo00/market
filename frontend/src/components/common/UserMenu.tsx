@@ -6,6 +6,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -27,6 +28,8 @@ interface Props {
  * 사업자는 진한 면 + 흰 테두리, 개인은 연한 면으로 헤더(보라) 위에서도 구분된다.
  */
 export function UserMenu({ nickname, kind, onLoggedOut }: Props) {
+  // 제어 컴포넌트: 타일 엔진이 링크 클릭을 캡처 단계에서 preventDefault 해서 Radix 가 [마이페이지] 선택 뒤 메뉴를 닫지 못한다
+  const [open, setOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [failed, setFailed] = useState(false);
   const business = kind === "BUSINESS";
@@ -42,7 +45,15 @@ export function UserMenu({ nickname, kind, onLoggedOut }: Props) {
   };
 
   return (
-    <DropdownMenu modal={false}>
+    <DropdownMenu
+      modal={false}
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        // 지난번 실패 문구가 다음에 열 때 남아 있지 않게
+        if (next) setFailed(false);
+      }}
+    >
       {/* 보이는 원은 36, 눌리는 영역은 44 (터치) */}
       <DropdownMenuTrigger aria-label={t.label} title={t.label} className="size-11 -mr-1 flex items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white">
         <span
@@ -55,7 +66,7 @@ export function UserMenu({ nickname, kind, onLoggedOut }: Props) {
         </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56 min-w-56 shadow-none ring-0 border border-line bg-surface text-ink">
-        <div className="px-2 py-2 flex items-center gap-2">
+        <DropdownMenuLabel className="px-2 py-2 flex items-center gap-2 font-normal">
           <span className="min-w-0 truncate text-sm font-bold" title={nickname}>
             {nickname}
           </span>
@@ -66,9 +77,9 @@ export function UserMenu({ nickname, kind, onLoggedOut }: Props) {
           >
             {business ? t.business : t.personal}
           </span>
-        </div>
+        </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
+        <DropdownMenuItem asChild onClick={() => setOpen(false)}>
           <Link href="/my">{t.myPage}</Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

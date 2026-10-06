@@ -190,6 +190,17 @@ class ListingMineApiTest {
 			.andExpect(jsonPath("$.data.items[0].photo").value(nullValue()));
 	}
 
+	@Test
+	@DisplayName("대표 사진은 상세와 같이 비어 있지 않은 첫 사진 칸 — 첫 칸이 비고 둘째 칸만 있는 옛 매물도 사진이 나온다")
+	void mineFirstNonNullPhoto() throws Exception {
+		save(userId, "ELEC00010001", "20261001090001", "A");
+		jdbc.update("update listings set prod_photo_2 = ? where user_id = ?", "public/listings/photos/2026/10/b.jpg", userId);
+
+		mvc.perform(get("/api/v1/listings/mine").cookie(auth))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items[0].photo").value("public/listings/photos/2026/10/b.jpg"));
+	}
+
 	private UUID newUser(String loginId, String phone) {
 		return users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
 			.nickname(loginId).email(loginId + "@example.com").name("홍길동").phone(phone).phoneHash(hasher.hash(phone))

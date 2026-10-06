@@ -34,7 +34,9 @@ export function MyProfile() {
         {initialOf(profile.nickname)}
       </span>
       <div className="min-w-0 flex flex-col gap-1">
-        <span className="truncate text-[17px] font-bold text-ink">{profile.nickname}</span>
+        <span className="truncate text-[17px] font-bold text-ink" title={profile.nickname}>
+          {profile.nickname}
+        </span>
         <span
           className={`w-fit h-5 px-1.5 inline-flex items-center rounded-[5px] text-[11px] font-semibold ${
             business ? "bg-primary-dark text-white" : "bg-primary-soft text-primary-dark"

@@ -204,7 +204,7 @@ public class ListingService {
 			Listing l = (Listing) r[0];
 			Product p = (Product) r[1];
 			return new ListingMineItemResponse(l.getUserId(), l.getRegDate(), p.getProdNo(), p.getProdName(), p.getProdBrand(),
-					l.extraFilledCount(), l.getSalesUnitPrice(), l.getSalesQuantity(), l.tradeStatus(), l.getProdPhoto1());
+					l.extraFilledCount(), l.getSalesUnitPrice(), l.getSalesQuantity(), l.tradeStatus(), firstPhoto(l));
 		}).toList();
 		return new ListingMinePageResponse(items, hasMore ? ((Listing) page.get(page.size() - 1)[0]).getRegDate() : null);
 	}
@@ -293,6 +293,14 @@ public class ListingService {
 		if (key != null && !key.isEmpty()) {
 			refs.add(new UploadRef(field, key, kind));
 		}
+	}
+
+	/** 대표 사진 = 비어 있지 않은 첫 사진 칸 (상세 photos 의 첫 장과 같다). 옛 데이터는 첫 칸이 비어 있을 수 있다 */
+	private static String firstPhoto(Listing listing) {
+		return Stream.of(listing.getProdPhoto1(), listing.getProdPhoto2(), listing.getProdPhoto3(), listing.getProdImage4())
+			.filter(Objects::nonNull)
+			.findFirst()
+			.orElse(null);
 	}
 
 	private static Set<String> storedFileKeys(Listing listing) {
