@@ -37,6 +37,21 @@ public class ListingSearchRepository {
 		return query.setMaxResults(limit).getResultList();
 	}
 
+	/** 내 매물 한 페이지(각 행 [Listing, Product]). 같은 사용자의 regDate 는 유일해 regDate 만으로 커서가 된다 */
+	public List<Object[]> findMinePage(UUID userId, String afterRegDate, int limit) {
+		StringBuilder jpql = new StringBuilder(
+				"select l, p from Listing l join Product p on p.prodId = l.prodId where l.userId = :u");
+		if (afterRegDate != null) {
+			jpql.append(" and l.regDate < :cr");
+		}
+		jpql.append(" order by l.regDate desc");
+		TypedQuery<Object[]> query = em.createQuery(jpql.toString(), Object[].class).setParameter("u", userId);
+		if (afterRegDate != null) {
+			query.setParameter("cr", afterRegDate);
+		}
+		return query.setMaxResults(limit).getResultList();
+	}
+
 	public long count(ListingSearchCondition c) {
 		Map<String, Object> params = new HashMap<>();
 		StringBuilder jpql = new StringBuilder("select count(l) from Listing l join Product p on p.prodId = l.prodId where 1=1");
