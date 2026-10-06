@@ -93,6 +93,19 @@ export const listing = {
     date: "올바른 날짜를 입력하세요",
     photos: "사진은 최대 4장까지 올릴 수 있어요",
   },
+  // 매물 수정 (/listings/{userId}/{regDate}/edit)
+  edit: {
+    title: "매물 수정",
+    subtitle: "바꾼 칸만 저장돼요",
+    readonlyTitle: "상품 정보",
+    readonlyHint: " (수정할 수 없어요)",
+    sectionSale: "판매 조건",
+    sectionDetail: "설명·파일",
+    save: "저장",
+    noChange: "바꾼 내용이 없어요",
+    back: "상세로 돌아가기",
+    rows: { category: "카테고리", name: "상품명", brand: "제조사", prodNo: "상품번호(모델명)", mufcDate: "제조일", spec: "사양 요약" },
+  },
   // 매물 상세 (/listings/[userId]/[regDate])
   detail: {
     rows: {
@@ -140,7 +153,6 @@ export const listing = {
     edit: "수정",
     remove: "삭제",
     pendingTrade: "구매·견적 요청은 준비 중이에요. 거래 방식이 정해지면 열립니다.",
-    pendingEdit: "매물 수정은 준비 중이에요.",
     dismiss: "알림 닫기",
     confirmDelete: "이 매물을 삭제할까요? 되돌릴 수 없습니다.",
     notFound: "매물을 찾을 수 없습니다.",
