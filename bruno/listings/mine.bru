@@ -1,0 +1,20 @@
+meta {
+  name: 내 매물 목록
+  type: http
+  seq: 7
+}
+
+get {
+  url: {{baseUrl}}/api/v1/listings/mine
+  body: none
+  auth: none
+}
+
+params:query {
+  ~cursor: 20261001090001
+}
+
+docs {
+  로그인 필요(access_token 쿠키). 내 매물만 최신순 20개. nextCursor 가 있으면 cursor 로 다음 페이지.
+  extraFilled = 보증기간·불량지원·대체품·테스트리포트·인증서 중 채운 개수(0~5).
+}

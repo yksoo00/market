@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Stream;
 
 import com.company.market.listing.dto.ListingUpdateRequest;
 import jakarta.persistence.Column;
@@ -174,7 +175,7 @@ public class Listing implements Persistable<ListingId> {
 			this.warrantyPeriod = req.warrantyPeriod();
 		}
 		if (req.warrantyCoverage() != null) {
-			this.warrantyCoverage = req.warrantyCoverage();
+			this.warrantyCoverage = emptyToNull(req.warrantyCoverage());
 		}
 		if (req.replaceProd() != null) {
 			this.replaceProd = emptyToNull(req.replaceProd());
@@ -200,6 +201,13 @@ public class Listing implements Persistable<ListingId> {
 	/** 거래 흐름이 정해지기 전까지 거래완료일시 유무로만 판단 (decisions.md 2026-10-01 검색 결과) */
 	public String tradeStatus() {
 		return dtExpire == null ? "available" : "completed";
+	}
+
+	/** 판매정보 추가등록 5칸(보증기간·불량지원·대체품·테스트리포트·인증서) 중 채운 개수. 보증 0일(없음)은 보여 줄 정보가 없어 센 것에서 뺀다 */
+	public int extraFilledCount() {
+		return (int) Stream.<Object>of(warrantyPeriod, warrantyCoverage, replaceProd, testReport, certificateOfAuthen)
+			.filter(v -> v != null && !Integer.valueOf(0).equals(v) && !(v instanceof String s && s.isBlank()))
+			.count();
 	}
 
 	/** DB 는 보증 일수만 갖고 있어 등록일 + 일수로 만료일(YYYY-MM-DD)을 계산한다 */

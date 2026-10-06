@@ -8,6 +8,7 @@ import com.company.market.common.auth.AuthenticatedUser;
 import com.company.market.common.idempotency.IdempotencyGuard;
 import com.company.market.common.ratelimit.RateLimiter;
 import com.company.market.listing.dto.ListingCreateRequest;
+import com.company.market.listing.dto.ListingMinePageResponse;
 import com.company.market.listing.dto.ListingPageResponse;
 import com.company.market.listing.dto.ListingResponse;
 import com.company.market.listing.dto.ListingSearchCondition;
@@ -28,6 +29,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -62,6 +64,13 @@ public class ListingController {
 			limiter.hit("listing:search:ip:" + req.getRemoteAddr(), 60, Duration.ofMinutes(1));
 		}
 		return ApiResponse.of(listings.search(condition));
+	}
+
+	/** 내 매물만 (본인 id 는 인증 정보에서). 읽기라 rate limit 은 두지 않는다 */
+	@GetMapping("/mine")
+	public ApiResponse<ListingMinePageResponse> mine(@AuthenticationPrincipal AuthenticatedUser me,
+			@RequestParam(required = false) String cursor) {
+		return ApiResponse.of(listings.mine(me.id(), cursor));
 	}
 
 	@GetMapping("/{userId}/{regDate}")
