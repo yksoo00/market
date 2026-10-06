@@ -116,6 +116,17 @@ class ListingMineApiTest {
 	}
 
 	@Test
+	@DisplayName("보증기간 0일(없음)은 채운 것으로 세지 않는다 — 보여 줄 보증 정보가 없다")
+	void mineZeroWarrantyIsNotFilled() throws Exception {
+		save(userId, "ELEC00010001", "20261001090001", "없음");
+		jdbc.update("update listings set warranty_period = 0 where reg_date = '20261001090001'");
+
+		mvc.perform(get("/api/v1/listings/mine").cookie(auth))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items[0].extraFilled").value(0));
+	}
+
+	@Test
 	@DisplayName("20개씩 커서로 이어진다 — 21개면 첫 페이지 20 + nextCursor, 둘째 페이지 1개")
 	void minePagesByCursor() throws Exception {
 		for (int i = 1; i <= 21; i++) {

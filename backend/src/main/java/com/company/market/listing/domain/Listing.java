@@ -203,10 +203,10 @@ public class Listing implements Persistable<ListingId> {
 		return dtExpire == null ? "available" : "completed";
 	}
 
-	/** 판매정보 추가등록 5칸(보증기간·불량지원·대체품·테스트리포트·인증서) 중 채운 개수 */
+	/** 판매정보 추가등록 5칸(보증기간·불량지원·대체품·테스트리포트·인증서) 중 채운 개수. 보증 0일(없음)은 보여 줄 정보가 없어 센 것에서 뺀다 */
 	public int extraFilledCount() {
 		return (int) Stream.<Object>of(warrantyPeriod, warrantyCoverage, replaceProd, testReport, certificateOfAuthen)
-			.filter(v -> v != null && !(v instanceof String s && s.isBlank()))
+			.filter(v -> v != null && !Integer.valueOf(0).equals(v) && !(v instanceof String s && s.isBlank()))
 			.count();
 	}
 
