@@ -27,7 +27,8 @@ export function ListingSummaryCard({ detail, owner }: { detail: ListingDetail; o
       </header>
 
       <div className="mt-4 flex flex-col @md:flex-row gap-5">
-        <div className="w-full @md:w-80 shrink-0 aspect-square rounded-md border border-line-2 bg-bg flex items-center justify-center overflow-hidden">
+        {/* self-start: 옆 정보 표 높이만큼 늘어나 사진 위아래가 비지 않게 (flex 기본 stretch 가 aspect-square 를 이김) */}
+        <div className="w-full @md:w-80 shrink-0 @md:self-start aspect-square rounded-md border border-line-2 bg-bg flex items-center justify-center overflow-hidden">
           {photo ? (
             // 사진은 API 서버의 공개 파일이라 next/image 를 쓰면 원격 호스트 설정이 필요해진다 — 그대로 <img>
             // eslint-disable-next-line @next/next/no-img-element
@@ -38,12 +39,13 @@ export function ListingSummaryCard({ detail, owner }: { detail: ListingDetail; o
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col gap-4">
-          <dl className="grid grid-cols-[7rem_1fr] text-sm">
+          {/* 넓은 칸(1024 이상)에선 라벨·값 두 쌍을 한 줄에 — 한 줄씩이면 표가 길어져 옆과 아래가 빈다 (사용자 지시) */}
+          <dl className="grid grid-cols-[7rem_1fr] @lg:grid-cols-[7rem_1fr_7rem_1fr] text-sm">
             {infoRows(detail).map((row) => (
               <div key={row.label} className="contents">
                 <dt className="py-2 border-b border-line-2 text-ink-2">{row.label}</dt>
                 <dd
-                  className={`py-2 border-b border-line-2 min-w-0 break-words ${row.value === t.empty ? "text-ink-3" : "text-ink"} ${row.mono ? "num" : ""}`}
+                  className={`py-2 @lg:pr-6 border-b border-line-2 min-w-0 break-words ${row.value === t.empty ? "text-ink-3" : "text-ink"} ${row.mono ? "num" : ""}`}
                 >
                   {row.value}
                 </dd>
