@@ -6,7 +6,9 @@ import { useState, type MouseEvent, type ReactNode } from "react";
 import { Icon } from "@/components/common/Icon";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatPrice } from "@/lib/format";
-import { activeFilterCount, buildSearchHref, clearFilters, listingHref, type SearchQuery } from "@/lib/search";
+import { isOwner } from "@/lib/listingDetail";
+import { activeFilterCount, buildSearchHref, clearFilters, listingHref, type SearchQuery, type SearchScope } from "@/lib/search";
+import { my } from "@/messages/my";
 import { search as t } from "@/messages/search";
 import type { ListingSearchItem } from "@/types/listing";
 
@@ -56,11 +58,19 @@ interface Props {
   query: SearchQuery;
   /** 같은 조건의 전체 개수. items 는 [더 보기]로 받은 만큼만 */
   total: number;
+  /** mine = 내 판매글 모드: 선택·견적·구매 없이 행마다 [수정] */
+  scope?: SearchScope;
+  /** mine 모드에서 표의 [수정] 을 눌렀을 때 (행 안 수정). 없으면 [수정] 은 수정 화면 링크 */
+  onEdit?: (item: ListingSearchItem) => void;
+  /** mine 모드: 로그인한 사용자 id. 내 글에만 [수정]을 그린다 (서버가 mine=true 로 거르지 못해도 남의 글에 수정 버튼이 뜨지 않게) */
+  ownerId?: string | null;
 }
 
 // 선택 상태는 결과 집합마다 새로 시작한다 — 페이지에서 key={buildSearchHref(query)}로 다시 마운트
-export function ResultList({ items, query, total }: Props) {
+export function ResultList({ items, query, total, scope = "search", onEdit, ownerId = null }: Props) {
   const router = useRouter();
+  const mine = scope === "mine";
+  const canEdit = (item: ListingSearchItem) => mine && isOwner(ownerId, item.userId);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   // seq: 같은 문구가 연달아 나와도 알림 요소를 새로 그려 스크린리더가 다시 읽게 한다 (key 로 사용)
   const [notice, setNotice] = useState<number | null>(null);
@@ -79,7 +89,7 @@ export function ResultList({ items, query, total }: Props) {
   const showPending = () => setNotice((prev) => (prev ?? 0) + 1);
   const go = (item: ListingSearchItem) => router.push(listingHref(item));
 
-  if (items.length === 0) return <Empty query={query} />;
+  if (items.length === 0) return <Empty query={query} scope={scope} />;
 
   const actions = (size: string) => (
     <>
@@ -105,20 +115,22 @@ export function ResultList({ items, query, total }: Props) {
   return (
     <section className="flex flex-col gap-2.5">
       <div className="flex items-center gap-3 min-h-8.5">
-        <Checkbox
-          className="@min-[36rem]:hidden"
-          checked={headerChecked}
-          onCheckedChange={toggleAll}
-          aria-label={r.selectAll}
-        />
+        {!mine && (
+          <Checkbox
+            className="@min-[36rem]:hidden"
+            checked={headerChecked}
+            onCheckedChange={toggleAll}
+            aria-label={r.selectAll}
+          />
+        )}
         <p className="grow text-sm text-ink-2" aria-live="polite">
           <span className="font-bold text-ink">{r.count(total)}</span>
           {selected.size > 0 && r.selected(selected.size)}
         </p>
-        <div className="hidden @min-[36rem]:flex gap-2">{actions("h-8.5")}</div>
+        {!mine && <div className="hidden @min-[36rem]:flex gap-2">{actions("h-8.5")}</div>}
       </div>
 
-      {notice !== null && (
+      {!mine && notice !== null && (
         <div key={notice} role="status" className="flex items-center gap-2 text-[13px] text-ink-2">
           <span className="min-w-0">{r.pending}</span>
           <button type="button" aria-label={r.dismiss} onClick={() => setNotice(null)} className="shrink-0 text-ink-3 hover:text-ink">
@@ -134,18 +146,21 @@ export function ResultList({ items, query, total }: Props) {
       <div className="hidden @min-[36rem]:block rounded-md border border-line bg-surface overflow-x-auto">
         <table className="w-full min-w-334 table-fixed text-[13px]">
           <colgroup>
-            <col className="w-10" />
+            {!mine && <col className="w-10" />}
             <col className="w-48" />
             {columns.map((c) => (
               <col key={c.label} className={c.width} />
             ))}
+            {mine && <col className="w-20" />}
           </colgroup>
           <thead className="bg-bg text-xs text-ink-2">
             <tr className="h-10 text-left">
-              <th scope="col" className="sticky left-0 z-10 bg-bg pl-3">
-                <Checkbox checked={headerChecked} onCheckedChange={toggleAll} aria-label={r.selectAll} />
-              </th>
-              <th scope="col" className="sticky left-10 z-10 bg-bg px-2 font-medium border-r border-line-2">
+              {!mine && (
+                <th scope="col" className="sticky left-0 z-10 bg-bg pl-3">
+                  <Checkbox checked={headerChecked} onCheckedChange={toggleAll} aria-label={r.selectAll} />
+                </th>
+              )}
+              <th scope="col" className={`sticky ${mine ? "left-0 pl-3" : "left-10"} z-10 bg-bg px-2 font-medium border-r border-line-2`}>
                 {t.columns.prodName}
               </th>
               {columns.map((c, i) => (
@@ -153,6 +168,11 @@ export function ResultList({ items, query, total }: Props) {
                   {c.label}
                 </th>
               ))}
+              {mine && (
+                <th scope="col" className="sticky right-0 z-10 bg-bg px-2 font-medium text-center border-l border-line-2">
+                  {my.mine.editColumn}
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -165,11 +185,13 @@ export function ResultList({ items, query, total }: Props) {
                   onClick={() => go(item)}
                   className={`group h-11 border-t border-line-2 cursor-pointer hover:bg-bg ${done ? "text-ink-3" : "text-ink"}`}
                 >
-                  <td className="sticky left-0 z-10 bg-surface group-hover:bg-bg pl-3" onClick={stop}>
-                    <Checkbox checked={selected.has(key)} onCheckedChange={() => toggle(key)} aria-label={r.selectRow(item.prodName)} />
-                  </td>
-                  <td className="sticky left-10 z-10 bg-surface group-hover:bg-bg px-2 truncate font-medium border-r border-line-2" title={item.prodName}>
-                    <Link href={listingHref(item)} onClick={stop} className="hover:text-primary">
+                  {!mine && (
+                    <td className="sticky left-0 z-10 bg-surface group-hover:bg-bg pl-3" onClick={stop}>
+                      <Checkbox checked={selected.has(key)} onCheckedChange={() => toggle(key)} aria-label={r.selectRow(item.prodName)} />
+                    </td>
+                  )}
+                  <td className={`sticky ${mine ? "left-0 pl-3" : "left-10"} z-10 bg-surface group-hover:bg-bg px-2 truncate font-medium border-r border-line-2`} title={item.prodName}>
+                    <Link href={listingHref(item)} onClick={stop} data-tile={mine ? "reset" : undefined} className="hover:text-primary">
                       {item.prodName}
                     </Link>
                   </td>
@@ -182,6 +204,11 @@ export function ResultList({ items, query, total }: Props) {
                       {c.cell(item, done)}
                     </td>
                   ))}
+                  {mine && (
+                    <td className="sticky right-0 z-10 bg-surface group-hover:bg-bg px-2 text-center border-l border-line-2" onClick={stop}>
+                      {canEdit(item) && <EditButton item={item} onEdit={onEdit} />}
+                    </td>
+                  )}
                 </tr>
               );
             })}
@@ -200,11 +227,13 @@ export function ResultList({ items, query, total }: Props) {
               onClick={() => go(item)}
               className={`flex gap-3 px-3 py-3 cursor-pointer ${idx > 0 ? "border-t border-line-2" : ""} ${done ? "text-ink-3" : "text-ink"}`}
             >
-              <div className="pt-0.5" onClick={stop}>
-                <Checkbox checked={selected.has(key)} onCheckedChange={() => toggle(key)} aria-label={r.selectRow(item.prodName)} />
-              </div>
+              {!mine && (
+                <div className="pt-0.5" onClick={stop}>
+                  <Checkbox checked={selected.has(key)} onCheckedChange={() => toggle(key)} aria-label={r.selectRow(item.prodName)} />
+                </div>
+              )}
               <div className="min-w-0 grow flex flex-col gap-1">
-                <Link href={listingHref(item)} onClick={stop} className="truncate text-sm font-medium">
+                <Link href={listingHref(item)} onClick={stop} data-tile={mine ? "reset" : undefined} className="truncate text-sm font-medium">
                   {item.prodName}
                 </Link>
                 <p className="truncate text-xs text-ink-2">
@@ -221,6 +250,18 @@ export function ResultList({ items, query, total }: Props) {
                   </span>
                 </div>
                 <ExtraChips item={item} />
+                {/* 좁은 카드는 칸 단위 편집이 어려워 행 안 수정 대신 수정 화면으로 간다 */}
+                {canEdit(item) && (
+                  <div onClick={stop}>
+                    <Link
+                      href={`${listingHref(item)}/edit`}
+                      aria-label={my.mine.editAria(item.prodName)}
+                      className="inline-flex h-8 px-3 items-center rounded-md border border-primary text-primary text-[13px] font-medium hover:bg-primary-soft"
+                    >
+                      {my.mine.edit}
+                    </Link>
+                  </div>
+                )}
               </div>
             </li>
           );
@@ -228,12 +269,29 @@ export function ResultList({ items, query, total }: Props) {
       </ul>
 
       {/* 모바일: 선택하면 아래(탭바 위)에 고정. main 이 스크롤 칸이라 sticky 로 칸 바닥에 붙는다 */}
-      {selected.size > 0 && (
+      {!mine && selected.size > 0 && (
         <div className="@min-[36rem]:hidden sticky bottom-0 -mx-4 px-4 py-2.5 flex gap-2 bg-surface border-t border-line [&>button]:flex-1">
           {actions("h-10")}
         </div>
       )}
     </section>
+  );
+}
+
+/** 표의 [수정]. 행 안 수정(onEdit)이 연결되면 그걸 부르고, 아니면 수정 화면으로 가는 링크 */
+function EditButton({ item, onEdit }: { item: ListingSearchItem; onEdit?: (item: ListingSearchItem) => void }) {
+  const cls = "inline-flex h-7 px-2.5 items-center rounded-md border border-primary text-primary text-[13px] font-medium hover:bg-primary-soft";
+  if (onEdit) {
+    return (
+      <button type="button" onClick={() => onEdit(item)} aria-label={my.mine.editAria(item.prodName)} className={cls}>
+        {my.mine.edit}
+      </button>
+    );
+  }
+  return (
+    <Link href={`${listingHref(item)}/edit`} aria-label={my.mine.editAria(item.prodName)} className={cls}>
+      {my.mine.edit}
+    </Link>
   );
 }
 
@@ -291,13 +349,19 @@ function CompletedBadge() {
   );
 }
 
-function Empty({ query }: { query: SearchQuery }) {
-  const filtered = activeFilterCount(query) > 0;
+function Empty({ query, scope }: { query: SearchQuery; scope: SearchScope }) {
+  const filtered = activeFilterCount(query, scope) > 0;
+  // 내 글이 하나도 없을 때(검색어·필터 없음)만 "등록하러 가기", 조건 때문에 비면 일반 빈 상태
+  const noneYet = scope === "mine" && !filtered && query.q === "";
   return (
     <div className="py-16 flex flex-col items-center gap-2 text-center">
-      <p className="text-[15px] font-bold text-ink">{t.empty.title}</p>
-      {filtered ? (
-        <Link href={buildSearchHref(clearFilters(query))} className="text-[13px] text-primary font-medium hover:underline">
+      <p className="text-[15px] font-bold text-ink">{noneYet ? my.mine.emptyTitle : t.empty.title}</p>
+      {noneYet ? (
+        <Link href="/listings/new" className="text-[13px] text-primary font-medium hover:underline">
+          {my.mine.emptyAction}
+        </Link>
+      ) : filtered ? (
+        <Link href={buildSearchHref(clearFilters(query, scope), scope)} className="text-[13px] text-primary font-medium hover:underline">
           {t.empty.reset}
         </Link>
       ) : (

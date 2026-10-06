@@ -133,7 +133,11 @@ public class ListingService {
 			throw new ApiException(ErrorCode.FORBIDDEN);
 		}
 		// 이미 저장된 납기일을 그대로 다시 보내면(수정 화면이 모든 칸을 보낼 때) 지난 날짜여도 통과
-		validateDates(null, Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
+		Product currentProduct = products.get(listing.getProdId());
+		// 제조일도 저장된 값 그대로면 건너뛴다 (납기일과 같은 이유). 새로 보낸 값만 오늘까지인지 본다
+		String newMufcDate = req.prodMufcDate() == null || req.prodMufcDate().isEmpty()
+				|| req.prodMufcDate().equals(currentProduct.getProdMufcDate()) ? null : req.prodMufcDate();
+		validateDates(newMufcDate, Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
 		// 저장된 값과 같으면 통과 — 옛 값(365)이 있는 매물의 다른 칸 수정이 막히지 않게 (납기일과 같은 이유)
 		if (req.warrantyPeriod() != null && !WARRANTY_DAYS.contains(req.warrantyPeriod())
 				&& !req.warrantyPeriod().equals(listing.getWarrantyPeriod())) {
@@ -144,6 +148,9 @@ public class ListingService {
 		if (effectiveMinOrderQuantity > effectiveSalesQuantity) {
 			throw new ValidationException(Map.of("minOrderQuantity", "최소주문량은 판매수량을 넘을 수 없습니다."));
 		}
+
+		// 상품 칸은 매물 칸보다 먼저 — 422 면 아무것도 바뀌지 않고, 업로드 키도 건드리지 않는다
+		Product product = applyProductFields(listing, currentProduct, req);
 
 		List<UploadRef> files = new ArrayList<>();
 		if (req.photos() != null) {
@@ -160,7 +167,64 @@ public class ListingService {
 		uploads.claim(requesterId, files);
 
 		listing.applyUpdate(req, LocalDateTime.now(clock).format(REG_DATE_FORMAT));
-		return toResponse(listing, products.get(listing.getProdId()));
+		return toResponse(listing, product);
+	}
+
+	/**
+	 * 상품 칸 규칙 (스펙 2026-10-06-my-listings). 상품마스터는 (이름, 제조사)가 유일하고 다른 판매자 매물과 공유한다.
+	 * 이름·제조사가 바뀌면 등록과 같은 findOrCreate 로 그 이름의 상품을 찾아 이 매물만 옮긴다 (있으면 그 상품 값, 없으면 새로 만든다).
+	 * 그대로이고 번호·제조일·사양·카테고리만 바뀌면 이 매물만 쓰는 상품일 때만 고친다 — 공유 중이면 남의 매물까지 바뀌므로 422.
+	 */
+	private Product applyProductFields(Listing listing, Product current, ListingUpdateRequest req) {
+		if (!req.hasProductFields()) {
+			return current;
+		}
+		String name = req.prodName() == null ? current.getProdName() : req.prodName().trim();
+		String brand = req.prodBrand() == null ? current.getProdBrand() : req.prodBrand().trim();
+		if (!name.equals(current.getProdName()) || !brand.equals(current.getProdBrand())) {
+			String category = req.categoryCode() == null ? current.getCategoryCode() : req.categoryCode().trim();
+			// 안 보낸 칸은 옛 상품 값을 이어받는다 (이름만 바꿔도 번호·제조일이 사라지지 않게)
+			Product target = products.findOrCreate(new ProductDraft(category, name,
+					textOrCurrent(req.prodNo(), current.getProdNo()), brand,
+					textOrCurrent(req.prodMufcDate(), current.getProdMufcDate()),
+					textOrCurrent(req.prodSpecInfo(), current.getProdSpecInfo()),
+					// 옛 상품의 데이터시트·사진은 처음 등록한 다른 판매자의 파일일 수 있어 물려주지 않는다. 사진은 이 매물의 첫 사진
+					null, firstPhoto(listing)));
+			listing.changeProduct(target.getProdId());
+			return target;
+		}
+
+		Map<String, String> changed = new LinkedHashMap<>();
+		putIfChanged(changed, "categoryCode", req.categoryCode() == null ? null : req.categoryCode().trim(), current.getCategoryCode());
+		putIfChanged(changed, "prodNo", req.prodNo(), current.getProdNo());
+		putIfChanged(changed, "prodMufcDate", req.prodMufcDate(), current.getProdMufcDate());
+		putIfChanged(changed, "prodSpecInfo", req.prodSpecInfo(), current.getProdSpecInfo());
+		if (changed.isEmpty()) {
+			return current;
+		}
+		if (listings.countByProdId(current.getProdId()) > 1) {
+			Map<String, String> fields = new LinkedHashMap<>();
+			changed.keySet().forEach(f -> fields.put(f, ErrorCode.PRODUCT_SHARED.message()));
+			throw new ApiException(ErrorCode.PRODUCT_SHARED, ErrorCode.PRODUCT_SHARED.message(), fields);
+		}
+		current.applyEdit(req.categoryCode(), req.prodNo(), req.prodMufcDate(), req.prodSpecInfo());
+		return current;
+	}
+
+	/** 보낸 값이 있으면(빈 문자열은 비우기 = null) 그 값, 안 보냈으면 옛 값 */
+	private static String textOrCurrent(String sent, String current) {
+		return sent == null ? current : sent.isEmpty() ? null : sent;
+	}
+
+	/** 보냈고 저장된 값과 다를 때만 (빈 문자열 = null 로 비교) */
+	private static void putIfChanged(Map<String, String> changed, String field, String sent, String stored) {
+		if (sent == null) {
+			return;
+		}
+		String normalized = sent.isEmpty() ? null : sent;
+		if (!Objects.equals(normalized, stored)) {
+			changed.put(field, sent);
+		}
 	}
 
 	@Transactional
@@ -179,19 +243,20 @@ public class ListingService {
 		return toResponse(listing, products.get(listing.getProdId()));
 	}
 
-	public ListingPageResponse search(ListingSearchCondition condition) {
+	/** ownerId = null 이면 전체, 있으면 그 사용자 글만 (컨트롤러가 mine=true 일 때 인증 정보에서 넣는다) */
+	public ListingPageResponse search(ListingSearchCondition condition, UUID ownerId) {
 		if (condition.minPrice() != null && condition.maxPrice() != null && condition.minPrice() > condition.maxPrice()) {
 			throw new ValidationException(Map.of("maxPrice", "최대 가격은 최소 가격보다 크거나 같아야 합니다."));
 		}
 		Optional<Cursor> cursor = decodeCursor(condition.cursor());
-		List<Object[]> rows = searchRepository.findPage(condition, cursor.map(Cursor::regDate).orElse(null),
+		List<Object[]> rows = searchRepository.findPage(condition, ownerId, cursor.map(Cursor::regDate).orElse(null),
 				cursor.map(Cursor::userId).orElse(null), PAGE_SIZE + 1);
 		boolean hasMore = rows.size() > PAGE_SIZE;
 		List<Object[]> page = hasMore ? rows.subList(0, PAGE_SIZE) : rows;
 
 		List<ListingSearchItemResponse> items = page.stream().map(r -> toSearchItem((Listing) r[0], (Product) r[1])).toList();
 		String nextCursor = hasMore ? encodeCursor((Listing) page.get(page.size() - 1)[0]) : null;
-		return new ListingPageResponse(items, nextCursor, searchRepository.count(condition));
+		return new ListingPageResponse(items, nextCursor, searchRepository.count(condition, ownerId));
 	}
 
 	/** 내 매물만 최신순 20개씩. 커서는 regDate 하나 — 같은 사용자의 regDate 는 유일하다. 깨진 커서는 첫 페이지 */
@@ -204,7 +269,7 @@ public class ListingService {
 			Listing l = (Listing) r[0];
 			Product p = (Product) r[1];
 			return new ListingMineItemResponse(l.getUserId(), l.getRegDate(), p.getProdNo(), p.getProdName(), p.getProdBrand(),
-					l.extraFilledCount(), l.getSalesUnitPrice(), l.getSalesQuantity(), l.tradeStatus(), firstPhoto(l));
+					l.extraFilledCount());
 		}).toList();
 		return new ListingMinePageResponse(items, hasMore ? ((Listing) page.get(page.size() - 1)[0]).getRegDate() : null);
 	}

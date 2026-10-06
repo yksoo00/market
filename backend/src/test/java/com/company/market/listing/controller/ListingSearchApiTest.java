@@ -180,6 +180,71 @@ class ListingSearchApiTest {
 	}
 
 	/** 10-01 검색 결과 프론트 필터 테스트(lib/search.test.ts)의 사례를 옮긴 4건. 최신순 = A, B, C, D */
+	private UUID saveOtherUsersListing(String prodId, String regDate, String name) {
+		UUID other = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("searchother")
+			.passwordHash("$2a$12$hash").nickname("searchother").email("searchother@example.com")
+			.name("김철수").phone("01012340009").phoneHash(hasher.hash("01012340009")).build()).getId();
+		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("ELEC0001").prodName(name)
+			.prodBrand("남의것").regDate(regDate).build());
+		listingRepository.saveAndFlush(Listing.builder().userId(other).regDate(regDate).prodId(prodId).tradeType("등록")
+			.prodState("신품").salesUnitPrice(1000).salesQuantity(1).minOrderQuantity(1).orderUnit(1).stockQuantity(1).build());
+		return other;
+	}
+
+	private Cookie mine() {
+		return new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId, UserRole.USER));
+	}
+
+	@Test
+	@DisplayName("mine=true 면 내 글만 — 남의 글 제외, 검색어·상태 조건과 함께")
+	void mineTrueReturnsOnlyMyListings() throws Exception {
+		saveFour();
+		saveOtherUsersListing("ELEC00010009", "20261001090009", "LM324 남의 것");
+
+		String body = mvc.perform(get("/api/v1/listings").param("mine", "true").param("status", "all").cookie(mine()))
+			.andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+		assertThat((List<String>) JsonPath.read(body, "$.data.items[*].regDate")).containsExactly(A, B, C, D);
+		assertThat((Integer) JsonPath.read(body, "$.data.total")).isEqualTo(4);
+
+		// 검색어는 남의 글(LM324 남의 것)에도 맞지만 내 글만 나온다. 상태 조건도 같이 걸린다
+		body = mvc.perform(get("/api/v1/listings").param("mine", "true").param("q", "lm324").param("status", "all").cookie(mine()))
+			.andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+		assertThat((List<String>) JsonPath.read(body, "$.data.items[*].regDate")).containsExactly(A);
+		body = mvc.perform(get("/api/v1/listings").param("mine", "true").param("status", "completed").cookie(mine()))
+			.andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+		assertThat((List<String>) JsonPath.read(body, "$.data.items[*].regDate")).containsExactly(D);
+	}
+
+	@Test
+	@DisplayName("mine=true 를 비로그인으로 부르면 401 UNAUTHENTICATED")
+	void mineTrueRequiresLogin() throws Exception {
+		mvc.perform(get("/api/v1/listings").param("mine", "true"))
+			.andExpect(status().isUnauthorized())
+			.andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
+	}
+
+	@Test
+	@DisplayName("mine=true 커서 다음 페이지도 내 글만, total 도 내 글 수")
+	void mineTrueCursorStaysMine() throws Exception {
+		for (int i = 0; i < 21; i++) {
+			save("ELEC0002%04d".formatted(i), "202610020900%02d".formatted(i), "내것" + i, null, "삼성", 1000, 1, null);
+		}
+		// 내 글보다 최신인 남의 글: 첫 페이지 맨 앞에 끼면 안 된다
+		saveOtherUsersListing("ELEC00030001", "20261003090000", "남의 최신");
+
+		String first = mvc.perform(get("/api/v1/listings").param("mine", "true").param("status", "all").cookie(mine()))
+			.andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+		assertThat((List<String>) JsonPath.read(first, "$.data.items")).hasSize(20);
+		assertThat((Integer) JsonPath.read(first, "$.data.total")).isEqualTo(21);
+		assertThat((List<String>) JsonPath.read(first, "$.data.items[*].prodName")).doesNotContain("남의 최신");
+		String cursor = JsonPath.read(first, "$.data.nextCursor");
+
+		String second = mvc.perform(get("/api/v1/listings").param("mine", "true").param("status", "all").param("cursor", cursor).cookie(mine()))
+			.andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+		assertThat((List<String>) JsonPath.read(second, "$.data.items")).hasSize(1);
+		assertThat((List<String>) JsonPath.read(second, "$.data.items[*].prodName")).doesNotContain("남의 최신");
+	}
+
 	private void saveFour() {
 		save("ELEC00010001", "20261001090004", "LM324AD", "LM324AD", "STMICROELECTRONICS", 320, 500, "2026-10-08");
 		save("ELEC00010002", "20261001090003", "PowerEdge R740 2U", "R740-4210", "Dell", 3_500_000, 2, "2026-10-15");

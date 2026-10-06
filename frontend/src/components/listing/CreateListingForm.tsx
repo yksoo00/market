@@ -16,6 +16,7 @@ export function CreateListingForm() {
     <ListingForm
       initialValues={emptyListingForm}
       submitLabel={listing.form.submit}
+      secondarySubmitLabel={listing.form.submitAndExtra}
       onSubmit={(v) => listingsApi.create(toCreateRequest(v), idempotencyKey)}
     />
   );

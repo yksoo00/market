@@ -34,7 +34,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
 	@ExceptionHandler(ApiException.class)
 	ResponseEntity<ApiError> apiException(ApiException e) {
-		return ResponseEntity.status(e.getCode().status()).body(ApiError.of(e.getCode(), e.getMessage()));
+		return ResponseEntity.status(e.getCode().status()).body(ApiError.of(e.getCode(), e.getMessage(), e.getFields()));
 	}
 
 	private static final String TYPE_MISMATCH_MESSAGE = "형식이 올바르지 않습니다.";

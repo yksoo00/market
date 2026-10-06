@@ -125,6 +125,7 @@
 - 열람: `GET /api/v1/files/{key}`. `public/`은 누구나(1년 immutable 캐시), `private/`은 로그인(no-cache, private). `X-Content-Type-Options: nosniff`.
 - rate: 업로드 20회/10분/사용자.
 - 용량 (2026-10-02): 사용자당 **하루 300MB** (Redis `upload:bytes:<userId>`, 넘으면 429 `UPLOAD_QUOTA_EXCEEDED`, 거부된 업로드는 사용량에 안 셈). 디스크 여유 공간이 **10GB** 미만이 되는 업로드는 거부 (503 `STORAGE_FULL`, `app.storage.min-free`) — 계정 여러 개로 채워도 같은 디스크의 Postgres가 멈추지 않게. 횟수 한도만으로는 10MB × 20회 × 하루 = 약 29GB까지 쓸 수 있어서 둘을 더했다.
+- 상품 칸 수정 (2026-10-06): PATCH 에 `categoryCode·prodName·prodBrand·prodNo·prodMufcDate·prodSpecInfo`(선택). 상품마스터는 다른 판매자 매물과 공유하므로 — 이름·제조사가 바뀌면 `findOrCreate`로 그 상품을 찾아 **이 매물만** 옮긴다(남의 매물·옛 상품 그대로). 그대로이고 번호·제조일·사양·카테고리만 바뀌면 그 상품을 쓰는 매물이 이 매물뿐일 때만 고친다, 공유 중이면 422 `PRODUCT_SHARED` + `fields`(남의 매물이 바뀌는 것 방지). 상품 칸은 매물 칸보다 먼저 처리해 422 면 아무것도 바뀌지 않는다. 검증 수치는 등록과 같다(상품명·제조사 50자·공백 불가, 번호 20자, 사양 100자, 제조일 yyyyMMdd·오늘까지, 카테고리 10자). 소유자만(403).
 - 비우기: 매물 수정(PATCH)에서 파일 칸(`listingDataSheet`·`testReport`·`certificateOfAuthen`·`replaceProd`)에 `""`를 보내면 비운다. null·생략은 안 바꿈. 사진은 `photos: []`.
 - **위험 — EXIF 위치 정보**: 리사이즈·EXIF 제거는 2단계. 휴대폰 사진에는 촬영 위치(GPS)가 들어 있을 수 있고 사진은 공개다. EXIF 제거 전에 운영 공개하면 판매자 위치가 노출될 수 있다.
 - 고아 파일(올리고 등록 안 한 파일)은 당분간 수동 정리. 매물 삭제 시 파일은 지우지 않는다 (상품 대표 사진이 첫 매물 사진 키를 공유).

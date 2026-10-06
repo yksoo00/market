@@ -19,6 +19,7 @@ describe("screenOf", () => {
     expect(screenOf("/quotes/adjust")).toEqual({ id: "sellQuote", group: "sell" });
     expect(screenOf("/listings/new")).toEqual({ id: "sellNew", group: "sell" });
     expect(screenOf("/listings/extra")).toEqual({ id: "sellExtra", group: "sell" });
+    expect(screenOf("/my/listings?q=R740")).toEqual({ id: "myListings", group: "sell" });
   });
 
   it("표에 없으면 경로 자체가 화면, 그룹 없음 (쿼리·해시 무시)", () => {

@@ -18,6 +18,14 @@ export interface SearchQuery {
   deliveryBy?: string;
 }
 
+/**
+ * search = 전체 검색(/search), mine = 내 판매글(/my/listings). 같은 화면 부품을 쓰고 경로·거래상태 기본값·API 의 mine 만 다르다.
+ * 내 글은 거래완료한 것도 보여야 해서 거래상태 기본값이 "전체"다 (검색은 "거래 가능").
+ */
+export type SearchScope = "search" | "mine";
+
+const defaultStatus = (scope: SearchScope): StatusFilter => (scope === "mine" ? "all" : "available");
+
 export type RawSearchParams = Record<string, string | string[] | undefined>;
 
 // 수치는 docs/security.md "입력 검증"이 원본
@@ -46,7 +54,7 @@ function intInRange(s: string, max: number): number | undefined {
 }
 
 // URL을 손으로 고친 잘못된 값은 오류 없이 무시(기본값)한다
-export function parseSearchParams(raw: RawSearchParams): SearchQuery {
+export function parseSearchParams(raw: RawSearchParams, scope: SearchScope = "search"): SearchQuery {
   const field = first(raw.field) as SearchField;
   const status = first(raw.status) as StatusFilter;
   const query: SearchQuery = {
@@ -54,7 +62,7 @@ export function parseSearchParams(raw: RawSearchParams): SearchQuery {
     q: first(raw.q).trim().slice(0, MAX_QUERY).trim(),
     field: FIELDS.includes(field) ? field : "all",
     category: first(raw.category).trim(),
-    status: STATUSES.includes(status) ? status : "available",
+    status: STATUSES.includes(status) ? status : defaultStatus(scope),
   };
   const minStock = intInRange(first(raw.minStock), MAX_STOCK);
   const minPrice = intInRange(first(raw.minPrice), MAX_PRICE);
@@ -72,18 +80,19 @@ export function parseSearchParams(raw: RawSearchParams): SearchQuery {
 // 검색어·필터 매칭은 서버가 한다 (GET /api/v1/listings, 규칙은 docs/superpowers/specs/2026-10-02-search-api-design.md)
 
 /** 기본값인 파라미터는 생략 */
-export function buildSearchHref(query: SearchQuery): string {
+export function buildSearchHref(query: SearchQuery, scope: SearchScope = "search"): string {
   const p = new URLSearchParams();
   if (query.q) p.set("q", query.q);
   if (query.field !== "all") p.set("field", query.field);
   if (query.category) p.set("category", query.category);
-  if (query.status !== "available") p.set("status", query.status);
+  if (query.status !== defaultStatus(scope)) p.set("status", query.status);
   if (query.minStock !== undefined) p.set("minStock", String(query.minStock));
   if (query.minPrice !== undefined) p.set("minPrice", String(query.minPrice));
   if (query.maxPrice !== undefined) p.set("maxPrice", String(query.maxPrice));
   if (query.deliveryBy !== undefined) p.set("deliveryBy", query.deliveryBy);
   const s = p.toString();
-  return s ? `/search?${s}` : "/search";
+  const path = scope === "mine" ? "/my/listings" : "/search";
+  return s ? `${path}?${s}` : path;
 }
 
 /**
@@ -91,8 +100,10 @@ export function buildSearchHref(query: SearchQuery): string {
  * 안 맞고 카테고리 마스터가 미정 (decisions.md 2026-10-02 매물 검색). status 는 API 기본값(all)과 화면 기본값이
  * 달라 항상 보낸다
  */
-export function searchApiParams(query: SearchQuery, cursor?: string): string {
+export function searchApiParams(query: SearchQuery, cursor?: string, scope: SearchScope = "search"): string {
   const p = new URLSearchParams();
+  // 서버가 인증 정보로 본인 글만 거른다 (본인 id 를 보내지 않는다)
+  if (scope === "mine") p.set("mine", "true");
   if (query.q) p.set("q", query.q);
   if (query.field !== "all") p.set("field", query.field);
   p.set("status", query.status);
@@ -105,9 +116,9 @@ export function searchApiParams(query: SearchQuery, cursor?: string): string {
 }
 
 // 카테고리는 보류 중이라 걸려 있어도 결과에 영향이 없으므로 세지 않는다 (예전 URL 의 category 가 "(1)"로 보이지 않게)
-export function activeFilterCount(query: SearchQuery): number {
+export function activeFilterCount(query: SearchQuery, scope: SearchScope = "search"): number {
   return [
-    query.status !== "available",
+    query.status !== defaultStatus(scope),
     query.minStock !== undefined,
     query.minPrice !== undefined,
     query.maxPrice !== undefined,
@@ -115,8 +126,8 @@ export function activeFilterCount(query: SearchQuery): number {
   ].filter(Boolean).length;
 }
 
-export function clearFilters(query: SearchQuery): SearchQuery {
-  return { q: query.q, field: query.field, category: "", status: "available" };
+export function clearFilters(query: SearchQuery, scope: SearchScope = "search"): SearchQuery {
+  return { q: query.q, field: query.field, category: "", status: defaultStatus(scope) };
 }
 
 export function listingHref(item: Pick<ListingSearchItem, "userId" | "regDate">): string {

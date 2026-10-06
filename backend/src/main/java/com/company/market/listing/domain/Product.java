@@ -77,6 +77,22 @@ public class Product implements Persistable<String> {
 		this.spareCol = spareCol;
 	}
 
+	/** null 이 아닌 칸만 반영. 번호·제조일·사양은 "" = 비우기. 이 상품을 쓰는 매물이 하나뿐일 때만 서비스가 부른다 */
+	public void applyEdit(String categoryCode, String prodNo, String prodMufcDate, String prodSpecInfo) {
+		if (categoryCode != null) {
+			this.categoryCode = categoryCode.trim();
+		}
+		if (prodNo != null) {
+			this.prodNo = prodNo.isEmpty() ? null : prodNo;
+		}
+		if (prodMufcDate != null) {
+			this.prodMufcDate = prodMufcDate.isEmpty() ? null : prodMufcDate;
+		}
+		if (prodSpecInfo != null) {
+			this.prodSpecInfo = prodSpecInfo.isEmpty() ? null : prodSpecInfo;
+		}
+	}
+
 	/** 제조일을 YYYY-MM-DD 로. 등록 API 가 형식을 검사하지 않아, 날짜로 읽히지 않는 값은 버리지 않고 원문 그대로 둔다 */
 	public String mufcDateIso() {
 		if (prodMufcDate == null || !prodMufcDate.matches("\\d{8}|\\d{14}")) {

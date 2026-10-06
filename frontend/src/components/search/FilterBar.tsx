@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useForm } from "react-hook-form";
 import { Icon } from "@/components/common/Icon";
-import { activeFilterCount, buildSearchHref, clearFilters, type SearchQuery } from "@/lib/search";
+import { activeFilterCount, buildSearchHref, clearFilters, type SearchQuery, type SearchScope } from "@/lib/search";
 import {
   filterDefaults,
   searchFilterSchema,
@@ -20,10 +20,10 @@ const control =
   "h-8.5 rounded-md border border-line bg-surface px-2.5 text-sm text-ink outline-none focus:border-primary aria-invalid:border-down";
 
 // 필터는 '적용'을 눌러야 URL에 반영된다. URL이 바뀌면 페이지가 key로 다시 마운트해 칸 값을 URL과 맞춘다
-export function FilterBar({ query }: { query: SearchQuery }) {
+export function FilterBar({ query, scope = "search" }: { query: SearchQuery; scope?: SearchScope }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const count = activeFilterCount(query);
+  const count = activeFilterCount(query, scope);
   const {
     register,
     handleSubmit,
@@ -36,12 +36,12 @@ export function FilterBar({ query }: { query: SearchQuery }) {
     defaultValues: filterDefaults(query),
   });
 
-  const onSubmit = handleSubmit((values) => router.push(buildSearchHref({ ...query, ...values })));
+  const onSubmit = handleSubmit((values) => router.push(buildSearchHref({ ...query, ...values }, scope)));
   const onReset = () => {
-    const cleared = clearFilters(query);
+    const cleared = clearFilters(query, scope);
     // 필터가 이미 없으면 URL이 그대로라 다시 마운트되지 않으므로 칸도 직접 비운다
     reset(filterDefaults(cleared));
-    router.push(buildSearchHref(cleared));
+    router.push(buildSearchHref(cleared, scope));
   };
 
   return (

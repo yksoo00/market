@@ -155,6 +155,14 @@ export interface ListingUpdateRequest {
   replaceProd?: string;
   testReport?: string;
   certificateOfAuthen?: string;
+  // 상품 칸 (행 안 수정). 이름·제조사가 바뀌면 이 매물만 다른 상품으로, 나머지는 단독 사용일 때만 (서버 422 PRODUCT_SHARED).
+  // 번호·제조일(yyyyMMdd)·사양은 "" = 비우기
+  categoryCode?: string;
+  prodName?: string;
+  prodBrand?: string;
+  prodNo?: string;
+  prodMufcDate?: string;
+  prodSpecInfo?: string;
 }
 
 /** GET /api/v1/listings/mine 의 한 줄. 백엔드 ListingMineItemResponse 와 1:1 */
@@ -167,11 +175,6 @@ export interface ListingMineItem {
   prodBrand: string;
   /** 보증기간·불량지원·대체품·테스트리포트·인증서 중 채운 개수 (0~5) */
   extraFilled: number;
-  salesUnitPrice: number | null;
-  salesQuantity: number | null;
-  tradeStatus: "available" | "completed";
-  /** 대표 사진 키 (공개 경로). 없으면 null */
-  photo: string | null;
 }
 
 export interface ListingMinePage {

@@ -5,6 +5,7 @@ export const listing = {
     LISTING_DUPLICATE_REG_TIME: "같은 시각에 이미 등록된 매물이 있습니다. 다시 시도해 주세요.",
     LISTING_NOT_FOUND: "매물을 찾을 수 없습니다.",
     FORBIDDEN: "내 매물만 수정·삭제할 수 있습니다.",
+    PRODUCT_SHARED: "다른 매물과 같이 쓰는 상품 정보라 고칠 수 없어요. 상품명이나 제조사를 바꾸면 다른 상품으로 옮길 수 있어요.",
     // 등록·수정·삭제가 함께 쓰는 문구라 한도 숫자를 넣지 않는다 (등록 10회/시간, 수정 20회, 삭제 10회)
     RATE_LIMITED: "요청이 너무 많아요. 잠시 후 다시 시도해 주세요.",
     // 응답이 유실돼 다시 누른 등록이 첫 요청과 겹칠 때 (Idempotency-Key)
@@ -71,6 +72,7 @@ export const listing = {
     datasheetPick: "PDF 선택",
     datasheetRemove: "데이터시트 삭제",
     submit: "등록",
+    submitAndExtra: "등록하고 판매정보 추가",
   },
   // 칸별 오류. "무엇이 왜 틀렸고 어떻게 고치나" (rules/frontend.md). 수치는 docs/security.md "매물"
   validation: {
