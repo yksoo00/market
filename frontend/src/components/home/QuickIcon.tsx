@@ -6,17 +6,25 @@ import type { ReactNode } from "react";
 const pictures = ["sellNew", "sellBulk", "sellExtra", "sellQuote", "buyRequest", "buyQuotes"] as const;
 
 // 이미지에 없는 아이콘만 인라인 SVG. 연한 면 + 진한 선 2톤 (design.md "홈 판매·구매 아이콘")
-// TODO(이미지 없음): 엑셀 대량구매는 사용자 이미지에 없어 옛 SVG 그대로. 이미지가 오면 pictures 로 옮기고 이 블록 제거
+// 엑셀 대량구매는 사용자 이미지에 없어 이미지 톤에 맞춰 직접 그림. 이미지가 오면 pictures 로 옮기고 이 블록 제거
 const s = "fill-(--quick-soft)";
+const w = "fill-surface";
 const b = "fill-current stroke-none";
+const bw = "stroke-surface";
 const art = {
-  // 엑셀 대량구매: 카트 안에 표
+  // 엑셀 대량구매: 겹친 문서 + 엑셀 표지(X) + 장바구니 배지. 글자 없이도 "엑셀로 한꺼번에 구매"로 읽히게
   buyBulk: (
     <>
-      <path className={s} d="M11 13h32l-4.5 17H14z" />
-      <path d="M3 7h5l6 23h24.5M20 13v17M28 13v17M36 13v17M12.5 21.5h28.5" />
-      <circle className={b} cx="17" cy="38" r="3" />
-      <circle className={b} cx="34" cy="38" r="3" />
+      <path className={s} d="M17 5h14l7 7v21a2 2 0 0 1-2 2H17a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z" />
+      <path className={s} d="M11 11h14l7 7v21a2 2 0 0 1-2 2H11a2 2 0 0 1-2-2V13a2 2 0 0 1 2-2z" />
+      <path className={w} d="M25 11v7h7" />
+      <path d="M17 25h9M17 31h9" />
+      <rect className={b} x="3" y="19" width="14" height="14" rx="2" />
+      <path className={bw} d="M7 23l6 6M13 23l-6 6" />
+      <circle className={b} cx="37" cy="37" r="9" />
+      <path className={bw} strokeWidth="1.8" d="M31 32h2.4l1.6 7h6l1.6-5H33.6" />
+      <circle className="fill-surface stroke-none" cx="35.4" cy="41.8" r="1.3" />
+      <circle className="fill-surface stroke-none" cx="40.2" cy="41.8" r="1.3" />
     </>
   ),
 } satisfies Record<string, ReactNode>;
