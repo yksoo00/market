@@ -6,8 +6,8 @@ import { listing } from "@/messages/listing";
 // 칸은 문자열로 받고(빈 칸 = 미입력) 출력에서 숫자·undefined 로 바꾼다 (searchFilter 와 같은 방식).
 const v = listing.validation;
 
-const MAX_PRICE = 1_000_000_000;
-const MAX_QUANTITY = 100_000;
+export const MAX_PRICE = 1_000_000_000;
+export const MAX_QUANTITY = 100_000;
 export const MAX_PHOTOS = 4;
 export const MAX_DESCRIPTION = 200;
 
@@ -34,7 +34,7 @@ const optionalText = (max: number, message: string) =>
     .transform((s) => (s === "" ? undefined : s));
 
 /** 숫자만(쉼표·부호·소수점·공백 거부). Number("1e3") 같은 우회를 막으려고 정규식으로 본다 */
-const isInt = (s: string) => /^\d+$/.test(s);
+export const isInt = (s: string) => /^\d+$/.test(s);
 const requiredInt = (min: number, max: number, message: string) =>
   z
     .string()
