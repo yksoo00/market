@@ -20,6 +20,16 @@ export const my = {
     listingsDesc: "내가 등록한 판매글을 검색하고 고쳐요",
     purchasesDesc: "내가 요청하고 구매한 내역",
   },
+  // /my/listings — 검색 결과 화면과 같은 모양으로 내 글만
+  mine: {
+    title: "내 판매글",
+    subtitle: "내가 등록한 판매글을 검색하고 고쳐요",
+    emptyTitle: "등록한 판매글이 없어요",
+    emptyAction: "판매상품 등록하기",
+    editColumn: "수정",
+    edit: "수정",
+    editAria: (name: string) => `${name} 수정`,
+  },
   // /my/purchases — 구매 기능(구매요청·견적·발주)이 생기면 채운다
   purchases: {
     title: "내 구매목록",

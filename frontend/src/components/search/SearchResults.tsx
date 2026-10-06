@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { ResultList } from "@/components/search/ResultList";
 import { listingsApi } from "@/lib/api/listings";
-import type { SearchQuery } from "@/lib/search";
+import type { SearchQuery, SearchScope } from "@/lib/search";
 import { search as t } from "@/messages/search";
 import type { ListingSearchItem } from "@/types/listing";
 
@@ -15,7 +15,7 @@ type State =
   | { kind: "ready"; items: ListingSearchItem[]; nextCursor: string | null; total: number };
 
 // 검색 결과는 클라이언트 조회 (decisions.md 2026-10-02 매물 검색). 조건이 바뀌면 페이지가 key 로 다시 마운트한다
-export function SearchResults({ query: initialQuery }: { query: SearchQuery }) {
+export function SearchResults({ query: initialQuery, scope = "search" }: { query: SearchQuery; scope?: SearchScope }) {
   // 같은 URL 로 다시 이동해도 서버가 새 query 객체를 주므로, 마운트 때 값으로 고정해 [더 보기]로 쌓은 결과가 조용히 리셋되지 않게
   const [query] = useState(initialQuery);
   const [state, setState] = useState<State>({ kind: "loading" });
@@ -25,7 +25,7 @@ export function SearchResults({ query: initialQuery }: { query: SearchQuery }) {
 
   useEffect(() => {
     let alive = true;
-    void listingsApi.search(query).then((res) => {
+    void listingsApi.search(query, undefined, scope).then((res) => {
       if (!alive) return;
       if (res.ok) setState({ kind: "ready", ...res.data });
       else setState({ kind: "error", code: res.code });
@@ -33,7 +33,7 @@ export function SearchResults({ query: initialQuery }: { query: SearchQuery }) {
     return () => {
       alive = false;
     };
-  }, [query, attempt]);
+  }, [query, scope, attempt]);
 
   if (state.kind === "loading") return <Skeleton />;
   if (state.kind === "error") {
@@ -56,7 +56,7 @@ export function SearchResults({ query: initialQuery }: { query: SearchQuery }) {
     if (!nextCursor) return;
     setLoadingMore(true);
     setMoreFailed(null);
-    const res = await listingsApi.search(query, nextCursor);
+    const res = await listingsApi.search(query, nextCursor, scope);
     setLoadingMore(false);
     // 실패해도 이미 보이는 결과는 그대로 둔다. 429 는 계속 누르면 한도만 늘어나니 기다리라고 알린다
     if (res.ok) setState({ kind: "ready", items: [...items, ...res.data.items], nextCursor: res.data.nextCursor, total: res.data.total });
@@ -65,7 +65,7 @@ export function SearchResults({ query: initialQuery }: { query: SearchQuery }) {
 
   return (
     <>
-      <ResultList items={items} query={query} total={total} />
+      <ResultList items={items} query={query} total={total} scope={scope} />
       {nextCursor && (
         <div className="flex items-center justify-center gap-2 pt-1">
           <button

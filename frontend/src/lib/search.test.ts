@@ -131,3 +131,38 @@ describe("searchApiParams", () => {
     expect(p.get("cursor")).toBe("c1");
   });
 });
+
+describe("내 판매글 범위(mine)", () => {
+  it("거래상태 기본값은 전체 — 거래완료한 내 글도 보여야 한다", () => {
+    expect(parseSearchParams({}, "mine").status).toBe("all");
+    expect(parseSearchParams({ status: "completed" }, "mine").status).toBe("completed");
+    expect(parseSearchParams({ status: "bogus" }, "mine").status).toBe("all");
+    // 검색 화면은 그대로
+    expect(parseSearchParams({}).status).toBe("available");
+  });
+
+  it("주소는 /my/listings, 기본값(전체)은 생략하고 거래 가능만 status 를 붙인다", () => {
+    const base = parseSearchParams({}, "mine");
+    expect(buildSearchHref(base, "mine")).toBe("/my/listings");
+    expect(buildSearchHref({ ...base, q: "R740" }, "mine")).toBe("/my/listings?q=R740");
+    expect(buildSearchHref({ ...base, status: "available" }, "mine")).toBe("/my/listings?status=available");
+    expect(buildSearchHref({ ...base, status: "completed" }, "mine")).toBe("/my/listings?status=completed");
+    // 검색 화면은 그대로
+    expect(buildSearchHref(parseSearchParams({}))).toBe("/search");
+  });
+
+  it("API 파라미터에 mine=true (검색 화면은 없음)", () => {
+    const query = parseSearchParams({}, "mine");
+    expect(new URLSearchParams(searchApiParams(query, undefined, "mine")).get("mine")).toBe("true");
+    expect(new URLSearchParams(searchApiParams(query, undefined, "mine")).get("status")).toBe("all");
+    expect(new URLSearchParams(searchApiParams(parseSearchParams({}))).has("mine")).toBe(false);
+  });
+
+  it("필터 개수·초기화도 범위 기본값 기준", () => {
+    const base = parseSearchParams({}, "mine");
+    expect(activeFilterCount(base, "mine")).toBe(0);
+    expect(activeFilterCount({ ...base, status: "available" }, "mine")).toBe(1);
+    expect(clearFilters({ ...base, status: "available", minStock: 3 }, "mine").status).toBe("all");
+    expect(clearFilters({ ...q(), status: "completed" }).status).toBe("available");
+  });
+});
