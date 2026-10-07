@@ -12,6 +12,7 @@
 ```
 
 - 로컬은 Docker Compose로 PostgreSQL·Redis를 실행하고, Spring은 `bootRun`, 프론트는 `pnpm dev`로 실행한다.
+- Spring을 컨테이너로 띄우려면 `docker compose up --watch api-dev`(`dev` 프로필, `backend/Dockerfile.dev`). compose watch가 `src/`를 컨테이너로 복사 → 컨테이너 안 `gradlew classes --continuous`가 컴파일 → devtools가 앱만 재시작한다. `build.gradle`이 바뀌면 이미지를 다시 빌드한다. 포트는 호스트 `bootRun`과 같은 `127.0.0.1:8080`이라 둘 중 하나만 띄운다 (decisions.md 2026-10-07).
 - Compose `prod` 프로필에는 Spring 복제본 2개가 있지만, 현재 외부 프록시·TLS는 실행하지 않는다.
 - 구현은 인증 중심이다. 상품·매물·거래 도메인은 아직 구현되지 않았다. AI 기능은 보류(서비스 제거).
 - 소셜 로그인은 구현했으나 단일 `users` 전환으로 일시 주석 처리했다 (`OAuthController` 등).

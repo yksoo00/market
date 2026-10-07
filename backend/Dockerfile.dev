@@ -1,0 +1,12 @@
+# 로컬 개발용 (docker compose up --watch api-dev). 운영 이미지는 Dockerfile
+# 소스는 compose watch 가 컨테이너 안으로 복사한다. bind mount 는 Windows 에서 파일 변경 이벤트가 컨테이너까지 오지 않아
+# gradle --continuous 가 변경을 못 본다
+FROM eclipse-temurin:21-jdk
+WORKDIR /workspace
+COPY gradlew settings.gradle build.gradle ./
+COPY gradle ./gradle
+RUN ./gradlew --no-daemon dependencies > /dev/null 2>&1 || true   # 의존성 레이어 캐시
+COPY src ./src
+# classes --continuous 가 바뀐 소스를 컴파일하면 devtools 가 build/classes 변경을 보고 앱만 재시작한다.
+# 첫 컴파일을 먼저 끝내 두 gradle 이 같은 출력 디렉터리를 동시에 쓰지 않게 한다
+CMD ["sh", "-c", "./gradlew classes && (./gradlew classes --continuous -q &) && exec ./gradlew bootRun"]
