@@ -18,6 +18,7 @@ import {
   type Pane,
 } from "@/lib/tileQueue";
 import { screenOf } from "@/lib/tileScreens";
+import { randomUUID } from "@/lib/uuid";
 
 // 모든 화면 전환을 하나의 큐로 (스펙: docs/superpowers/specs/2026-10-01-tile-queue-design.md).
 // 화면 코드는 일반 Link·form을 쓰고, 여기서 문서 전체의 클릭·GET 폼 제출을 캡처 단계에서 받아 판단한다.
@@ -34,7 +35,7 @@ type TileWorkspaceContextValue = {
 
 const TileWorkspaceContext = createContext<TileWorkspaceContextValue | null>(null);
 
-const newKey = () => crypto.randomUUID();
+const newKey = () => randomUUID();
 
 export function TileWorkspaceProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
