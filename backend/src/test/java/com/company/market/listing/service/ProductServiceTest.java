@@ -1,5 +1,9 @@
 package com.company.market.listing.service;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
+
 import com.company.market.TestInfraConfiguration;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.repository.ProductRepository;
@@ -39,32 +43,41 @@ class ProductServiceTest {
 	}
 
 	@Test
-	@DisplayName("없는 상품이면 categoryCode(8자)+일련번호(4자리)로 채번해 만들고, 대표사진은 넘어온 첫 사진")
+	@DisplayName("없는 상품이면 KP-연도-일련번호(6자리)로 채번해 만들고, 대표사진은 넘어온 첫 사진. 옛 형식 ID는 번호에 안 셈")
 	void createsWithGeneratedId() {
+		products.saveAndFlush(Product.builder().prodId("ELEC00010001").categoryCode("ELEC0001")
+			.prodName("옛 상품").prodBrand("삼성").regDate("20260929120000").build());
+		ProductService service = at("2026-10-08T03:00:00Z");
+
 		Product created = service.findOrCreate(new ProductDraft("ELEC0001", "노트북 B", "MODEL-1", "LG", null, null, null, "photo-1.jpg"));
 
-		assertThat(created.getProdId()).isEqualTo("ELEC00010001");
+		assertThat(created.getProdId()).isEqualTo("KP-2026-000001");
 		assertThat(created.getProdPhoto1()).isEqualTo("photo-1.jpg");
 	}
 
 	@Test
-	@DisplayName("같은 카테고리에서 두 번째로 새로 만들면 일련번호가 0002")
-	void incrementsSequenceWithinCategory() {
+	@DisplayName("같은 해에 두 번째로 새로 만들면 일련번호가 000002 — 카테고리가 달라도 이어진다")
+	void incrementsSequenceWithinYear() {
+		ProductService service = at("2026-10-08T03:00:00Z");
 		service.findOrCreate(new ProductDraft("ELEC0001", "노트북 C", null, "삼성", null, null, null, null));
 
-		Product second = service.findOrCreate(new ProductDraft("ELEC0001", "노트북 D", null, "삼성", null, null, null, null));
+		Product second = service.findOrCreate(new ProductDraft("ELEC0002", "노트북 D", null, "삼성", null, null, null, null));
 
-		assertThat(second.getProdId()).isEqualTo("ELEC00010002");
+		assertThat(second.getProdId()).isEqualTo("KP-2026-000002");
 	}
 
 	@Test
-	@DisplayName("categoryCode가 8자보다 짧으면 부족한 자리만 0으로 채우고 기존 문자는 그대로 둔다")
-	void categoryPrefixPadsOnlyMissingLength() {
-		Product created = service.findOrCreate(new ProductDraft("AB CD", "노트북 E", null, "LG", null, null, null, null));
+	@DisplayName("일련번호는 해마다 1부터. 연도는 한국 날짜 기준 (UTC 12/31 15:00 = 한국 1/1 0시)")
+	void restartsSequenceEachKoreanYear() {
+		at("2026-12-31T14:59:59Z").findOrCreate(new ProductDraft("ELEC0001", "노트북 F", null, "삼성", null, null, null, null));
 
-		String prefix = created.getProdId().substring(0, 8);
-		assertThat(prefix).isEqualTo("AB" + " " + "CD000");
-		assertThat(created.getProdId()).hasSize(12).endsWith("0001");
+		Product next = at("2026-12-31T15:00:00Z").findOrCreate(new ProductDraft("ELEC0001", "노트북 G", null, "삼성", null, null, null, null));
+
+		assertThat(next.getProdId()).isEqualTo("KP-2027-000001");
+	}
+
+	private ProductService at(String instant) {
+		return new ProductService(products, Clock.fixed(Instant.parse(instant), ZoneOffset.UTC));
 	}
 
 }
