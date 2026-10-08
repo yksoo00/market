@@ -1,6 +1,7 @@
 package com.company.market.common.auth;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Set;
 
 import com.company.market.common.api.ApiError;
@@ -42,6 +43,7 @@ public class OriginCheckFilter extends OncePerRequestFilter {
 		if (!SAFE_METHODS.contains(req.getMethod()) && origin != null && !allowedOrigins.contains(origin.toLowerCase())) {
 			res.setStatus(HttpServletResponse.SC_FORBIDDEN);
 			res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+			res.setCharacterEncoding(StandardCharsets.UTF_8.name()); // 없으면 Tomcat writer 가 ISO-8859-1 로 써서 한글이 '?'
 			json.writeValue(res.getWriter(), ApiError.of(ErrorCode.FORBIDDEN, "허용되지 않은 출처입니다."));
 			return;
 		}

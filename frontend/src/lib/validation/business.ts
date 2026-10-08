@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { todayInSeoul } from "@/lib/listingForm";
 import { bizNoSchema, emailSchema, passwordSchema } from "@/lib/validation/auth";
 import { CUSTOM_DOMAIN, joinEmail, nameSchema } from "@/lib/validation/signup";
 import { auth as ta } from "@/messages/auth";
@@ -7,7 +8,7 @@ import { emailDomains, phonePrefixes, signup as t } from "@/messages/signup";
 // 수치는 docs/security.md "입력 검증 > 계정" 이 원본
 const v = t.business.validation;
 
-/** YYYYMMDD, 실제 존재하는 날짜, 오늘 이전 */
+/** YYYYMMDD, 실제 존재하는 날짜, 한국 날짜로 오늘 이전 (백엔드 SignupService 와 같은 기준) */
 export const startDateSchema = z
   .string()
   .min(1, ta.validation.required)
@@ -18,7 +19,8 @@ export const startDateSchema = z
     const d = Number(s.slice(6, 8));
     const date = new Date(y, m - 1, d);
     const real = date.getFullYear() === y && date.getMonth() === m - 1 && date.getDate() === d;
-    return real && date <= new Date();
+    // YYYYMMDD 는 문자열 비교가 날짜 순서와 같다. 브라우저 시간대가 아니라 한국 날짜로
+    return real && s < todayInSeoul().replaceAll("-", "");
   }, v.startDate);
 
 const name50 = (msg: string) => z.string().min(1, ta.validation.required).min(2, msg).max(50, msg);

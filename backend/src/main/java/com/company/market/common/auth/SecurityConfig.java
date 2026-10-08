@@ -1,5 +1,6 @@
 package com.company.market.common.auth;
 
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import com.company.market.common.api.ApiError;
@@ -83,6 +84,7 @@ public class SecurityConfig {
 	private static void write(HttpServletResponse res, ObjectMapper json, ErrorCode code) throws java.io.IOException {
 		res.setStatus(code.status().value());
 		res.setContentType(MediaType.APPLICATION_JSON_VALUE);
+		res.setCharacterEncoding(StandardCharsets.UTF_8.name()); // 없으면 Tomcat writer 가 ISO-8859-1 로 써서 한글이 '?'
 		json.writeValue(res.getWriter(), ApiError.of(code));
 	}
 

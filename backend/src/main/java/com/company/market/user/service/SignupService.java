@@ -1,7 +1,9 @@
 package com.company.market.user.service;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.Locale;
 import java.util.Map;
@@ -47,6 +49,8 @@ public class SignupService {
 
 	private static final Duration BUSINESS_VERIFY_TTL = Duration.ofMinutes(30);
 
+	private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+
 	/** 유일 제약 이름 → 오류 코드. 미리 확인해도 동시 가입 경쟁은 DB 만 잡을 수 있어서 */
 	private static final Map<String, ErrorCode> CONSTRAINT_CODES = Map.of(
 			"ux_users_user_id", ErrorCode.DUPLICATE_LOGIN_ID,
@@ -67,6 +71,8 @@ public class SignupService {
 	private final TransactionTemplate tx;
 
 	private final StringRedisTemplate redis;
+
+	private final Clock clock;
 
 	public boolean isLoginIdAvailable(String loginId, String ip) {
 		limiter.hit("signup:check:ip:" + ip, CHECK_PER_IP, CHECK_WINDOW);
@@ -115,7 +121,8 @@ public class SignupService {
 		}
 		try {
 			LocalDate startDate = LocalDate.parse(req.startDate(), java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
-			if (!startDate.isBefore(LocalDate.now())) {
+			// 개업일은 한국 날짜. 시스템 기본 시간대(컨테이너는 UTC)를 쓰면 한국 00~09시에 "오늘"이 하루 밀린다
+			if (!startDate.isBefore(LocalDate.now(clock.withZone(SEOUL)))) {
 				throw new ValidationException(Map.of("startDate", "개업년월일은 오늘 이전 날짜여야 합니다."));
 			}
 		}
