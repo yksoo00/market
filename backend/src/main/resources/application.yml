@@ -2,6 +2,13 @@ spring:
   application:
     name: market
 
+  # devtools(bootRun 전용)는 자동 재시작만 쓴다. 기본 속성(오류 응답에 메시지·스택트레이스)은 개발 서버를
+  # 다른 기기에서도 쓰므로 끄고, 브라우저 새로고침 서버(35729)는 템플릿이 없어 끈다
+  devtools:
+    add-properties: false
+    livereload:
+      enabled: false
+
   datasource:
     url: jdbc:postgresql://${POSTGRES_HOST:localhost}:5432/${POSTGRES_DB}
     username: ${POSTGRES_USER}
