@@ -35,6 +35,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -313,6 +314,19 @@ class AuthApiTest {
 			mvc.perform(get("/api/v1/users/me")).andExpect(status().isUnauthorized())
 				.andExpect(jsonPath("$.ok").value(false)).andExpect(jsonPath("$.code").value("UNAUTHENTICATED"));
 			mvc.perform(get("/api/v1/users/me").cookie(new Cookie("access_token", "not-a-jwt"))).andExpect(status().isUnauthorized());
+		}
+
+		@Test
+		@DisplayName("보안 필터가 쓰는 오류 본문(401·403 출처)은 charset=UTF-8 을 밝힌다 — 없으면 Tomcat 이 ISO-8859-1 로 써 한글이 '?' 가 됨")
+		void securityErrorBodyIsUtf8() throws Exception {
+			// MockMvc 응답은 charset 이 없어도 UTF-8 로 써서 깨짐이 재현되지 않는다. 실제 Tomcat 이 보는 헤더로 검사한다
+			mvc.perform(get("/api/v1/users/me")).andExpect(status().isUnauthorized())
+				.andExpect(header().string(HttpHeaders.CONTENT_TYPE, "application/json;charset=UTF-8"))
+				.andExpect(jsonPath("$.message").value("로그인이 필요합니다."));
+			mvc.perform(loginRequest("tester1", PASSWORD, true).header(HttpHeaders.ORIGIN, "https://evil.example"))
+				.andExpect(status().isForbidden())
+				.andExpect(header().string(HttpHeaders.CONTENT_TYPE, "application/json;charset=UTF-8"))
+				.andExpect(jsonPath("$.message").value("허용되지 않은 출처입니다."));
 		}
 
 		@Test
