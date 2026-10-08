@@ -117,6 +117,7 @@ class ListingApiTest {
 	void createsListingAndAutoCreatesProduct() throws Exception {
 		String p1 = uploaded(authCookie, UploadKind.LISTING_PHOTO);
 		String p2 = uploaded(authCookie, UploadKind.LISTING_PHOTO);
+		String prodId = "KP-" + LocalDate.now(SEOUL).getYear() + "-000001";
 
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
@@ -126,10 +127,10 @@ class ListingApiTest {
 					""".formatted(p1, p2)))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.ok").value(true))
-			.andExpect(jsonPath("$.data.prodId").value("ELEC00010001"))
+			.andExpect(jsonPath("$.data.prodId").value(prodId))
 			.andExpect(jsonPath("$.data.photos[0]").value(p1));
 
-		assertThat(jdbc.queryForObject("select prod_photo_1 from products where prod_id = 'ELEC00010001'", String.class)).isEqualTo(p1);
+		assertThat(jdbc.queryForObject("select prod_photo_1 from products where prod_id = ?", String.class, prodId)).isEqualTo(p1);
 	}
 
 	@Test
@@ -229,13 +230,15 @@ class ListingApiTest {
 	@Test
 	@DisplayName("상품명·제조사 앞뒤 공백이 달라도 같은 상품으로 재사용한다")
 	void productMatchingTrimsWhitespace() throws Exception {
+		String prodId = "KP-" + LocalDate.now(SEOUL).getYear() + "-000001";
+
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 T","prodBrand":"삼성 ",
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isCreated())
-			.andExpect(jsonPath("$.data.prodId").value("ELEC00010001"));
+			.andExpect(jsonPath("$.data.prodId").value(prodId));
 
 		mvc.perform(post("/api/v1/listings").cookie(otherUserCookie())
 				.contentType(MediaType.APPLICATION_JSON).content("""
@@ -243,7 +246,7 @@ class ListingApiTest {
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isCreated())
-			.andExpect(jsonPath("$.data.prodId").value("ELEC00010001"));
+			.andExpect(jsonPath("$.data.prodId").value(prodId));
 
 		assertThat(jdbc.queryForObject("select count(*) from products", Integer.class)).isEqualTo(1);
 	}
