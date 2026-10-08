@@ -1,0 +1,4 @@
+# Dockerfile·Dockerfile.dev 는 필요한 경로만 COPY 한다. 빌드 산출물·업로드 파일을 빌드 컨텍스트로 보내지 않게
+build/
+.gradle/
+data/

@@ -26,6 +26,7 @@ AI 기능(견적서 파싱·추천·챗봇)은 보류 — `ai/` 서비스는 제
 # 전체
 docker compose up -d                 # postgres, redis
 docker compose logs -f <service>
+docker compose up --watch api-dev    # 백엔드를 컨테이너로 (+ postgres, redis). 소스 저장 → 10초 안팎 자동 재시작. 호스트 bootRun 과 8080 겹침
 
 # backend/
 ./gradlew bootRun                    # 실행

@@ -11,7 +11,7 @@
 | 서비스 | IT 장비·솔루션 마켓, 지역 개념 없음, 1단계 결제 없음 | 09-18 서비스 성격·지역·결제 |
 | 구조 | 모노레포, 모듈러 모놀리스 (AI 재개 시 FastAPI 1개) | 09-17 아키텍처, 09-21 저장소 |
 | 스택 | Spring Boot 4.1·Java 21, Next.js, Postgres+pgvector, Redis | 09-18 Spring Boot·AI·Java |
-| 인프라 | 자체 서버 + Vercel, Docker Compose. Caddy는 보류. 파일은 서버 로컬 디스크(volume), MinIO 안 씀 | 09-17 서버·Compose, 09-28 Caddy, 10-02 파일 저장소 |
+| 인프라 | 자체 서버 + Vercel, Docker Compose. Caddy는 보류. 파일은 서버 로컬 디스크(volume), MinIO 안 씀. 백엔드 개발은 `api-dev` 컨테이너(compose watch + devtools) 또는 호스트 bootRun | 09-17 서버·Compose, 09-28 Caddy, 10-02 파일 저장소, 10-07 백엔드 개발 컨테이너 |
 | 인증 | JWT access 15분 + refresh 30일(Redis). 가입 후 자동 로그인 없음 | 09-17 인증, 09-22 자동 로그인 |
 | 계정 | 단일 `users` 테이블. 소셜 로그인은 구현 후 일시 주석 처리, 약관 동의·본인인증 미사용 | 09-28 단일 users |
 | 기업 | 사업자번호 로그인. 관리자 심사 정책은 유지하되 미구현 | 09-21 계정 체계·기업 심사 |
@@ -407,6 +407,13 @@
 - 감수: `ALLOWED_ORIGINS` 를 운영에 두면 CSRF 방어(Origin 검사)가 넓어지므로 운영 `.env` 에는 두지 않는다(와일드카드 없음, 목록만). 개발 서버를 거치는 프록시라 큰 업로드(10MB)는 개발 서버 한도에 걸릴 수 있다 — 안 되면 `NEXT_PUBLIC_API_URL` 에 직접 주소를 쓴다.
 - 대안: IP 를 next.config·application.yml 에 박기 — 커밋에 개인 IP 가 남아 탈락(사용자 지적). API 주소를 접속 호스트로 계산(`hostname:8080`) — 백엔드 포트도 열어야 하고 CORS 가 필요해 탈락.
 - 재검토 조건: 스테이징·운영에 올릴 때(https·실제 도메인이면 이 설정은 필요 없음), 업로드가 개발 프록시에서 막힐 때.
+
+## 2026-10-07 백엔드 개발 서버를 컨테이너로 — compose watch + devtools
+
+- 결정: Compose `dev` 프로필에 `api-dev` 추가 (`docker compose up --watch api-dev`). compose watch 가 `backend/src` 를 컨테이너로 sync → 컨테이너 안 `gradlew classes --continuous` 가 컴파일 → `spring-boot-devtools`(developmentOnly, 운영 jar 미포함)가 앱만 재시작. 저장 후 반영 약 11~13초(재시작 4~5초). 호스트 `bootRun` 도 계속 쓸 수 있다(`POSTGRES_HOST`·`REDIS_URL` 은 환경변수가 있으면 그 값).
+- 이유: 백엔드를 띄우는 방법을 Compose 하나로 맞추고, 코드 저장만으로 반영되게 하려는 사용자 요청. devtools 는 사용자 승인.
+- bind mount 대신 sync: Windows 호스트의 bind mount 는 파일 변경 이벤트가 컨테이너까지 오지 않아 gradle `--continuous` 가 변경을 못 본다. compose watch 는 호스트에서 감지해 복사하므로 컨테이너 안 이벤트가 정상.
+- 대안: devtools 없이 sync 후 컨테이너 재시작 — 반영 30초 이상이라 탈락. 재검토 조건: 반영이 느려 개발을 방해할 때, 팀원이 macOS·Linux 만 쓸 때(bind mount 로 단순화 가능).
 
 ## 미정 (결정 필요)
 

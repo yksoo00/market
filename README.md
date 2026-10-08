@@ -24,6 +24,6 @@ IT 장비·솔루션 마켓플레이스. 개인·사업자가 상품을 올리�
 
 ```
 docker compose up -d          # postgres, redis
-cd backend && ./gradlew bootRun
+cd backend && ./gradlew bootRun   # 또는 docker compose up --watch api-dev (컨테이너, 저장 시 자동 재시작)
 cd frontend && pnpm dev
 ```
