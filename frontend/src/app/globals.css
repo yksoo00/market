@@ -19,6 +19,11 @@
   --color-down: #b4432b;
   --color-up: #2f7a3d;
 
+  /* 홈 검색창·실시간 카드에만. 색은 ink(#18181b) 기반 회색 (design.md "간격·모양") */
+  --shadow-soft: 0 1px 2px rgba(24, 24, 27, 0.04), 0 12px 32px -16px rgba(24, 24, 27, 0.12);
+  --shadow-card: 0 1px 2px rgba(24, 24, 27, 0.04);
+  --shadow-lift: 0 6px 16px -10px rgba(24, 24, 27, 0.22);
+
   --font-sans: var(--font-geist), var(--font-noto), "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-mono: var(--font-geist-mono), Consolas, monospace;
 

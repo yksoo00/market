@@ -19,7 +19,7 @@ export function RealtimeCard({ type, items }: Props) {
         <span className={`w-[7px] h-[7px] rounded-full ${isBuy ? "bg-green" : "bg-primary"}`} />
         <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
         <span className="grow" />
-        <Link href={isBuy ? "/requests" : "/listings"} className="text-xs text-ink-3 hover:text-primary transition-colors">
+        <Link href={isBuy ? "/requests" : "/listings"} className="text-xs text-ink-2 hover:text-primary transition-colors">
           {t.viewAll} ›
         </Link>
       </div>

@@ -37,7 +37,7 @@ const toneClass: Record<Tone, string> = {
 };
 
 const itemClass =
-  "p-1 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-current transition-[transform,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 active:scale-[0.96]";
+  "p-1 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-current transition-[translate,scale,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 active:scale-[0.96]";
 
 export function QuickMenu() {
   const fileRef = useRef<HTMLInputElement>(null);

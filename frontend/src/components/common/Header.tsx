@@ -42,7 +42,7 @@ export function Header() {
   if (framed) return null;
 
   return (
-    <header data-hide-in-tile className="h-13 md:h-14 shrink-0 px-4 md:px-6 flex items-center gap-7 bg-surface/80 backdrop-blur border-b border-line text-ink">
+    <header data-hide-in-tile className="h-13 md:h-14 shrink-0 px-4 md:px-6 flex items-center gap-7 bg-surface border-b border-line text-ink">
       {/* 로고는 타일 큐를 항상 리셋(홈 전체화면). 나머지 헤더 링크는 일반 규칙 */}
       <Link href="/" data-tile="reset" className="flex items-center gap-2">
         <span className="w-7 h-7 rounded-md bg-primary text-white flex items-center justify-center">
