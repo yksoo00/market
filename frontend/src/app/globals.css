@@ -4,24 +4,23 @@
 
 /* 토큰 원본. docs/design.md 와 같은 값 */
 @theme {
-  --color-primary: #62079b;
-  --color-primary-dark: #46056f;
-  --color-primary-soft: #f2e7f8;
-  --color-green: #2c4506;
-  --color-green-soft: #f1f8d9;
-  --color-ink: #24123a;
-  --color-ink-2: #5e4f75;
-  --color-ink-3: #8e80a3;
-  --color-line: #ded2ea;
-  --color-line-2: #ede5f4;
-  --color-bg: #f5f0f9;
+  --color-primary: #5f178c; /* 예전 #62079b 와 같은 색조, 채도만 91% → 72% (decisions.md 2026-10-12) */
+  --color-primary-dark: #451065;
+  --color-primary-soft: #f1ebf6;
+  --color-green: #3d5a1a;
+  --color-green-soft: #eef3e4;
+  --color-ink: #18181b;
+  --color-ink-2: #52525b;
+  --color-ink-3: #8a8a93;
+  --color-line: #e4e4e7;
+  --color-line-2: #f0f0f2;
+  --color-bg: #f7f7f8;
   --color-surface: #ffffff;
-  --color-on-primary: #ebddf5;
   --color-down: #b4432b;
   --color-up: #2f7a3d;
 
-  --font-sans: var(--font-noto), "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
-  --font-mono: var(--font-plex-mono), Consolas, monospace;
+  --font-sans: var(--font-geist), var(--font-noto), "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+  --font-mono: var(--font-geist-mono), Consolas, monospace;
 
   /* 컨테이너 쿼리(@md, @lg)를 화면 브레이크포인트(md, lg)와 같은 픽셀 기준으로 맞춘다.
      타일 워크스페이스가 메인 영역을 좁힐 때 lg: 는 브라우저 창 전체 폭을 보고 반응 안 하지만

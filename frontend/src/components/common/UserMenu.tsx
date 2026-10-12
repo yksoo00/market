@@ -55,11 +55,11 @@ export function UserMenu({ nickname, kind, onLoggedOut }: Props) {
       }}
     >
       {/* 보이는 원은 36, 눌리는 영역은 44 (터치) */}
-      <DropdownMenuTrigger aria-label={t.label} title={t.label} className="size-11 -mr-1 flex items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-white">
+      <DropdownMenuTrigger aria-label={t.label} title={t.label} className="size-11 -mr-1 flex items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary">
         <span
           aria-hidden="true"
           className={`size-9 rounded-full flex items-center justify-center text-[15px] font-bold ${
-            business ? "bg-primary-dark text-white ring-2 ring-white" : "bg-primary-soft text-primary"
+            business ? "bg-primary-dark text-white" : "bg-primary-soft text-primary"
           }`}
         >
           {initialOf(nickname)}

@@ -17,16 +17,16 @@ export function RealtimeCard({ type, items }: Props) {
     <section aria-label={title} className="min-w-0 flex flex-col gap-1.5">
       <div className="flex items-center gap-2">
         <span className={`w-[7px] h-[7px] rounded-full ${isBuy ? "bg-green" : "bg-primary"}`} />
-        <h2 className="text-sm font-bold">{title}</h2>
+        <h2 className="text-sm font-semibold tracking-tight">{title}</h2>
         <span className="grow" />
-        <Link href={isBuy ? "/requests" : "/listings"} className="text-xs text-ink-2 hover:text-primary">
+        <Link href={isBuy ? "/requests" : "/listings"} className="text-xs text-ink-3 hover:text-primary transition-colors">
           {t.viewAll} ›
         </Link>
       </div>
       {items.length === 0 ? (
         <p className="py-6 text-center text-[13px] text-ink-3 rounded-md border border-line bg-surface">{t.empty}</p>
       ) : (
-        <ul className="flex gap-2 overflow-x-auto snap-x pb-1.5">
+        <ul className="flex gap-3 overflow-x-auto snap-x px-1 -mx-1 pt-1 pb-3">
           {items.map((item) => (
             <li key={item.id} className="flex">
               <ListingCard item={item} />

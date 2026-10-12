@@ -42,10 +42,10 @@ export function Header() {
   if (framed) return null;
 
   return (
-    <header data-hide-in-tile className="h-13 md:h-14 shrink-0 px-4 md:px-6 flex items-center gap-7 bg-primary text-white">
+    <header data-hide-in-tile className="h-13 md:h-14 shrink-0 px-4 md:px-6 flex items-center gap-7 bg-surface/80 backdrop-blur border-b border-line text-ink">
       {/* 로고는 타일 큐를 항상 리셋(홈 전체화면). 나머지 헤더 링크는 일반 규칙 */}
       <Link href="/" data-tile="reset" className="flex items-center gap-2">
-        <span className="w-7 h-7 rounded-md bg-green flex items-center justify-center">
+        <span className="w-7 h-7 rounded-md bg-primary text-white flex items-center justify-center">
           <Icon name="logo" size={17} strokeWidth={2.2} />
         </span>
         <span className="text-lg font-bold tracking-tight">{t.brand}</span>
@@ -53,7 +53,7 @@ export function Header() {
 
       <nav className="hidden md:flex items-center gap-5 text-sm font-medium">
         {t.nav.map((label, i) => (
-          <Link key={label} href={navHrefs[i]} className="text-on-primary hover:text-white">
+          <Link key={label} href={navHrefs[i]} className="text-ink-2 hover:text-primary transition-colors">
             {label}
           </Link>
         ))}
@@ -61,7 +61,7 @@ export function Header() {
 
       <span className="grow" />
 
-      <Link href="/notifications" aria-label="알림" className="md:hidden w-11 h-11 flex items-center justify-center text-on-primary">
+      <Link href="/notifications" aria-label="알림" className="md:hidden w-11 h-11 flex items-center justify-center text-ink-2">
         <Icon name="bell" />
       </Link>
       {profile ? (
@@ -77,12 +77,12 @@ export function Header() {
         />
       ) : sessionChecked ? (
         <>
-          <Link href="/login" className="text-[13px] text-on-primary hover:text-white">
+          <Link href="/login" className="text-[13px] text-ink-2 hover:text-ink">
             {t.login}
           </Link>
           <Link
             href="/signup"
-            className="hidden md:flex h-[34px] px-3.5 items-center rounded-md bg-green text-white text-[13px] font-bold"
+            className="hidden md:flex h-[34px] px-3.5 items-center rounded-md bg-primary text-white text-[13px] font-semibold hover:bg-primary-dark active:scale-[0.98] transition-transform"
           >
             {t.signup}
           </Link>

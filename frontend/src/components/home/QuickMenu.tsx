@@ -36,7 +36,8 @@ const toneClass: Record<Tone, string> = {
   buy: "text-green [--quick-soft:var(--color-green-soft)] hover:bg-green/12",
 };
 
-const itemClass = "p-1 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-current";
+const itemClass =
+  "p-1 rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-current transition-[transform,background-color] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] hover:-translate-y-0.5 active:scale-[0.96]";
 
 export function QuickMenu() {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -118,8 +119,8 @@ function Group({ tone, label, children }: { tone: Tone; label: string; children:
       {/* 그룹 이름은 aria-label 로 이미 읽히므로 배지는 스크린리더에서 뺀다 (두 번 읽힘 방지) */}
       <span
         aria-hidden="true"
-        className={`h-6 px-2 mr-1 rounded-[5px] flex items-center text-xs font-bold text-white ${
-          tone === "sell" ? "bg-primary" : "bg-green"
+        className={`w-11 h-6 mr-1 rounded-full flex items-center justify-center text-xs font-semibold ${
+          tone === "sell" ? "bg-primary-soft text-primary-dark" : "bg-green-soft text-green"
         }`}
       >
         {label}

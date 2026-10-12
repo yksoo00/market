@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Mono, Noto_Sans_KR } from "next/font/google";
+import { Geist, Geist_Mono, Noto_Sans_KR } from "next/font/google";
 import { Header } from "@/components/common/Header";
 import { TileWorkspace } from "@/components/common/TileWorkspace";
 import "./globals.css";
@@ -10,11 +10,9 @@ const noto = Noto_Sans_KR({
   weight: ["400", "500", "700"],
 });
 
-const plexMono = IBM_Plex_Mono({
-  variable: "--font-plex-mono",
-  subsets: ["latin"],
-  weight: ["500", "600"],
-});
+// 라틴·숫자는 Geist. Geist 에 한글 글리프가 없어 한글은 Noto Sans KR 로 넘어간다
+const geist = Geist({ variable: "--font-geist", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"], weight: ["500", "600"] });
 
 export const metadata: Metadata = {
   title: "커널마켓",
@@ -26,7 +24,7 @@ const FRAMED_FLAG_SCRIPT = 'if (window.self !== window.top) document.documentEle
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     // suppressHydrationWarning: 아래 스크립트가 하이드레이션 전에 html에 data-framed를 붙이므로
-    <html lang="ko" className={`${noto.variable} ${plexMono.variable}`} suppressHydrationWarning>
+    <html lang="ko" className={`${geist.variable} ${geistMono.variable} ${noto.variable}`} suppressHydrationWarning>
       <head>
         {/* 타일 큐의 서브 칸(iframe)이면 그려지기 전에 표시해, 헤더처럼 칸 안에서 숨길 것을 CSS로 바로 숨긴다.
             useIsFramed는 하이드레이션 뒤에야 알 수 있어 그 사이 헤더가 잠깐 보였다 사라졌다. 고정 문자열이라 안전 */}
