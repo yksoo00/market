@@ -1,7 +1,9 @@
 package com.company.market.listing.service;
 
 import java.time.Clock;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 import com.company.market.listing.domain.Product;
@@ -17,7 +19,10 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class ProductService {
 
-	private static final int CATEGORY_PREFIX_LENGTH = 8;
+	/** 상품 ID = KP-연도-일련번호(6자리), 일련번호는 해마다 1부터 (사용자 지시, 2026-10-08) */
+	private static final String PROD_ID_PREFIX = "KP-";
+
+	private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
 	private static final DateTimeFormatter REG_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
@@ -50,9 +55,10 @@ public class ProductService {
 	}
 
 	private Product create(ProductDraft draft) {
-		String prefix = categoryPrefix(draft.categoryCode());
+		// 연도는 한국 날짜 — 서버 Clock 은 UTC 라 그대로 쓰면 1월 1일 오전 9시 전엔 전년도 번호가 된다
+		String prefix = PROD_ID_PREFIX + LocalDate.now(clock.withZone(SEOUL)).getYear() + "-";
 		long sequence = products.countByProdIdStartingWith(prefix) + 1;
-		String prodId = prefix + String.format("%04d", sequence);
+		String prodId = prefix + String.format("%06d", sequence);
 
 		return products.saveAndFlush(Product.builder()
 			.prodId(prodId)
@@ -66,14 +72,6 @@ public class ProductService {
 			.prodPhoto1(draft.firstPhoto())
 			.regDate(LocalDateTime.now(clock).format(REG_DATE_FORMAT))
 			.build());
-	}
-
-	/** 부족한 자리만 뒤에 '0'을 붙인다 — 기존 방식(공백 채움 후 전체 치환)은 categoryCode 안의 공백까지 바꿔버렸다 */
-	private String categoryPrefix(String categoryCode) {
-		if (categoryCode.length() >= CATEGORY_PREFIX_LENGTH) {
-			return categoryCode.substring(0, CATEGORY_PREFIX_LENGTH);
-		}
-		return categoryCode + "0".repeat(CATEGORY_PREFIX_LENGTH - categoryCode.length());
 	}
 
 	public record ProductDraft(String categoryCode, String prodName, String prodNo, String prodBrand,
