@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -9,6 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/auth/FormField";
 import { FormError, SubmitButton } from "@/components/auth/FormStatus";
+import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { authApi } from "@/lib/api/auth";
 import { applyServerError } from "@/lib/form";
 import { businessLoginSchema, loginSchema, type BusinessLoginInput, type LoginInput } from "@/lib/validation/auth";
@@ -29,7 +29,7 @@ const personalSchema = loginSchema.extend({ bizNo: z.string() });
 const businessSchema = businessLoginSchema.extend({ loginId: z.string() });
 
 export function LoginForm({ kind, next }: Props) {
-  const router = useRouter();
+  const openTile = useTileOpen();
   const isBusiness = kind === "business";
   const form = useForm<Values>({
     resolver: zodResolver(isBusiness ? businessSchema : personalSchema),
@@ -53,7 +53,8 @@ export function LoginForm({ kind, next }: Props) {
       ? await authApi.loginBusiness({ bizNo: values.bizNo, password: values.password, remember: values.remember })
       : await authApi.login({ loginId: values.loginId, password: values.password, remember: values.remember });
     if (result.ok) {
-      router.push(next);
+      // 로그인 후 화면(기본 홈)은 옆 칸 없이 전체 화면으로 (사용자 지시, 2026-10-13)
+      openTile(next, true);
       return;
     }
     setUnreachable(result.code === UNREACHABLE);

@@ -1,12 +1,5 @@
 export const signup = {
   title: "회원가입",
-  choose: {
-    subtitle: "가입 유형을 선택하세요.",
-    personal: { title: "일반 회원", desc: "개인 계정 정보를 입력해 가입합니다." },
-    business: { title: "기업 회원", desc: "사업자 정보로 가입합니다. 현재 인증은 로컬 개발 환경에서만 가능합니다." },
-    haveAccount: "이미 계정이 있으세요?",
-    login: "로그인",
-  },
 
   steps: { form: "정보 입력", done: "완료" },
 

@@ -8,6 +8,7 @@ import { useTileWorkspace } from "@/components/common/TileWorkspaceContext";
 import { UserMenu } from "@/components/common/UserMenu";
 import { useIsFramed } from "@/hooks/useIsFramed";
 import { authApi } from "@/lib/api/auth";
+import { personalSignupPath } from "@/lib/signupFlow";
 import { screenOf } from "@/lib/tileScreens";
 import { home as t } from "@/messages/home";
 
@@ -81,7 +82,7 @@ export function Header() {
             {t.login}
           </Link>
           <Link
-            href="/signup"
+            href={personalSignupPath.form}
             className="hidden md:flex h-[34px] px-3.5 items-center rounded-md bg-green text-white text-[13px] font-bold"
           >
             {t.signup}

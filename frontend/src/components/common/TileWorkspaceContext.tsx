@@ -198,6 +198,25 @@ function MainPathWatcher({ onChange }: { onChange: (fullPath: string) => void })
   return null;
 }
 
+/**
+ * 링크 없이 코드로 다른 화면을 열 때(로그인 성공 후 등) 큐 규칙을 타게 한다.
+ * iframe 칸은 칸 목록이 없으므로 링크 클릭과 같은 메시지로 부모 큐에 맡긴다.
+ */
+export function useTileOpen(): (path: string, reset: boolean) => void {
+  const { panes, open } = useTileWorkspace();
+  const framed = useIsFramed();
+  return useCallback(
+    (path: string, reset: boolean) => {
+      if (framed) {
+        window.top?.postMessage({ source: "market-tile", type: "open", path, reset }, window.location.origin);
+        return;
+      }
+      open(panes[0]?.key ?? "", path, reset);
+    },
+    [framed, open, panes],
+  );
+}
+
 export function useTileWorkspace(): TileWorkspaceContextValue {
   const context = useContext(TileWorkspaceContext);
   if (!context) {
