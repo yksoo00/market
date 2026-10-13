@@ -119,10 +119,10 @@ public class OAuthLoginService {
 		}
 		catch (DataIntegrityViolationException e) {
 			String message = String.valueOf(e.getMostSpecificCause().getMessage());
-			if (message.contains("ux_users_nickname_personal")) {
+			if (message.contains("ux_trd_user_info_nickname")) {
 				throw new ApiException(ErrorCode.DUPLICATE_NICKNAME);
 			}
-			if (message.contains("ux_users_email") || message.contains("ux_social_accounts_provider_user")) {
+			if (message.contains("ux_trd_user_info_email") || message.contains("ux_social_accounts_provider_user")) {
 				throw new ApiException(ErrorCode.EMAIL_ALREADY_REGISTERED);
 			}
 			throw e;

@@ -7,10 +7,13 @@ import java.time.ZoneOffset;
 import java.util.Optional;
 
 import com.company.market.common.config.AppProperties;
+import com.company.market.common.exception.ApiException;
+import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.exception.ValidationException;
 import com.company.market.common.ratelimit.RateLimiter;
 import com.company.market.user.dto.BusinessVerifyRequest;
 import com.company.market.user.dto.SignupBusinessRequest;
+import com.company.market.user.dto.SignupPersonalRequest;
 import com.company.market.user.repository.UserRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,6 +21,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Answers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -89,6 +93,19 @@ class SignupServiceTest {
 
 		assertThatThrownBy(() -> service.signupBusiness(today, "127.0.0.1"))
 			.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.getFields()).containsKey("startDate"));
+	}
+
+	@Test
+	@DisplayName("동시 가입으로 이메일 유일 인덱스(ux_trd_user_info_email)가 터지면 DUPLICATE_EMAIL 로 바꾼다")
+	void concurrentDuplicateEmailMapsToConflict() {
+		when(passwordEncoder.encode(anyString())).thenReturn("hash");
+		when(tx.execute(any())).thenThrow(new DataIntegrityViolationException("저장 실패",
+				new RuntimeException("duplicate key value violates unique constraint \"ux_trd_user_info_email\"")));
+		SignupPersonalRequest req = new SignupPersonalRequest("홍길동", "길동이", "Y", "gildong1", "a@example.com", "Abcdefg-1234", "01012345678",
+				"서울", "1", true, true);
+
+		assertThatThrownBy(() -> service().signupPersonal(req, "127.0.0.1"))
+			.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.DUPLICATE_EMAIL));
 	}
 
 }

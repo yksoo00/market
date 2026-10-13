@@ -61,11 +61,11 @@ public class SignupService {
 
 	/** 유일 제약 이름 → 오류 코드. 미리 확인해도 동시 가입 경쟁은 DB 만 잡을 수 있어서 */
 	private static final Map<String, ErrorCode> CONSTRAINT_CODES = Map.of(
-			"ux_users_user_id", ErrorCode.DUPLICATE_LOGIN_ID,
-			"ux_users_nickname", ErrorCode.DUPLICATE_NICKNAME,
-			"ux_users_email", ErrorCode.DUPLICATE_EMAIL,
-			"ux_users_phone", ErrorCode.DUPLICATE_PHONE,
-			"ux_users_bus_reg_id", ErrorCode.DUPLICATE_BIZ_NO);
+			"ux_trd_user_info_user_id", ErrorCode.DUPLICATE_LOGIN_ID,
+			"ux_trd_user_info_nickname", ErrorCode.DUPLICATE_NICKNAME,
+			"ux_trd_user_info_email", ErrorCode.DUPLICATE_EMAIL,
+			"ux_trd_user_info_phone", ErrorCode.DUPLICATE_PHONE,
+			"ux_trd_user_info_bus_reg_id", ErrorCode.DUPLICATE_BIZ_NO);
 
 	private final UserRepository users;
 
