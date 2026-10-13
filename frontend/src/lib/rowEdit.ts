@@ -2,7 +2,7 @@ import { z } from "zod";
 import { daysToMonths, monthsToDays } from "@/lib/listingExtra";
 import { prodStateFromStored } from "@/lib/listingEdit";
 import { isValidDate } from "@/lib/search";
-import { MAX_DESCRIPTION } from "@/lib/validation/listing";
+import { MAX_DESCRIPTION, MAX_REPLACE_PROD } from "@/lib/validation/listing";
 import { listing } from "@/messages/listing";
 import type { ListingDetail, ListingSearchItem, ListingUpdateRequest } from "@/types/listing";
 
@@ -85,9 +85,10 @@ const rowEditSchema = (today: string) =>
       else if (s > today) ctx.addIssue({ code: "custom", message: v.prodMufcDate });
     }),
     description: z.string().trim().max(MAX_DESCRIPTION, v.description),
+    replaceProd: z.string().trim().max(MAX_REPLACE_PROD, v.replaceProd),
   });
 
-const CHECKED_FIELDS = ["prodName", "prodBrand", "prodNo", "prodMufcDate", "description"] as const;
+const CHECKED_FIELDS = ["prodName", "prodBrand", "prodNo", "prodMufcDate", "description", "replaceProd"] as const;
 
 /**
  * 칸별 오류 문구(없으면 {}). **처음 값에서 바뀐 칸만** 본다 — 옛 데이터(날짜로 안 읽히는 제조일, 50자를 넘는 이름)가 그 칸을
@@ -95,9 +96,11 @@ const CHECKED_FIELDS = ["prodName", "prodBrand", "prodNo", "prodMufcDate", "desc
  * diff 가 보내지 않으므로 서버 값이 그대로 남는다. today = 한국 날짜 YYYY-MM-DD (제조일은 오늘까지)
  */
 export function validateRowEdit(initial: RowEditValues, values: RowEditValues, today: string): Record<string, string> {
-  const result = rowEditSchema(today).safeParse(values);
-  if (result.success) return {};
   const errors: Record<string, string> = {};
+  // 대표 사진 필수 — 사진이 있던 매물은 전부 뺄 수 없다 (서버도 같은 규칙. 사진 없는 옛 매물은 그대로 통과)
+  if (initial.photos.length > 0 && values.photos.length === 0) errors.photos = v.photosRequired;
+  const result = rowEditSchema(today).safeParse(values);
+  if (result.success) return errors;
   for (const issue of result.error.issues) {
     const field = issue.path[0];
     if (typeof field !== "string" || errors[field]) continue;

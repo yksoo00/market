@@ -369,14 +369,29 @@ class ListingApiTest {
 	}
 
 	@Test
-	@DisplayName("수정으로 사진을 전부 빼면(photos: []) 성공한다")
-	void updateRemovesAllPhotos() throws Exception {
+	@DisplayName("수정으로 사진을 전부 빼면(photos: []) 400 fields.photos — 대표 사진 필수. 사진 없는 옛 매물은 [] 를 보내도 통과")
+	void updateCannotRemoveAllPhotos() throws Exception {
 		String regDate = createWithPhoto(uploaded(authCookie, UploadKind.LISTING_PHOTO), "노트북 K10")
 			.andExpect(status().isCreated()).andReturn().getResponse()
 			.getContentAsString().replaceAll(".*\"regDate\":\"([^\"]+)\".*", "$1");
 
-		patchListing(regDate, "{\"photos\":[]}").andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.photos.length()").value(0));
+		patchListing(regDate, "{\"photos\":[]}").andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.photos").value("대표 사진을 올려 주세요."));
+
+		jdbc.update("update listings set prod_photo_1 = null, prod_photo_2 = null, prod_photo_3 = null, prod_image_4 = null where user_id = ? and reg_date = ?",
+				userId, regDate);
+		patchListing(regDate, "{\"photos\":[]}").andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("대체품 글은 앞뒤 공백을 자르고, 공백뿐이면 비운다")
+	void replaceProdIsTrimmed() throws Exception {
+		String regDate = createListing(authCookie);
+
+		patchListing(regDate, "{\"replaceProd\":\"  동급품  \"}").andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.replaceProd").value("동급품"));
+		patchListing(regDate, "{\"replaceProd\":\"   \"}").andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.replaceProd").value(org.hamcrest.Matchers.nullValue()));
 	}
 
 	@Test
@@ -1038,9 +1053,12 @@ class ListingApiTest {
 		String created = prodIdOf(userId, mine);
 		assertThat(created).isNotEqualTo(oldProduct);
 		assertThat(jdbc.queryForObject("select prod_data_sheet from products where prod_id = ?", String.class, created)).isNull();
-		// 등록에 사진이 필수라 새 상품은 이 매물의 첫 사진을 쓴다 — 옛 상품(처음 등록한 다른 판매자)의 사진만 아니면 된다
+		// 등록에 사진이 필수라 새 상품은 옛 상품(처음 등록한 다른 판매자)의 사진이 아니라 이 매물의 첫 사진을 쓴다
+		String ownFirstPhoto = jdbc.queryForObject("select prod_photo_1 from listings where user_id = ? and reg_date = ?", String.class,
+				userId, mine);
+		assertThat(ownFirstPhoto).isNotNull();
 		assertThat(jdbc.queryForObject("select prod_photo_1 from products where prod_id = ?", String.class, created))
-			.isNotEqualTo("public/listings/photos/2026/10/other.jpg");
+			.isEqualTo(ownFirstPhoto);
 	}
 
 	@Test

@@ -9,6 +9,8 @@ const v = listing.validation;
 export const MAX_PRICE = 1_000_000_000;
 export const MAX_QUANTITY = 100_000;
 export const MAX_PHOTOS = 4;
+/** 대체품 글 (서버 ListingUpdateRequest.replaceProd @Size(max = 100)) */
+export const MAX_REPLACE_PROD = 100;
 export const MAX_DESCRIPTION = 200;
 
 /**

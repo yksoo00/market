@@ -111,6 +111,18 @@ describe("validateRowEdit", () => {
     expect(validateRowEdit(initial, { ...initial }, today)).toEqual({});
   });
 
+  it("사진이 있던 매물에서 사진을 전부 빼면 대표 사진 필수 오류, 사진 없던 매물은 통과", () => {
+    expect(check({ photos: [] }).photos).toMatch(/대표 사진/);
+    const noPhotos = { ...initial, photos: [] };
+    expect(validateRowEdit(noPhotos, { ...noPhotos }, today)).toEqual({});
+  });
+
+  it("대체품은 앞뒤 공백 빼고 100자까지", () => {
+    expect(check({ replaceProd: "가".repeat(100) }).replaceProd).toBeUndefined();
+    expect(check({ replaceProd: " " + "가".repeat(100) + " " }).replaceProd).toBeUndefined();
+    expect(check({ replaceProd: "가".repeat(101) }).replaceProd).toMatch(/100자/);
+  });
+
   it("상품명·제조사는 공백뿐이면 필수 오류, 50자 넘으면 길이 오류", () => {
     expect(check({ prodName: "   " }).prodName).toMatch(/필수/);
     expect(check({ prodBrand: "" }).prodBrand).toMatch(/필수/);

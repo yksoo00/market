@@ -183,7 +183,8 @@ public class Listing implements Persistable<ListingId> {
 			this.warrantyCoverage = emptyToNull(req.warrantyCoverage());
 		}
 		if (req.replaceProd() != null) {
-			this.replaceProd = emptyToNull(req.replaceProd());
+			// 대체품은 글 — 앞뒤 공백을 자르고, 공백뿐이면 비운다 (프론트와 같은 규칙. 다른 클라이언트가 공백만 보내도 "있음"이 되지 않게)
+			this.replaceProd = emptyToNull(req.replaceProd().strip());
 		}
 		if (req.testReport() != null) {
 			this.testReport = emptyToNull(req.testReport());

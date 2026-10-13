@@ -69,6 +69,7 @@ export const listing = {
     photoRemove: (n: number) => `${n}번째 사진 삭제`,
     photoAlt: (n: number) => `올린 사진 ${n}`,
     photosOver: "사진은 최대 4장까지 올릴 수 있어요. 앞에서부터 채웠어요",
+    photoMainOnlyOne: "대표 사진은 한 장만 올려요. 첫 장만 올렸어요 — 나머지는 추가 사진에서 올려 주세요",
     uploading: "올리는 중",
     uploadRetry: "다시 시도",
     existingFile: "등록된 파일",
@@ -101,6 +102,7 @@ export const listing = {
     date: "올바른 날짜를 입력하세요",
     photos: "사진은 최대 4장까지 올릴 수 있어요",
     photosRequired: "대표 사진을 올려 주세요",
+    replaceProd: "대체품은 100자 이하로 입력하세요",
   },
   // 매물 수정 (/listings/{userId}/{regDate}/edit)
   // 판매정보 추가등록 (/listings/extra, /listings/{userId}/{regDate}/extra)

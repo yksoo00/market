@@ -465,7 +465,6 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
             id="re-replaceProd"
             value={values.replaceProd}
             onChange={(e) => set("replaceProd", e.target.value)}
-            maxLength={100}
             placeholder={le.replaceProdPlaceholder}
             aria-invalid={Boolean(errors.replaceProd)}
             aria-describedby={errors.replaceProd ? "re-replaceProd-error" : undefined}

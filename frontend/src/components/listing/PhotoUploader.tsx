@@ -82,7 +82,7 @@ export function PhotoUploader({ value, initialKeys = [], onChange, onUploadingCh
     e.target.value = ""; // 같은 파일을 다시 골라도 change 가 나게
     // 대표 사진이 먼저 — 첫 칸은 한 장만 (선택창 multiple 해제만으로는 끌어다 놓기 등을 못 막는다)
     const room = slots.length === 0 ? 1 : MAX_PHOTOS - slots.length;
-    const messages: string[] = picked.length > room ? [t.photosOver] : [];
+    const messages: string[] = picked.length > room ? [slots.length === 0 ? t.photoMainOnlyOne : t.photosOver] : [];
     const accepted: File[] = [];
     for (const file of picked.slice(0, room)) {
       const problem = checkUpload("image", file);

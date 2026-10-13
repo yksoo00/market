@@ -36,7 +36,7 @@ export function ListingEditForm({ detail }: { detail: ListingDetail }) {
   // 납기일 범위의 "오늘". 폼을 연 날 기준으로 고정 (자정을 넘겨도 서버가 다시 본다)
   const [today] = useState(() => todayInSeoul());
   const form = useForm<ListingEditValues>({
-    resolver: zodResolver(listingEditSchema(today, initial.deliveryDate)),
+    resolver: zodResolver(listingEditSchema(today, initial.deliveryDate, initial.photos.length > 0)),
     mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: initial,

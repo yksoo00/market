@@ -130,22 +130,27 @@ function FileTile({ label, fileKey, onAuthLost, onRetry }: { label: string; file
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label={t.enlarge(label)}
-        className="relative h-44 w-full overflow-hidden rounded-md border border-line-2 bg-bg hover:border-primary focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 outline-none"
-      >
-        {state.media === "pdf" ? (
-          // 첫 쪽만 작게. 눌림은 바깥 버튼이 받도록 iframe 은 마우스를 받지 않는다
-          <iframe title={label} src={`${state.url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} tabIndex={-1} className="h-full w-full pointer-events-none" />
-        ) : (
-          // blob 이라 next/image 대상이 아니다
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={state.url} alt="" className="h-full w-full object-contain" />
-        )}
-        <span className="absolute bottom-1.5 right-1.5 h-6 px-2 rounded-[5px] flex items-center bg-surface/90 border border-line text-[11px] font-medium text-ink-2">{t.enlargeShort}</span>
-      </button>
+      <div className="relative h-44 w-full overflow-hidden rounded-md border border-line-2 bg-bg has-[button:hover]:border-primary has-[button:focus-visible]:border-primary">
+        {/* 미리보기는 장식이라 보조기기·키보드에서 숨긴다. iframe 은 버튼 안에 둘 수 없어(대화형 요소) 형제로 두고 버튼이 위를 덮는다 */}
+        <div aria-hidden="true" className="h-full w-full">
+          {state.media === "pdf" ? (
+            // 첫 쪽만 작게
+            <iframe title={label} src={`${state.url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} tabIndex={-1} className="h-full w-full pointer-events-none" />
+          ) : (
+            // blob 이라 next/image 대상이 아니다
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={state.url} alt="" className="h-full w-full object-contain" />
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label={t.enlarge(label)}
+          className="absolute inset-0 flex items-end justify-end p-1.5 outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+        >
+          <span className="h-6 px-2 rounded-[5px] flex items-center bg-surface/90 border border-line text-[11px] font-medium text-ink-2">{t.enlargeShort}</span>
+        </button>
+      </div>
       {/* Android Chrome 등은 iframe 안에서 PDF 를 못 그린다 — 새 탭(브라우저 기본 PDF 보기)으로 여는 길을 항상 둔다.
           이미 받은 blob 을 그대로 연다 (다시 받지 않게) */}
       <a href={state.url} target="_blank" rel="noopener" className="self-start text-[13px] text-primary font-medium hover:underline">

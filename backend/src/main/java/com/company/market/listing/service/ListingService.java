@@ -138,6 +138,11 @@ public class ListingService {
 		String newMufcDate = req.prodMufcDate() == null || req.prodMufcDate().isEmpty()
 				|| req.prodMufcDate().equals(currentProduct.getProdMufcDate()) ? null : req.prodMufcDate();
 		validateDates(newMufcDate, Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
+		// 대표 사진 필수(등록 규칙)를 수정에서도 지킨다 — 사진이 있는 매물은 전부 뺄 수 없다.
+		// 사진 없는 옛 매물은 [] 를 보내도 바뀌는 게 없어 막지 않는다
+		if (req.photos() != null && req.photos().isEmpty() && firstPhoto(listing) != null) {
+			throw new ValidationException(Map.of("photos", "대표 사진을 올려 주세요."));
+		}
 		// 저장된 값과 같으면 통과 — 옛 값(365)이 있는 매물의 다른 칸 수정이 막히지 않게 (납기일과 같은 이유)
 		if (req.warrantyPeriod() != null && !WARRANTY_DAYS.contains(req.warrantyPeriod())
 				&& !req.warrantyPeriod().equals(listing.getWarrantyPeriod())) {

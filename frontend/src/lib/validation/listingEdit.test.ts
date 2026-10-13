@@ -24,6 +24,14 @@ const errorPaths = (over: Partial<ListingEditValues>, initialDelivery = "") => {
 };
 
 describe("listingEditSchema", () => {
+  it("사진이 있던 매물(hadPhotos)은 사진 0장이면 photos 오류, 사진 없던 매물은 0장 통과", () => {
+    const r = listingEditSchema(today, "", true).safeParse({ ...base, photos: [] });
+    expect(r.success).toBe(false);
+    expect(r.error?.issues.map((i) => i.path.join("."))).toEqual(["photos"]);
+    expect(listingEditSchema(today, "", true).safeParse({ ...base, photos: ["k"] }).success).toBe(true);
+    expect(parse({ photos: [] }).success).toBe(true);
+  });
+
   it("정상 값은 통과하고 값은 문자열 그대로", () => {
     const r = parse({});
     expect(r.success).toBe(true);
