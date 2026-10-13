@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
+import { useGoAfterLogin } from "@/hooks/useGoAfterLogin";
 import { authApi } from "@/lib/api/auth";
 
 interface Props {
@@ -10,7 +10,8 @@ interface Props {
 }
 
 export function RedirectIfAuthenticated({ children, destination }: Props) {
-  const router = useRouter();
+  // 이미 로그인 상태면 방금 로그인한 것과 같은 곳으로 (홈이면 전체 화면)
+  const goAfterLogin = useGoAfterLogin();
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
@@ -18,7 +19,7 @@ export function RedirectIfAuthenticated({ children, destination }: Props) {
     void authApi.me().then((result) => {
       if (!active) return;
       if (result.ok) {
-        router.replace(destination);
+        goAfterLogin(destination);
         return;
       }
       setChecked(true);
@@ -26,7 +27,7 @@ export function RedirectIfAuthenticated({ children, destination }: Props) {
     return () => {
       active = false;
     };
-  }, [destination, router]);
+  }, [destination, goAfterLogin]);
 
   return checked ? children : null;
 }

@@ -127,4 +127,17 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
   await test.step("내 글만 보인다 — 헤더 줄 + 방금 등록한 글 한 줄 (다른 사용자 글은 없다)", async () => {
     await expect(page.getByRole("table").getByRole("row")).toHaveCount(2);
   });
+
+  await test.step("로그아웃 후 주소창 칸(/login 전체 화면)에서 로그인해도 홈 전체 화면", async () => {
+    await page.getByRole("button", { name: my.menu.label }).click();
+    await page.getByRole("menuitem", { name: my.menu.logout }).click();
+    await expect(page.getByRole("banner").getByRole("link", { name: home.login, exact: true })).toBeVisible();
+    await page.goto("/login");
+    await page.locator('input[name="loginId"]').fill(loginId);
+    await page.locator('input[name="password"]').fill(password);
+    await page.getByRole("button", { name: auth.login.submit, exact: true }).click();
+    await expect(page.getByRole("button", { name: my.menu.label })).toBeVisible();
+    await expect(page).toHaveURL(/\/$/);
+    await expect(page.locator("iframe")).toHaveCount(0);
+  });
 });

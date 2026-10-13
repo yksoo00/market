@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/common/Icon";
-import { useTileWorkspace } from "@/components/common/TileWorkspaceContext";
+import { useTileOpen, useTileWorkspace } from "@/components/common/TileWorkspaceContext";
 import { UserMenu } from "@/components/common/UserMenu";
 import { useIsFramed } from "@/hooks/useIsFramed";
 import { authApi } from "@/lib/api/auth";
@@ -17,7 +17,8 @@ const navHrefs = ["/listings", "/requests", "/prices", "/business", "/support"];
 export function Header() {
   // 경로 전체가 아니라 "로그인 화면인가"만 본다 (아래 effect 주석)
   // 로그인은 타일 큐의 칸(iframe)에서도 일어나므로 주소창 칸이든 다른 칸이든 로그인 화면이 열려 있는지를 본다
-  const { panes, open } = useTileWorkspace();
+  const { panes } = useTileWorkspace();
+  const openTile = useTileOpen();
   const onLoginPage = usePathname() === "/login" || panes.some((p) => screenOf(p.path).id === "login");
   const framed = useIsFramed();
   const [profile, setProfile] = useState<{ nickname: string; kind: "PERSONAL" | "BUSINESS" } | null>(null);
@@ -73,7 +74,7 @@ export function Header() {
             setProfile(null);
             setSessionChecked(true);
             // 마이페이지처럼 로그인이 필요한 화면(옆 칸 포함)에 이전 사용자의 내용이 남지 않게 홈 전체화면으로 리셋 (로고와 같은 동작)
-            open(panes[0]?.key ?? "", "/", true);
+            openTile("/", true);
           }}
         />
       ) : sessionChecked ? (

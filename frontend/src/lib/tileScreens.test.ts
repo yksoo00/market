@@ -71,9 +71,9 @@ describe("모든 화면이 표에 있다", () => {
   const appDir = fileURLToPath(new URL("../app", import.meta.url));
   const routes = readdirSync(appDir, { recursive: true, encoding: "utf8" })
     .map((file) => file.replaceAll("\\", "/"))
-    .filter((file) => file === "page.tsx" || file.endsWith("/page.tsx"))
+    .filter((file) => /(^|\/)page\.(tsx|ts|jsx|js|mdx)$/.test(file))
     .map((file) =>
-      `/${file.replace(/\/?page\.tsx$/, "")}`
+      `/${file.replace(/\/?page\.\w+$/, "")}`
         .split("/")
         .filter((seg) => !/^\(.+\)$/.test(seg)) // (auth) 같은 라우트 그룹은 주소에 안 나온다
         .map((seg) => (/^\[.+\]$/.test(seg) ? "x1" : seg))
