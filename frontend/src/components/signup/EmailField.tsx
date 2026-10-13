@@ -4,7 +4,7 @@ import { Controller, useFormContext, useWatch } from "react-hook-form";
 import { cn } from "cn";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FieldShell, statusClass, useFieldStatus } from "@/components/auth/FormField";
+import { FieldShell, statusClass, useFieldStatus, type Inline } from "@/components/auth/FormField";
 import { CUSTOM_DOMAIN, type EmailDomainOption } from "@/lib/validation/signup";
 import { emailDomains, signup as t } from "@/messages/signup";
 
@@ -16,7 +16,7 @@ export interface EmailFields {
 }
 
 /** 이메일: 앞부분 @ [도메인 드롭다운]. "직접 입력" 이면 도메인 칸이 열림 */
-export function EmailField({ label = t.form.email }: { label?: string }) {
+export function EmailField({ label = t.form.email, inline }: { label?: string; inline?: Inline }) {
   const { register, control, resetField, trigger } = useFormContext<EmailFields>();
   const local = useFieldStatus<EmailFields>("emailLocal");
   const custom = useFieldStatus<EmailFields>("emailCustom");
@@ -24,7 +24,7 @@ export function EmailField({ label = t.form.email }: { label?: string }) {
   const error = local.error ?? custom.error;
 
   return (
-    <FieldShell label={label} htmlFor="emailLocal" error={error}>
+    <FieldShell label={label} htmlFor="emailLocal" error={error} inline={inline}>
       <div className="flex items-center gap-1.5">
         <Input
           id="emailLocal"

@@ -2,24 +2,39 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
-import { FormProvider, useForm } from "react-hook-form";
+import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { FormField } from "@/components/auth/FormField";
-import { FormError, SubmitButton } from "@/components/auth/FormStatus";
+import { ShieldCheck } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { FieldShell, FormField } from "@/components/auth/FormField";
+import { SubmitButton } from "@/components/auth/FormStatus";
+import { IdentityVerifyButton } from "@/components/auth/IdentityVerifyButton";
+import { ResultDialog } from "@/components/common/ResultDialog";
+import { AddressField } from "@/components/signup/AddressField";
 import { CheckableField } from "@/components/signup/CheckableField";
 import { EmailField } from "@/components/signup/EmailField";
 import { PhoneField } from "@/components/signup/PhoneField";
+import { TermsAgreement } from "@/components/signup/TermsAgreement";
 import { authApi } from "@/lib/api/auth";
 import { applyServerError } from "@/lib/form";
-import { personalSignupFlow, personalSignupPath } from "@/lib/signupFlow";
+import { joinAddress } from "@/lib/postcode";
 import { joinEmail, personalSignupSchema, type PersonalSignupInput } from "@/lib/validation/signup";
+import { common as tc } from "@/messages/common";
 import { signup as t } from "@/messages/signup";
 import { UNREACHABLE } from "@/types/api";
 
 // 서버 fields 오류를 붙일 수 있는 칸. 이메일·휴대폰은 서버 필드명(email, phone)을 폼 칸으로 옮긴다
-const fields = ["name", "nickname", "nicknameUsage", "loginId", "emailLocal", "emailCustom", "password", "passwordConfirm", "phoneMid", "phoneLast", "tel", "address"] as const;
+const fields = [
+  "name", "nickname", "nicknameUsage", "loginId", "emailLocal", "emailCustom", "password", "passwordConfirm",
+  "phoneMid", "phoneLast", "tel", "address", "addressDetail", "agreeTerms", "agreePrivacy",
+] as const;
 const serverFieldMap: Record<string, (typeof fields)[number]> = { email: "emailLocal", phone: "phoneMid" };
 
+type Result = { tone: "success" } | { tone: "error"; message: string; retry: boolean } | null;
+
+// 칸 순서·배치는 사용자 지시 (2026-10-13): 본인인증 → 이름·아이디·이메일·비밀번호·연락처 → 별명 → 주소·연락 수단 → 약관.
+// 라벨은 입력 왼쪽(inline="narrow", 휴대폰 폭에선 위로)
 export function PersonalSignupForm() {
   const router = useRouter();
   const form = useForm<PersonalSignupInput>({
@@ -29,7 +44,7 @@ export function PersonalSignupForm() {
     defaultValues: {
       name: "",
       nickname: "",
-      nicknameUsage: "Y",
+      nicknameUsage: "N",
       loginId: "",
       emailLocal: "",
       emailDomain: "naver.com",
@@ -41,28 +56,30 @@ export function PersonalSignupForm() {
       phoneLast: "",
       tel: "",
       address: "",
+      addressDetail: "",
       contactMethod: "1",
+      agreeTerms: false,
+      agreePrivacy: false,
     },
   });
   const {
     handleSubmit,
     setError,
+    control,
     formState: { isValid, isSubmitting },
   } = form;
-  const nicknameUsage = form.watch("nicknameUsage");
-  const contactMethod = form.watch("contactMethod");
+  const [nicknameUsage, contactMethod, agreeTerms, agreePrivacy] = useWatch({ control, name: ["nicknameUsage", "contactMethod", "agreeTerms", "agreePrivacy"] });
+  // TODO(본인인증 업체 계약 전): 화면에서만 확인한다. 서버는 아직 인증 토큰을 받지 않는다 (decisions.md 2026-10-13)
+  const [verified, setVerified] = useState(false);
   const [checked, setChecked] = useState({ loginId: false, nickname: false });
-  const [formError, setFormError] = useState<string | null>(null);
-  const [unreachable, setUnreachable] = useState(false);
+  const [result, setResult] = useState<Result>(null);
 
   const onCheckStatus = useCallback((name: "loginId" | "nickname", available: boolean) => {
     setChecked((c) => (c[name] === available ? c : { ...c, [name]: available }));
   }, []);
 
   const onSubmit = handleSubmit(async (v) => {
-    setFormError(null);
-    setUnreachable(false);
-    const result = await authApi.signupPersonal({
+    const res = await authApi.signupPersonal({
       name: v.name,
       nickname: v.nicknameUsage === "Y" ? v.nickname : null,
       nicknameUsage: v.nicknameUsage,
@@ -71,103 +88,131 @@ export function PersonalSignupForm() {
       password: v.password,
       phone: `${v.phonePrefix}${v.phoneMid}${v.phoneLast}`,
       tel: v.tel,
-      address: v.address,
+      address: joinAddress(v.address, v.addressDetail),
       contactMethod: v.contactMethod,
+      agreeTerms: v.agreeTerms,
+      agreePrivacy: v.agreePrivacy,
     });
-    if (result.ok) {
-      personalSignupFlow.clear();
-      router.push(personalSignupPath.done);
+    if (res.ok) {
+      setResult({ tone: "success" });
       return;
     }
-    setUnreachable(result.code === UNREACHABLE);
-    const mapped = result.fields
-      ? { ...result, fields: Object.fromEntries(Object.entries(result.fields).map(([k, m]) => [serverFieldMap[k] ?? k, m])) }
-      : result;
-    setFormError(applyServerError(mapped, setError, fields, t.form.errors));
+    const mapped = res.fields
+      ? { ...res, fields: Object.fromEntries(Object.entries(res.fields).map(([k, m]) => [serverFieldMap[k] ?? k, m])) }
+      : res;
+    // 칸에 붙는 오류는 칸 옆에 그대로 두고, 팝업은 무엇이 틀렸는지 한 줄로 알린다
+    const message = applyServerError(mapped, setError, fields, t.form.errors) ?? t.result.checkFields;
+    setResult({ tone: "error", message, retry: res.code === UNREACHABLE });
     // 서버가 아이디·닉네임을 거부하면 그 칸에 오류를 붙이고(중복확인 버튼이 다시 열림) 확인 결과를 무효로
     for (const [code, name] of [["DUPLICATE_LOGIN_ID", "loginId"], ["DUPLICATE_NICKNAME", "nickname"]] as const) {
-      if (result.code === code) setError(name, { type: "server", message: t.form.errors[code] });
-      if (result.code === code || result.fields?.[name]) setChecked((c) => ({ ...c, [name]: false }));
+      if (res.code === code) setError(name, { type: "server", message: t.form.errors[code] });
+      if (res.code === code || res.fields?.[name]) setChecked((c) => ({ ...c, [name]: false }));
     }
   });
 
-  const canSubmit = isValid && checked.loginId && (nicknameUsage === "N" || checked.nickname);
+  const canSubmit = verified && isValid && checked.loginId && (nicknameUsage === "N" || checked.nickname);
+  const hint = !verified ? t.form.needVerify : !(agreeTerms && agreePrivacy) ? t.terms.needAgree : isValid && !canSubmit ? t.form.needCheck : null;
 
   return (
     <FormProvider {...form}>
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
-        <FormError message={formError} onRetry={unreachable ? () => void onSubmit() : undefined} />
+        <FieldShell label={t.verify.label} inline="narrow" note={!verified && <span className="text-ink-3">{t.verify.note}</span>}>
+          {verified ? (
+            <p role="status" className="h-11 flex items-center gap-1.5 rounded-md bg-green-soft px-3 text-[14px] font-bold text-green">
+              <ShieldCheck size={18} /> {t.verify.done}
+            </p>
+          ) : (
+            <IdentityVerifyButton onVerified={() => setVerified(true)} />
+          )}
+        </FieldShell>
 
-        <FormField<PersonalSignupInput> name="name" label={t.form.name} placeholder={t.form.namePlaceholder} autoComplete="name" maxLength={30} />
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-[13px] font-medium text-ink">{t.form.nicknameUsage}</legend>
-          <div role="group" aria-label={t.form.nicknameUsage} className="grid grid-cols-2 gap-2">
-            {(["Y", "N"] as const).map((value) => {
-              const selected = nicknameUsage === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => {
-                    form.setValue("nicknameUsage", value, { shouldValidate: true, shouldDirty: true });
-                    setChecked((current) => ({ ...current, nickname: value === "N" }));
-                  }}
-                  className={`h-11 rounded-md border text-sm font-medium transition-colors ${selected ? "border-primary bg-primary-soft text-primary" : "border-line bg-surface text-ink-2 hover:border-primary"}`}
-                >
-                  {value === "Y" ? t.form.nicknameUse : t.form.nicknameSkip}
-                </button>
-              );
-            })}
-          </div>
-        </fieldset>
-        {nicknameUsage === "Y" && <CheckableField name="nickname" label={t.form.nickname} hint={t.form.nicknameHint} placeholder={t.form.nicknamePlaceholder} maxLength={20} onStatus={onCheckStatus} />}
-        <CheckableField
-          name="loginId"
-          label={t.form.loginId}
-          hint={t.form.loginIdHint}
-          placeholder={t.form.loginIdPlaceholder}
-          autoComplete="username"
-          autoCapitalize="none"
-          maxLength={20}
-          onStatus={onCheckStatus}
-        />
-        <EmailField />
-        <FormField<PersonalSignupInput>
-          name="password"
-          label={t.form.password}
-          type="password"
-          placeholder={t.form.passwordPlaceholder}
-          autoComplete="new-password"
-          maxLength={32}
-        />
-        <FormField<PersonalSignupInput> name="passwordConfirm" label={t.form.passwordConfirm} type="password" autoComplete="new-password" maxLength={32} />
-        <PhoneField />
-        <FormField<PersonalSignupInput> name="tel" label={t.form.tel} placeholder={t.form.telPlaceholder} autoComplete="tel" maxLength={20} />
-        <FormField<PersonalSignupInput> name="address" label={t.form.address} placeholder={t.form.addressPlaceholder} autoComplete="street-address" maxLength={200} />
-        <fieldset className="flex flex-col gap-2">
-          <legend className="text-[13px] font-medium text-ink">{t.form.contactMethod}</legend>
-          <div role="group" aria-label={t.form.contactMethod} className="grid grid-cols-3 gap-2">
-            {([["1", t.form.contactMethods.all], ["2", t.form.contactMethods.phone], ["3", t.form.contactMethods.email]] as const).map(([value, label]) => {
-              const selected = contactMethod === value;
-              return (
-                <button
-                  key={value}
-                  type="button"
-                  aria-pressed={selected}
-                  onClick={() => form.setValue("contactMethod", value, { shouldValidate: true, shouldDirty: true })}
-                  className={`h-11 rounded-md border text-sm font-medium transition-colors ${selected ? "border-primary bg-primary-soft text-primary" : "border-line bg-surface text-ink-2 hover:border-primary"}`}
-                >
-                  {label}
-                </button>
-              );
-            })}
-          </div>
+        {/* 본인인증 전에는 입력을 막는다 (본인인증이 첫 단계) */}
+        <fieldset disabled={!verified} className="flex min-w-0 flex-col gap-4 disabled:opacity-60">
+          <FormField<PersonalSignupInput> inline="narrow" name="name" label={t.form.name} placeholder={t.form.namePlaceholder} autoComplete="name" maxLength={30} />
+          <CheckableField
+            inline="narrow"
+            name="loginId"
+            label={t.form.loginId}
+            hint={t.form.loginIdHint}
+            placeholder={t.form.loginIdPlaceholder}
+            autoComplete="username"
+            autoCapitalize="none"
+            maxLength={20}
+            onStatus={onCheckStatus}
+          />
+          <EmailField inline="narrow" />
+          <FormField<PersonalSignupInput>
+            inline="narrow"
+            name="password"
+            label={t.form.password}
+            type="password"
+            placeholder={t.form.passwordPlaceholder}
+            autoComplete="new-password"
+            maxLength={32}
+          />
+          <FormField<PersonalSignupInput> inline="narrow" name="passwordConfirm" label={t.form.passwordConfirm} type="password" autoComplete="new-password" maxLength={32} />
+          <PhoneField inline="narrow" />
+          <FormField<PersonalSignupInput> inline="narrow" name="tel" label={t.form.tel} placeholder={t.form.telPlaceholder} autoComplete="tel" maxLength={20} />
+
+          <FieldShell label={t.form.nickname} inline="narrow">
+            <Label className="min-h-11 gap-2 text-[14px] font-normal cursor-pointer">
+              <Checkbox
+                id="nicknameUsage"
+                checked={nicknameUsage === "Y"}
+                onCheckedChange={(on) => {
+                  const use = on === true;
+                  form.setValue("nicknameUsage", use ? "Y" : "N", { shouldValidate: true, shouldDirty: true });
+                  // 안 쓰면 확인할 것이 없다. 다시 쓰면 다시 확인
+                  setChecked((current) => ({ ...current, nickname: !use }));
+                }}
+              />
+              {t.form.nicknameUse}
+              <span className="text-xs text-ink-3">{t.form.nicknameUseHint}</span>
+            </Label>
+          </FieldShell>
+          {nicknameUsage === "Y" && (
+            <CheckableField inline="narrow" name="nickname" label={t.form.nickname} hint={t.form.nicknameHint} placeholder={t.form.nicknamePlaceholder} maxLength={20} onStatus={onCheckStatus} />
+          )}
+
+          <AddressField inline="narrow" label={t.form.address} placeholder={t.form.addressPlaceholder} />
+          <FieldShell label={t.form.contactMethod} inline="narrow">
+            <div role="group" aria-label={t.form.contactMethod} className="grid grid-cols-3 gap-2">
+              {([["1", t.form.contactMethods.all], ["2", t.form.contactMethods.phone], ["3", t.form.contactMethods.email]] as const).map(([value, label]) => {
+                const selected = contactMethod === value;
+                return (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={selected}
+                    onClick={() => form.setValue("contactMethod", value, { shouldValidate: true, shouldDirty: true })}
+                    className={`h-11 rounded-md border text-sm font-medium transition-colors ${selected ? "border-primary bg-primary-soft text-primary" : "border-line bg-surface text-ink-2 hover:border-primary"}`}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </FieldShell>
+
+          <TermsAgreement kind="personal" />
         </fieldset>
 
-        {!canSubmit && isValid && <p className="text-xs text-ink-3 text-center">{t.form.needCheck}</p>}
+        {hint && <p className="text-xs text-ink-3 text-center">{hint}</p>}
         <SubmitButton label={t.form.submit} disabled={!canSubmit} submitting={isSubmitting} />
       </form>
+
+      <ResultDialog
+        open={result !== null}
+        tone={result?.tone ?? "success"}
+        title={result?.tone === "error" ? t.result.failTitle : t.result.title}
+        message={result?.tone === "error" ? result.message : t.result.message}
+        actionLabel={result?.tone === "error" ? t.result.ok : t.result.toLogin}
+        // 가입이 끝나면 이 칸을 로그인 화면으로 (타일 칸이면 큐가 로그인 칸으로 정리, decisions.md 2026-10-13)
+        onAction={() => (result?.tone === "success" ? router.replace("/login") : setResult(null))}
+        onClose={result?.tone === "error" ? () => setResult(null) : undefined}
+        retryLabel={tc.retry}
+        onRetry={result?.tone === "error" && result.retry ? () => { setResult(null); void onSubmit(); } : undefined}
+      />
     </FormProvider>
   );
 }

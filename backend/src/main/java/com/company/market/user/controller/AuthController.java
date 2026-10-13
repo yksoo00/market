@@ -37,7 +37,7 @@ public class AuthController {
 	@PostMapping("/login/business")
 	public ApiResponse<Map<String, Object>> loginBusiness(@Valid @RequestBody BusinessLoginRequest body, HttpServletRequest req,
 			HttpServletResponse res) {
-		return issue(auth.loginBusiness(body.bizNo(), body.password(), body.remember(), req.getRemoteAddr()), res);
+		return issue(auth.loginBusiness(body.loginId(), body.password(), body.remember(), req.getRemoteAddr()), res);
 	}
 
 	/** refresh 쿠키로 access 재발급 + refresh 회전. 영구/세션 쿠키 여부는 로그인 때 저장한 값을 따른다 */

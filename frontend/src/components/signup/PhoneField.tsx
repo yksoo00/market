@@ -5,7 +5,7 @@ import { Controller, useFormContext } from "react-hook-form";
 import { cn } from "cn";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { FieldShell, statusClass, useFieldStatus } from "@/components/auth/FormField";
+import { FieldShell, statusClass, useFieldStatus, type Inline } from "@/components/auth/FormField";
 import { phonePrefixes, signup as t } from "@/messages/signup";
 
 /** 이 컴포넌트를 쓰는 폼이 가져야 하는 칸. 일반·기업 가입 공용 */
@@ -16,7 +16,7 @@ export interface PhoneFields {
 }
 
 /** 휴대폰: [010 ▾] - 1234 - 5678. 숫자만 받고 4자리 차면 다음 칸으로 */
-export function PhoneField({ label = t.form.phone }: { label?: string }) {
+export function PhoneField({ label = t.form.phone, inline }: { label?: string; inline?: Inline }) {
   const { register, control } = useFormContext<PhoneFields>();
   const mid = useFieldStatus<PhoneFields>("phoneMid");
   const last = useFieldStatus<PhoneFields>("phoneLast");
@@ -29,7 +29,7 @@ export function PhoneField({ label = t.form.phone }: { label?: string }) {
   }
 
   return (
-    <FieldShell label={label} htmlFor="phoneMid" error={mid.error ?? last.error}>
+    <FieldShell label={label} htmlFor="phoneMid" error={mid.error ?? last.error} inline={inline}>
       <div className="flex items-center gap-1.5">
         <Controller
           control={control}

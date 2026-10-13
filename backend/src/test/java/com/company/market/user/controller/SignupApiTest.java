@@ -26,7 +26,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** 일반 가입. 단일 users 전환 후 본인인증·약관 단계 없음 */
+/** 가입 API (일반·기업). 약관 동의는 서버도 확인한다 (2026-10-13) */
 @Import(TestInfraConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -53,6 +53,9 @@ class SignupApiTest {
 		Map<String, Object> m = new java.util.LinkedHashMap<>(Map.of(
 				"name", "홍길동", "nickname", "길동이", "nicknameUsage", "Y", "loginId", "gildong1",
 				"email", "gildong@example.com", "password", "Str0ng-pass!", "phone", "01012345678", "contactMethod", "1"));
+		// Map.of 는 10쌍까지라 약관 동의는 따로
+		m.put("agreeTerms", true);
+		m.put("agreePrivacy", true);
 		m.putAll(override);
 		StringBuilder sb = new StringBuilder("{");
 		m.forEach((k, v) -> sb.append('"').append(k).append("\":").append(v instanceof String s ? '"' + s + '"' : v).append(','));
@@ -79,7 +82,7 @@ class SignupApiTest {
 				.andExpect(jsonPath("$.ok").value(true)).andReturn();
 			UUID userId = UUID.fromString(r.getResponse().getContentAsString().replaceAll(".*\"userId\":\"([^\"]+)\".*", "$1"));
 
-			Map<String, Object> u = jdbc.queryForMap("select user_class, user_id, user_nickname, nickname_usage, contact_method, user_email, user_name, user_phone, password from users where id = ?", userId);
+			Map<String, Object> u = jdbc.queryForMap("select user_class, user_id, user_nickname, nickname_usage, contact_method, user_email, user_name, user_phone, password, spare_col from users where id = ?", userId);
 			assertThat(u.get("user_class")).isEqualTo("personal");
 			assertThat(u.get("user_id")).isEqualTo("gildong1");
 			assertThat(u.get("user_email")).isEqualTo("gildong@example.com");
@@ -89,6 +92,8 @@ class SignupApiTest {
 			assertThat(u.get("nickname_usage")).isEqualTo("Y");
 			assertThat(u.get("contact_method")).isEqualTo("1");
 			assertThat((String) u.get("password")).startsWith("$2a$12$").doesNotContain("Str0ng");
+			// 약관 동의 기록: 판 + 동의 시각(UTC yyyyMMddHHmmss)
+			assertThat((String) u.get("spare_col")).matches("terms:20261013@\\d{14}");
 		}
 
 		@Test
@@ -179,12 +184,87 @@ class SignupApiTest {
 		}
 
 		@Test
+		@DisplayName("약관에 동의하지 않으면 400, fields.agreeTerms·agreePrivacy — 프론트를 믿지 않는다")
+		void termsRequired() throws Exception {
+			mvc.perform(signup(Map.of("agreeTerms", false, "agreePrivacy", false)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.fields.agreeTerms").isString())
+				.andExpect(jsonPath("$.fields.agreePrivacy").isString());
+		}
+
+		@Test
 		@DisplayName("별명 사용(Y)인데 별명이 비었으면 400, fields.nickname")
 		void nicknameRequiredWhenUsed() throws Exception {
 			Map<String, Object> noNickname = new java.util.HashMap<>();
 			noNickname.put("nickname", null);  // "" 는 @Size 에서 먼저 걸려 서비스 규칙까지 안 감
 			mvc.perform(signup(noNickname))
 				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("VALIDATION")).andExpect(jsonPath("$.fields.nickname").isString());
+		}
+
+	}
+
+	@Nested
+	@DisplayName("기업 가입")
+	class Business {
+
+		String verify(String bizNo) throws Exception {
+			MvcResult r = mvc.perform(post("/api/v1/auth/signup/business/verify").contentType(MediaType.APPLICATION_JSON)
+					.content("{\"bizNo\":\"" + bizNo + "\"}"))
+				.andExpect(status().isOk()).andReturn();
+			return r.getResponse().getContentAsString().replaceAll(".*\"verificationToken\":\"([^\"]+)\".*", "$1");
+		}
+
+		MockHttpServletRequestBuilder signupBusiness(String token, String loginId, boolean agree) {
+			return post("/api/v1/auth/signup/business").contentType(MediaType.APPLICATION_JSON).content("""
+					{"verificationToken":"%s","loginId":"%s","password":"Str0ng-pass!","bizType":"corporation",
+					 "companyName":"테스트상사","address":"서울 중구 세종대로 110 3층","contactName":"김담당",
+					 "contactPhone":"01055556666","contactEmail":"owner@biz.example","contactTel":"","companyTel":"",
+					 "agreeTerms":%s,"agreePrivacy":%s}""".formatted(token, loginId, agree, agree));
+		}
+
+		@Test
+		@DisplayName("사업자번호만으로 조회하고, 정한 아이디로 가입해 기업 로그인한다")
+		void verifyByBizNoAndLoginById() throws Exception {
+			String token = verify("1234567890");
+			MvcResult r = mvc.perform(signupBusiness(token, "acme01", true)).andExpect(status().isCreated()).andReturn();
+			UUID userId = UUID.fromString(r.getResponse().getContentAsString().replaceAll(".*\"userId\":\"([^\"]+)\".*", "$1"));
+
+			Map<String, Object> u = jdbc.queryForMap("select user_class, user_id, bus_reg_id, spare_col from users where id = ?", userId);
+			assertThat(u.get("user_class")).isEqualTo("business");
+			assertThat(u.get("user_id")).isEqualTo("acme01");
+			assertThat(u.get("bus_reg_id")).isEqualTo("1234567890");
+			assertThat((String) u.get("spare_col")).startsWith("terms:20261013@");
+
+			mvc.perform(post("/api/v1/auth/login/business").contentType(MediaType.APPLICATION_JSON)
+					.content("""
+							{"loginId":"acme01","password":"Str0ng-pass!","remember":false}"""))
+				.andExpect(status().isOk());
+			// 기업 계정은 개인 탭(일반 로그인)으로 안 된다
+			mvc.perform(post("/api/v1/auth/login").contentType(MediaType.APPLICATION_JSON)
+					.content("""
+							{"loginId":"acme01","password":"Str0ng-pass!","remember":false}"""))
+				.andExpect(status().isUnauthorized());
+		}
+
+		@Test
+		@DisplayName("아이디 중복으로 거부돼도 조회를 다시 하지 않고 아이디만 고쳐 가입한다")
+		void tokenSurvivesRejectedSubmit() throws Exception {
+			mvc.perform(signup(Map.of())).andExpect(status().isCreated()); // gildong1 선점
+			String token = verify("1234567890");
+
+			mvc.perform(signupBusiness(token, "gildong1", true)).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DUPLICATE_LOGIN_ID"));
+			mvc.perform(signupBusiness(token, "acme01", true)).andExpect(status().isCreated());
+			// 가입이 끝난 토큰은 다시 못 쓴다
+			mvc.perform(signupBusiness(token, "acme02", true)).andExpect(status().isGone()).andExpect(jsonPath("$.code").value("VERIFICATION_EXPIRED"));
+		}
+
+		@Test
+		@DisplayName("사업자번호 형식이 틀리면 400 fields.bizNo, 약관 미동의는 400 fields.agreeTerms")
+		void validation() throws Exception {
+			mvc.perform(post("/api/v1/auth/signup/business/verify").contentType(MediaType.APPLICATION_JSON).content("{\"bizNo\":\"12345\"}"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.bizNo").isString());
+			mvc.perform(signupBusiness(verify("1234567890"), "acme01", false))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.agreeTerms").isString());
 		}
 
 	}

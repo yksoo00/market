@@ -1,11 +1,11 @@
 package com.company.market.user.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
+/** 기업도 아이디·비밀번호로 로그인 (2026-10-13). 사업자번호 로그인 시절 계정은 사업자번호가 곧 아이디라 그대로 된다 */
 public record BusinessLoginRequest(
-		@NotBlank(message = "사업자등록번호를 입력하세요.") @Pattern(regexp = "^\\d{10}$", message = "사업자등록번호는 숫자 10자리입니다.") String bizNo,
+		@NotBlank(message = "아이디를 입력하세요.") @Size(max = 20, message = "아이디는 20자 이하입니다.") String loginId,
 		@NotBlank(message = "비밀번호를 입력하세요.") @Size(max = 32, message = "비밀번호는 32자 이하입니다.") String password,
 		boolean remember) {
 }

@@ -49,7 +49,7 @@ export function LoginPanel({ next, initial }: Props) {
           </div>
           <p className="text-center text-[13px] text-ink-2">
             {t.login.businessHint}{" "}
-            <Link href={businessSignupPath.verify} className="font-semibold text-primary hover:underline">
+            <Link href={businessSignupPath.form} className="font-semibold text-primary hover:underline">
               {t.login.signup}
             </Link>
           </p>

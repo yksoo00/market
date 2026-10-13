@@ -3,10 +3,9 @@ export const auth = {
 
   login: {
     title: "로그인",
-    subtitle: { personal: "아이디와 비밀번호를 입력하세요", business: "사업자등록번호와 비밀번호를 입력하세요" },
+    subtitle: { personal: "아이디와 비밀번호를 입력하세요", business: "기업 회원 아이디와 비밀번호를 입력하세요" },
     loginId: "아이디",
     loginIdPlaceholder: "아이디",
-    bizNo: "사업자등록번호",
     bizNoPlaceholder: "숫자 10자리 ('-' 없이)",
     password: "비밀번호",
     passwordPlaceholder: "비밀번호",
@@ -20,7 +19,7 @@ export const auth = {
     noAccount: "아직 계정이 없으세요?",
     socialDivider: "또는",
     social: { kakao: "카카오로 시작하기", naver: "네이버로 시작하기", google: "Google로 시작하기" },
-    businessHint: "기업 회원 가입은 사업자등록번호 인증이 필요합니다.",
+    businessHint: "기업 회원 가입은 사업자등록번호 조회가 필요합니다.",
     // 서버 코드 → 문구. 없는 코드는 서버 message 그대로
     errors: {
       INVALID_CREDENTIALS: "아이디 또는 비밀번호가 맞지 않습니다.",
@@ -53,7 +52,7 @@ export const auth = {
     toLogin: "로그인으로",
     toFindPassword: "비밀번호 찾기",
     backToLogin: "로그인으로",
-    businessNote: "기업 회원은 사업자등록번호로 로그인합니다.",
+    businessNote: "기업 회원은 로그인 화면의 기업 회원 탭에서 아이디로 로그인합니다.",
   },
 
   findPassword: {

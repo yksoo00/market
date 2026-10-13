@@ -7,8 +7,9 @@ export const authApi = {
   login: (body: { loginId: string; password: string; remember: boolean }) =>
     post<{ userId: string }>("/api/v1/auth/login", body),
 
+  /** 기업도 아이디·비밀번호 (2026-10-13) */
   loginBusiness: (body: {
-    bizNo: string;
+    loginId: string;
     password: string;
     remember: boolean;
   }) => post<{ userId: string }>("/api/v1/auth/login/business", body),
@@ -58,15 +59,13 @@ export const authApi = {
     tel: string;
     address: string;
     contactMethod: "1" | "2" | "3";
+    agreeTerms: boolean;
+    agreePrivacy: boolean;
   }) => post<{ userId: string }>("/api/v1/auth/signup/personal", body),
 
   // --- 기업 가입 ---
-  /** 국세청 실연동 전까지 로컬 환경에서만 임시 가입 토큰을 발급한다. */
-  verifyBusiness: (body: {
-    bizNo: string;
-    startDate: string;
-    ownerName: string;
-  }) =>
+  /** 사업자번호만으로 조회. 국세청 실연동 전까지 로컬 환경에서만 임시 가입 토큰을 발급한다. */
+  verifyBusiness: (body: { bizNo: string }) =>
     post<{ verificationToken: string }>(
       "/api/v1/auth/signup/business/verify",
       body,
@@ -74,6 +73,7 @@ export const authApi = {
 
   signupBusiness: (body: {
     verificationToken: string;
+    loginId: string;
     password: string;
     bizType: "corporation" | "individual";
     companyName: string;
@@ -83,5 +83,7 @@ export const authApi = {
     contactEmail: string;
     contactTel: string;
     companyTel: string;
+    agreeTerms: boolean;
+    agreePrivacy: boolean;
   }) => post<{ userId: string }>("/api/v1/auth/signup/business", body),
 };

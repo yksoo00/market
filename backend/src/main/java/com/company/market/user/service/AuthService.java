@@ -51,11 +51,14 @@ public class AuthService {
 		return authenticate(loginId, user, password, remember, ip);
 	}
 
-	/** 기업: 사업자번호 → owner 담당자. 담당자 계정의 비밀번호로 확인 */
-	public LoginResult loginBusiness(String bizNo, String password, boolean remember, String ip) {
-		attempts.check(bizNo, ip);
-		Optional<User> user = users.findByBusRegIdAndDeletedAtIsNull(bizNo).filter(u -> u.getKind() == UserKind.BUSINESS);
-		return authenticate(bizNo, user, password, remember, ip);
+	/**
+	 * 기업: 아이디·비밀번호 (2026-10-13, 사업자번호 로그인에서 바꿈). 개인 탭과 계정이 섞이지 않게 종류로 거른다.
+	 * 사업자번호 로그인 시절에 가입한 계정은 user_id 가 사업자번호라 그 번호를 아이디로 넣으면 된다.
+	 */
+	public LoginResult loginBusiness(String loginId, String password, boolean remember, String ip) {
+		attempts.check(loginId, ip);
+		Optional<User> user = users.findByLoginIdAndDeletedAtIsNull(loginId).filter(u -> u.getKind() == UserKind.BUSINESS);
+		return authenticate(loginId, user, password, remember, ip);
 	}
 
 	private LoginResult authenticate(String account, Optional<User> found, String password, boolean remember, String ip) {

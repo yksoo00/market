@@ -37,8 +37,8 @@ interface ShellProps {
   error?: string;
   /** 오류가 없을 때 아래에 보여줄 안내 (예: "사용할 수 있는 아이디입니다") */
   note?: ReactNode;
-  /** 라벨을 입력 왼쪽에 (매물 등록 폼, design.md "매물 등록 폼"). 기본은 위 */
-  inline?: boolean;
+  /** 라벨을 입력 왼쪽에 (매물 등록 폼·가입 폼, design.md "폼 페이지"). 기본은 위 */
+  inline?: Inline;
   children: ReactNode;
 }
 
@@ -49,22 +49,40 @@ export const inlineShell = "@md:grid @md:grid-cols-[6.5rem_minmax(0,1fr)] @md:ga
 export const inlineLabel = "@md:min-h-11 @md:self-start @md:flex-wrap @md:gap-x-1 @md:gap-y-0 @md:leading-tight";
 export const inlineBelow = "@md:col-start-2";
 
+// 가입 폼(카드 폭 560)용 좁은 격자: 가장 가까운 @container(AuthCard 본문) 폭 @sm(384) 이상이면 라벨 왼쪽.
+// 카드 안쪽은 데스크톱 510 안팎이라 늘 옆에 붙고, 휴대폰(카드 안쪽 310 안팎)에선 위로 쌓인다
+const narrow = {
+  shell: "@sm:grid @sm:grid-cols-[6.5rem_minmax(0,1fr)] @sm:gap-x-3",
+  label: "@sm:min-h-11 @sm:self-start @sm:flex-wrap @sm:gap-x-1 @sm:gap-y-0 @sm:leading-tight",
+  below: "@sm:col-start-2",
+};
+
+/** inline: true = 매물 등록 폼 격자(@md), "narrow" = 가입 폼 격자(@sm) */
+export type Inline = boolean | "narrow";
+
+export function inlineClasses(inline: Inline | undefined) {
+  if (inline === "narrow") return narrow;
+  if (inline) return { shell: inlineShell, label: inlineLabel, below: inlineBelow };
+  return { shell: "", label: "", below: "" };
+}
+
 /** 라벨 + 입력 자리 + 오류 문구 */
 export function FieldShell({ label, htmlFor, hint, error, note, inline = false, children }: ShellProps) {
   const errorId = htmlFor ? `${htmlFor}-error` : undefined;
+  const c = inlineClasses(inline);
   return (
-    <div className={cn("flex flex-col gap-1.5", inline && inlineShell)}>
-      <Label htmlFor={htmlFor} className={cn("text-[13px] text-ink-2", inline && inlineLabel)}>
+    <div className={cn("flex flex-col gap-1.5", c.shell)}>
+      <Label htmlFor={htmlFor} className={cn("text-[13px] text-ink-2", c.label)}>
         {label}
         {hint && <span className="font-normal text-ink-3">{hint}</span>}
       </Label>
       {children}
       {error ? (
-        <p id={errorId} role="alert" className={cn("text-xs text-down", inline && inlineBelow)}>
+        <p id={errorId} role="alert" className={cn("text-xs text-down", c.below)}>
           {error}
         </p>
       ) : (
-        note && <p className={cn("text-xs", inline && inlineBelow)}>{note}</p>
+        note && <p className={cn("text-xs", c.below)}>{note}</p>
       )}
     </div>
   );
@@ -77,7 +95,7 @@ interface Props<T extends FieldValues> extends Omit<ComponentProps<"input">, "na
   hint?: string;
   note?: ReactNode;
   /** 라벨을 입력 왼쪽에 (FieldShell inline) */
-  inline?: boolean;
+  inline?: Inline;
   /** 입력 오른쪽에 붙는 요소 (중복확인 버튼 등) */
   trailing?: ReactNode;
 }

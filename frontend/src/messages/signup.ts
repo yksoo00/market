@@ -1,17 +1,14 @@
 export const signup = {
   title: "회원가입",
 
-  steps: { form: "정보 입력", done: "완료" },
-
   form: {
-    title: "정보 입력",
-    subtitle: "가입에 필요한 정보를 입력하세요.",
+    title: "일반 회원가입",
+    subtitle: "본인인증 후 가입에 필요한 정보를 입력하세요.",
     name: "이름",
     namePlaceholder: "실명",
     nickname: "별명",
-    nicknameUsage: "별명 사용 여부",
-    nicknameUse: "사용",
-    nicknameSkip: "사용 안 함",
+    nicknameUse: "별명 사용",
+    nicknameUseHint: "체크하면 이름 대신 별명이 화면에 표시됩니다.",
     nicknameHint: "화면에 표시되는 이름",
     nicknamePlaceholder: "2~20자",
     loginId: "아이디",
@@ -28,7 +25,7 @@ export const signup = {
     tel: "전화번호",
     telPlaceholder: "선택 입력",
     address: "주소",
-    addressPlaceholder: "선택 입력",
+    addressPlaceholder: "선택 입력 — [주소 찾기]로 검색",
     contactMethod: "연락 수단",
     contactMethods: { all: "전체", phone: "휴대폰", email: "이메일" },
     check: "중복확인",
@@ -36,6 +33,7 @@ export const signup = {
     available: { loginId: "사용할 수 있는 아이디입니다.", nickname: "사용할 수 있는 닉네임입니다." },
     taken: { loginId: "이미 사용 중인 아이디입니다.", nickname: "이미 사용 중인 닉네임입니다." },
     needCheck: "중복확인을 해주세요.",
+    needVerify: "본인인증을 먼저 해 주세요.",
     submit: "가입하기",
     errors: {
       DUPLICATE_LOGIN_ID: "이미 사용 중인 아이디입니다.",
@@ -44,6 +42,42 @@ export const signup = {
       DUPLICATE_PHONE: "이미 가입된 휴대폰 번호입니다.",
       ALREADY_REGISTERED: "이미 가입된 회원입니다. 아이디 찾기를 이용해 주세요.",
     } as Record<string, string>,
+  },
+
+  verify: {
+    label: "본인인증",
+    done: "본인인증 완료",
+    // TODO(본인인증 업체 계약 전): 버튼이 바로 성공 처리한다 (IdentityVerifyButton)
+    note: "지금은 임시 인증입니다. 버튼을 누르면 바로 인증됩니다.",
+  },
+
+  address: {
+    search: "주소 찾기",
+    detail: "상세주소",
+    detailPlaceholder: "상세주소 (동·호수 등)",
+    loadFailed: "주소 검색을 불러오지 못했습니다. 잠시 후 다시 시도하세요.",
+  },
+
+  terms: {
+    title: "약관 동의",
+    all: "전체 동의",
+    required: "[필수]",
+    view: "보기",
+    hide: "접기",
+    needAgree: "필수 약관에 모두 동의해야 가입할 수 있습니다.",
+  },
+
+  // 가입 결과 팝업 (ResultDialog)
+  result: {
+    title: "가입 완료",
+    message: "회원가입이 끝났습니다.\n로그인하고 거래를 시작하세요.",
+    businessTitle: "기업 회원가입 완료",
+    businessMessage:
+      "기업 회원 계정이 만들어졌습니다.\n사업자 정보는 개발용 임시 조회로 확인했으며, 국세청 확인과 관리자 심사는 아직 연결되지 않았습니다.",
+    toLogin: "로그인하러 가기",
+    failTitle: "가입하지 못했습니다",
+    checkFields: "빨간 글씨로 표시된 칸을 확인하고 다시 시도해 주세요.",
+    ok: "확인",
   },
 
   social: {
@@ -63,30 +97,19 @@ export const signup = {
   },
 
   business: {
-    steps: { verify: "사업자 인증", form: "정보 입력", done: "완료" },
-    verify: {
-      title: "사업자 인증",
-      subtitle: "사업자 기본 정보를 입력하세요. 실제 국세청 인증 연동 전까지 로컬 개발 환경에서만 진행할 수 있습니다.",
+    form: {
+      title: "기업 회원가입",
+      subtitle: "담당자 정보와 계정을 정하고, 사업자등록번호를 조회해 회사 정보를 입력하세요.",
+      reviewNotice: "사업자 등록증 업로드와 관리자 심사는 아직 연결되지 않았습니다.",
+      accountSection: "계정",
+      companySection: "회사 정보",
       bizNo: "사업자등록번호",
       bizNoPlaceholder: "숫자 10자리 ('-' 없이)",
-      startDate: "개업년월일",
-      startDatePlaceholder: "YYYYMMDD",
-      ownerName: "대표자",
-      ownerNamePlaceholder: "대표자 성명",
-      button: "사업자 인증",
-      done: "사업자 인증 완료",
-      note: "현재는 개발용 임시 인증이며, 운영 환경에서는 사용할 수 없습니다.",
-      errors: {
-        BIZ_NOT_FOUND: "국세청에 등록되지 않은 사업자이거나 입력 정보가 다릅니다. 사업자등록증을 확인해 주세요.",
-        BIZ_CLOSED: "휴업 또는 폐업 상태의 사업자입니다.",
-        DUPLICATE_BIZ_NO: "이미 가입된 사업자등록번호입니다. 로그인하거나 비밀번호 찾기를 이용하세요.",
-      } as Record<string, string>,
-    },
-    form: {
-      title: "정보 입력",
-      subtitle: "인증된 사업자 정보 아래에 나머지 정보를 입력하세요.",
-      reviewNotice: "사업자 등록증 업로드와 관리자 심사는 아직 연결되지 않았습니다.",
-      verified: "인증된 사업자",
+      lookup: "조회",
+      lookupDone: "확인된 사업자등록번호입니다.",
+      // TODO(국세청 연동 전): 번호 형식·중복만 확인하고, 로컬 개발 환경에서만 통과한다
+      lookupNote: "지금은 개발용 임시 조회입니다 (번호 형식·중복 가입만 확인).",
+      needLookup: "사업자등록번호를 조회해 주세요.",
       password: "비밀번호",
       passwordConfirm: "비밀번호 확인",
       bizType: "기업 구분",
@@ -113,14 +136,17 @@ export const signup = {
       submit: "가입하기",
       errors: {
         DUPLICATE_EMAIL: "이미 가입된 담당자 이메일입니다.",
-        VERIFICATION_EXPIRED: "사업자 인증이 만료되었습니다. 인증을 다시 진행해 주세요.",
+        DUPLICATE_PHONE: "이미 가입된 담당자 휴대폰 번호입니다.",
+        DUPLICATE_LOGIN_ID: "이미 사용 중인 아이디입니다.",
+        DUPLICATE_BIZ_NO: "이미 가입된 사업자등록번호입니다. 로그인하거나 비밀번호 찾기를 이용하세요.",
+        VERIFICATION_EXPIRED: "사업자등록번호 조회가 만료되었습니다. 다시 조회해 주세요.",
+        BUSINESS_VERIFICATION_UNAVAILABLE: "사업자등록번호 조회를 지금은 사용할 수 없습니다 (개발 환경 전용).",
         CAPTCHA_FAILED: "자동입력 방지 확인에 실패했습니다. 다시 시도해 주세요.",
       } as Record<string, string>,
     },
     validation: {
-      startDate: "개업년월일은 YYYYMMDD 8자리, 오늘 이전 날짜여야 합니다.",
-      ownerName: "대표자 성명은 2~50자로 입력하세요.",
       companyName: "기업명은 2~50자로 입력하세요.",
+      passwordHasBizNo: "비밀번호에 사업자등록번호를 넣을 수 없습니다.",
       address: "주소는 200자 이하로 입력하세요.",
       licenseType: "사업자등록증은 PDF, JPG, PNG 파일만 올릴 수 있습니다.",
       licenseSize: "사업자등록증 파일은 10MB 이하여야 합니다.",
@@ -128,19 +154,11 @@ export const signup = {
     },
   },
 
-  done: {
-    title: "가입 완료",
-    message: "회원가입이 끝났습니다. 로그인하고 거래를 시작하세요.",
-    businessTitle: "기업 회원가입 완료",
-    businessMessage:
-      "기업 회원 계정이 생성되었습니다. 사업자 정보는 개발용 임시 인증으로 확인했으며, 국세청 인증과 관리자 심사는 아직 연결되지 않았습니다.",
-    login: "로그인",
-    home: "홈으로",
-  },
-
   // 검증 문구. 수치는 docs/security.md "계정"
   validation: {
     name: "이름은 한글 또는 영문 2~30자로 입력하세요.",
+    addressTotal: "주소와 상세주소를 합쳐 200자 이하로 입력하세요.",
+    agree: "필수 약관에 동의해 주세요.",
     nickname: "닉네임은 2~20자로 입력하세요.",
     emailLocal: "이메일 앞부분을 입력하세요.",
     emailDomain: "이메일 도메인을 입력하세요.",

@@ -23,9 +23,14 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
   const password = "Test1234!@";
   const prodName = `E2E 서버 ${stamp}`;
 
-  await test.step("개인 가입", async () => {
+  await test.step("개인 가입 — 본인인증 → 정보 → 별명 → 약관 → 완료 팝업 → 로그인 화면", async () => {
     await page.goto("/signup/personal/form");
+    // 본인인증 전에는 입력이 막혀 있다 (임시 인증: 누르면 바로 성공)
+    await expect(page.locator('input[name="name"]')).toBeDisabled();
+    await page.getByRole("button", { name: auth.verify.button }).click();
+    await expect(page.getByText(signup.verify.done)).toBeVisible();
     await page.locator('input[name="name"]').fill("홍길동");
+    await page.locator("#nicknameUsage").click();
     await page.locator('input[name="nickname"]').fill(nickname);
     await checkButton(page, "nickname").click();
     await expect(page.getByText(signup.form.available.nickname)).toBeVisible();
@@ -38,9 +43,15 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await page.locator('input[name="phoneMid"]').fill(stamp.slice(0, 4));
     await page.locator('input[name="phoneLast"]').fill(stamp.slice(4, 8));
     const submit = page.getByRole("button", { name: signup.form.submit });
+    // 약관 동의 전에는 가입 버튼이 꺼져 있다
+    await expect(submit).toBeDisabled();
+    await page.getByRole("checkbox", { name: signup.terms.all }).click();
     await expect(submit).toBeEnabled();
     await submit.click();
-    await expect(page).toHaveURL(/\/signup\/done$/);
+    const done = page.getByRole("dialog", { name: signup.result.title });
+    await expect(done).toBeVisible();
+    await done.getByRole("button", { name: signup.result.toLogin }).click();
+    await expect(page).toHaveURL(/\/login$/);
   });
 
   await test.step("로그인 — 홈 옆 칸에서 로그인하면 홈 전체 화면", async () => {
@@ -50,7 +61,7 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     // 가입 유형 선택 화면 없이 탭마다 바로 그 유형의 가입으로 간다
     await expect(loginPane.getByRole("link", { name: auth.login.signup })).toHaveAttribute("href", "/signup/personal/form");
     await loginPane.getByRole("tab", { name: auth.tabs.business }).click();
-    await expect(loginPane.getByRole("link", { name: auth.login.signup })).toHaveAttribute("href", "/signup/business/verify");
+    await expect(loginPane.getByRole("link", { name: auth.login.signup })).toHaveAttribute("href", "/signup/business/form");
     await loginPane.getByRole("tab", { name: auth.tabs.personal }).click();
 
     await loginPane.locator('input[name="loginId"]').fill(loginId);

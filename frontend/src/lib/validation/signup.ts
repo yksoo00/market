@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { joinAddress } from "@/lib/postcode";
 import { emailSchema, loginIdSchema, passwordSchema } from "@/lib/validation/auth";
 import { auth as ta } from "@/messages/auth";
 import { emailDomains, phonePrefixes, signup as t } from "@/messages/signup";
@@ -22,6 +23,16 @@ export function joinEmail(local: string, domain: EmailDomainOption, custom: stri
   return `${local}@${domain === CUSTOM_DOMAIN ? custom : domain}`;
 }
 
+/** 필수 약관 동의. 서버도 @AssertTrue 로 다시 본다 */
+export const agreeSchema = z.boolean().refine((agreed) => agreed, v.agree);
+
+/** 주소 + 상세주소를 한 칸(users.user_address 200자)에 합쳐 저장하므로 합친 길이를 본다 */
+export function addressTotalIssue(d: { address: string; addressDetail: string }, ctx: z.RefinementCtx) {
+  if (joinAddress(d.address, d.addressDetail).length > 200) {
+    ctx.addIssue({ code: "custom", path: ["addressDetail"], message: v.addressTotal });
+  }
+}
+
 export const personalSignupSchema = z
   .object({
     name: nameSchema,
@@ -38,9 +49,13 @@ export const personalSignupSchema = z
     phoneLast: z.string().regex(/^\d{4}$/, v.phone),
     tel: z.string().max(20, "전화번호는 20자 이하입니다."),
     address: z.string().max(200, "주소는 200자 이하입니다."),
+    addressDetail: z.string().max(100, v.addressTotal),
     contactMethod: z.enum(["1", "2", "3"]),
+    agreeTerms: agreeSchema,
+    agreePrivacy: agreeSchema,
   })
   .superRefine((d, ctx) => {
+    addressTotalIssue(d, ctx);
     if (d.nicknameUsage === "Y" && !nicknameSchema.safeParse(d.nickname).success) {
       ctx.addIssue({ code: "custom", path: ["nickname"], message: v.nickname });
     }

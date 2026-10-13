@@ -34,14 +34,6 @@ export const loginSchema = z.object({
 });
 export type LoginInput = z.infer<typeof loginSchema>;
 
-export const businessLoginSchema = z.object({
-  bizNo: bizNoSchema,
-  password: z.string().min(1, v.required),
-  remember: z.boolean(),
-});
-export type BusinessLoginInput = z.input<typeof businessLoginSchema>;
-export type BusinessLoginOutput = z.output<typeof businessLoginSchema>;
-
 // 일반 비밀번호 재설정: 아이디 + 본인인증 → 새 비밀번호. 아이디 포함 금지는 여기서 검사 (security.md "계정")
 export const resetPasswordSchema = z
   .object({
