@@ -114,4 +114,4 @@
 
 검색(`GET /api/v1/listings`, 2026-10-02): 상품명·상품번호·제조사(`trd_prod_master`)에 낱말별 `lower(...) like`, 거래상태는 `trd_prod_reg.dt_expire` 유무, 가격·재고·납기일은 `trd_prod_reg` 컬럼. 검색용 인덱스는 없다 — 느린 게 측정되면 pg_trgm 등 검토. 카테고리 필터는 아직 없음 (마스터 테이블은 있음).
 
-**다음에 정할 것**: PRD 작성 시 카테고리 마스터 테이블 여부, 이미지 다건 구조(별도 테이블) 전환, prod_state enum화, 조직(seller_org_id) 도입 여부, quantity·가격 검증 규칙(`security.md`).
+**다음에 정할 것**: PRD 작성 시 이미지 다건 구조(별도 테이블) 전환, prod_state enum화, 조직(seller_org_id) 도입 여부, quantity·가격 검증 규칙(`security.md`).

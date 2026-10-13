@@ -93,7 +93,7 @@ public class SignupService {
 	}
 
 	/**
-	 * 일반 가입. 단일 users 행으로 저장한다.
+	 * 일반 가입. trd_user_info 한 행으로 저장한다.
 	 * 비밀번호 해시(bcrypt ~250ms)는 트랜잭션 밖에서 먼저 계산해 DB 커넥션을 오래 잡지 않는다.
 	 */
 	public UUID signupPersonal(SignupPersonalRequest req, String ip) {
@@ -138,7 +138,7 @@ public class SignupService {
 		return token;
 	}
 
-	/** 사업자번호는 조회 토큰에서 가져오고, 계정·회사 정보는 users 한 행에 저장한다. */
+	/** 사업자번호는 조회 토큰에서 가져오고, 계정·회사 정보는 trd_user_info 한 행에 저장한다. */
 	public UUID signupBusiness(SignupBusinessRequest req, String ip) {
 		limiter.hit("signup:ip:" + ip, SIGNUP_PER_IP, SIGNUP_WINDOW);
 		// 한 페이지 폼이라 아이디 중복 같은 오류로 다시 제출하는 일이 흔하다. 토큰은 가입이 끝난 뒤에 지운다
@@ -205,7 +205,7 @@ public class SignupService {
 
 	/**
 	 * 약관 동의 기록 "terms:<약관 판>@<동의 시각 UTC yyyyMMddHHmmss>". 동의 이력 테이블이 없어 spare_col(40자)에 축약한다
-	 * (decisions.md 2026-09-28 단일 users, 2026-10-13 약관). 요청의 동의 값은 DTO @AssertTrue 가 이미 확인했다.
+	 * (decisions.md 2026-09-28 단일 trd_user_info, 2026-10-13 약관). 요청의 동의 값은 DTO @AssertTrue 가 이미 확인했다.
 	 */
 	private String termsAgreement() {
 		return "terms:" + TERMS_VERSION + "@" + LocalDateTime.now(clock.withZone(ZoneOffset.UTC)).format(TERMS_AT);

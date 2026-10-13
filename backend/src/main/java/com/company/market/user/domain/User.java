@@ -121,7 +121,7 @@ public class User {
 		this.nicknameUsage = nicknameUsage == null ? "N" : nicknameUsage;
 		this.contactMethod = contactMethod == null ? "1" : contactMethod;
 		this.spareCol = spareCol;
-		// 예전 소셜·해시 필드는 builder 호출부의 이행 중 컴파일 호환용이며 단일 users 표에 저장하지 않는다.
+		// 예전 소셜·해시 필드는 builder 호출부의 이행 중 컴파일 호환용이며 단일 trd_user_info 표에 저장하지 않는다.
 	}
 
 	@PrePersist

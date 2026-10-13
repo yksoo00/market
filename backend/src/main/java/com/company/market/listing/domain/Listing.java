@@ -20,7 +20,7 @@ import lombok.Getter;
 import org.springframework.data.domain.Persistable;
 
 /**
- * 상품등록정보(TRD_REG_INFO). uuid 서로게이트 PK 없음 — (user_id, reg_date) 복합 PK (decisions.md 2026-09-29).
+ * 상품등록정보(TRD_PROD_REG, 테이블 trd_prod_reg). uuid 서로게이트 PK 없음 — (user_id, reg_date) 복합 PK (decisions.md 2026-09-29).
  * PK 를 직접 채우므로(@GeneratedValue 없음) Persistable 없이는 save() 가 항상 id!=null → merge 로 가서
  * 같은 초 중복 등록을 INSERT 충돌이 아니라 UPDATE 로 조용히 덮어쓴다. Persistable.isNew() 로 진짜 신규만 INSERT(persist) 하게 한다.
  */

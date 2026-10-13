@@ -6,7 +6,7 @@
 
 ```text
 브라우저 → Next.js (localhost:3000) → Spring Boot (localhost:8080)
-                                         ├─ PostgreSQL: users 한 테이블
+                                         ├─ PostgreSQL: trd_user_info 한 테이블
                                          ├─ Redis: refresh 세션·rate limit·업로드 기록
                                          └─ 디스크: 업로드 파일 (Compose volume uploads_data)
 ```
@@ -15,7 +15,7 @@
 - Spring을 컨테이너로 띄우려면 `docker compose up --watch api-dev`(`dev` 프로필, `backend/Dockerfile.dev`). compose watch가 `src/`를 컨테이너로 복사 → 컨테이너 안 `gradlew classes --continuous`가 컴파일 → devtools가 앱만 재시작한다. `build.gradle`이 바뀌면 이미지를 다시 빌드한다. 포트는 호스트 `bootRun`과 같은 `127.0.0.1:8080`이라 둘 중 하나만 띄운다 (decisions.md 2026-10-07).
 - Compose `prod` 프로필에는 Spring 복제본 2개가 있지만, 현재 외부 프록시·TLS는 실행하지 않는다.
 - 구현은 인증 중심이다. 상품·매물·거래 도메인은 아직 구현되지 않았다. AI 기능은 보류(서비스 제거).
-- 소셜 로그인은 구현했으나 단일 `users` 전환으로 일시 주석 처리했다 (`OAuthController` 등).
+- 소셜 로그인은 구현했으나 단일 `trd_user_info` 전환으로 일시 주석 처리했다 (`OAuthController` 등).
 
 ## 기술 구성
 
@@ -23,7 +23,7 @@
 |---|---|---|
 | Next.js 16 | 로그인·가입 등 화면 | 인증 화면 중심. 홈 매물은 mock |
 | Spring Boot 4.1, Java 21 | REST API, 인증·회원 처리 | 로그인, refresh/logout, 내 정보, 개인 가입 |
-| PostgreSQL 16 | 영속 데이터 | 계정은 단일 `users` 테이블 |
+| PostgreSQL 16 | 영속 데이터 | 계정은 단일 `trd_user_info` 테이블 |
 | Redis 7 | refresh 세션, rate limit, 임시 인증, 업로드 기록(24시간) | 인증·업로드 흐름에 사용 |
 | 파일 저장소 | 업로드 파일 (`common/storage`, `STORAGE_ROOT`) | 서버 로컬 디스크. Compose는 volume `uploads_data`를 api-1·api-2가 공유. DB와 함께 백업 (decisions.md 2026-10-02) |
 
@@ -36,7 +36,7 @@
 1. 개인 로그인: `user_id` 조회 → bcrypt 확인 → access·refresh 쿠키 발급.
 2. 기업 로그인: `bus_reg_id` 조회 → bcrypt 확인 → 쿠키 발급.
 3. refresh: Redis 세션 확인·회전 → 새 access·refresh 쿠키 발급.
-4. 개인 가입: 입력값 검증·중복 확인 → 단일 `users` 행 생성. 가입 시 본인인증·약관 단계는 없다.
+4. 개인 가입: 입력값 검증·중복 확인 → 단일 `trd_user_info` 행 생성. 가입 시 본인인증·약관 단계는 없다.
 
 5. 기업 가입: 사업자 인증(`/signup/business/verify`) → 토큰으로 `/signup/business`. 국세청 진위확인은 아직 연동 전이라 `APP_ENV=local`에서만 통과하고 그 외 환경은 거부한다.
 

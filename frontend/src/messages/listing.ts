@@ -21,7 +21,7 @@ export const listing = {
     sectionSale: "판매 조건",
     sectionDetail: "설명·파일",
     categoryCode: "카테고리",
-    // TODO(카테고리 코드 체계 미정, decisions.md "미정"): 카테고리 마스터가 생기면 3단 선택으로 교체
+    // TODO(카테고리 선택 UI 미구현): 상품마스터 선택 화면이 생기면 교체
     categoryHint: " (임시 입력)",
     categoryPlaceholder: "예: P01-Q01-R001",
     prodName: "상품명",

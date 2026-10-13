@@ -29,7 +29,7 @@ spring:
     redis:
       url: ${REDIS_URL:redis://localhost:6379}
 
-  # 소셜 로그인은 단일 users 테이블 전환을 마칠 때까지 비활성화한다.
+  # 소셜 로그인은 단일 trd_user_info 테이블 전환을 마칠 때까지 비활성화한다.
   # security:
   #   oauth2:
   #     client:

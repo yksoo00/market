@@ -47,7 +47,7 @@ export const authApi = {
       nickname,
     }),
 
-  /** 일반 가입. 요청 필드는 users 테이블의 계정·연락처 컬럼에 저장된다. */
+  /** 일반 가입. 요청 필드는 trd_user_info 테이블의 계정·연락처 컬럼에 저장된다. */
   signupPersonal: (body: {
     name: string;
     nickname: string | null;

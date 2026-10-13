@@ -338,7 +338,7 @@ class AuthApiTest {
 		}
 
 		@Test
-		@DisplayName("닉네임·종류·역할만 주고 이름·이메일·휴대폰은 없다")
+		@DisplayName("닉네임·종류만 주고 이름·이메일·휴대폰은 없다")
 		void meWithoutPii() throws Exception {
 			String access = cookieValue(loginOk(), "access_token");
 
