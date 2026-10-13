@@ -29,12 +29,12 @@ export function ListingSummaryCard({ detail, owner }: { detail: ListingDetail; o
 
       <div className="mt-4 flex flex-col @md:flex-row gap-5">
         {/* 이 칸은 옆 정보 표 높이만큼 늘어나고(stretch), 대표 사진은 제 비율대로, 그 아래 나머지 사진이 남는 높이를 채운다 (PhotoThumbs) */}
-        <div className="w-full @md:w-80 shrink-0 flex flex-col gap-2">
+        <div className="w-full @md:w-80 @min-[80rem]:w-150 shrink-0 flex flex-col gap-2">
           {photo ? (
             // 사진 비율대로 높이를 잡는다 — 정사각 상자에 넣으면 가로로 긴 사진 위아래가 배경으로 비어 자리만 차지한다.
-            // 세로로 아주 긴 사진만 높이를 24rem 으로 묶는다. API 서버의 공개 파일이라 next/image 원격 설정 없이 <img>
+            // 세로로 아주 긴 사진만 높이를 묶는다(전체 화면은 정보 표 높이 정도 22rem). API 서버의 공개 파일이라 next/image 원격 설정 없이 <img>
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={fileUrl(photo)} alt={detail.prodName} className="shrink-0 w-full h-auto max-h-96 object-contain rounded-md" />
+            <img src={fileUrl(photo)} alt={detail.prodName} className="shrink-0 w-full h-auto max-h-96 @min-[80rem]:max-h-88 object-contain rounded-md" />
           ) : (
             <div className="shrink-0 aspect-square rounded-md border border-line-2 bg-bg flex items-center justify-center">
               <Icon name="image" size={40} className="text-ink-3" aria-hidden={false} aria-label={t.noPhoto} role="img" />
@@ -44,13 +44,14 @@ export function ListingSummaryCard({ detail, owner }: { detail: ListingDetail; o
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col gap-4">
-          {/* 넓은 칸(1024 이상)에선 라벨·값 두 쌍을 한 줄에 — 한 줄씩이면 표가 길어져 옆과 아래가 빈다 (사용자 지시) */}
-          <dl className="grid grid-cols-[7rem_1fr] @lg:grid-cols-[7rem_1fr_7rem_1fr] text-sm">
+          {/* 넓은 칸(1024 이상)에선 라벨·값 두 쌍을 한 줄에 — 한 줄씩이면 표가 길어져 옆과 아래가 빈다 (사용자 지시).
+              칸 폭 1280 이상(전체 화면)은 값이 짧아 표 오른쪽이 비므로 사진 칸을 600px 로 넓혀(사용자 지시) 가로 사진이면 높이가 표와 맞는다 */}
+          <dl className="grid grid-cols-[7rem_1fr] @lg:grid-cols-[6rem_1fr_6rem_1fr] text-sm">
             {infoRows(detail).map((row) => (
               <div key={row.label} className="contents">
                 <dt className="py-2 border-b border-line-2 text-ink-2">{row.label}</dt>
                 <dd
-                  className={`py-2 @lg:pr-6 border-b border-line-2 min-w-0 break-words ${row.value === t.empty ? "text-ink-3" : "text-ink"} ${row.mono ? "num" : ""}`}
+                  className={`py-2 @lg:pr-4 border-b border-line-2 min-w-0 break-words ${row.value === t.empty ? "text-ink-3" : "text-ink"} ${row.mono ? "num" : ""}`}
                 >
                   {row.value}
                 </dd>
