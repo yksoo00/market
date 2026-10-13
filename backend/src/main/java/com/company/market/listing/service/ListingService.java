@@ -35,6 +35,7 @@ import com.company.market.listing.dto.ListingResponse;
 import com.company.market.listing.dto.ListingSearchCondition;
 import com.company.market.listing.dto.ListingSearchItemResponse;
 import com.company.market.listing.dto.ListingUpdateRequest;
+import com.company.market.listing.repository.CategoryRepository;
 import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.repository.ListingSearchRepository;
 import com.company.market.listing.service.ProductService.ProductDraft;
@@ -69,6 +70,8 @@ public class ListingService {
 
 	private final ProductService products;
 
+	private final CategoryRepository categories;
+
 	private final UploadService uploads;
 
 	private final Clock clock;
@@ -84,6 +87,8 @@ public class ListingService {
 			throw new ValidationException(Map.of("minOrderQuantity", "최소주문량은 판매수량을 넘을 수 없습니다."));
 		}
 		validateDates(req.prodMufcDate(), req.deliveryDate());
+		String categoryCode = req.categoryCode().trim();
+		requireCategory(categoryCode);
 
 		// 입력 검사(Redis 조회)를 상품마스터 채번·INSERT 보다 먼저 — 잘못된 키 요청이 DB 작업을 하지 않게
 		List<UploadRef> files = new ArrayList<>();
@@ -92,7 +97,7 @@ public class ListingService {
 		addRef(files, "productDataSheet", req.productDataSheet(), UploadKind.LISTING_DATASHEET);
 		uploads.claim(userId, files);
 
-		Product product = products.findOrCreate(new ProductDraft(req.categoryCode(), req.prodName().trim(), req.prodNo(),
+		Product product = products.findOrCreate(new ProductDraft(categoryCode, req.prodName().trim(), req.prodNo(),
 				req.prodBrand().trim(), req.prodMufcDate(), req.prodSpecInfo(), req.productDataSheet(), firstPhoto));
 
 		Listing listing = Listing.builder()
@@ -154,6 +159,10 @@ public class ListingService {
 			throw new ValidationException(Map.of("minOrderQuantity", "최소주문량은 판매수량을 넘을 수 없습니다."));
 		}
 
+		if (req.categoryCode() != null) {
+			requireCategory(req.categoryCode().trim());
+		}
+
 		// 상품 칸은 매물 칸보다 먼저 — 422 면 아무것도 바뀌지 않고, 업로드 키도 건드리지 않는다
 		Product product = applyProductFields(listing, currentProduct, req);
 
@@ -172,6 +181,13 @@ public class ListingService {
 
 		listing.applyUpdate(req, LocalDateTime.now(clock).format(REG_DATE_FORMAT));
 		return toResponse(listing, product);
+	}
+
+	/** 카테고리는 trd_ctgr_code 에 있는 코드만. FK 위반(500)이 되기 전에 필드 오류로 알린다 */
+	private void requireCategory(String code) {
+		if (!categories.existsById(code)) {
+			throw new ValidationException(Map.of("categoryCode", "없는 카테고리 코드입니다."));
+		}
 	}
 
 	/**

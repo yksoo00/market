@@ -51,7 +51,7 @@ class ListingRepositoryTest {
 			.passwordHash("$2a$12$hash").nickname("listingtester").email("listingtester@example.com")
 			.name("홍길동").phone("01012345678").phoneHash(hasher.hash("01012345678")).build());
 		userId = user.getId();
-		product = products.saveAndFlush(Product.builder().prodId("ELEC00010001").categoryCode("ELEC0001")
+		product = products.saveAndFlush(Product.builder().prodId("ELEC00010001").categoryCode("P01-Q01-R001")
 			.prodName("노트북 A").prodBrand("삼성").regDate("20260929120000").build());
 	}
 

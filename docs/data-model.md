@@ -46,12 +46,28 @@
 
 > 구현: `V202609291000__create_product_listing_tables.sql`. 사용자가 제공한 레거시 테이블 정의(TRD_PROD_MASTER, TRD_REG_INFO)를 그대로 옮긴 것. PRD 확정 전 초안이라 카테고리 마스터·이미지 구조(고정 컬럼 vs 별도 테이블)·상태값 체계(자유텍스트 vs enum)는 다시 바뀔 수 있다.
 
+### trd_ctgr_code (TRD_CTGR_CODE — 카테고리 코드)
+
+> 구현: `V202610131520__create_ctgr_code.sql`. 엑셀 `CATG_CD_DATA` 239행을 시드로 넣는다. 결정: decisions.md 2026-10-13 카테고리 코드 체계.
+
+| 컬럼 | 타입 | 제약 | 비고 |
+|---|---|---|---|
+| category_code | varchar(12) | PK | 대·중·소 전체 경로 (`P01-Q01-R001`) |
+| category_name | varchar(50) | not null | |
+| category_depth | varchar(20) | not null | 개인/사무용·기업용·일반 |
+| category_class | varchar(2) | not null | 대/중/소 |
+| parent_code | varchar(20) | null | 부모의 조각 코드(`Q01`), 대분류는 null. 조각이라 PK 를 가리키지 못해 외래키 없음 |
+| is_display | char(1) | not null default 'Y' | |
+| sort_order | integer | null | |
+| reg_date | varchar(14) | not null | yyyyMMddHHmmss |
+| spare_col | varchar(10) | null | |
+
 ### trd_prod_master (TRD_PROD_MASTER — 상품마스터)
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | prod_id | varchar(20) | PK | 레거시 비즈니스 키를 그대로 PK로 씀 (uuid 서로게이트 없음, 2026-09-29 지시). 자동생성: `KP-연도-일련번호6자리`(예 `KP-2026-000001`), 일련번호는 한국 날짜 기준 해마다 1부터 (2026-10-08). 그 전에 만든 행은 옛 형식(카테고리 8자+4자리) 그대로 |
-| category_code | varchar(10) | not null | 카테고리마스터 참조 값이나, 카테고리마스터 테이블은 아직 없음 |
+| category_code | varchar(12) | not null, FK→trd_ctgr_code(category_code) `fk_trd_prod_master_category` | 카테고리 코드 목록에 있는 값만 (등록·수정 API 도 검사) |
 | prod_name | varchar(50) | not null | |
 | prod_mpn | varchar(20) | | 제조사 번호(코드) |
 | prod_scan_code | varchar(20) | | 상품 스캔 코드 (정의서). 아직 채우지 않음 |
@@ -96,6 +112,6 @@
 인덱스: `U (prod_name, prod_brand)` on trd_prod_master (동시 등록 경합 시 재사용 판단의 근거 — 코드리뷰 지적으로 추가, 2026-09-29), `(prod_id)`·`(reg_date)` on trd_prod_reg (FK·목록 조회용).
 제약: `trd_prod_master`·`trd_prod_reg` 엔티티는 PK를 직접 채우므로(uuid `@GeneratedValue` 없음) `Persistable` 구현 필수 — 없으면 Spring Data가 항상 `merge`(UPDATE)를 타서 중복 키를 조용히 덮어쓴다(코드리뷰로 발견, 2026-09-29 수정). 매물 목록 커서는 `reg_date` 단독이 아니라 `reg_date_userId` 복합값 — 같은 초에 다른 사용자가 등록하면 reg_date만으로는 페이지 경계에서 소실될 수 있어서.
 
-검색(`GET /api/v1/listings`, 2026-10-02): 상품명·상품번호·제조사(`trd_prod_master`)에 낱말별 `lower(...) like`, 거래상태는 `trd_prod_reg.dt_expire` 유무, 가격·재고·납기일은 `trd_prod_reg` 컬럼. 검색용 인덱스는 없다 — 느린 게 측정되면 pg_trgm 등 검토. 카테고리 필터는 마스터가 정해질 때까지 없음.
+검색(`GET /api/v1/listings`, 2026-10-02): 상품명·상품번호·제조사(`trd_prod_master`)에 낱말별 `lower(...) like`, 거래상태는 `trd_prod_reg.dt_expire` 유무, 가격·재고·납기일은 `trd_prod_reg` 컬럼. 검색용 인덱스는 없다 — 느린 게 측정되면 pg_trgm 등 검토. 카테고리 필터는 아직 없음 (마스터 테이블은 있음).
 
 **다음에 정할 것**: PRD 작성 시 카테고리 마스터 테이블 여부, 이미지 다건 구조(별도 테이블) 전환, prod_state enum화, 조직(seller_org_id) 도입 여부, quantity·가격 검증 규칙(`security.md`).

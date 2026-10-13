@@ -32,7 +32,7 @@ public record ListingUpdateRequest(
 		@Size(max = 100) String certificateOfAuthen,
 		// 상품 칸 (2026-10-06 내 판매글 행 안 수정). 이름·제조사가 바뀌면 이 매물만 다른 상품으로, 나머지는 단독 사용일 때만 상품마스터를 고친다.
 		// null = 그대로, 번호·제조일·사양은 "" = 비우기. 이름·제조사·카테고리는 보냈다면 비울 수 없다
-		@Pattern(regexp = ".*\\S.*", message = "카테고리는 빈 값일 수 없습니다.") @Size(max = 10) String categoryCode,
+		@Pattern(regexp = ".*\\S.*", message = "카테고리는 빈 값일 수 없습니다.") @Size(max = 12) String categoryCode,
 		@Pattern(regexp = ".*\\S.*", message = "상품명은 빈 값일 수 없습니다.") @Size(max = 50) String prodName,
 		@Pattern(regexp = ".*\\S.*", message = "제조사는 빈 값일 수 없습니다.") @Size(max = 50) String prodBrand,
 		@Size(max = 20) String prodNo,

@@ -87,4 +87,21 @@ class SchemaConstraintsTest {
 				Integer.class)).isZero();
 	}
 
+	@Test
+	@DisplayName("trd_ctgr_code 에 시드가 있고 P01-Q01-R001 의 부모는 Q01")
+	void categorySeedExists() {
+		assertThat(jdbc.queryForObject("select count(*) from trd_ctgr_code", Integer.class)).isEqualTo(239);
+		assertThat(jdbc.queryForObject("select parent_code from trd_ctgr_code where category_code = 'P01-Q01-R001'",
+				String.class)).isEqualTo("Q01");
+	}
+
+	@Test
+	@DisplayName("trd_prod_master.category_code 가 카테고리에 없으면 외래키가 거부한다")
+	void productCategoryForeignKey() {
+		assertThatThrownBy(() -> jdbc.update("""
+				insert into trd_prod_master (prod_id, category_code, prod_name, prod_brand, reg_date)
+				values ('FKTEST0001', 'NOPE-CODE', '상품', '브랜드', '20261013120000')
+				""")).isInstanceOf(DataIntegrityViolationException.class);
+	}
+
 }

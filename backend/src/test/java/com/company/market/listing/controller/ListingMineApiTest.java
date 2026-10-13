@@ -171,7 +171,7 @@ class ListingMineApiTest {
 	}
 
 	private void save(UUID owner, String prodId, String regDate, String name) {
-		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("ELEC0001").prodName(name)
+		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("P01-Q01-R001").prodName(name)
 			.prodBrand("삼성").regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(owner).regDate(regDate).prodId(prodId).tradeType("등록")
 			.prodState("신품").salesUnitPrice(1000).salesQuantity(1).minOrderQuantity(1).orderUnit(1).stockQuantity(1)

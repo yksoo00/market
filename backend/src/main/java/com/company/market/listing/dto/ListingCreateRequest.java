@@ -18,7 +18,7 @@ import jakarta.validation.constraints.Size;
  * 경로 필드(photos·데이터시트)는 /api/v1/uploads 가 돌려준 키 — 본인이 올린 것만 받는다 (UploadService.claim).
  */
 public record ListingCreateRequest(
-		@NotBlank @Size(max = 10) String categoryCode,
+		@NotBlank @Size(max = 12) String categoryCode,
 		@NotBlank @Size(max = 50) String prodName,
 		@Size(max = 20) String prodNo,
 		@NotBlank @Size(max = 50) String prodBrand,

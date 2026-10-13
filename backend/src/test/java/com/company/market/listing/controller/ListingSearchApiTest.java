@@ -171,7 +171,7 @@ class ListingSearchApiTest {
 
 	private void save(String prodId, String regDate, String name, String prodNo, String brand, int price, int stock,
 			String deliveryDate) {
-		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("ELEC0001").prodName(name)
+		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("P01-Q01-R001").prodName(name)
 			.prodNo(prodNo).prodBrand(brand).regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(userId).regDate(regDate).prodId(prodId).tradeType("등록")
 			.prodState("양호").salesUnitPrice(price).salesQuantity(Math.max(stock, 1)).minOrderQuantity(1).orderUnit(1)
@@ -183,7 +183,7 @@ class ListingSearchApiTest {
 		UUID other = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("searchother")
 			.passwordHash("$2a$12$hash").nickname("searchother").email("searchother@example.com")
 			.name("김철수").phone("01012340009").phoneHash(hasher.hash("01012340009")).build()).getId();
-		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("ELEC0001").prodName(name)
+		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("P01-Q01-R001").prodName(name)
 			.prodBrand("남의것").regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(other).regDate(regDate).prodId(prodId).tradeType("등록")
 			.prodState("신품").salesUnitPrice(1000).salesQuantity(1).minOrderQuantity(1).orderUnit(1).stockQuantity(1).build());
@@ -391,7 +391,7 @@ class ListingSearchApiTest {
 					null);
 		}
 		String tieDate = "20261001090100";
-		productRepository.saveAndFlush(Product.builder().prodId("ELEC00019000").categoryCode("ELEC0001").prodName("부품 동률")
+		productRepository.saveAndFlush(Product.builder().prodId("ELEC00019000").categoryCode("P01-Q01-R001").prodName("부품 동률")
 			.prodBrand("삼성").regDate(tieDate).build());
 		for (String loginId : List.of("searchtieb", "searchtiec")) {
 			UUID other = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
@@ -424,7 +424,7 @@ class ListingSearchApiTest {
 			.andExpect(jsonPath("$.data.items[0].userId").value(userId.toString()))
 			.andExpect(jsonPath("$.data.items[0].prodNo").value("LM324AD"))
 			.andExpect(jsonPath("$.data.items[0].prodBrand").value("STMICROELECTRONICS"))
-			.andExpect(jsonPath("$.data.items[0].category").value("ELEC0001"))
+			.andExpect(jsonPath("$.data.items[0].category").value("P01-Q01-R001"))
 			.andExpect(jsonPath("$.data.items[0].hasDataSheet").value(false))
 			.andExpect(jsonPath("$.data.items[0].hasPhoto").value(false))
 			.andExpect(jsonPath("$.data.items[0].stockQuantity").value(500))
