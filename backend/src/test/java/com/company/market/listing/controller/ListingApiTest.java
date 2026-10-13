@@ -36,6 +36,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.nullValue;
@@ -119,7 +120,7 @@ class ListingApiTest {
 		String p2 = uploaded(authCookie, UploadKind.LISTING_PHOTO);
 		String prodId = "KP-" + LocalDate.now(SEOUL).getYear() + "-000001";
 
-		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 X","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":500000,"salesQuantity":3,
@@ -136,7 +137,7 @@ class ListingApiTest {
 	@Test
 	@DisplayName("가격이 10억을 넘으면 400 VALIDATION, fields.salesUnitPrice")
 	void priceOverLimit() throws Exception {
-		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 Y","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":2000000000,"salesQuantity":1}
@@ -153,21 +154,23 @@ class ListingApiTest {
 	}
 
 	@Test
-	@DisplayName("사진 없이 등록해도 되고(0장), 4장 전부 채워도 된다")
+	@DisplayName("사진이 없으면(생략·빈 배열) 400 fields.photos, 4장 전부 채워도 된다")
 	void photosBoundary() throws Exception {
 		// 서로 다른 사용자로 호출 — 같은 사용자가 같은 초에 두 번 등록하면 (user_id, reg_date) 충돌로 409가 난다
 		// (Persistable 도입 후 merge 가 아니라 실제 INSERT 충돌로 감지됨. 이 테스트의 관심사는 사진 개수 처리라
 		// 시간 충돌 자체는 다른 테스트(listing.repository.*DoesNotSilentlyOverwrite)가 고정한다).
-		mvc.perform(post("/api/v1/listings").cookie(authCookie)
-				.contentType(MediaType.APPLICATION_JSON).content("""
-					{"categoryCode":"ELEC0001","prodName":"노트북 Z1","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
-					"""))
-			.andExpect(status().isCreated())
-			.andExpect(jsonPath("$.data.photos.length()").value(0));
+		for (String photos : new String[] { "", ",\"photos\":[]" }) {
+			mvc.perform(post("/api/v1/listings").cookie(authCookie)
+					.contentType(MediaType.APPLICATION_JSON).content("""
+						{"categoryCode":"ELEC0001","prodName":"노트북 Z1","prodBrand":"삼성",
+						 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1%s}
+						""".formatted(photos)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.fields.photos").value("대표 사진을 올려 주세요."));
+		}
 
 		Cookie other = otherUserCookie();
-		mvc.perform(post("/api/v1/listings").cookie(other)
+		mvc.perform(post("/api/v1/listings").cookie(other).with(mainPhoto(other))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 Z2","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
@@ -181,7 +184,7 @@ class ListingApiTest {
 	@Test
 	@DisplayName("사진이 4장을 넘거나 경로가 100자를 넘으면 400 VALIDATION, fields.photos")
 	void photosOverLimit() throws Exception {
-		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 P1","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
@@ -191,7 +194,7 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.fields.photos").isString());
 
 		String tooLong = "x".repeat(101) + ".jpg";
-		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 P2","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
@@ -204,7 +207,7 @@ class ListingApiTest {
 	@Test
 	@DisplayName("사진 경로가 빈 문자열·공백이면 400")
 	void photosRejectsBlankElement() throws Exception {
-		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 P3","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
@@ -217,7 +220,7 @@ class ListingApiTest {
 	@Test
 	@DisplayName("최소주문량이 판매수량보다 크면 400 VALIDATION")
 	void minOrderQuantityCannotExceedSalesQuantity() throws Exception {
-		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 P4","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":5,
@@ -232,7 +235,7 @@ class ListingApiTest {
 	void productMatchingTrimsWhitespace() throws Exception {
 		String prodId = "KP-" + LocalDate.now(SEOUL).getYear() + "-000001";
 
-		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 T","prodBrand":"삼성 ",
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
@@ -240,7 +243,7 @@ class ListingApiTest {
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.prodId").value(prodId));
 
-		mvc.perform(post("/api/v1/listings").cookie(otherUserCookie())
+		mvc.perform(post("/api/v1/listings").cookie(otherUserCookie()).with(mainPhoto(otherUserCookie()))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":" 노트북 T","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
@@ -254,7 +257,7 @@ class ListingApiTest {
 	@Test
 	@DisplayName("등록한 매물을 상세 조회하면 그대로 나온다")
 	void getReturnsCreatedListing() throws Exception {
-		MvcResult created = mvc.perform(post("/api/v1/listings").cookie(authCookie)
+		MvcResult created = mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 G","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
@@ -272,7 +275,7 @@ class ListingApiTest {
 	void responseIncludesProductAndListingDetailFields() throws Exception {
 		String sheet = uploaded(authCookie, UploadKind.LISTING_DATASHEET);
 
-		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 D","prodBrand":"삼성",
 					 "prodNo":"MODEL-1","prodSpecInfo":"i7/16GB/512GB",
@@ -292,7 +295,7 @@ class ListingApiTest {
 		String p2 = uploaded(authCookie, UploadKind.LISTING_PHOTO);
 		String sheet = uploaded(authCookie, UploadKind.LISTING_DATASHEET);
 
-		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 K1","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
@@ -570,7 +573,7 @@ class ListingApiTest {
 	@DisplayName("키를 쓴 요청이 실패하면 키를 풀어, 고쳐서 같은 키로 다시 보내면 등록된다")
 	void idempotencyKeyReleasedOnFailure() throws Exception {
 		String key = UUID.randomUUID().toString();
-		mvc.perform(post("/api/v1/listings").cookie(authCookie).header("Idempotency-Key", key)
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie)).header("Idempotency-Key", key)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 I3","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,"minOrderQuantity":5}
@@ -586,7 +589,7 @@ class ListingApiTest {
 		String key = UUID.randomUUID().toString();
 		createIdempotent(key, "노트북 I4").andExpect(status().isCreated());
 
-		mvc.perform(post("/api/v1/listings").cookie(otherUserCookie()).header("Idempotency-Key", key)
+		mvc.perform(post("/api/v1/listings").cookie(otherUserCookie()).with(mainPhoto(otherUserCookie())).header("Idempotency-Key", key)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 I5","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
@@ -603,7 +606,7 @@ class ListingApiTest {
 	}
 
 	private ResultActions createIdempotent(String key, String prodName) throws Exception {
-		return mvc.perform(post("/api/v1/listings").cookie(authCookie).header("Idempotency-Key", key)
+		return mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie)).header("Idempotency-Key", key)
 			.contentType(MediaType.APPLICATION_JSON).content("""
 				{"categoryCode":"ELEC0001","prodName":"%s","prodBrand":"삼성",
 				 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
@@ -611,7 +614,7 @@ class ListingApiTest {
 	}
 
 	private ResultActions createWithFields(String prodName, String extraJson) throws Exception {
-		return mvc.perform(post("/api/v1/listings").cookie(authCookie)
+		return mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 			.contentType(MediaType.APPLICATION_JSON).content("""
 				{"categoryCode":"ELEC0001","prodName":"%s","prodBrand":"삼성",
 				 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,%s}
@@ -619,7 +622,7 @@ class ListingApiTest {
 	}
 
 	private ResultActions createWithPhoto(String photoKey, String prodName) throws Exception {
-		return mvc.perform(post("/api/v1/listings").cookie(authCookie)
+		return mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 			.contentType(MediaType.APPLICATION_JSON).content("""
 				{"categoryCode":"ELEC0001","prodName":"%s","prodBrand":"삼성",
 				 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
@@ -758,8 +761,30 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.data.items[0].regDate").value("202609291200" + String.format("%02d", 20)));
 	}
 
+	/**
+	 * 대표 사진은 등록 필수라, 사진을 안 보내는 등록 요청 본문에 방금 올린 사진 1장을 넣는다.
+	 * 사진을 직접 보내는 테스트(photos 가 있는 본문)는 그대로 둔다.
+	 */
+	private RequestPostProcessor mainPhoto(Cookie cookie) {
+		return request -> {
+			String body = new String(request.getContentAsByteArray(), java.nio.charset.StandardCharsets.UTF_8);
+			if (body.contains("\"photos\"") || !body.startsWith("{") || body.length() < 3) {
+				return request;
+			}
+			try {
+				String key = uploaded(cookie, UploadKind.LISTING_PHOTO);
+				request.setContent((body.substring(0, body.lastIndexOf('}')) + ",\"photos\":[\"" + key + "\"]}")
+					.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+			}
+			catch (Exception e) {
+				throw new IllegalStateException(e);
+			}
+			return request;
+		};
+	}
+
 	private String createListing(Cookie cookie) throws Exception {
-		MvcResult created = mvc.perform(post("/api/v1/listings").cookie(cookie)
+		MvcResult created = mvc.perform(post("/api/v1/listings").cookie(cookie).with(mainPhoto(cookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"노트북 U","prodBrand":"삼성",
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":500000,"salesQuantity":1}
@@ -768,11 +793,17 @@ class ListingApiTest {
 		return created.getResponse().getContentAsString().replaceAll(".*\"regDate\":\"([^\"]+)\".*", "$1");
 	}
 
+	private Cookie otherCookie;
+
+	/** 한 테스트 안에서 여러 번 불러도 같은 사용자 (mainPhoto 가 같은 요청에서 한 번 더 부른다) */
 	private Cookie otherUserCookie() {
+		if (otherCookie != null) {
+			return otherCookie;
+		}
 		User other = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("listingapiother")
 			.passwordHash("$2a$12$hash").nickname("listingapiother").email("listingapiother@example.com")
 			.name("김철수").phone("01099998888").phoneHash(hasher.hash("01099998888")).build());
-		return new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(other.getId(), UserRole.USER));
+		return otherCookie = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(other.getId(), UserRole.USER));
 	}
 
 	@Test
@@ -878,7 +909,7 @@ class ListingApiTest {
 	// ---- 상품 칸 수정 (스펙 2026-10-06-my-listings "상품 칸 규칙") ----
 
 	private String createProduct(Cookie cookie, String name, String brand, String prodNo) throws Exception {
-		MvcResult created = mvc.perform(post("/api/v1/listings").cookie(cookie)
+		MvcResult created = mvc.perform(post("/api/v1/listings").cookie(cookie).with(mainPhoto(cookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"ELEC0001","prodName":"%s","prodBrand":"%s","prodNo":%s,
 					 "tradeType":"등록","prodState":"신품","salesUnitPrice":500000,"salesQuantity":1}
@@ -1007,7 +1038,9 @@ class ListingApiTest {
 		String created = prodIdOf(userId, mine);
 		assertThat(created).isNotEqualTo(oldProduct);
 		assertThat(jdbc.queryForObject("select prod_data_sheet from products where prod_id = ?", String.class, created)).isNull();
-		assertThat(jdbc.queryForObject("select prod_photo_1 from products where prod_id = ?", String.class, created)).isNull();
+		// 등록에 사진이 필수라 새 상품은 이 매물의 첫 사진을 쓴다 — 옛 상품(처음 등록한 다른 판매자)의 사진만 아니면 된다
+		assertThat(jdbc.queryForObject("select prod_photo_1 from products where prod_id = ?", String.class, created))
+			.isNotEqualTo("public/listings/photos/2026/10/other.jpg");
 	}
 
 	@Test

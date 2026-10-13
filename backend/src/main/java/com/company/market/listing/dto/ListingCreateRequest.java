@@ -5,6 +5,7 @@ import java.util.List;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -34,7 +35,8 @@ public record ListingCreateRequest(
 		@Min(0) @Max(100_000) Integer stockQuantity,
 		@Size(max = 200) String description,
 		@Size(max = 100) String listingDataSheet,
-		@Size(max = 4) List<@NotBlank @Size(max = 100) String> photos) {
+		// 대표 사진(첫 장) 필수 — 등록 화면의 규칙과 같다. 수정(ListingUpdateRequest)은 옛 매물도 열 수 있어 필수로 하지 않는다
+		@NotEmpty(message = "대표 사진을 올려 주세요.") @Size(max = 4) List<@NotBlank @Size(max = 100) String> photos) {
 
 	/**
 	 * 등록 폼 드롭다운의 구간 값만 (2026-10-06, security.md "매물"). 위쪽은 10% 단위로 촘촘하게, 50% 미만은 하나로.
