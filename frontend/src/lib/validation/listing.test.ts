@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { listing } from "@/messages/listing";
 import { emptyListingForm, listingFormSchema, PROD_STATES, type ListingFormInput } from "./listing";
 
 const schema = listingFormSchema("2026-10-02");
@@ -10,6 +11,7 @@ const valid: ListingFormInput = {
   prodState: "신품",
   salesUnitPrice: "1000",
   salesQuantity: "1",
+  photos: ["public/listings/photos/2026/10/a.jpg"],
 };
 const parse = (over: Partial<ListingFormInput>) => schema.safeParse({ ...valid, ...over });
 
@@ -80,6 +82,11 @@ describe("listingFormSchema", () => {
     expect(errorPaths({ deliveryDate: "2026-10-01" })).toEqual(["deliveryDate"]);
     expect(errorPaths({ prodMufcDate: "2026-02-30" })).toEqual(["prodMufcDate"]);
     expect(errorPaths({ deliveryDate: "2027-02-30" })).toEqual(["deliveryDate"]);
+  });
+
+  it("대표 사진(첫 장)이 없으면 오류", () => {
+    expect(errorPaths({ photos: [] })).toEqual(["photos"]);
+    expect(parse({ photos: [] }).error?.issues[0]?.message).toBe(listing.validation.photosRequired);
   });
 
   it("사진은 4장까지", () => {

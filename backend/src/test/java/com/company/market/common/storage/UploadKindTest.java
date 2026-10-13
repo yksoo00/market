@@ -17,7 +17,6 @@ class UploadKindTest {
 	@DisplayName("용도 값으로 찾고, 모르는 값은 비어 있다")
 	void fromValue() {
 		assertThat(UploadKind.fromValue("listing-photo")).contains(UploadKind.LISTING_PHOTO);
-		assertThat(UploadKind.fromValue("listing-replace-prod")).contains(UploadKind.LISTING_REPLACE_PROD);
 		assertThat(UploadKind.fromValue("photo")).isEmpty();
 		assertThat(UploadKind.fromValue(null)).isEmpty();
 	}
@@ -35,10 +34,11 @@ class UploadKindTest {
 		assertThat(UploadKind.LISTING_DATASHEET.allows(FileType.PDF)).isTrue();
 		assertThat(UploadKind.LISTING_DATASHEET.allows(FileType.JPG)).isFalse();
 
-		assertThat(UploadKind.LISTING_TEST_REPORT.allows(FileType.PNG)).isTrue();
+		assertThat(UploadKind.LISTING_TEST_REPORT.allows(FileType.PDF)).isTrue();
+		assertThat(UploadKind.LISTING_TEST_REPORT.allows(FileType.PNG)).isFalse();
+		assertThat(UploadKind.LISTING_CERTIFICATE.allows(FileType.JPG)).isFalse();
 		assertThat(UploadKind.LISTING_TEST_REPORT.allows(FileType.WEBP)).isFalse();
 		assertThat(UploadKind.LISTING_CERTIFICATE.isPublic()).isFalse();
-		assertThat(UploadKind.LISTING_REPLACE_PROD.allows(FileType.PDF)).isTrue();
 	}
 
 	@Test
@@ -46,10 +46,10 @@ class UploadKindTest {
 	void newKeyRoundTrip() {
 		Clock clock = Clock.fixed(Instant.parse("2026-10-02T00:00:00Z"), ZoneOffset.UTC);
 
-		String key = UploadKind.LISTING_REPLACE_PROD.newKey(FileType.PDF, clock);
+		String key = UploadKind.LISTING_CERTIFICATE.newKey(FileType.PDF, clock);
 
-		assertThat(key).startsWith("private/listings/replace-prods/2026/10/").endsWith(".pdf").hasSizeLessThanOrEqualTo(100);
-		assertThat(UploadKind.ofKey(key)).contains(UploadKind.LISTING_REPLACE_PROD);
+		assertThat(key).startsWith("private/listings/certificates/2026/10/").endsWith(".pdf").hasSizeLessThanOrEqualTo(100);
+		assertThat(UploadKind.ofKey(key)).contains(UploadKind.LISTING_CERTIFICATE);
 		assertThat(UploadKind.ofKey(UploadKind.LISTING_PHOTO.newKey(FileType.JPG, clock))).contains(UploadKind.LISTING_PHOTO);
 	}
 

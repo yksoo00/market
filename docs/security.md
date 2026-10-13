@@ -118,10 +118,10 @@
 |---|---|---|---|---|---|
 | `listing-photo` | `public/listings/photos/` | jpg, png, webp | 장당 5MB, 매물당 4장 | 누구나 | `photos` |
 | `listing-datasheet` | `private/listings/datasheets/` | pdf | 10MB | 로그인 | `listingDataSheet`, `productDataSheet` |
-| `listing-test-report` | `private/listings/test-reports/` | pdf, jpg, png | 10MB | 로그인 | `testReport` |
-| `listing-certificate` | `private/listings/certificates/` | pdf, jpg, png | 10MB | 로그인 | `certificateOfAuthen` |
-| `listing-replace-prod` | `private/listings/replace-prods/` | pdf, jpg, png | 10MB | 로그인 | `replaceProd` |
+| `listing-test-report` | `private/listings/test-reports/` | pdf | 10MB | 로그인 | `testReport` |
+| `listing-certificate` | `private/listings/certificates/` | pdf | 10MB | 로그인 | `certificateOfAuthen` |
 
+- 2026-10-13: 테스트리포트·정품인증서는 pdf만(전엔 jpg·png도), 대체품(`replaceProd`)은 파일이 아니라 100자 이하 글 — 업로드 용도 `listing-replace-prod` 삭제. 옛 매물의 이미지 서류·파일 키로 저장된 대체품은 읽기에서만 남는다. 대표 사진(첫 장) 필수는 등록 화면 규칙이고 API는 사진을 선택으로 둔다(수정에서 0장 허용).
 - 검사: 확장자 + **매직 바이트** (Content-Type 신뢰 안 함). 빈 파일 거부. multipart 바깥 상한 10MB 초과도 413 `UPLOAD_TOO_LARGE`.
 - 저장: 서버 디스크 `<STORAGE_ROOT>/<폴더>/yyyy/MM/<uuid>.<ext>`. 원본 파일명 사용 안 함. 키 형식(정규식)이 아니면 저장·열람·등록 모두 거부 (`../` 경로 조작 차단).
 - 소유: 업로드 시 Redis `upload:<key>` = `<userId>|<kind>` 24시간. 등록·수정은 본인이 그 용도로 올린 키만 받고(아니면 400 VALIDATION "파일을 다시 올려 주세요."). 확인과 동시에 `upload-claim:<key>`로 옮겨 선점(Lua 한 번)해 같은 키로 동시에 두 매물을 만들 수 없고, 커밋되면 지우고(재사용 불가) 롤백되면 되돌린다(다시 올리지 않아도 됨). 수정 시 그 매물에 이미 저장된 키는 통과.
@@ -129,7 +129,7 @@
 - rate: 업로드 20회/10분/사용자.
 - 용량 (2026-10-02): 사용자당 **하루 300MB** (Redis `upload:bytes:<userId>`, 넘으면 429 `UPLOAD_QUOTA_EXCEEDED`, 거부된 업로드는 사용량에 안 셈). 디스크 여유 공간이 **10GB** 미만이 되는 업로드는 거부 (503 `STORAGE_FULL`, `app.storage.min-free`) — 계정 여러 개로 채워도 같은 디스크의 Postgres가 멈추지 않게. 횟수 한도만으로는 10MB × 20회 × 하루 = 약 29GB까지 쓸 수 있어서 둘을 더했다.
 - 상품 칸 수정 (2026-10-06): PATCH 에 `categoryCode·prodName·prodBrand·prodNo·prodMufcDate·prodSpecInfo`(선택). 상품마스터는 다른 판매자 매물과 공유하므로 — 이름·제조사가 바뀌면 `findOrCreate`로 그 상품을 찾아 **이 매물만** 옮긴다(남의 매물·옛 상품 그대로). 그대로이고 번호·제조일·사양·카테고리만 바뀌면 그 상품을 쓰는 매물이 이 매물뿐일 때만 고친다, 공유 중이면 422 `PRODUCT_SHARED` + `fields`(남의 매물이 바뀌는 것 방지). 상품 칸은 매물 칸보다 먼저 처리해 422 면 아무것도 바뀌지 않는다. 검증 수치는 등록과 같다(상품명·제조사 50자·공백 불가, 번호 20자, 사양 100자, 제조일 yyyyMMdd·오늘까지, 카테고리 10자). 소유자만(403).
-- 비우기: 매물 수정(PATCH)에서 파일 칸(`listingDataSheet`·`testReport`·`certificateOfAuthen`·`replaceProd`)에 `""`를 보내면 비운다. null·생략은 안 바꿈. 사진은 `photos: []`.
+- 비우기: 매물 수정(PATCH)에서 파일 칸(`listingDataSheet`·`testReport`·`certificateOfAuthen`)과 글 칸 `replaceProd`에 `""`를 보내면 비운다. null·생략은 안 바꿈. 사진은 `photos: []`.
 - **위험 — EXIF 위치 정보**: 리사이즈·EXIF 제거는 2단계. 휴대폰 사진에는 촬영 위치(GPS)가 들어 있을 수 있고 사진은 공개다. EXIF 제거 전에 운영 공개하면 판매자 위치가 노출될 수 있다.
 - 고아 파일(올리고 등록 안 한 파일)은 당분간 수동 정리. 매물 삭제 시 파일은 지우지 않는다 (상품 대표 사진이 첫 매물 사진 키를 공유).
 - 엑셀·PDF 등록 원본(상품 등록·다량 등록·대량구매): xlsx·xls·pdf, 파일당 10MB, 1개, 비공개. 업로드 API의 용도는 아직 없다 — 파싱 기능 구현 시 추가. 프론트는 선택 즉시 확장자·크기만 검사(`lib/validation/upload.ts`).

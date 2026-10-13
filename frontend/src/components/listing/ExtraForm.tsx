@@ -19,12 +19,13 @@ import type { ListingDetail } from "@/types/listing";
 
 const t = listing.extra;
 
-const FILE_FIELDS = ["replaceProd", "testReport", "certificateOfAuthen"] as const;
+const FILE_FIELDS = ["testReport", "certificateOfAuthen"] as const;
 type FileField = (typeof FILE_FIELDS)[number];
-const KNOWN_FIELDS = new Set<string>(["warrantyPeriod", "warrantyCoverage", ...FILE_FIELDS]);
+// 대체품은 파일이 아니라 글 (decisions.md 2026-10-13)
+const MAX_REPLACE_PROD = 100;
+const KNOWN_FIELDS = new Set<string>(["warrantyPeriod", "warrantyCoverage", "replaceProd", ...FILE_FIELDS]);
 
-const fileSpec: Record<FileField, { uploadKind: "listing-replace-prod" | "listing-test-report" | "listing-certificate"; label: string }> = {
-  replaceProd: { uploadKind: "listing-replace-prod", label: t.replaceProd },
+const fileSpec: Record<FileField, { uploadKind: "listing-test-report" | "listing-certificate"; label: string }> = {
   testReport: { uploadKind: "listing-test-report", label: t.testReport },
   certificateOfAuthen: { uploadKind: "listing-certificate", label: t.certificate },
 };
@@ -40,7 +41,7 @@ export function ExtraForm({ detail }: { detail: ListingDetail }) {
   const router = useRouter();
   const initial = useMemo(() => extraInitialValues(detail), [detail]);
   const [values, setValues] = useState<ExtraValues>(initial);
-  const [uploading, setUploading] = useState<Record<FileField, boolean>>({ replaceProd: false, testReport: false, certificateOfAuthen: false });
+  const [uploading, setUploading] = useState<Record<FileField, boolean>>({ testReport: false, certificateOfAuthen: false });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [unreachable, setUnreachable] = useState(false);
@@ -85,7 +86,7 @@ export function ExtraForm({ detail }: { detail: ListingDetail }) {
   const fileField = (name: FileField) => (
     <SingleFileUploader
       uploadKind={fileSpec[name].uploadKind}
-      checkKind="doc"
+      checkKind="pdf"
       label={fileSpec[name].label}
       hint={t.docHint}
       pickLabel={t.filePick}
@@ -151,6 +152,19 @@ export function ExtraForm({ detail }: { detail: ListingDetail }) {
             ))}
           </select>
         </SelectField>
+
+        <FieldShell inline label={t.replaceProd} htmlFor="replaceProd" error={fieldErrors.replaceProd}>
+          <input
+            id="replaceProd"
+            value={values.replaceProd}
+            onChange={(e) => set("replaceProd", e.target.value)}
+            maxLength={MAX_REPLACE_PROD}
+            placeholder={t.replaceProdPlaceholder}
+            aria-invalid={Boolean(fieldErrors.replaceProd)}
+            aria-describedby={fieldErrors.replaceProd ? "replaceProd-error" : undefined}
+            className={selectClass}
+          />
+        </FieldShell>
 
         {FILE_FIELDS.map((name) => (
           <div key={name}>{fileField(name)}</div>

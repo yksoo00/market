@@ -159,7 +159,6 @@ public class ListingService {
 		addRef(files, "listingDataSheet", req.listingDataSheet(), UploadKind.LISTING_DATASHEET);
 		addRef(files, "testReport", req.testReport(), UploadKind.LISTING_TEST_REPORT);
 		addRef(files, "certificateOfAuthen", req.certificateOfAuthen(), UploadKind.LISTING_CERTIFICATE);
-		addRef(files, "replaceProd", req.replaceProd(), UploadKind.LISTING_REPLACE_PROD);
 		// 이 매물에 이미 저장된 키는 업로드 기록(등록 때 지움) 없이 통과 — 사진 1장만 바꿔도 나머지를 다시 올리지 않게.
 		// 용도가 맞는지는 키 형식으로 여전히 본다 (기존 사진 키를 테스트리포트 칸에 옮기는 것 차단)
 		Set<String> stored = storedFileKeys(listing);
@@ -371,7 +370,7 @@ public class ListingService {
 	private static Set<String> storedFileKeys(Listing listing) {
 		return Stream
 			.of(listing.getProdPhoto1(), listing.getProdPhoto2(), listing.getProdPhoto3(), listing.getProdImage4(),
-					listing.getProdDataSheet(), listing.getTestReport(), listing.getCertificateOfAuthen(), listing.getReplaceProd())
+					listing.getProdDataSheet(), listing.getTestReport(), listing.getCertificateOfAuthen())
 			.filter(Objects::nonNull)
 			.collect(Collectors.toSet());
 	}

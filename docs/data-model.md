@@ -84,7 +84,7 @@
 | prod_image_4 | varchar(100) | | 경로정보. 레거시 물리명이 다른 사진 컬럼과 다름(PROD_IMAGE_4) — 그대로 유지 |
 | warranty_period | integer ? | | 보증기한(일) |
 | warranty_coverage | varchar(10) | | 불량지원방법 (대체/환불) |
-| replace_prod | varchar(100) | | 대체품 경로정보 |
+| replace_prod | varchar(100) | | 대체품 — 직접 입력한 글 (2026-10-13부터. 전엔 파일 경로. 옛 값은 그대로 두고 글로 보임) |
 | test_report | varchar(100) | | 경로정보 |
 | certificate_of_authen | varchar(100) | | 정품인증서 경로정보 |
 | dt_update | varchar(14) | | 최종갱신일시 |

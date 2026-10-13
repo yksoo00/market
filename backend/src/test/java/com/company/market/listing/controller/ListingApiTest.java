@@ -377,19 +377,18 @@ class ListingApiTest {
 	}
 
 	@Test
-	@DisplayName("수정에서 테스트리포트·정품인증서·대체품도 본인 업로드 키만 받는다")
+	@DisplayName("수정에서 테스트리포트·정품인증서는 본인 업로드 키만 받고, 대체품은 글로 받는다")
 	void updateChecksWarrantyFiles() throws Exception {
 		String regDate = createListing(authCookie);
 		String report = uploaded(authCookie, UploadKind.LISTING_TEST_REPORT);
 		String cert = uploaded(authCookie, UploadKind.LISTING_CERTIFICATE);
-		String replace = uploaded(authCookie, UploadKind.LISTING_REPLACE_PROD);
 
 		patchListing(regDate, "{\"testReport\":\"%s\",\"certificateOfAuthen\":\"%s\",\"replaceProd\":\"%s\"}"
-			.formatted(report, cert, replace))
+			.formatted(report, cert, "동급 모델 K10-B 로 교환"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.testReport").value(report))
 			.andExpect(jsonPath("$.data.certificateOfAuthen").value(cert))
-			.andExpect(jsonPath("$.data.replaceProd").value(replace));
+			.andExpect(jsonPath("$.data.replaceProd").value("동급 모델 K10-B 로 교환"));
 
 		patchListing(regDate, "{\"testReport\":\"%s\"}".formatted(uploaded(authCookie, UploadKind.LISTING_PHOTO)))
 			.andExpect(status().isBadRequest())

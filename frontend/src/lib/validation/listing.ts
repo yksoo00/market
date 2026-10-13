@@ -70,7 +70,8 @@ export function listingFormSchema(today: string) {
       orderUnit: optionalInt(1, MAX_QUANTITY, v.orderUnit),
       deliveryDate: optionalDate,
       description: optionalText(MAX_DESCRIPTION, v.description),
-      photos: z.array(z.string()).max(MAX_PHOTOS, v.photos),
+      // 대표 사진(첫 장) 필수 — 등록 화면 규칙. 수정은 사진 없는 옛 매물도 열 수 있어 listingEdit 은 필수로 하지 않는다
+      photos: z.array(z.string()).min(1, v.photosRequired).max(MAX_PHOTOS, v.photos),
       listingDataSheet: z.string().transform((s) => (s === "" ? undefined : s)),
     })
     // zod 4는 칸 검사가 실패해도 이 단계를 돈다 → 값이 이미 변환된 타입일 때만 비교한다

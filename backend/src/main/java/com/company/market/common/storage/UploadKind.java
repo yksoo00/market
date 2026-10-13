@@ -17,9 +17,8 @@ public enum UploadKind {
 
 	LISTING_PHOTO("listing-photo", "public/listings/photos", 5, Set.of(FileType.JPG, FileType.PNG, FileType.WEBP)),
 	LISTING_DATASHEET("listing-datasheet", "private/listings/datasheets", 10, Set.of(FileType.PDF)),
-	LISTING_TEST_REPORT("listing-test-report", "private/listings/test-reports", 10, Set.of(FileType.PDF, FileType.JPG, FileType.PNG)),
-	LISTING_CERTIFICATE("listing-certificate", "private/listings/certificates", 10, Set.of(FileType.PDF, FileType.JPG, FileType.PNG)),
-	LISTING_REPLACE_PROD("listing-replace-prod", "private/listings/replace-prods", 10, Set.of(FileType.PDF, FileType.JPG, FileType.PNG));
+	LISTING_TEST_REPORT("listing-test-report", "private/listings/test-reports", 10, Set.of(FileType.PDF)),
+	LISTING_CERTIFICATE("listing-certificate", "private/listings/certificates", 10, Set.of(FileType.PDF));
 
 	private static final long MB = 1024 * 1024;
 
