@@ -138,6 +138,11 @@ public class ListingService {
 		String newMufcDate = req.prodMufcDate() == null || req.prodMufcDate().isEmpty()
 				|| req.prodMufcDate().equals(currentProduct.getProdMufcDate()) ? null : req.prodMufcDate();
 		validateDates(newMufcDate, Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
+		// 대표 사진 필수(등록 규칙)를 수정에서도 지킨다 — 사진이 있는 매물은 전부 뺄 수 없다.
+		// 사진 없는 옛 매물은 [] 를 보내도 바뀌는 게 없어 막지 않는다
+		if (req.photos() != null && req.photos().isEmpty() && firstPhoto(listing) != null) {
+			throw new ValidationException(Map.of("photos", "대표 사진을 올려 주세요."));
+		}
 		// 저장된 값과 같으면 통과 — 옛 값(365)이 있는 매물의 다른 칸 수정이 막히지 않게 (납기일과 같은 이유)
 		if (req.warrantyPeriod() != null && !WARRANTY_DAYS.contains(req.warrantyPeriod())
 				&& !req.warrantyPeriod().equals(listing.getWarrantyPeriod())) {
@@ -159,7 +164,6 @@ public class ListingService {
 		addRef(files, "listingDataSheet", req.listingDataSheet(), UploadKind.LISTING_DATASHEET);
 		addRef(files, "testReport", req.testReport(), UploadKind.LISTING_TEST_REPORT);
 		addRef(files, "certificateOfAuthen", req.certificateOfAuthen(), UploadKind.LISTING_CERTIFICATE);
-		addRef(files, "replaceProd", req.replaceProd(), UploadKind.LISTING_REPLACE_PROD);
 		// 이 매물에 이미 저장된 키는 업로드 기록(등록 때 지움) 없이 통과 — 사진 1장만 바꿔도 나머지를 다시 올리지 않게.
 		// 용도가 맞는지는 키 형식으로 여전히 본다 (기존 사진 키를 테스트리포트 칸에 옮기는 것 차단)
 		Set<String> stored = storedFileKeys(listing);
@@ -371,7 +375,7 @@ public class ListingService {
 	private static Set<String> storedFileKeys(Listing listing) {
 		return Stream
 			.of(listing.getProdPhoto1(), listing.getProdPhoto2(), listing.getProdPhoto3(), listing.getProdImage4(),
-					listing.getProdDataSheet(), listing.getTestReport(), listing.getCertificateOfAuthen(), listing.getReplaceProd())
+					listing.getProdDataSheet(), listing.getTestReport(), listing.getCertificateOfAuthen())
 			.filter(Objects::nonNull)
 			.collect(Collectors.toSet());
 	}

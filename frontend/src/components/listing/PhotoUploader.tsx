@@ -36,10 +36,12 @@ interface Props {
   error?: string;
   /** 방금 고른 사진의 문제(개수 초과·형식·크기·업로드 실패). 이 폼이 숨겨져 있어도 부모가 알 수 있게 */
   onProblemChange?: (problem: string | null) => void;
+  /** 대표 사진 칸에 (필수) 표시. 등록 화면만 — 수정 화면은 사진 없는 옛 매물도 열 수 있다 */
+  requiredMain?: boolean;
 }
 
-/** 사진 최대 4장. 고르는 즉시 올리고(2단계 업로드) 키만 폼 값으로 넘긴다. 미리보기는 고른 파일 자체 */
-export function PhotoUploader({ value, initialKeys = [], onChange, onUploadingChange, error, onProblemChange }: Props) {
+/** 사진 최대 4장(대표 1 + 추가 3). 고르는 즉시 올리고(2단계 업로드) 키만 폼 값으로 넘긴다. 미리보기는 고른 파일 자체 */
+export function PhotoUploader({ value, initialKeys = [], onChange, onUploadingChange, error, onProblemChange, requiredMain = false }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const nextId = useRef(initialKeys.length);
   const [slots, setSlots] = useState<Slot[]>(() =>
@@ -55,7 +57,9 @@ export function PhotoUploader({ value, initialKeys = [], onChange, onUploadingCh
   useEffect(() => {
     if (joinedKeys !== value.join("|")) onChange(joinedKeys === "" ? [] : joinedKeys.split("|"));
   }, [joinedKeys, value, onChange]);
-  useEffect(() => onUploadingChange(uploading), [uploading, onUploadingChange]);
+  // 대표 사진 업로드가 실패해 있으면 업로드 중과 같이 제출을 막는다 — 안 막으면 완료된 추가 사진이 photos[0](대표)로 저장된다
+  const blocking = uploading || slots[0]?.status === "error";
+  useEffect(() => onUploadingChange(blocking), [blocking, onUploadingChange]);
 
   // 화면을 떠날 때 미리보기 URL 해제 (브라우저 메모리)
   const slotsRef = useRef(slots);
@@ -76,8 +80,9 @@ export function PhotoUploader({ value, initialKeys = [], onChange, onUploadingCh
   const onPick = (e: ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files ?? []);
     e.target.value = ""; // 같은 파일을 다시 골라도 change 가 나게
-    const room = MAX_PHOTOS - slots.length;
-    const messages: string[] = picked.length > room ? [t.photosOver] : [];
+    // 대표 사진이 먼저 — 첫 칸은 한 장만 (선택창 multiple 해제만으로는 끌어다 놓기 등을 못 막는다)
+    const room = slots.length === 0 ? 1 : MAX_PHOTOS - slots.length;
+    const messages: string[] = picked.length > room ? [slots.length === 0 ? t.photoMainOnlyOne : t.photosOver] : [];
     const accepted: File[] = [];
     for (const file of picked.slice(0, room)) {
       const problem = checkUpload("image", file);
@@ -99,12 +104,58 @@ export function PhotoUploader({ value, initialKeys = [], onChange, onUploadingCh
     });
   };
 
-  const firstDoneId = slots.find((s) => s.status === "done")?.id;
   const slotErrors = slots.flatMap((s) => (s.status === "error" && s.message ? [s.message] : []));
   // 여러 장이 같은 이유로 실패하면 같은 문구가 반복된다 → 한 번만 (key 로도 쓰므로 중복 금지)
   const messages = [...new Set([error, notice, ...slotErrors].filter((m): m is string => Boolean(m)))];
   const problem = [...new Set([notice, ...slotErrors].filter((m): m is string => Boolean(m)))].join(" · ") || null;
   useEffect(() => onProblemChange?.(problem), [problem, onProblemChange]);
+
+  // 첫 칸 = 대표 사진, 나머지 = 추가 사진 (순서가 곧 상품사진1·2·3·4). 대표를 지우면 다음 사진이 대표로 올라온다
+  const main = slots[0];
+  const extras = slots.slice(1);
+
+  const renderSlot = (slot: Slot, i: number) => (
+    <div key={slot.id} className={`relative aspect-square overflow-hidden rounded-md border bg-bg ${slot.status === "error" ? "border-down" : "border-line"}`}>
+      {/* blob 미리보기는 next/image 최적화 대상이 아니다 (서버 URL 이 아님) */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={slot.previewUrl} alt={i === 0 ? t.photoMainAlt : t.photoAlt(i + 1)} className={`h-full w-full object-cover ${slot.status === "done" ? "" : "opacity-50"}`} />
+      {slot.status === "error" && slot.file && (
+        <button
+          type="button"
+          aria-label={t.photoRetry(i + 1)}
+          onClick={() => slot.file && send(slot.id, slot.file)}
+          className="absolute inset-0 m-auto size-10 rounded-full bg-surface border border-line flex items-center justify-center text-ink-2 hover:border-primary hover:text-primary"
+        >
+          <RotateCw size={18} />
+        </button>
+      )}
+      {slot.status === "uploading" && (
+        <span role="status" aria-label={t.uploading} className="absolute inset-0 flex items-center justify-center text-primary">
+          <Loader2 className="animate-spin" />
+        </span>
+      )}
+      <button
+        type="button"
+        aria-label={t.photoRemove(i + 1)}
+        onClick={() => remove(slot.id)}
+        className="absolute right-1.5 top-1.5 size-7 rounded-full bg-surface border border-line flex items-center justify-center text-ink-2 hover:border-primary hover:text-ink"
+      >
+        <Icon name="close" size={14} />
+      </button>
+    </div>
+  );
+
+  const addButton = (label: string, disabled = false) => (
+    <button
+      type="button"
+      onClick={() => inputRef.current?.click()}
+      disabled={disabled}
+      className="aspect-square rounded-md border border-dashed border-line bg-surface flex flex-col items-center justify-center gap-1 text-[13px] text-ink-2 hover:border-primary hover:text-primary disabled:opacity-40 disabled:pointer-events-none"
+    >
+      <Icon name="image" size={22} />
+      {label}
+    </button>
+  );
 
   return (
     // 라벨 왼쪽 배치 — 다른 칸(FieldShell inline)과 같은 격자
@@ -113,54 +164,27 @@ export function PhotoUploader({ value, initialKeys = [], onChange, onUploadingCh
         {t.photos}
         <span className="font-normal text-ink-3">{t.photosHint}</span>
       </Label>
-      <div className="grid grid-cols-2 @md:grid-cols-4 gap-2">
-        {slots.map((slot, i) => (
-          <div key={slot.id} className={`relative aspect-square overflow-hidden rounded-md border bg-bg ${slot.status === "error" ? "border-down" : "border-line"}`}>
-            {/* blob 미리보기는 next/image 최적화 대상이 아니다 (서버 URL 이 아님) */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={slot.previewUrl} alt={t.photoAlt(i + 1)} className={`h-full w-full object-cover ${slot.status === "done" ? "" : "opacity-50"}`} />
-            {slot.id === firstDoneId && (
-              <span className="absolute left-1.5 top-1.5 h-5 px-1.5 rounded-[5px] flex items-center bg-primary-soft text-primary-dark text-[11px] font-semibold">
-                {t.photoMain}
-              </span>
-            )}
-            {slot.status === "error" && slot.file && (
-              <button
-                type="button"
-                aria-label={t.photoRetry(i + 1)}
-                onClick={() => slot.file && send(slot.id, slot.file)}
-                className="absolute inset-0 m-auto size-10 rounded-full bg-surface border border-line flex items-center justify-center text-ink-2 hover:border-primary hover:text-primary"
-              >
-                <RotateCw size={18} />
-              </button>
-            )}
-            {slot.status === "uploading" && (
-              <span role="status" aria-label={t.uploading} className="absolute inset-0 flex items-center justify-center text-primary">
-                <Loader2 className="animate-spin" />
-              </span>
-            )}
-            <button
-              type="button"
-              aria-label={t.photoRemove(i + 1)}
-              onClick={() => remove(slot.id)}
-              className="absolute right-1.5 top-1.5 size-7 rounded-full bg-surface border border-line flex items-center justify-center text-ink-2 hover:border-primary hover:text-ink"
-            >
-              <Icon name="close" size={14} />
-            </button>
+      <div className="flex flex-col gap-3 @md:flex-row">
+        <div className="flex flex-col gap-1.5 w-28 shrink-0">
+          <span className="text-xs text-ink-2">
+            {t.photoMainTitle}
+            {requiredMain && <span className="text-down"> {t.photoRequired}</span>}
+          </span>
+          {main ? renderSlot(main, 0) : addButton(t.photoMainAdd)}
+        </div>
+        <div className="flex flex-col gap-1.5 grow">
+          <span className="text-xs text-ink-2">
+            {t.photoExtraTitle}
+            <span className="text-ink-3">{t.photoExtraHint}</span>
+          </span>
+          <div className="grid grid-cols-3 @md:grid-cols-4 gap-2">
+            {extras.map((slot, i) => renderSlot(slot, i + 1))}
+            {/* 대표가 먼저 있어야 추가 사진이 그 뒤 순서가 된다 */}
+            {slots.length < MAX_PHOTOS && addButton(main ? t.photoAdd : t.photoExtraNeedMain, !main)}
           </div>
-        ))}
-        {slots.length < MAX_PHOTOS && (
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            className="aspect-square rounded-md border border-dashed border-line bg-surface flex flex-col items-center justify-center gap-1 text-[13px] text-ink-2 hover:border-primary hover:text-primary"
-          >
-            <Icon name="image" size={22} />
-            {t.photoAdd}
-          </button>
-        )}
+        </div>
       </div>
-      <input ref={inputRef} type="file" multiple accept={acceptOf("image")} onChange={onPick} className="hidden" tabIndex={-1} aria-hidden="true" />
+      <input ref={inputRef} type="file" multiple={slots.length > 0} accept={acceptOf("image")} onChange={onPick} className="hidden" tabIndex={-1} aria-hidden="true" />
       {messages.map((m) => (
         <p key={m} role="alert" className={cn("text-xs text-down", inlineBelow)}>
           {m}

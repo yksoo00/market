@@ -86,6 +86,13 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await page.locator('input[name="prodName"]').fill(prodName);
     await page.locator("#prodState").selectOption("신품");
     await page.locator('input[name="salesUnitPrice"]').fill("1500000");
+    // 대표 사진은 필수. 서버는 확장자와 매직 바이트(JPEG 머리)만 본다
+    await page.locator('input[type="file"][accept*=".jpg"]').setInputFiles({
+      name: "main.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1]),
+    });
+    await expect(page.getByRole("status", { name: listing.form.uploading })).toBeHidden();
     const submit = page.getByRole("button", { name: listing.form.submit, exact: true });
     await expect(submit).toBeDisabled();
     // 마지막 필수 칸: blur 없이 입력만 한 상태에서 버튼이 켜져야 한다 (onBlur 모드 때 첫 클릭이 꺼진 버튼에 먹히던 문제)

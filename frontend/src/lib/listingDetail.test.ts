@@ -2,7 +2,6 @@ import { describe, expect, it } from "vitest";
 import type { ListingDetail } from "@/types/listing";
 import {
   buyerActionsDisabled,
-  dataSheetKey,
   formatRegDate,
   infoRows,
   isAuthLost,
@@ -65,13 +64,6 @@ describe("mainPhoto", () => {
   it("매물 사진 첫 장, 없으면 null (상품마스터 사진으로 대신하지 않음)", () => {
     expect(mainPhoto({ ...base, photos: ["a.jpg", "b.jpg"] })).toBe("a.jpg");
     expect(mainPhoto({ ...base, photos: [] })).toBeNull();
-  });
-});
-
-describe("dataSheetKey", () => {
-  it("매물 데이터시트, 없으면 null (상품마스터 데이터시트로 대신하지 않음)", () => {
-    expect(dataSheetKey({ ...base, listingDataSheet: "l.pdf" })).toBe("l.pdf");
-    expect(dataSheetKey(base)).toBeNull();
   });
 });
 

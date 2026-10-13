@@ -148,7 +148,7 @@ export function ListingForm({ initialValues, submitLabel, secondarySubmitLabel, 
             <DescriptionField />
           </Wide>
           <Wide>
-            <PhotoUploader value={photos} onChange={setPhotos} onUploadingChange={setPhotosUploading} error={errors.photos?.message} />
+            <PhotoUploader value={photos} onChange={setPhotos} onUploadingChange={setPhotosUploading} error={errors.photos?.message} requiredMain />
           </Wide>
           <Wide>
             <SingleFileUploader

@@ -37,8 +37,7 @@ export type ListingUploadKind =
   | "listing-photo"
   | "listing-datasheet"
   | "listing-test-report"
-  | "listing-certificate"
-  | "listing-replace-prod";
+  | "listing-certificate";
 
 /** 검색 결과 행. 백엔드 검색 API를 만들 때 DTO를 이와 1:1로 맞춘다 */
 export interface ListingSearchItem {

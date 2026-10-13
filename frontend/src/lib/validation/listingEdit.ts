@@ -14,9 +14,10 @@ const requiredInt = (min: number, max: number, message: string) =>
  * ① 재고·최소주문량·주문단위가 필수 — 등록 땐 비우면 서버 기본값이지만 수정은 이미 값이 있는 칸이다.
  * ② 상태는 목록 값만 (옛 값이 구간에 안 맞으면 빈 값 → "선택하세요" 오류).
  * ③ 납기일이 처음 값 그대로면 지난 날짜여도 통과 — 서버도 저장된 값과 같으면 통과시킨다 (다른 칸 수정이 막히지 않게).
+ * ④ 사진이 있던 매물(hadPhotos)은 전부 뺄 수 없다 — 대표 사진 필수 (서버도 같은 규칙). 사진 없는 옛 매물은 통과.
  * today = 한국 날짜 YYYY-MM-DD.
  */
-export function listingEditSchema(today: string, initialDeliveryDate: string) {
+export function listingEditSchema(today: string, initialDeliveryDate: string, hadPhotos = false) {
   return z
     .object({
       prodState: z.string().refine((s) => (PROD_STATES as readonly string[]).includes(s), v.prodState),
@@ -32,6 +33,7 @@ export function listingEditSchema(today: string, initialDeliveryDate: string) {
     })
     // zod 4는 칸 검사가 실패해도 이 단계를 돈다 → 값이 문자열일 때만 비교한다
     .superRefine((d, ctx) => {
+      if (hadPhotos && d.photos.length === 0) ctx.addIssue({ code: "custom", path: ["photos"], message: v.photosRequired });
       const min = Number(d.minOrderQuantity);
       const sales = Number(d.salesQuantity);
       // 두 칸 모두 자기 범위를 통과했을 때만 비교 — 판매수량 0 이 최소주문량 오류까지 만들지 않게

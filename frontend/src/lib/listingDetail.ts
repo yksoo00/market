@@ -25,10 +25,6 @@ export function mainPhoto(d: ListingDetail): string | null {
   return d.photos[0] ?? null;
 }
 
-export function dataSheetKey(d: ListingDetail): string | null {
-  return d.listingDataSheet;
-}
-
 // refresh 까지 실패한 401 만 로그인이 풀린 것. 네트워크·5xx·429 는 로그인 여부를 모르는 것
 const AUTH_LOST = new Set(["UNAUTHENTICATED", "SESSION_EXPIRED", "UNAUTHORIZED"]);
 

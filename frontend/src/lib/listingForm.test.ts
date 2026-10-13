@@ -11,6 +11,7 @@ const output = (over: Partial<ListingFormInput>) => {
     prodState: "신품",
     salesUnitPrice: "1000",
     salesQuantity: "3",
+    photos: ["k0"],
     ...over,
   });
   if (!r.success) throw new Error(JSON.stringify(r.error.issues));
@@ -26,7 +27,7 @@ describe("todayInSeoul", () => {
 });
 
 describe("toCreateRequest", () => {
-  it("필수 칸만: 거래종류 판매, 신품, 선택 칸은 보내지 않는다", () => {
+  it("필수 칸(대표 사진 포함)만: 거래종류 판매, 신품, 선택 칸은 보내지 않는다", () => {
     const req = toCreateRequest(output({}));
     expect(req).toEqual({
       categoryCode: "ELEC0001",
@@ -36,6 +37,7 @@ describe("toCreateRequest", () => {
       prodState: "신품",
       salesUnitPrice: 1000,
       salesQuantity: 3,
+      photos: ["k0"],
     });
   });
 

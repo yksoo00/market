@@ -80,7 +80,8 @@ describe("diffToExtraRequest", () => {
   it("파일은 지우면 빈 문자열, 교체하면 새 키, 새로 채우면 새 키", () => {
     expect(diffToExtraRequest(initial, { ...initial, certificateOfAuthen: "" })).toEqual({ certificateOfAuthen: "" });
     expect(diffToExtraRequest(initial, { ...initial, testReport: "new.pdf" })).toEqual({ testReport: "new.pdf" });
-    expect(diffToExtraRequest(initial, { ...initial, replaceProd: "r.png" })).toEqual({ replaceProd: "r.png" });
+    expect(diffToExtraRequest(initial, { ...initial, replaceProd: " 동급품 " })).toEqual({ replaceProd: "동급품" });
+    expect(diffToExtraRequest(initial, { ...initial, replaceProd: "   " })).toEqual({});
   });
 });
 

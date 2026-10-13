@@ -23,7 +23,6 @@ const le = listing.extra;
 type Panel = "description" | "dataSheet" | "photos" | "replaceProd" | "testReport" | "certificate";
 
 const FILE_PANELS = {
-  replaceProd: { field: "replaceProd", uploadKind: "listing-replace-prod", label: le.replaceProd },
   testReport: { field: "testReport", uploadKind: "listing-test-report", label: le.testReport },
   certificate: { field: "certificateOfAuthen", uploadKind: "listing-certificate", label: le.certificate },
 } as const;
@@ -159,7 +158,6 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
     return {
       photos: make("photos", "photos"),
       listingDataSheet: make("listingDataSheet", "dataSheet"),
-      replaceProd: make("replaceProd", "replaceProd"),
       testReport: make("testReport", "testReport"),
       certificateOfAuthen: make("certificateOfAuthen", "certificate"),
     };
@@ -459,13 +457,33 @@ function EditRow({ detail, onCancel, onSaved }: { detail: ListingDetail; onCance
           />
         </div>
 
+        <div className={cn(panel !== "replaceProd" && "hidden")}>
+          <label htmlFor="re-replaceProd" className="block mb-1.5 text-[13px] text-ink-2">
+            {le.replaceProd}
+          </label>
+          <input
+            id="re-replaceProd"
+            value={values.replaceProd}
+            onChange={(e) => set("replaceProd", e.target.value)}
+            placeholder={le.replaceProdPlaceholder}
+            aria-invalid={Boolean(errors.replaceProd)}
+            aria-describedby={errors.replaceProd ? "re-replaceProd-error" : undefined}
+            className={inputClass}
+          />
+          {errors.replaceProd && (
+            <p id="re-replaceProd-error" role="alert" className="mt-1 text-xs text-down">
+              {errors.replaceProd}
+            </p>
+          )}
+        </div>
+
         {(Object.keys(FILE_PANELS) as (keyof typeof FILE_PANELS)[]).map((p) => {
           const spec = FILE_PANELS[p];
           return (
             <div key={p} className={cn(panel !== p && "hidden")}>
               <SingleFileUploader
                 uploadKind={spec.uploadKind}
-                checkKind="doc"
+                checkKind="pdf"
                 label={spec.label}
                 hint={le.docHint}
                 pickLabel={le.filePick}

@@ -13,18 +13,18 @@ import {
   WARRANTY_MONTHS,
   type ExtraValues,
 } from "@/lib/listingExtra";
+import { MAX_REPLACE_PROD } from "@/lib/validation/listing";
 import { listing } from "@/messages/listing";
 import { UNREACHABLE } from "@/types/api";
 import type { ListingDetail } from "@/types/listing";
 
 const t = listing.extra;
 
-const FILE_FIELDS = ["replaceProd", "testReport", "certificateOfAuthen"] as const;
+const FILE_FIELDS = ["testReport", "certificateOfAuthen"] as const;
 type FileField = (typeof FILE_FIELDS)[number];
-const KNOWN_FIELDS = new Set<string>(["warrantyPeriod", "warrantyCoverage", ...FILE_FIELDS]);
+const KNOWN_FIELDS = new Set<string>(["warrantyPeriod", "warrantyCoverage", "replaceProd", ...FILE_FIELDS]);
 
-const fileSpec: Record<FileField, { uploadKind: "listing-replace-prod" | "listing-test-report" | "listing-certificate"; label: string }> = {
-  replaceProd: { uploadKind: "listing-replace-prod", label: t.replaceProd },
+const fileSpec: Record<FileField, { uploadKind: "listing-test-report" | "listing-certificate"; label: string }> = {
   testReport: { uploadKind: "listing-test-report", label: t.testReport },
   certificateOfAuthen: { uploadKind: "listing-certificate", label: t.certificate },
 };
@@ -33,14 +33,14 @@ const selectClass =
   "h-11 w-full rounded-md border border-line bg-surface px-3 text-[15px] outline-none focus-visible:border-primary focus-visible:ring-2 focus-visible:ring-primary/30 aria-invalid:border-destructive aria-invalid:ring-3 aria-invalid:ring-destructive/20";
 
 /**
- * 판매정보 추가등록 폼 — 보증기간·불량지원·대체품·테스트리포트·정품인증서. 입력이 전부 선택·업로드라
+ * 판매정보 추가등록 폼 — 보증기간·불량지원·대체품·테스트리포트·정품인증서. 입력이 선택·업로드와 글 한 칸(대체품)뿐이라
  * react-hook-form 없이 상태 하나로 두고, 처음 값과 달라진 칸만 PATCH 로 보낸다 (스펙 2026-10-06-listing-edit-extra-design.md)
  */
 export function ExtraForm({ detail }: { detail: ListingDetail }) {
   const router = useRouter();
   const initial = useMemo(() => extraInitialValues(detail), [detail]);
   const [values, setValues] = useState<ExtraValues>(initial);
-  const [uploading, setUploading] = useState<Record<FileField, boolean>>({ replaceProd: false, testReport: false, certificateOfAuthen: false });
+  const [uploading, setUploading] = useState<Record<FileField, boolean>>({ testReport: false, certificateOfAuthen: false });
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [unreachable, setUnreachable] = useState(false);
@@ -50,6 +50,8 @@ export function ExtraForm({ detail }: { detail: ListingDetail }) {
   const patch = diffToExtraRequest(initial, values);
   const changed = Object.keys(patch).length > 0;
   const anyUploading = Object.values(uploading).some(Boolean);
+  // 대체품 글 길이 (서버 @Size(max = 100) 와 같다). maxLength 로 자르면 붙여넣은 글이 조용히 잘리므로 오류로 알린다
+  const replaceProdError = values.replaceProd.trim().length > MAX_REPLACE_PROD ? listing.validation.replaceProd : undefined;
 
   const set = useCallback(<K extends keyof ExtraValues>(key: K, value: ExtraValues[K]) => {
     setValues((v) => ({ ...v, [key]: value }));
@@ -62,7 +64,7 @@ export function ExtraForm({ detail }: { detail: ListingDetail }) {
   }, []);
 
   const submit = async () => {
-    if (!changed || anyUploading || submitting || done) return;
+    if (!changed || anyUploading || submitting || done || replaceProdError) return;
     setFormError(null);
     setUnreachable(false);
     setSubmitting(true);
@@ -85,7 +87,7 @@ export function ExtraForm({ detail }: { detail: ListingDetail }) {
   const fileField = (name: FileField) => (
     <SingleFileUploader
       uploadKind={fileSpec[name].uploadKind}
-      checkKind="doc"
+      checkKind="pdf"
       label={fileSpec[name].label}
       hint={t.docHint}
       pickLabel={t.filePick}
@@ -152,6 +154,18 @@ export function ExtraForm({ detail }: { detail: ListingDetail }) {
           </select>
         </SelectField>
 
+        <FieldShell inline label={t.replaceProd} htmlFor="replaceProd" error={replaceProdError ?? fieldErrors.replaceProd}>
+          <input
+            id="replaceProd"
+            value={values.replaceProd}
+            onChange={(e) => set("replaceProd", e.target.value)}
+            placeholder={t.replaceProdPlaceholder}
+            aria-invalid={Boolean(replaceProdError ?? fieldErrors.replaceProd)}
+            aria-describedby={replaceProdError ?? fieldErrors.replaceProd ? "replaceProd-error" : undefined}
+            className={selectClass}
+          />
+        </FieldShell>
+
         {FILE_FIELDS.map((name) => (
           <div key={name}>{fileField(name)}</div>
         ))}
@@ -159,7 +173,7 @@ export function ExtraForm({ detail }: { detail: ListingDetail }) {
 
       {!changed && !done && <p className="-mb-3 text-center text-xs text-ink-3">{t.noChange}</p>}
       {/* 바꾼 칸이 없거나 업로드 중이면 막는다 — 업로드 중엔 키가 아직 없다 */}
-      <SubmitButton label={t.save} disabled={!changed || anyUploading || done} submitting={submitting} />
+      <SubmitButton label={t.save} disabled={!changed || anyUploading || done || Boolean(replaceProdError)} submitting={submitting} />
     </form>
   );
 }
