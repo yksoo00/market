@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { LoginForm } from "@/components/auth/LoginForm";
+import { businessSignupPath, personalSignupPath } from "@/lib/signupFlow";
 import { auth as t } from "@/messages/auth";
 
 interface Props {
@@ -32,7 +33,7 @@ export function LoginPanel({ next, initial }: Props) {
           <FindLinks />
           <p className="text-center text-[13px] text-ink-2">
             {t.login.noAccount}{" "}
-            <Link href="/signup" className="font-semibold text-primary hover:underline">
+            <Link href={personalSignupPath.form} className="font-semibold text-primary hover:underline">
               {t.login.signup}
             </Link>
           </p>
@@ -48,7 +49,7 @@ export function LoginPanel({ next, initial }: Props) {
           </div>
           <p className="text-center text-[13px] text-ink-2">
             {t.login.businessHint}{" "}
-            <Link href="/signup" className="font-semibold text-primary hover:underline">
+            <Link href={businessSignupPath.form} className="font-semibold text-primary hover:underline">
               {t.login.signup}
             </Link>
           </p>

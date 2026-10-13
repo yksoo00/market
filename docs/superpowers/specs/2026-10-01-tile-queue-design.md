@@ -26,6 +26,13 @@
 | sellNew | `/listings/new` | sell |
 | sellExtra | `/listings/extra` | sell |
 | sellQuote | `/quotes/adjust` | sell |
+| my | `/my` | common (2026-10-13 추가) |
+| myListings | `/my/listings` | sell |
+| myPurchases | `/my/purchases` | buy (2026-10-13 추가) |
+| listingEdit | `/listings/{userId}/{regDate}/edit` | sell (2026-10-13 추가) |
+| listingExtraForm | `/listings/{userId}/{regDate}/extra` | sell (2026-10-13 추가) |
+
+- 2026-10-13: `src/app` 의 모든 `page.tsx` 가 이 표에 있는지 `tileScreens.test.ts` 가 검사한다. 새 화면을 표에 안 넣으면 테스트가 실패한다 (마이페이지가 표에 없어 열 때마다 전체 화면으로 리셋되던 문제).
 
 - 판매·구매·공통은 첫 내용일 뿐이고 규칙은 모든 화면에 같다.
 - 표에 없는 경로는 **그 경로 자체가 하나의 화면, 그룹 없음** → 다른 화면을 열면 항상 리셋.

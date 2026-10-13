@@ -61,7 +61,8 @@ export function closePane(panes: readonly Pane[], key: string): Pane[] {
 }
 
 /**
- * iframe 칸이 링크가 아니라 코드로(로그인 성공 후 router.push, 로그인 상태면 홈으로 보내기 등) 이동했다고 보고했을 때.
+ * iframe 칸이 링크가 아니라 코드로(?next= 로 온 로그인 성공 후 router.replace, RequireLogin 의 로그인 보내기 등) 이동했다고 보고했을 때.
+ * 홈으로 가는 로그인 성공은 여기를 안 거치고 useTileOpen 리셋으로 간다 (useGoAfterLogin).
  * 다른 화면으로의 링크 클릭은 iframe이 부모 큐에 넘기므로, 여기서 화면이 바뀌었다면 코드 이동이다 →
  * 그 칸을 닫고 그 경로를 주소창 칸에서 연 것처럼 큐 규칙으로 연다 (로그인 후 홈이면 이미 홈이 있어 칸만 닫힘).
  */

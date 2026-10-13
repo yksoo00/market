@@ -192,25 +192,30 @@ class AuthApiTest {
 	class BusinessLogin {
 
 		@Test
-		@DisplayName("사업자번호 + 담당자 비밀번호로 로그인된다")
+		@DisplayName("기업 아이디 + 비밀번호로 로그인된다")
 		void success() throws Exception {
-			User owner = users.save(User.builder().kind(UserKind.BUSINESS).loginId("1234567890")
+			User owner = users.save(User.builder().kind(UserKind.BUSINESS).loginId("acme01")
 				.passwordHash(passwordEncoder.encode(PASSWORD)).name("담당자").email("owner@biz.example")
 				.busRegId("1234567890").companyType("corporate").companyName("테스트상사")
 				.companyOpenDate("20200101").companyAddress("서울").build());
 
 			mvc.perform(post("/api/v1/auth/login/business").contentType(MediaType.APPLICATION_JSON)
 					.content("""
-							{"bizNo":"1234567890","password":"%s","remember":true}""".formatted(PASSWORD)))
+							{"loginId":"acme01","password":"%s","remember":true}""".formatted(PASSWORD)))
 				.andExpect(status().isOk()).andExpect(jsonPath("$.data.userId").value(owner.getId().toString()));
 		}
 
 		@Test
-		@DisplayName("등록되지 않은 사업자번호는 401 INVALID_CREDENTIALS")
-		void unknownBizNo() throws Exception {
+		@DisplayName("없는 아이디·개인 계정 아이디는 401 INVALID_CREDENTIALS")
+		void unknownOrPersonal() throws Exception {
 			mvc.perform(post("/api/v1/auth/login/business").contentType(MediaType.APPLICATION_JSON)
 					.content("""
-							{"bizNo":"9999999999","password":"%s","remember":true}""".formatted(PASSWORD)))
+							{"loginId":"nobody01","password":"%s","remember":true}""".formatted(PASSWORD)))
+				.andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
+			// setUp 의 개인 계정은 비밀번호가 맞아도 기업 탭으로 안 된다
+			mvc.perform(post("/api/v1/auth/login/business").contentType(MediaType.APPLICATION_JSON)
+					.content("""
+							{"loginId":"tester1","password":"%s","remember":true}""".formatted(PASSWORD)))
 				.andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("INVALID_CREDENTIALS"));
 		}
 

@@ -1,0 +1,34 @@
+meta {
+  name: 가입 - 기업
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/v1/auth/signup/business
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "verificationToken": "",
+    "loginId": "acme01",
+    "password": "Str0ng-pass!",
+    "bizType": "corporation",
+    "companyName": "테스트상사",
+    "address": "서울 중구 세종대로 110 3층",
+    "contactName": "김담당",
+    "contactPhone": "01055556666",
+    "contactEmail": "owner@biz.example",
+    "contactTel": "",
+    "companyTel": "",
+    "agreeTerms": true,
+    "agreePrivacy": true
+  }
+}
+
+docs {
+  verificationToken 은 "가입 - 기업 사업자번호 조회" 응답값. 201 { userId }, 이후 "로그인 (기업)" 에 loginId 로.
+  410 VERIFICATION_EXPIRED(조회 만료), 409 DUPLICATE_BIZ_NO / DUPLICATE_LOGIN_ID / DUPLICATE_EMAIL / DUPLICATE_PHONE, 400 fields
+}

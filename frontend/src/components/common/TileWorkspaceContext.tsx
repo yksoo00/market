@@ -79,7 +79,7 @@ export function TileWorkspaceProvider({ children }: { children: ReactNode }) {
     [router],
   );
 
-  // iframe 칸이 보고한 현재 경로. 같은 화면이면 경로만 갱신, 코드로 다른 화면에 갔으면(로그인 성공 후 등)
+  // iframe 칸이 보고한 현재 경로. 같은 화면이면 경로만 갱신, 코드로 다른 화면에 갔으면(?next= 로 온 로그인 성공 후 등)
   // 그 칸을 닫고 큐 규칙으로 연다 (paneNavigated). TileFrame의 message 리스너 deps에 들어가므로 참조 고정
   const updatePath = useCallback(
     (key: string, path: string) => {
@@ -196,6 +196,26 @@ function MainPathWatcher({ onChange }: { onChange: (fullPath: string) => void })
     onChange(fullPath);
   }, [fullPath, onChange]);
   return null;
+}
+
+/**
+ * 링크 없이 코드로 다른 화면을 열 때(로그인 성공 후 등) 큐 규칙을 타게 한다.
+ * iframe 칸은 칸 목록이 없으므로 링크 클릭과 같은 메시지로 부모 큐에 맡긴다.
+ */
+export function useTileOpen(): (path: string, reset: boolean) => void {
+  const { open } = useTileWorkspace();
+  const framed = useIsFramed();
+  return useCallback(
+    (path: string, reset: boolean) => {
+      if (framed) {
+        window.top?.postMessage({ source: "market-tile", type: "open", path, reset }, window.location.origin);
+        return;
+      }
+      // 칸 key 를 비워 두면 decideOpen 이 주소창 칸에서 연 것으로 본다 (칸 목록을 deps 에 넣지 않으려고)
+      open("", path, reset);
+    },
+    [framed, open],
+  );
 }
 
 export function useTileWorkspace(): TileWorkspaceContextValue {

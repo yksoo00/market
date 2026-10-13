@@ -10,7 +10,7 @@
 | 컬럼 | 타입 | 용도 |
 |---|---|---|
 | `id` | uuid | 내부 사용자 ID, PK |
-| `user_id` | varchar(20) | 개인 로그인 ID. 기업 행은 사업자번호를 같이 둔다 |
+| `user_id` | varchar(20) | 로그인 아이디 (개인·기업 공통, 2026-10-13부터 기업도 직접 정함). 그 전에 가입한 기업 행은 사업자번호가 들어 있다 |
 | `password` | varchar(200) | bcrypt 비밀번호 해시 |
 | `user_class` | varchar(10) | `personal` 또는 `business` |
 | `user_name` | varchar(50) | 개인 이름 또는 기업 담당자 이름 |
@@ -20,14 +20,14 @@
 | `bus_reg_id` | varchar(20) | 기업 사업자등록번호 |
 | `company_type` | varchar(10) | `corporate` 또는 `individual` (`corporation` UI 값은 저장 시 `corporate`로 변환) |
 | `company_name` | varchar(50) | 회사명 |
-| `company_open_date` | varchar(10) | 개업일 |
+| `company_open_date` | varchar(10) | 개업일. 선택 — 기업 행 필수 제약은 `V202610131200` 에서 뺐다 (사용자 제공 표에서 필수 아님) |
 | `company_tel` | varchar(20) | 회사 전화번호 |
 | `company_address` | varchar(200) | 회사 주소 |
 | `dt_reg`, `dt_update`, `dt_expire` | varchar(14) | 등록·갱신·만료 시각 (`yyyyMMddHHmmss`) |
 | `user_nickname` | varchar(100) | 별칭 |
 | `nickname_usage` | varchar(1) | `Y`면 별칭 사용, 아니면 이름/회사명을 표시 |
 | `contact_method` | varchar(1) | 연락 수단 (`1` 전체, `2` 전화, `3` 이메일) |
-| `spare_col` | varchar(40) | 예비 컬럼. 현재 가입 흐름에서는 사용하지 않음 |
+| `spare_col` | varchar(40) | 약관 동의 기록 `terms:<약관 판>@<동의 시각 UTC yyyyMMddHHmmss>` (2026-10-13~, 동의 이력 테이블이 없어 축약). 그 전 가입 행은 비어 있음 |
 | `role`, `status`, `must_change_password`, `deleted_at` | 운영 컬럼 | 권한·계정상태·초기 비밀번호 변경·탈퇴 처리를 위해 추가 |
 
 인덱스: 활성 `user_id` 유일, 기업 `bus_reg_id` 유일, 활성 이메일·전화번호·사용 별칭 유일, `(user_class, status)` 조회 인덱스.

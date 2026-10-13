@@ -3,7 +3,7 @@
 import { useState, type ComponentProps } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { Button } from "@/components/ui/button";
-import { FormField } from "@/components/auth/FormField";
+import { FormField, type Inline } from "@/components/auth/FormField";
 import { authApi } from "@/lib/api/auth";
 import { loginIdSchema } from "@/lib/validation/auth";
 import { nicknameSchema } from "@/lib/validation/signup";
@@ -22,6 +22,7 @@ interface Props extends Omit<ComponentProps<"input">, "name" | "form"> {
   name: Name;
   label: string;
   hint?: string;
+  inline?: Inline;
   /** 부모가 제출 가능 여부를 판단하도록 결과를 올려보냄 */
   onStatus: (name: Name, available: boolean) => void;
 }
@@ -29,7 +30,7 @@ interface Props extends Omit<ComponentProps<"input">, "name" | "form"> {
 const schemas = { loginId: loginIdSchema, nickname: nicknameSchema };
 
 /** 아이디·닉네임: 입력 + 중복확인 버튼. 값이 바뀌면 확인 결과는 무효 */
-export function CheckableField({ name, label, hint, onStatus, ...rest }: Props) {
+export function CheckableField({ name, label, hint, inline, onStatus, ...rest }: Props) {
   const { control, getValues, getFieldState, formState, setError, clearErrors } = useFormContext<CheckableFields>();
   const value = useWatch({ control, name }) ?? "";
   const [status, setStatus] = useState<Status>("idle");
@@ -71,6 +72,7 @@ export function CheckableField({ name, label, hint, onStatus, ...rest }: Props) 
       name={name}
       label={label}
       hint={hint}
+      inline={inline}
       onChange={onChange}
       note={shown === "available" && <span className="text-up">{t.form.available[name]}</span>}
       trailing={

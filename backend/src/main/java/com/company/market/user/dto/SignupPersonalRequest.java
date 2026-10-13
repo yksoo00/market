@@ -1,5 +1,6 @@
 package com.company.market.user.dto;
 
+import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
@@ -27,5 +28,7 @@ public record SignupPersonalRequest(
 		@Size(max = 20, message = "전화번호는 20자 이하입니다.") String tel,
 		@Size(max = 200, message = "주소는 200자 이하입니다.") String address,
 		@NotBlank(message = "연락 수단을 선택하세요.")
-		@Pattern(regexp = "^[123]$", message = "연락 수단을 선택하세요.") String contactMethod) {
+		@Pattern(regexp = "^[123]$", message = "연락 수단을 선택하세요.") String contactMethod,
+		@AssertTrue(message = "이용약관(개인회원)에 동의해야 가입할 수 있습니다.") boolean agreeTerms,
+		@AssertTrue(message = "개인정보 처리방침에 동의해야 가입할 수 있습니다.") boolean agreePrivacy) {
 }

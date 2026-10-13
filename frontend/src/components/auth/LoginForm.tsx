@@ -1,17 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { FormField } from "@/components/auth/FormField";
 import { FormError, SubmitButton } from "@/components/auth/FormStatus";
+import { useGoAfterLogin } from "@/hooks/useGoAfterLogin";
 import { authApi } from "@/lib/api/auth";
 import { applyServerError } from "@/lib/form";
-import { businessLoginSchema, loginSchema, type BusinessLoginInput, type LoginInput } from "@/lib/validation/auth";
+import { loginSchema, type LoginInput } from "@/lib/validation/auth";
 import { auth as t } from "@/messages/auth";
 import { UNREACHABLE } from "@/types/api";
 
@@ -21,21 +20,22 @@ interface Props {
   next: string;
 }
 
-// 일반·기업 로그인은 첫 칸(아이디/사업자번호)과 API 만 다름. 폼 상태 처리는 같아서 하나로.
-type Values = LoginInput & BusinessLoginInput;
-const fields = ["loginId", "bizNo", "password"] as const;
-// 두 스키마를 같은 필드 집합으로 맞춰야 resolver 타입이 하나로 잡힘. 안 쓰는 쪽은 검사 안 함
-const personalSchema = loginSchema.extend({ bizNo: z.string() });
-const businessSchema = businessLoginSchema.extend({ loginId: z.string() });
+// 일반·기업 로그인은 칸이 같고(아이디·비밀번호, 2026-10-13 기업도 아이디) API 만 다름
+type Values = LoginInput;
+const fields = ["loginId", "password"] as const;
+
+// 아이디 로그인 전에 가입한 기업 계정은 아이디가 사업자번호(숫자 10자리)다. 예전처럼 123-45-67890 으로 넣어도
+// 되게 하이픈만 뺀다 — 새 아이디 규칙엔 하이픈이 없어서 다른 아이디와 겹치지 않는다
+const legacyBizNoId = (id: string) => (/^\d{3}-\d{2}-\d{5}$/.test(id) ? id.replaceAll("-", "") : id);
 
 export function LoginForm({ kind, next }: Props) {
-  const router = useRouter();
+  const goAfterLogin = useGoAfterLogin();
   const isBusiness = kind === "business";
   const form = useForm<Values>({
-    resolver: zodResolver(isBusiness ? businessSchema : personalSchema),
+    resolver: zodResolver(loginSchema),
     mode: "onTouched",
     reValidateMode: "onChange",
-    defaultValues: { loginId: "", bizNo: "", password: "", remember: false },
+    defaultValues: { loginId: "", password: "", remember: false },
   });
   const {
     handleSubmit,
@@ -50,10 +50,10 @@ export function LoginForm({ kind, next }: Props) {
     setFormError(null);
     setUnreachable(false);
     const result = isBusiness
-      ? await authApi.loginBusiness({ bizNo: values.bizNo, password: values.password, remember: values.remember })
+      ? await authApi.loginBusiness({ loginId: legacyBizNoId(values.loginId), password: values.password, remember: values.remember })
       : await authApi.login({ loginId: values.loginId, password: values.password, remember: values.remember });
     if (result.ok) {
-      router.push(next);
+      goAfterLogin(next);
       return;
     }
     setUnreachable(result.code === UNREACHABLE);
@@ -65,25 +65,14 @@ export function LoginForm({ kind, next }: Props) {
       <form onSubmit={onSubmit} noValidate className="flex flex-col gap-4">
         <FormError message={formError} onRetry={unreachable ? () => void onSubmit() : undefined} />
 
-        {isBusiness ? (
-          <FormField<Values>
-            name="bizNo"
-            label={t.login.bizNo}
-            placeholder={t.login.bizNoPlaceholder}
-            inputMode="numeric"
-            autoComplete="username"
-            maxLength={12}
-          />
-        ) : (
-          <FormField<Values>
-            name="loginId"
-            label={t.login.loginId}
-            placeholder={t.login.loginIdPlaceholder}
-            autoComplete="username"
-            autoCapitalize="none"
-            maxLength={20}
-          />
-        )}
+        <FormField<Values>
+          name="loginId"
+          label={t.login.loginId}
+          placeholder={t.login.loginIdPlaceholder}
+          autoComplete="username"
+          autoCapitalize="none"
+          maxLength={20}
+        />
         <FormField<Values>
           name="password"
           label={t.login.password}

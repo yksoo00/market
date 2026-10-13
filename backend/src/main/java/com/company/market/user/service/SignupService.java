@@ -2,9 +2,9 @@ package com.company.market.user.service;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.format.DateTimeParseException;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -49,7 +49,10 @@ public class SignupService {
 
 	private static final Duration BUSINESS_VERIFY_TTL = Duration.ofMinutes(30);
 
-	private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+	/** 약관 문안의 판. 프론트 messages/terms.ts 의 문안을 바꾸면 그날 날짜로 올린다 (화면엔 판을 보내지 않고 서버 값만 기록) */
+	static final String TERMS_VERSION = "20261013";
+
+	private static final DateTimeFormatter TERMS_AT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
 	/** 유일 제약 이름 → 오류 코드. 미리 확인해도 동시 가입 경쟁은 DB 만 잡을 수 있어서 */
 	private static final Map<String, ErrorCode> CONSTRAINT_CODES = Map.of(
@@ -113,47 +116,46 @@ public class SignupService {
 		}
 	}
 
-	/** 실제 국세청 연동 전까지 로컬 개발에서만 사업자 인증 토큰을 발급한다. */
+	/**
+	 * 사업자번호 조회. 번호만 받는다 (사용자 지시, 2026-10-13).
+	 * TODO(국세청 연동 전): 지금은 로컬 개발에서만 형식·중복만 보고 토큰을 발급한다. 연동하면 휴·폐업 확인을 여기에.
+	 */
 	public String verifyBusiness(BusinessVerifyRequest req, String ip) {
 		limiter.hit("signup:biz-verify:ip:" + ip, SIGNUP_PER_IP, SIGNUP_WINDOW);
 		if (!props.isLocal()) {
 			throw new ApiException(ErrorCode.BUSINESS_VERIFICATION_UNAVAILABLE);
 		}
-		try {
-			LocalDate startDate = LocalDate.parse(req.startDate(), java.time.format.DateTimeFormatter.BASIC_ISO_DATE);
-			// 개업일은 한국 날짜. 시스템 기본 시간대(컨테이너는 UTC)를 쓰면 한국 00~09시에 "오늘"이 하루 밀린다
-			if (!startDate.isBefore(LocalDate.now(clock.withZone(SEOUL)))) {
-				throw new ValidationException(Map.of("startDate", "개업년월일은 오늘 이전 날짜여야 합니다."));
-			}
-		}
-		catch (DateTimeParseException e) {
-			throw new ValidationException(Map.of("startDate", "개업년월일이 올바른 날짜가 아닙니다."));
-		}
 		if (users.findByBusRegIdAndDeletedAtIsNull(req.bizNo()).isPresent()) {
 			throw new ApiException(ErrorCode.DUPLICATE_BIZ_NO);
 		}
 		String token = UUID.randomUUID().toString();
-		String value = String.join("|", req.bizNo(), req.startDate(), req.ownerName());
-		redis.opsForValue().set(BUSINESS_VERIFY_PREFIX + token, value, BUSINESS_VERIFY_TTL);
+		redis.opsForValue().set(BUSINESS_VERIFY_PREFIX + token, req.bizNo(), BUSINESS_VERIFY_TTL);
 		return token;
 	}
 
-	/** 사업자 기본 정보는 검증 토큰에서 가져오고, 계정·회사 정보는 users 한 행에 저장한다. */
+	/** 사업자번호는 조회 토큰에서 가져오고, 계정·회사 정보는 users 한 행에 저장한다. */
 	public UUID signupBusiness(SignupBusinessRequest req, String ip) {
 		limiter.hit("signup:ip:" + ip, SIGNUP_PER_IP, SIGNUP_WINDOW);
-		String verified = redis.opsForValue().getAndDelete(BUSINESS_VERIFY_PREFIX + req.verificationToken());
-		if (verified == null) {
+		// 한 페이지 폼이라 아이디 중복 같은 오류로 다시 제출하는 일이 흔하다. 토큰은 가입이 끝난 뒤에 지운다
+		// (같은 토큰으로 두 번 가입되는 경쟁은 bus_reg_id 유일 제약이 막는다)
+		String tokenKey = BUSINESS_VERIFY_PREFIX + req.verificationToken();
+		String bizNo = redis.opsForValue().get(tokenKey);
+		if (bizNo == null) {
 			throw new ApiException(ErrorCode.VERIFICATION_EXPIRED);
 		}
-		String[] details = verified.split("\\|", 3);
-		String bizNo = details[0];
-		String startDate = details[1];
-		if (req.password().toLowerCase(Locale.ROOT).contains(bizNo)) {
+		String lowerPassword = req.password().toLowerCase(Locale.ROOT);
+		if (lowerPassword.contains(req.loginId().toLowerCase(Locale.ROOT))) {
+			throw new ValidationException(Map.of("password", "비밀번호에 아이디를 포함할 수 없습니다."));
+		}
+		if (lowerPassword.contains(bizNo)) {
 			throw new ValidationException(Map.of("password", "비밀번호에 사업자등록번호를 포함할 수 없습니다."));
 		}
 		String email = req.contactEmail().trim().toLowerCase(Locale.ROOT);
-		if (users.existsByBusRegIdAndDeletedAtIsNull(bizNo) || users.existsByLoginIdAndDeletedAtIsNull(bizNo)) {
+		if (users.existsByBusRegIdAndDeletedAtIsNull(bizNo)) {
 			throw new ApiException(ErrorCode.DUPLICATE_BIZ_NO);
+		}
+		if (users.existsByLoginIdAndDeletedAtIsNull(req.loginId())) {
+			throw new ApiException(ErrorCode.DUPLICATE_LOGIN_ID);
 		}
 		if (users.existsByEmailIgnoreCaseActive(email)) {
 			throw new ApiException(ErrorCode.DUPLICATE_EMAIL);
@@ -165,7 +167,7 @@ public class SignupService {
 		try {
 			UUID userId = tx.execute(status -> users.save(User.builder()
 				.kind(UserKind.BUSINESS)
-				.loginId(bizNo)
+				.loginId(req.loginId())
 				.passwordHash(passwordHash)
 				.name(req.contactName())
 				.phone(req.contactPhone())
@@ -175,17 +177,32 @@ public class SignupService {
 				.busRegId(bizNo)
 				.companyType("corporation".equals(req.bizType()) ? "corporate" : req.bizType())
 				.companyName(req.companyName())
-				.companyOpenDate(startDate)
 				.companyTel(req.companyTel())
 				.companyAddress(req.address())
 				.nicknameUsage("N")
+				.spareCol(termsAgreement())
 				.build()).getId());
+			// 계정은 이미 만들어졌다. 토큰 정리가 실패해도 가입 성공을 500 으로 바꾸지 않는다 (30분 뒤 만료, 재사용은 유일 제약이 막음)
+			try {
+				redis.delete(tokenKey);
+			}
+			catch (RuntimeException e) {
+				log.warn("사업자 조회 토큰 삭제 실패 userId={}", userId, e);
+			}
 			log.info("기업 가입 userId={} ip={}", userId, ip);
 			return userId;
 		}
 		catch (DataIntegrityViolationException e) {
 			throw duplicateFrom(e);
 		}
+	}
+
+	/**
+	 * 약관 동의 기록 "terms:<약관 판>@<동의 시각 UTC yyyyMMddHHmmss>". 동의 이력 테이블이 없어 spare_col(40자)에 축약한다
+	 * (decisions.md 2026-09-28 단일 users, 2026-10-13 약관). 요청의 동의 값은 DTO @AssertTrue 가 이미 확인했다.
+	 */
+	private String termsAgreement() {
+		return "terms:" + TERMS_VERSION + "@" + LocalDateTime.now(clock.withZone(ZoneOffset.UTC)).format(TERMS_AT);
 	}
 
 	private void checkDuplicates(String loginId, String nickname, String email, String phone, boolean useNickname) {
@@ -216,6 +233,7 @@ public class SignupService {
 			.userTel(req.tel())
 			.userAddress(req.address())
 			.contactMethod(req.contactMethod())
+			.spareCol(termsAgreement())
 			.build());
 		return user.getId();
 	}

@@ -12,20 +12,25 @@ post {
 
 body:json {
   {
-    "verificationToken": "stub-verification-token",
     "name": "홍길동",
     "nickname": "길동이",
+    "nicknameUsage": "Y",
     "loginId": "gildong1",
     "email": "gildong@example.com",
     "password": "Str0ng-pass!",
     "phone": "01012345678",
-    "marketingOptIn": true
+    "tel": "",
+    "address": "서울 중구 세종대로 110 3층",
+    "contactMethod": "1",
+    "agreeTerms": true,
+    "agreePrivacy": true
   }
 }
 
 docs {
   201 { userId }. 로그인은 따로 (자동 로그인 없음).
-  stub 토큰은 .env IDENTITY_VERIFICATION_PROVIDER=stub 일 때만. 운영(pass)은 410 VERIFICATION_EXPIRED.
-  409: DUPLICATE_LOGIN_ID / DUPLICATE_NICKNAME / DUPLICATE_EMAIL / DUPLICATE_PHONE / ALREADY_REGISTERED(같은 사람)
+  약관 동의(agreeTerms·agreePrivacy)가 false 면 400 fields. 동의 기록은 users.spare_col.
+  본인인증은 화면의 임시 버튼뿐이고 서버는 받지 않는다 (2026-10-13).
+  409: DUPLICATE_LOGIN_ID / DUPLICATE_NICKNAME / DUPLICATE_EMAIL / DUPLICATE_PHONE
   429: 같은 IP 5회/시간
 }

@@ -1,19 +1,7 @@
-import type { Metadata } from "next";
-import { AuthCard } from "@/components/auth/AuthCard";
-import { BusinessVerifyStep } from "@/components/signup/BusinessVerifyStep";
-import { SignupSteps } from "@/components/signup/SignupSteps";
-import { businessSteps } from "@/components/signup/steps";
-import { signup as t } from "@/messages/signup";
+import { redirect } from "next/navigation";
+import { businessSignupPath } from "@/lib/signupFlow";
 
-export const metadata: Metadata = { title: `${t.business.verify.title} · ${t.title} · 커널마켓` };
-
+// 사업자 인증 단계는 가입 폼 안의 [조회]로 합쳤다 (2026-10-13). 예전 주소는 가입 폼으로
 export default function BusinessVerifyPage() {
-  return (
-    <div className="w-full max-w-[420px] flex flex-col gap-4">
-      <SignupSteps steps={businessSteps} current={0} />
-      <AuthCard title={t.business.verify.title} subtitle={t.business.verify.subtitle}>
-        <BusinessVerifyStep />
-      </AuthCard>
-    </div>
-  );
+  redirect(businessSignupPath.form);
 }
