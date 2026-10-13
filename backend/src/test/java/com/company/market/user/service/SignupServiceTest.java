@@ -60,7 +60,7 @@ class SignupServiceTest {
 	@DisplayName("사업자번호 조회는 번호만 받아 토큰에 번호만 담는다")
 	void verifyStoresBizNoOnly() {
 		when(props.isLocal()).thenReturn(true);
-		when(users.findByBusRegIdAndDeletedAtIsNull("1234567890")).thenReturn(Optional.empty());
+		when(users.findByBusRegId("1234567890")).thenReturn(Optional.empty());
 
 		String token = service().verifyBusiness(new BusinessVerifyRequest("1234567890"), "127.0.0.1");
 
@@ -72,7 +72,7 @@ class SignupServiceTest {
 	void rejectedSubmitKeepsToken() {
 		when(redis.opsForValue().get("signup:biz:t1")).thenReturn("1234567890");
 		SignupBusinessRequest req = new SignupBusinessRequest("t1", "acme01", "acme01-Pass!", "corporation", "테스트상사", "20200101", "서울",
-				"김담당", "01055556666", "owner@biz.example", "", "", "1", true, true);
+				"김담당", "01055556666", "owner@biz.example", "", "1", true, true);
 
 		assertThatThrownBy(() -> service().signupBusiness(req, "127.0.0.1"))
 			.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.getFields()).containsKey("password"));
@@ -85,7 +85,7 @@ class SignupServiceTest {
 		SignupService service = new SignupService(users, passwordEncoder, limiter, props, tx, redis, Clock.fixed(Instant.parse("2026-10-07T16:00:00Z"), ZoneOffset.UTC));
 		when(redis.opsForValue().get("signup:biz:t1")).thenReturn("1234567890");
 		SignupBusinessRequest today = new SignupBusinessRequest("t1", "acme01", "Str0ng-pass!", "corporation", "테스트상사", "20261008", "서울",
-				"김담당", "01055556666", "owner@biz.example", "", "", "1", true, true);
+				"김담당", "01055556666", "owner@biz.example", "", "1", true, true);
 
 		assertThatThrownBy(() -> service.signupBusiness(today, "127.0.0.1"))
 			.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.getFields()).containsKey("startDate"));

@@ -14,7 +14,7 @@
 | `password` | varchar(200) | bcrypt 비밀번호 해시 |
 | `user_class` | varchar(10) | `personal` 또는 `business` |
 | `user_name` | varchar(50) | 개인 이름 또는 기업 담당자 이름 |
-| `user_phone`, `user_tel` | varchar(20) | 휴대전화·전화번호 |
+| `user_phone` | varchar(20) | 휴대전화 |
 | `user_email` | varchar(100) | 이메일 |
 | `user_address` | varchar(200) | 사용자 주소 |
 | `bus_reg_id` | varchar(20) | 기업 사업자등록번호 |
@@ -28,9 +28,8 @@
 | `nickname_usage` | varchar(1) | `Y`면 별칭 사용, 아니면 이름/회사명을 표시 |
 | `contact_method` | varchar(1) | 연락 수단 (`1` 전체, `2` 전화, `3` 이메일) |
 | `spare_col` | varchar(40) | 약관 동의 기록 `terms:<약관 판>@<동의 시각 UTC yyyyMMddHHmmss>` (2026-10-13~, 동의 이력 테이블이 없어 축약). 그 전 가입 행은 비어 있음 |
-| `role`, `status`, `must_change_password`, `deleted_at` | 운영 컬럼 | 권한·계정상태·초기 비밀번호 변경·탈퇴 처리를 위해 추가 |
 
-인덱스: 활성 `user_id` 유일, 기업 `bus_reg_id` 유일, 활성 이메일·전화번호·사용 별칭 유일, `(user_class, status)` 조회 인덱스.
+인덱스: `user_id` 유일, 기업 `bus_reg_id` 유일, 이메일(대소문자 무시)·전화번호·사용 별칭 유일, `user_class` 조회 인덱스. 역할·상태·탈퇴·`user_tel` 컬럼은 2026-10-13에 정의서 기준으로 삭제했다 (decisions.md 2026-10-13).
 
 ### 저장 규칙
 

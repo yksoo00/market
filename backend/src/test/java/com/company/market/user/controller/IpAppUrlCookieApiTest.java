@@ -57,7 +57,7 @@ class IpAppUrlCookieApiTest {
 
 	@AfterEach
 	void tearDown() {
-		jdbc.update("delete from trd_user_info where role <> 'admin'");
+		jdbc.update("delete from trd_user_info");
 		Objects.requireNonNull(redis.getConnectionFactory()).getConnection().serverCommands().flushDb();
 	}
 

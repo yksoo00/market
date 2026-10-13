@@ -22,7 +22,6 @@ public enum ErrorCode {
 	// 인증
 	INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 맞지 않습니다."),
 	LOCKED(HttpStatus.TOO_MANY_REQUESTS, "로그인을 5회 이상 실패해 15분간 잠겼습니다."),
-	ACCOUNT_SUSPENDED(HttpStatus.FORBIDDEN, "이용이 정지된 계정입니다. 고객센터로 문의해 주세요."),
 	SESSION_EXPIRED(HttpStatus.UNAUTHORIZED, "다시 로그인해 주세요."),
 
 	// 가입

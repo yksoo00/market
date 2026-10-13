@@ -12,7 +12,6 @@ import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.repository.ProductRepository;
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;
-import com.company.market.user.domain.UserRole;
 import com.company.market.user.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
@@ -72,14 +71,14 @@ class ListingMineApiTest {
 		cleanUp();
 		userId = newUser("minetester", "01012340001");
 		otherId = newUser("mineother", "01012340002");
-		auth = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId, UserRole.USER));
+		auth = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId));
 	}
 
 	@AfterEach
 	void cleanUp() {
 		jdbc.update("delete from trd_prod_reg");
 		jdbc.update("delete from trd_prod_master");
-		jdbc.update("delete from trd_user_info where role <> 'admin'");
+		jdbc.update("delete from trd_user_info");
 	}
 
 	@Test

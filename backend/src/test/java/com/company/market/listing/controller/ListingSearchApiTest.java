@@ -17,7 +17,6 @@ import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.repository.ProductRepository;
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;
-import com.company.market.user.domain.UserRole;
 import com.company.market.user.repository.UserRepository;
 import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.http.Cookie;
@@ -79,7 +78,7 @@ class ListingSearchApiTest {
 	void setUp() {
 		jdbc.update("delete from trd_prod_reg");
 		jdbc.update("delete from trd_prod_master");
-		jdbc.update("delete from trd_user_info where role <> 'admin'");
+		jdbc.update("delete from trd_user_info");
 		User user = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("searchtester")
 			.passwordHash("$2a$12$hash").nickname("searchtester").email("searchtester@example.com")
 			.name("홍길동").phone("01012340000").phoneHash(hasher.hash("01012340000")).build());
@@ -94,7 +93,7 @@ class ListingSearchApiTest {
 	void cleanUp() {
 		jdbc.update("delete from trd_prod_reg");
 		jdbc.update("delete from trd_prod_master");
-		jdbc.update("delete from trd_user_info where role <> 'admin'");
+		jdbc.update("delete from trd_user_info");
 		limiter.reset(SEARCH_LIMIT_KEY);
 	}
 
@@ -164,7 +163,7 @@ class ListingSearchApiTest {
 	@Test
 	@DisplayName("로그인 사용자 검색은 제한하지 않는다")
 	void loggedInSearchIsNotRateLimited() throws Exception {
-		Cookie auth = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId, UserRole.USER));
+		Cookie auth = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId));
 		for (int i = 0; i < 61; i++) {
 			mvc.perform(get("/api/v1/listings").cookie(auth)).andExpect(status().isOk());
 		}
@@ -192,7 +191,7 @@ class ListingSearchApiTest {
 	}
 
 	private Cookie mine() {
-		return new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId, UserRole.USER));
+		return new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId));
 	}
 
 	@Test

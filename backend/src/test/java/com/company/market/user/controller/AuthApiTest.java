@@ -6,7 +6,6 @@ import java.util.Objects;
 import com.company.market.TestInfraConfiguration;
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;
-import com.company.market.user.domain.UserRole;
 import com.company.market.user.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
@@ -16,6 +15,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -26,6 +26,15 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.JwsHeader;
+import org.springframework.security.oauth2.jwt.JwtClaimsSet;
+import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
+import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
@@ -66,6 +75,9 @@ class AuthApiTest {
 	@Autowired
 	JdbcTemplate jdbc;
 
+	@Value("${app.jwt.secret}")
+	String jwtSecret;
+
 	User personal;
 
 	@BeforeEach
@@ -83,7 +95,7 @@ class AuthApiTest {
 
 	@AfterEach
 	void tearDown() {
-		jdbc.update("delete from trd_user_info where role <> 'admin'");
+		jdbc.update("delete from trd_user_info");
 		Objects.requireNonNull(redis.getConnectionFactory()).getConnection().serverCommands().flushDb();
 	}
 
@@ -166,15 +178,6 @@ class AuthApiTest {
 
 			mvc.perform(loginRequest("tester1", PASSWORD, true)).andExpect(status().isTooManyRequests())
 				.andExpect(jsonPath("$.code").value("LOCKED"));
-		}
-
-		@Test
-		@DisplayName("정지된 계정은 비밀번호가 맞아도 403 ACCOUNT_SUSPENDED")
-		void suspended() throws Exception {
-			jdbc.update("update trd_user_info set status = 'suspended' where uid = ?", personal.getId());
-
-			mvc.perform(loginRequest("tester1", PASSWORD, true)).andExpect(status().isForbidden())
-				.andExpect(jsonPath("$.code").value("ACCOUNT_SUSPENDED"));
 		}
 
 		@Test
@@ -343,46 +346,23 @@ class AuthApiTest {
 				.andExpect(status().isOk())
 				.andExpect(jsonPath("$.data.id").value(personal.getId().toString()))
 				.andExpect(jsonPath("$.data.kind").value("PERSONAL"))
-				.andExpect(jsonPath("$.data.role").value("USER"))
 				.andExpect(jsonPath("$.data.nickname").value("테스터"))
-				.andExpect(jsonPath("$.data.mustChangePassword").value(false))
 				.andReturn().getResponse().getContentAsString();
 			assertThat(body).doesNotContain("email").doesNotContain("phone").doesNotContain("\"name\"");
 		}
 
 		@Test
-		@DisplayName("access 토큰이 살아 있어도 정지되면 401")
-		void suspendedAfterLogin() throws Exception {
-			String access = cookieValue(loginOk(), "access_token");
-			jdbc.update("update trd_user_info set status = 'suspended' where uid = ?", personal.getId());
+		@DisplayName("role 클레임이 있는 옛 토큰도 인증된다")
+		void legacyTokenWithRoleClaim() throws Exception {
+			var key = new SecretKeySpec(jwtSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+			Instant now = Instant.now();
+			var claims = JwtClaimsSet.builder().subject(personal.getId().toString()).claim("role", "USER")
+				.issuedAt(now).expiresAt(now.plusSeconds(600)).build();
+			String token = new NimbusJwtEncoder(new ImmutableSecret<>(key))
+				.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
 
-			mvc.perform(get("/api/v1/users/me").cookie(new Cookie("access_token", access))).andExpect(status().isUnauthorized());
-		}
-
-	}
-
-	@Nested
-	@DisplayName("관리자 시드")
-	class AdminSeed {
-
-		@Test
-		@DisplayName("앱 시작 시 admin 1명이 must_change_password=true 로 생긴다")
-		void seeded() {
-			assertThat(users.existsByRoleAndDeletedAtIsNull(UserRole.ADMIN)).isTrue();
-			User admin = users.findByLoginIdAndDeletedAtIsNull("admin").orElseThrow();
-			assertThat(admin.getRole()).isEqualTo(UserRole.ADMIN);
-			assertThat(admin.isMustChangePassword()).isTrue();
-			assertThat(admin.getPasswordHash()).startsWith("$2a$12$");
-		}
-
-		@Test
-		@DisplayName("시드 관리자로 로그인하면 /me 가 비밀번호 변경 필요를 알린다")
-		void adminLogin() throws Exception {
-			MvcResult r = mvc.perform(loginRequest("admin", "admin-test-password!1", true)).andExpect(status().isOk()).andReturn();
-
-			mvc.perform(get("/api/v1/users/me").cookie(new Cookie("access_token", cookieValue(r, "access_token"))))
-				.andExpect(jsonPath("$.data.role").value("ADMIN"))
-				.andExpect(jsonPath("$.data.mustChangePassword").value(true));
+			mvc.perform(get("/api/v1/users/me").cookie(new Cookie("access_token", token))).andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.id").value(personal.getId().toString()));
 		}
 
 	}
@@ -414,15 +394,11 @@ class AuthApiTest {
 		}
 
 		@Test
-		@DisplayName("인증된 요청의 로그에는 requestId 와 userId 가 붙는다")
+		@DisplayName("로그 줄에는 requestId 가 붙고 메시지에 userId 가 남는다")
 		void mdcInLogLine(CapturedOutput output) throws Exception {
-			String access = cookieValue(loginOk(), "access_token");
-			jdbc.update("update trd_user_info set status = 'suspended' where uid = ?", personal.getId());
-
-			// /me 가 401 을 내면서 아무 로그도 안 남기므로, 로그가 확실히 찍히는 정지 로그인 시도로 패턴을 확인
-			mvc.perform(loginRequest("tester1", PASSWORD, true));
-			assertThat(output.getOut()).containsPattern("\\[[0-9a-f-]{36},\\] .*정지 계정 로그인 시도 userId=" + personal.getId());
-			assertThat(access).isNotBlank();
+			// 로그인 요청은 아직 인증 전이라 userId MDC 는 비고, 메시지 본문에 userId 가 남는지와 requestId 형식을 본다
+			loginOk();
+			assertThat(output.getOut()).containsPattern("\\[[0-9a-f-]{36},\\] .*로그인 userId=" + personal.getId());
 		}
 
 	}

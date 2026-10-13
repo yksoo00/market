@@ -13,7 +13,7 @@
 | 스택 | Spring Boot 4.1·Java 21, Next.js, Postgres+pgvector, Redis | 09-18 Spring Boot·AI·Java |
 | 인프라 | 자체 서버 + Vercel, Docker Compose. Caddy는 보류. 파일은 서버 로컬 디스크(volume), MinIO 안 씀. 백엔드 개발은 `api-dev` 컨테이너(compose watch + devtools) 또는 호스트 bootRun | 09-17 서버·Compose, 09-28 Caddy, 10-02 파일 저장소, 10-07 백엔드 개발 컨테이너 |
 | 인증 | JWT access 15분 + refresh 30일(Redis). 가입 후 자동 로그인 없음 | 09-17 인증, 09-22 자동 로그인 |
-| 계정 | 단일 `users` 테이블. 소셜 로그인은 구현 후 일시 주석 처리. 가입 직전 약관 동의(서버도 검사, `spare_col` 에 판·시각), 일반 가입 첫 단계 본인인증은 임시 버튼(서버 미확인) | 09-28 단일 users, 10-13 가입 개편 |
+| 계정 | 단일 `trd_user_info` 테이블(정의서 컬럼만 — 역할·상태·탈퇴·`user_tel` 없음, 관리자 시드 없음). 소셜 로그인은 구현 후 일시 주석 처리. 가입 직전 약관 동의(서버도 검사, `spare_col` 에 판·시각), 일반 가입 첫 단계 본인인증은 임시 버튼(서버 미확인) | 09-28 단일 users, 10-13 가입 개편, 10-13 유저는 정의서 컬럼만 |
 | 기업 | 아이디·비밀번호 로그인. 가입은 한 페이지(담당자 → 계정 → 사업자번호만 조회 + 회사 정보, 조회는 로컬 임시). 관리자 심사 정책은 유지하되 미구현 | 09-21 계정 체계·기업 심사, 10-13 가입 개편 |
 | 테스트 | Testcontainers(Docker) 고정. 핵심 흐름 E2E 는 Playwright(로컬 Edge, CI 없음) | 09-23 로컬 테스트 인프라, 10-06 Playwright |
 | 도구 | Bruno, 문서·주석은 main 직접 커밋 | 09-18 Bruno, 09-21 브랜치 예외 |
@@ -234,7 +234,7 @@
 - 이유: 현재 개발은 localhost에서 진행하며 공개 도메인·TLS 프록시가 필요하지 않다. Caddy 없이 `--profile prod`를 실행하면 API는 Compose 내부 네트워크에서만 접근 가능하다.
 - 재검토 조건: API를 외부에 공개하거나 Compose에서 API 복제본을 운영할 때 프록시·TLS·접근 제어를 함께 복구한다.
 
-## 2026-09-28 계정 정보는 단일 `users` 테이블에 저장
+## 2026-09-28 계정 정보는 단일 `users` 테이블에 저장 [일부 대체 → 2026-10-13 테이블명 `trd_user_info`, 정의서 밖 컬럼 삭제]
 
 - 결정: 개인·기업 계정 컬럼을 사용자가 제공한 `users` 구조로 통합한다. `organizations`, `organization_members`, `identity_verifications`, `terms_agreements`, `social_accounts`는 현재 사용하지 않는다.
 - 소셜 로그인은 UI·OAuth 시작·콜백을 비활성화한다. 별도 저장 방식이 결정되면 다시 설계한다.
@@ -261,7 +261,7 @@
 - 따라오는 제약: 서버가 나중에 X-Frame-Options/CSP frame-ancestors를 설정하면 same-origin(`'self'`)은 허용해야 한다 (`docs/security.md` 참고). `<iframe onError>`는 HTTP 레벨 실패(404/500)엔 안 믿음직하게 발동하는 브라우저 표준 한계 — 필요해지면 postMessage 핸드셰이크로 보완.
 - 재검토 조건: 서브 타일 공유 링크(새로고침 후 3분할 복원)가 실제로 필요해질 때. 스펙: `docs/superpowers/specs/2026-09-29-tile-workspace-design.md`.
 
-## 2026-09-29 매물(상품) 스키마 1차: 레거시 스펙 그대로, uuid PK 없이, 조직 판매자 미사용
+## 2026-09-29 매물(상품) 스키마 1차: 레거시 스펙 그대로, uuid PK 없이, 조직 판매자 미사용 [일부 대체 → 2026-10-13 테이블명 `trd_prod_master`·`trd_prod_reg`]
 - 결정: `products`(TRD_PROD_MASTER), `listings`(TRD_REG_INFO)는 사용자가 제공한 레거시 컬럼 정의를 그대로 옮긴다. `id uuid` 서로게이트 PK는 넣지 않고 레거시 비즈니스 키를 PK로 쓴다 — `products.prod_id`, `listings(user_id, reg_date)` 복합키.
 - 이유: 일단 레거시 설계를 그대로 검증하려는 사용자 지시. 나중에 필요하면 서로게이트 키 추가.
 - 판매 주체: `listings.user_id`는 로그인 아이디 문자열이 아니라 `users.id`(uuid). 조직(seller_org_id) 컬럼은 넣지 않는다 — organizations 미사용 상태와 맞춰 이번 커밋에서 확정.
@@ -452,6 +452,15 @@
 - 스키마: 기존 `replace_prod varchar(100)`를 재사용해 마이그레이션 없음. 이전 배포 버전이 파일 키 검증을 하므로 새 서버만 글을 받는다(같은 PR로 배포). 옛 파일 키 값은 글처럼 보이므로 개발 데이터라 정리하지 않는다.
 - 대표 사진 필수는 두 층 모두: 프론트 zod `min(1)` + 서버 `ListingCreateRequest.photos @NotEmpty`. 수정(PATCH)도 사진이 있던 매물은 0장으로 만들 수 없다(사진 없는 옛 매물만 0장 통과, 2026-10-13 코드리뷰). 배포 호환: 이전 프론트는 사진 없이도 등록을 보내므로 프론트와 서버를 같이 배포.
 - 대안: 엑셀 데이터시트(브라우저가 미리보기 못 해 제외), 인라인 펼치기(모달이 아니면 칸이 좁은 타일에서 다시 커짐).
+
+## 2026-10-13 유저는 정의서 컬럼만: 역할·상태·탈퇴·비밀번호 강제 변경·`user_tel` 없음, 테이블명은 정의서 물리명
+
+- 결정 (사용자 지시): 상품마스터·판매물품·유저를 사용자 정의서의 물리명으로 맞춘다 — `trd_prod_master`·`trd_prod_reg`·`trd_user_info`(PK `uid`), 컬럼 `prod_mpn`·`prov_date`·`prod_coa`·`prod_scan_code`. 유저 테이블에서 정의서에 없는 `role`·`status`·`deleted_at`·`must_change_password`·`user_tel`을 삭제하고, 그 기능(관리자 자동 생성, 정지 계정 차단, 탈퇴, 가입 전화 칸)도 같이 없앴다. 유일 인덱스는 `deleted_at` 조건 없이 다시 만들었다. 옛 access 토큰의 `role` 클레임은 읽지 않고 무시한다(15분 안에 만료). 가입 요청의 `tel`·`contactTel`은 예전 클라이언트가 보내도 무시한다.
+- 이유: 정의서가 기준이라는 사용자 결정. 정의서에 없는 컬럼이 늘어나면 정의서와 DB가 어긋난다.
+- 감수: 관리자·정지·탈퇴·초기 비밀번호 강제 변경이 지금은 없다(security.md의 관련 문구는 "미구현"으로 바꿨다). `dt_expire`(만료 시각)는 로그인에서 검사하지 않는다 — 쓰는 코드가 없었다.
+- 예외 (배포 2회 규칙): 이름 변경과 컬럼 삭제를 한 번에 했다. 개발 볼륨은 초기화하고 운영 데이터가 없어 직전 버전과의 호환을 지킬 대상이 없기 때문이다. 운영 데이터가 생기면 이 규칙대로 2회로 나눈다.
+- 대안: 역할 컬럼 유지(정의서와 불일치) — 사용자가 삭제를 골랐다.
+- 재검토 조건: 관리자 기능·계정 정지·탈퇴가 필요해질 때 — 정의서에 컬럼을 먼저 반영한 뒤 다시 추가한다.
 
 ## 미정 (결정 필요)
 

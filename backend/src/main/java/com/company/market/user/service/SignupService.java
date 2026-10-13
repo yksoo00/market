@@ -84,12 +84,12 @@ public class SignupService {
 
 	public boolean isLoginIdAvailable(String loginId, String ip) {
 		limiter.hit("signup:check:ip:" + ip, CHECK_PER_IP, CHECK_WINDOW);
-		return !users.existsByLoginIdAndDeletedAtIsNull(loginId);
+		return !users.existsByLoginId(loginId);
 	}
 
 	public boolean isNicknameAvailable(String nickname, String ip) {
 		limiter.hit("signup:check:ip:" + ip, CHECK_PER_IP, CHECK_WINDOW);
-		return !users.existsByNicknameAndKindAndDeletedAtIsNull(nickname, UserKind.PERSONAL);
+		return !users.existsByNicknameAndKind(nickname, UserKind.PERSONAL);
 	}
 
 	/**
@@ -130,7 +130,7 @@ public class SignupService {
 		if (!props.isLocal()) {
 			throw new ApiException(ErrorCode.BUSINESS_VERIFICATION_UNAVAILABLE);
 		}
-		if (users.findByBusRegIdAndDeletedAtIsNull(req.bizNo()).isPresent()) {
+		if (users.findByBusRegId(req.bizNo()).isPresent()) {
 			throw new ApiException(ErrorCode.DUPLICATE_BIZ_NO);
 		}
 		String token = UUID.randomUUID().toString();
@@ -157,16 +157,16 @@ public class SignupService {
 			throw new ValidationException(Map.of("password", "비밀번호에 사업자등록번호를 포함할 수 없습니다."));
 		}
 		String email = req.contactEmail().trim().toLowerCase(Locale.ROOT);
-		if (users.existsByBusRegIdAndDeletedAtIsNull(bizNo)) {
+		if (users.existsByBusRegId(bizNo)) {
 			throw new ApiException(ErrorCode.DUPLICATE_BIZ_NO);
 		}
-		if (users.existsByLoginIdAndDeletedAtIsNull(req.loginId())) {
+		if (users.existsByLoginId(req.loginId())) {
 			throw new ApiException(ErrorCode.DUPLICATE_LOGIN_ID);
 		}
 		if (users.existsByEmailIgnoreCaseActive(email)) {
 			throw new ApiException(ErrorCode.DUPLICATE_EMAIL);
 		}
-		if (users.existsByPhoneAndDeletedAtIsNull(req.contactPhone())) {
+		if (users.existsByPhone(req.contactPhone())) {
 			throw new ApiException(ErrorCode.DUPLICATE_PHONE);
 		}
 		String passwordHash = passwordEncoder.encode(req.password());
@@ -177,7 +177,6 @@ public class SignupService {
 				.passwordHash(passwordHash)
 				.name(req.contactName())
 				.phone(req.contactPhone())
-				.userTel(req.contactTel())
 				.email(email)
 				.busRegId(bizNo)
 				.companyType("corporation".equals(req.bizType()) ? "corporate" : req.bizType())
@@ -226,16 +225,16 @@ public class SignupService {
 	}
 
 	private void checkDuplicates(String loginId, String nickname, String email, String phone, boolean useNickname) {
-		if (users.existsByLoginIdAndDeletedAtIsNull(loginId)) {
+		if (users.existsByLoginId(loginId)) {
 			throw new ApiException(ErrorCode.DUPLICATE_LOGIN_ID);
 		}
-		if (useNickname && users.existsByNicknameAndKindAndDeletedAtIsNull(nickname, UserKind.PERSONAL)) {
+		if (useNickname && users.existsByNicknameAndKind(nickname, UserKind.PERSONAL)) {
 			throw new ApiException(ErrorCode.DUPLICATE_NICKNAME);
 		}
 		if (users.existsByEmailIgnoreCaseActive(email)) {
 			throw new ApiException(ErrorCode.DUPLICATE_EMAIL);
 		}
-		if (users.existsByPhoneAndDeletedAtIsNull(phone)) {
+		if (users.existsByPhone(phone)) {
 			throw new ApiException(ErrorCode.DUPLICATE_PHONE);
 		}
 	}
@@ -250,7 +249,6 @@ public class SignupService {
 			.email(email)
 			.name(req.name())
 			.phone(req.phone())
-			.userTel(req.tel())
 			.userAddress(req.address())
 			.contactMethod(req.contactMethod())
 			.spareCol(termsAgreement())

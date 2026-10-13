@@ -44,7 +44,7 @@ class SignupApiTest {
 
 	@AfterEach
 	void tearDown() {
-		jdbc.update("delete from trd_user_info where role <> 'admin'");
+		jdbc.update("delete from trd_user_info");
 		Objects.requireNonNull(redis.getConnectionFactory()).getConnection().serverCommands().flushDb();
 	}
 
@@ -107,6 +107,12 @@ class SignupApiTest {
 				.andExpect(status().isOk());
 		}
 
+		@Test
+		@DisplayName("예전 클라이언트가 보내는 tel·contactTel 은 무시하고 가입에 성공한다 (기업 가입 본문의 contactTel 도 아래 기업 테스트가 같이 보낸다)")
+		void legacyTelFieldsAreIgnored() throws Exception {
+			mvc.perform(signup(Map.of("tel", "0212345678"))).andExpect(status().isCreated());
+		}
+
 	}
 
 	@Nested
@@ -123,6 +129,15 @@ class SignupApiTest {
 			mvc.perform(signup(with(other, "loginId", "gildong1"))).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DUPLICATE_LOGIN_ID"));
 			mvc.perform(signup(with(other, "nickname", "길동이"))).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DUPLICATE_NICKNAME"));
 			mvc.perform(signup(with(other, "email", "GILDONG@EXAMPLE.COM"))).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DUPLICATE_EMAIL"));
+		}
+
+		@Test
+		@DisplayName("같은 아이디로 두 번 가입하면 409")
+		void sameLoginIdTwice() throws Exception {
+			mvc.perform(signup(Map.of())).andExpect(status().isCreated());
+
+			mvc.perform(signup(Map.of("nickname", "다른이", "email", "other@example.com", "phone", "01099998888")))
+				.andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DUPLICATE_LOGIN_ID"));
 		}
 
 		@Test
@@ -173,7 +188,7 @@ class SignupApiTest {
 				.andExpect(jsonPath("$.fields.name").isString())
 				.andExpect(jsonPath("$.fields.email").isString())
 				.andExpect(jsonPath("$.fields.nickname").isString());
-			assertThat(jdbc.queryForObject("select count(*) from trd_user_info where role <> 'admin'", Long.class)).isZero();
+			assertThat(jdbc.queryForObject("select count(*) from trd_user_info", Long.class)).isZero();
 		}
 
 		@Test
@@ -222,7 +237,7 @@ class SignupApiTest {
 			return post("/api/v1/auth/signup/business").contentType(MediaType.APPLICATION_JSON).content("""
 					{"verificationToken":"%s","loginId":"%s","password":"Str0ng-pass!","bizType":"corporation",
 					 "companyName":"테스트상사","startDate":"%s","address":"서울 중구 세종대로 110 3층","contactName":"김담당",
-					 "contactPhone":"01055556666","contactEmail":"owner@biz.example","contactTel":"","companyTel":"",
+					 "contactPhone":"01055556666","contactEmail":"owner@biz.example","contactTel":"0212345678","companyTel":"",
 					 "contactMethod":"3","agreeTerms":%s,"agreePrivacy":%s}""".formatted(token, loginId, startDate, agree, agree));
 		}
 

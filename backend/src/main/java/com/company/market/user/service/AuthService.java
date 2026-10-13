@@ -47,7 +47,7 @@ public class AuthService {
 
 	public LoginResult login(String loginId, String password, boolean remember, String ip) {
 		attempts.check(loginId, ip);
-		Optional<User> user = users.findByLoginIdAndDeletedAtIsNull(loginId).filter(u -> u.getKind() == UserKind.PERSONAL);
+		Optional<User> user = users.findByLoginId(loginId).filter(u -> u.getKind() == UserKind.PERSONAL);
 		return authenticate(loginId, user, password, remember, ip);
 	}
 
@@ -57,7 +57,7 @@ public class AuthService {
 	 */
 	public LoginResult loginBusiness(String loginId, String password, boolean remember, String ip) {
 		attempts.check(loginId, ip);
-		Optional<User> user = users.findByLoginIdAndDeletedAtIsNull(loginId).filter(u -> u.getKind() == UserKind.BUSINESS);
+		Optional<User> user = users.findByLoginId(loginId).filter(u -> u.getKind() == UserKind.BUSINESS);
 		return authenticate(loginId, user, password, remember, ip);
 	}
 
@@ -65,33 +65,28 @@ public class AuthService {
 		String hash = found.map(User::getPasswordHash).orElse(DUMMY_HASH);
 		// 소셜 전용 계정은 password_hash 가 null → 아이디/비번 로그인 불가
 		boolean matches = hash != null && passwordEncoder.matches(password, hash);
-		if (found.isEmpty() || !matches || found.get().getDeletedAt() != null) {
+		if (found.isEmpty() || !matches) {
 			attempts.recordFailure(account, ip);
 			log.info("로그인 실패 userId={} ip={}", found.map(u -> u.getId().toString()).orElse("-"), ip);
 			throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
 		}
 		User user = found.get();
-		if (!user.isActive()) {
-			// 비밀번호까지 맞은 뒤에만 알려준다 — 정지 여부도 계정 정보라서
-			log.warn("정지 계정 로그인 시도 userId={} ip={}", user.getId(), ip);
-			throw new ApiException(ErrorCode.ACCOUNT_SUSPENDED);
-		}
 		attempts.recordSuccess(account);
 		user.recordLogin();
 		users.save(user);
 		log.info("로그인 userId={} ip={}", user.getId(), ip);
-		return new LoginResult(user.getId(), jwt.createAccessToken(user.getId(), user.getRole()), sessions.issue(user.getId(), remember), remember);
+		return new LoginResult(user.getId(), jwt.createAccessToken(user.getId()), sessions.issue(user.getId(), remember), remember);
 	}
 
 	/** refresh 회전. 실패 이유(만료·로그아웃·재사용 감지)는 구분해서 알려주지 않는다 */
 	public LoginResult refresh(String refreshToken) {
 		RefreshSessionStore.Rotated rotated = sessions.rotate(refreshToken)
 			.orElseThrow(() -> new ApiException(ErrorCode.SESSION_EXPIRED));
-		User user = users.findById(rotated.userId()).filter(User::isActive).orElseThrow(() -> {
+		User user = users.findById(rotated.userId()).orElseThrow(() -> {
 			sessions.revokeAll(rotated.userId());
 			return new ApiException(ErrorCode.SESSION_EXPIRED);
 		});
-		return new LoginResult(user.getId(), jwt.createAccessToken(user.getId(), user.getRole()), rotated.token(), rotated.remember());
+		return new LoginResult(user.getId(), jwt.createAccessToken(user.getId()), rotated.token(), rotated.remember());
 	}
 
 	public void logout(String refreshToken) {

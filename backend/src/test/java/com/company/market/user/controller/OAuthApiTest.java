@@ -103,9 +103,9 @@ class OAuthApiTest {
 
 	@AfterEach
 	void tearDown() {
-		jdbc.update("delete from terms_agreements where user_id in (select uid from trd_user_info where role <> 'admin')");
+		jdbc.update("delete from terms_agreements where user_id in (select uid from trd_user_info)");
 		jdbc.update("delete from social_accounts");
-		jdbc.update("delete from trd_user_info where role <> 'admin'");
+		jdbc.update("delete from trd_user_info");
 		Objects.requireNonNull(redis.getConnectionFactory()).getConnection().serverCommands().flushDb();
 	}
 
@@ -209,7 +209,7 @@ class OAuthApiTest {
 			assertThat(s.suggestedNickname()).isEqualTo("길동");
 			assertThat(signupStore.find(s.token(), flowHash())).contains(KAKAO_PROFILE);
 			assertThat(signupStore.find(s.token(), hasher.hash("other-browser"))).isEmpty();
-			assertThat(jdbc.queryForObject("select count(*) from trd_user_info where role <> 'admin'", Long.class)).isZero();
+			assertThat(jdbc.queryForObject("select count(*) from trd_user_info", Long.class)).isZero();
 		}
 
 		@Test
@@ -239,16 +239,10 @@ class OAuthApiTest {
 		}
 
 		@Test
-		@DisplayName("이메일을 안 주면(카카오 미동의) OAUTH_EMAIL_REQUIRED, 정지된 계정은 ACCOUNT_SUSPENDED")
-		void noEmailAndSuspended() {
+		@DisplayName("이메일을 안 주면(카카오 미동의) OAUTH_EMAIL_REQUIRED")
+		void noEmail() {
 			assertThat(service.handleCallback(new SocialProfile(SocialProvider.KAKAO, "k-3", null, false, "x"), flowHash()))
 				.isEqualTo(new OAuthLoginService.Rejected(ErrorCode.OAUTH_EMAIL_REQUIRED, null));
-
-			User user = users.save(User.builder().kind(UserKind.PERSONAL).nickname("정지").email("s@x.com").build());
-			socialAccounts.save(SocialAccount.builder().user(user).provider(SocialProvider.GOOGLE).providerUserId("g-1").build());
-			jdbc.update("update trd_user_info set status = 'suspended' where uid = ?", user.getId());
-			assertThat(service.handleCallback(new SocialProfile(SocialProvider.GOOGLE, "g-1", "s@x.com", true, null), flowHash()))
-				.isEqualTo(new OAuthLoginService.Rejected(ErrorCode.ACCOUNT_SUSPENDED, null));
 		}
 
 		@Test

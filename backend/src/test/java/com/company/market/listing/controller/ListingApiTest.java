@@ -17,7 +17,6 @@ import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.repository.ProductRepository;
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;
-import com.company.market.user.domain.UserRole;
 import com.company.market.user.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.AfterEach;
@@ -93,13 +92,13 @@ class ListingApiTest {
 	void setUp() {
 		jdbc.update("delete from trd_prod_reg");
 		jdbc.update("delete from trd_prod_master");
-		jdbc.update("delete from trd_user_info where role <> 'admin'");
+		jdbc.update("delete from trd_user_info");
 
 		User user = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("listingapitester")
 			.passwordHash("$2a$12$hash").nickname("listingapitester").email("listingapitester@example.com")
 			.name("홍길동").phone("01012345678").phoneHash(hasher.hash("01012345678")).build());
 		userId = user.getId();
-		String token = jwtProvider.createAccessToken(userId, UserRole.USER);
+		String token = jwtProvider.createAccessToken(userId);
 		authCookie = new Cookie(AuthCookies.ACCESS, token);
 	}
 
@@ -818,7 +817,7 @@ class ListingApiTest {
 		User other = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("listingapiother")
 			.passwordHash("$2a$12$hash").nickname("listingapiother").email("listingapiother@example.com")
 			.name("김철수").phone("01099998888").phoneHash(hasher.hash("01099998888")).build());
-		return otherCookie = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(other.getId(), UserRole.USER));
+		return otherCookie = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(other.getId()));
 	}
 
 	@Test
