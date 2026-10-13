@@ -27,7 +27,7 @@ import { UNREACHABLE } from "@/types/api";
 // 서버 fields 오류를 붙일 수 있는 칸. 이메일·휴대폰은 서버 필드명(email, phone)을 폼 칸으로 옮긴다
 const fields = [
   "name", "nickname", "nicknameUsage", "loginId", "emailLocal", "emailCustom", "password", "passwordConfirm",
-  "phoneMid", "phoneLast", "tel", "address", "addressDetail", "agreeTerms", "agreePrivacy",
+  "phoneMid", "phoneLast", "address", "addressDetail", "agreeTerms", "agreePrivacy",
 ] as const;
 const serverFieldMap: Record<string, (typeof fields)[number]> = { email: "emailLocal", phone: "phoneMid" };
 
@@ -51,7 +51,6 @@ export function PersonalSignupForm() {
       phonePrefix: "010",
       phoneMid: "",
       phoneLast: "",
-      tel: "",
       address: "",
       addressDetail: "",
       contactMethod: "1",
@@ -84,7 +83,6 @@ export function PersonalSignupForm() {
       email: joinEmail(v.emailLocal, v.emailDomain, v.emailCustom),
       password: v.password,
       phone: `${v.phonePrefix}${v.phoneMid}${v.phoneLast}`,
-      tel: v.tel,
       address: joinAddress(v.address, v.addressDetail),
       contactMethod: v.contactMethod,
       agreeTerms: v.agreeTerms,
@@ -149,7 +147,6 @@ export function PersonalSignupForm() {
           />
           <FormField<PersonalSignupInput> inline="narrow" name="passwordConfirm" label={t.form.passwordConfirm} type="password" autoComplete="new-password" maxLength={32} />
           <PhoneField inline="narrow" />
-          <FormField<PersonalSignupInput> inline="narrow" name="tel" label={t.form.tel} placeholder={t.form.telPlaceholder} autoComplete="tel" maxLength={20} />
 
           <FieldShell label={t.form.nickname} inline="narrow">
             <Label className="min-h-11 gap-2 text-[14px] font-normal cursor-pointer">

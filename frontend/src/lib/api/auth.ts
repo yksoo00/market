@@ -56,7 +56,6 @@ export const authApi = {
     email: string;
     password: string;
     phone: string;
-    tel: string;
     address: string;
     contactMethod: "1" | "2" | "3";
     agreeTerms: boolean;
@@ -83,7 +82,6 @@ export const authApi = {
     contactName: string;
     contactPhone: string;
     contactEmail: string;
-    contactTel: string;
     companyTel: string;
     contactMethod: "1" | "2" | "3";
     agreeTerms: boolean;

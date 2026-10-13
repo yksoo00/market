@@ -9,7 +9,6 @@ const valid: BusinessSignupInput = {
   emailLocal: "owner",
   emailDomain: "naver.com",
   emailCustom: "",
-  contactTel: "",
   contactMethod: "1",
   loginId: "acme01",
   password: "Str0ng-pass!",

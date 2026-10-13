@@ -29,7 +29,7 @@ import { UNREACHABLE } from "@/types/api";
 const m = t.business.form;
 
 const fields = [
-  "contactName", "phoneMid", "phoneLast", "emailLocal", "emailCustom", "contactTel", "contactMethod", "loginId", "password", "passwordConfirm",
+  "contactName", "phoneMid", "phoneLast", "emailLocal", "emailCustom", "contactMethod", "loginId", "password", "passwordConfirm",
   "bizNo", "bizType", "companyName", "startDate", "companyTel", "address", "addressDetail", "agreeTerms", "agreePrivacy",
 ] as const;
 const serverFieldMap: Record<string, (typeof fields)[number]> = {
@@ -53,7 +53,6 @@ export function BusinessSignupForm() {
       emailLocal: "",
       emailDomain: "naver.com",
       emailCustom: "",
-      contactTel: "",
       contactMethod: "1",
       loginId: "",
       password: "",
@@ -118,7 +117,6 @@ export function BusinessSignupForm() {
       contactName: v.contactName,
       contactPhone: `${v.phonePrefix}${v.phoneMid}${v.phoneLast}`,
       contactEmail: joinEmail(v.emailLocal, v.emailDomain, v.emailCustom),
-      contactTel: v.contactTel,
       companyTel: v.companyTel,
       contactMethod: v.contactMethod,
       agreeTerms: v.agreeTerms,
@@ -159,7 +157,6 @@ export function BusinessSignupForm() {
           <FormField<BusinessSignupInput> inline="narrow" name="contactName" label={m.contactName} placeholder={t.form.namePlaceholder} autoComplete="name" maxLength={30} />
           <PhoneField inline="narrow" label={m.contactPhone} />
           <EmailField inline="narrow" label={m.contactEmail} />
-          <FormField<BusinessSignupInput> inline="narrow" name="contactTel" label={m.contactTel} placeholder={m.contactTelPlaceholder} autoComplete="tel" maxLength={20} />
           <ContactMethodField />
         </Section>
 

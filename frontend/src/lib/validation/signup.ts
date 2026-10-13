@@ -47,7 +47,6 @@ export const personalSignupSchema = z
     phonePrefix: z.enum(phonePrefixes),
     phoneMid: z.string().regex(/^\d{4}$/, v.phone),
     phoneLast: z.string().regex(/^\d{4}$/, v.phone),
-    tel: z.string().max(20, "전화번호는 20자 이하입니다."),
     address: z.string().max(200, "주소는 200자 이하입니다."),
     addressDetail: z.string().max(100, v.addressTotal),
     contactMethod: z.enum(["1", "2", "3"]),
