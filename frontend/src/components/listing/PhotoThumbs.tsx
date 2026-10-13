@@ -10,7 +10,7 @@ const t = listing.detail;
  *
  * 높이 맞춤 (칸 폭 768~1023, 표가 한 쌍씩 쌓여 길 때): 부모가 표 높이만큼 늘어나고, 이 목록이 남는 높이를 전부 차지하며
  * 사진 수에 맞춰 칸을 나눈다 (1장 = 통째, 2장 = 위아래, 3장 = 위 한 칸 + 아래 두 칸, 4장 = 2x2). 사진은 칸을 채우도록 잘려 보인다(원본은 눌러서).
- * 그 밖(모바일·칸 폭 1024 이상 = 표가 짧음)은 한 줄 4칸 정사각 썸네일.
+ * 모바일은 한 줄 4칸 정사각 썸네일. 칸 폭 1024 이상(전체 화면)은 표가 두 쌍으로 짧아 대표 사진 아래가 비지 않으므로 그리지 않는다 (사용자 지시).
  */
 export function PhotoThumbs({ photos, firstNo }: { photos: string[]; firstNo: number }) {
   if (photos.length === 0) return null;
@@ -22,15 +22,15 @@ export function PhotoThumbs({ photos, firstNo }: { photos: string[]; firstNo: nu
         "grid grid-cols-4 gap-2",
         "@md:flex-1 @md:min-h-0 @md:auto-rows-fr",
         n <= 2 ? "@md:grid-cols-1" : "@md:grid-cols-2",
-        "@lg:flex-none @lg:grid-cols-4 @lg:auto-rows-auto",
+        "@lg:hidden",
       )}
     >
       {photos.map((key, i) => (
         <li
           key={key}
           className={cn(
-            "relative aspect-square @md:aspect-auto @lg:aspect-square overflow-hidden rounded-md border border-line-2 bg-bg",
-            n === 3 && i === 0 && "@md:col-span-2 @lg:col-span-1",
+            "relative aspect-square @md:aspect-auto overflow-hidden rounded-md border border-line-2 bg-bg",
+            n === 3 && i === 0 && "@md:col-span-2",
           )}
         >
           <a href={fileUrl(key)} target="_blank" rel="noopener noreferrer" aria-label={t.openOriginal(firstNo + i)} className="absolute inset-0">
