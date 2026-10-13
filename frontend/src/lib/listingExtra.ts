@@ -40,7 +40,7 @@ export function extraInitialValues(d: ListingDetail): ExtraValues {
   };
 }
 
-const textFields = ["warrantyCoverage", "replaceProd", "testReport", "certificateOfAuthen"] as const;
+const textFields = ["warrantyCoverage", "testReport", "certificateOfAuthen"] as const;
 
 /**
  * 처음 값과 달라진 칸만 PATCH 로. 보증은 "개월"이 바뀌었을 때만 일수로 보낸다 — 옛 값(365일)이 12개월로 보여도
@@ -52,6 +52,9 @@ export function diffToExtraRequest(initial: ExtraValues, current: ExtraValues): 
   for (const key of textFields) {
     if (initial[key] !== current[key]) req[key] = current[key];
   }
+  // 대체품은 글이라 앞뒤 공백을 잘라 비교·전송 (공백만 넣어 "있음"이 되지 않게)
+  const replaceProd = current.replaceProd.trim();
+  if (initial.replaceProd.trim() !== replaceProd) req.replaceProd = replaceProd;
   return req;
 }
 

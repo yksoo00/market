@@ -57,7 +57,9 @@ export function PhotoUploader({ value, initialKeys = [], onChange, onUploadingCh
   useEffect(() => {
     if (joinedKeys !== value.join("|")) onChange(joinedKeys === "" ? [] : joinedKeys.split("|"));
   }, [joinedKeys, value, onChange]);
-  useEffect(() => onUploadingChange(uploading), [uploading, onUploadingChange]);
+  // 대표 사진 업로드가 실패해 있으면 업로드 중과 같이 제출을 막는다 — 안 막으면 완료된 추가 사진이 photos[0](대표)로 저장된다
+  const blocking = uploading || slots[0]?.status === "error";
+  useEffect(() => onUploadingChange(blocking), [blocking, onUploadingChange]);
 
   // 화면을 떠날 때 미리보기 URL 해제 (브라우저 메모리)
   const slotsRef = useRef(slots);
@@ -78,7 +80,8 @@ export function PhotoUploader({ value, initialKeys = [], onChange, onUploadingCh
   const onPick = (e: ChangeEvent<HTMLInputElement>) => {
     const picked = Array.from(e.target.files ?? []);
     e.target.value = ""; // 같은 파일을 다시 골라도 change 가 나게
-    const room = MAX_PHOTOS - slots.length;
+    // 대표 사진이 먼저 — 첫 칸은 한 장만 (선택창 multiple 해제만으로는 끌어다 놓기 등을 못 막는다)
+    const room = slots.length === 0 ? 1 : MAX_PHOTOS - slots.length;
     const messages: string[] = picked.length > room ? [t.photosOver] : [];
     const accepted: File[] = [];
     for (const file of picked.slice(0, room)) {

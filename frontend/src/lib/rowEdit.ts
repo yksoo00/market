@@ -48,8 +48,8 @@ export function rowEditInitialValues(d: ListingDetail): RowEditValues {
 /** 제조일 입력(YYYY-MM-DD) → 서버 형식(yyyyMMdd). 비우기("")는 그대로 */
 const toServerDate = (iso: string) => iso.replaceAll("-", "");
 
-const trimmedFields = ["prodName", "prodBrand", "prodNo", "description"] as const;
-const plainFields = ["prodState", "warrantyCoverage", "listingDataSheet", "replaceProd", "testReport", "certificateOfAuthen"] as const;
+const trimmedFields = ["prodName", "prodBrand", "prodNo", "description", "replaceProd"] as const;
+const plainFields = ["prodState", "warrantyCoverage", "listingDataSheet", "testReport", "certificateOfAuthen"] as const;
 
 /**
  * 처음 값과 달라진 칸만 PATCH 요청으로 (안 바뀐 칸은 키 생략 — 옛 형식 상태값·옛 보증 일수를 서버에 다시 보내지 않는다).

@@ -69,8 +69,8 @@ function PreviewSkeleton() {
 
 type FileState = { kind: "loading" } | { kind: "error" } | { kind: "unsupported" } | { kind: "ready"; url: string; media: "pdf" | "image" };
 
-/** 서류 1개를 blob 으로 받는다. 새 매물로 바뀌면(key) 컴포넌트가 다시 마운트된다 */
-function useFileBlob(fileKey: string, onAuthLost: (lost: boolean) => void, attempt: number): FileState {
+/** 서류 1개를 blob 으로 받는다. 다시 받으려면 호출한 쪽이 key 를 바꿔 다시 마운트한다(그래야 로딩 표시로 돌아간다) */
+function useFileBlob(fileKey: string, onAuthLost: (lost: boolean) => void): FileState {
   const [state, setState] = useState<FileState>({ kind: "loading" });
 
   useEffect(() => {
@@ -96,17 +96,18 @@ function useFileBlob(fileKey: string, onAuthLost: (lost: boolean) => void, attem
       alive = false;
       if (url) URL.revokeObjectURL(url);
     };
-  }, [fileKey, attempt, onAuthLost]);
+  }, [fileKey, onAuthLost]);
 
   return state;
 }
 
 function DocTile({ label, fileKey, onAuthLost }: { label: string; fileKey: string | null; onAuthLost: (lost: boolean) => void }) {
+  const [attempt, setAttempt] = useState(0);
   return (
     <div className="flex flex-col gap-1.5 min-w-0">
       <h3 className="text-[13px] font-medium text-ink-2">{label}</h3>
       {fileKey ? (
-        <FileTile label={label} fileKey={fileKey} onAuthLost={onAuthLost} />
+        <FileTile key={attempt} label={label} fileKey={fileKey} onAuthLost={onAuthLost} onRetry={() => setAttempt((n) => n + 1)} />
       ) : (
         <div className="h-44 rounded-md border border-dashed border-line-2 flex items-center justify-center text-sm text-ink-3">{t.noDoc}</div>
       )}
@@ -114,10 +115,9 @@ function DocTile({ label, fileKey, onAuthLost }: { label: string; fileKey: strin
   );
 }
 
-function FileTile({ label, fileKey, onAuthLost }: { label: string; fileKey: string; onAuthLost: (lost: boolean) => void }) {
-  const [attempt, setAttempt] = useState(0);
+function FileTile({ label, fileKey, onAuthLost, onRetry }: { label: string; fileKey: string; onAuthLost: (lost: boolean) => void; onRetry: () => void }) {
   const [open, setOpen] = useState(false);
-  const state = useFileBlob(fileKey, onAuthLost, attempt);
+  const state = useFileBlob(fileKey, onAuthLost);
 
   if (state.kind === "loading") return <PreviewSkeleton />;
   if (state.kind === "unsupported") return <div className="h-44 rounded-md border border-line-2 flex items-center justify-center px-3 text-center text-sm text-ink-3">{t.unsupportedDoc}</div>;
@@ -125,7 +125,7 @@ function FileTile({ label, fileKey, onAuthLost }: { label: string; fileKey: stri
     return (
       <div role="alert" className="h-44 rounded-md border border-line-2 flex flex-col items-center justify-center gap-2 px-3 text-center text-sm text-down">
         {t.fileLoadFailed}
-        <button type="button" onClick={() => setAttempt((n) => n + 1)} className="h-8.5 px-3 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft">
+        <button type="button" onClick={onRetry} className="h-8.5 px-3 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft">
           {t.retry}
         </button>
       </div>
