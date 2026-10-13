@@ -13,6 +13,8 @@ const paths = {
   file: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" /><path d="M14 3v5h5M9 13h6M9 17h6" /></>,
   image: <><rect x="3" y="4" width="18" height="16" rx="2" /><circle cx="9" cy="10" r="2" /><path d="M21 16l-5-5-9 9" /></>,
   filter: <path d="M3 5h18l-7 8v6l-4 2v-8z" />,
+  // 앱 메뉴(구글 앱 버튼처럼 점 9개). 선 아이콘 규칙의 예외로 채운 점
+  apps: <>{[5, 12, 19].flatMap((y) => [5, 12, 19].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r="1.9" fill="currentColor" stroke="none" />))}</>,
 } as const;
 
 export type IconName = keyof typeof paths;

@@ -1,30 +1,17 @@
 import { MobileTabBar } from "@/components/common/MobileTabBar";
-import { QuickMenu } from "@/components/home/QuickMenu";
-import { RealtimeCard } from "@/components/home/RealtimeCard";
 import { SearchBox } from "@/components/home/SearchBox";
-import { buyRequests, sellListings } from "@/lib/mock/home";
 import { home as t } from "@/messages/home";
 
 export default function HomePage() {
   return (
     <>
-      {/* 문구·검색·아이콘, 구매대행·경매 자리, 실시간 두 줄을 한 덩어리로 세로 가운데(태블릿 이상).
-          실시간은 줄마다 카드가 옆으로 이어지고 가로 스크롤 — 높이가 고정이라 보통 세로 스크롤 없음.
-          블록이 전부 shrink-0 이라 화면이 아주 낮으면(가로 모바일·확대 배율) 잘리므로 그때만 main 이 스크롤한다 */}
-      <main className="flex-1 min-h-0 overflow-y-auto px-4 @md:px-6 py-3 @md:py-5 flex flex-col @md:justify-center-safe gap-3 @md:gap-6">
-        <section className="shrink-0 w-full max-w-220 mx-auto flex flex-col gap-3 @md:gap-5">
+      {/* 문구 + 검색창만 가운데 (구글 첫 화면처럼, 사용자 지시 2026-10-13). 판매·구매 아이콘은 헤더 앱 메뉴(∷)로 옮겼고
+          실시간 목록·구매대행·경매 자리는 뺐다. 아래 여백(16vh)으로 가운데를 조금 위로. 내용이 칸보다 길 때(가로 휴대폰·큰 배율·1/4 칸)만 스크롤 — 평소엔 생기지 않는다 */}
+      <main className="flex-1 min-h-0 overflow-y-auto px-4 @md:px-6 pt-4 pb-[16vh] flex flex-col justify-center-safe">
+        <section className="w-full max-w-220 mx-auto flex flex-col gap-3 @md:gap-5">
           <h1 className="-mb-1 @md:-mb-2 text-center text-[17px] @md:text-xl font-bold text-ink">{t.tagline}</h1>
           <SearchBox />
-          <QuickMenu />
         </section>
-
-        {/* TODO(구매대행·경매 미정): 기능이 정해지면 이 자리에 넣는다. 지금은 자리만 비워 둔다 (사용자 지시) */}
-        <div aria-hidden="true" className="shrink-0 w-full max-w-300 mx-auto h-14 @md:h-20 rounded-md border border-dashed border-line" />
-
-        <div className="shrink-0 w-full max-w-300 mx-auto flex flex-col gap-3 @md:gap-4">
-          <RealtimeCard type="buy" items={buyRequests} />
-          <RealtimeCard type="sell" items={sellListings} />
-        </div>
       </main>
 
       <MobileTabBar active="/" />

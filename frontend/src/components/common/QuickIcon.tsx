@@ -1,11 +1,11 @@
 import Image from "next/image";
 import type { ReactNode } from "react";
 
-// 홈 판매·구매 아이콘. 사용자가 준 이미지(글자 뺀 일러스트)를 잘라 public/icons/quick 에 둔 PNG (배경 투명).
-// 판매는 보라, 구매는 초록 한 톤이라 배지·호버 색(QuickMenu toneClass)과 맞는다.
+// 판매·구매 아이콘 (헤더 앱 메뉴 AppLauncher). 사용자가 준 이미지(글자 뺀 일러스트)를 잘라 public/icons/quick 에 둔 PNG (배경 투명).
+// 판매는 보라, 구매는 초록 한 톤이라 배지·호버 색(AppLauncher toneClass)과 맞는다.
 const pictures = ["sellNew", "sellBulk", "sellExtra", "sellQuote", "buyRequest", "buyQuotes"] as const;
 
-// 이미지에 없는 아이콘만 인라인 SVG. 연한 면 + 진한 선 2톤 (design.md "홈 판매·구매 아이콘")
+// 이미지에 없는 아이콘만 인라인 SVG. 연한 면 + 진한 선 2톤 (design.md "헤더 앱 메뉴(∷)")
 // 엑셀 대량구매는 사용자 이미지에 없어 이미지 톤에 맞춰 직접 그림. 이미지가 오면 pictures 로 옮기고 이 블록 제거
 const s = "fill-(--quick-soft)";
 const w = "fill-surface";

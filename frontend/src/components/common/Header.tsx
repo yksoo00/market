@@ -3,12 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { AppLauncher } from "@/components/common/AppLauncher";
 import { Icon } from "@/components/common/Icon";
 import { useTileOpen, useTileWorkspace } from "@/components/common/TileWorkspaceContext";
 import { UserMenu } from "@/components/common/UserMenu";
 import { useIsFramed } from "@/hooks/useIsFramed";
 import { authApi } from "@/lib/api/auth";
-import { personalSignupPath } from "@/lib/signupFlow";
 import { screenOf } from "@/lib/tileScreens";
 import { home as t } from "@/messages/home";
 
@@ -44,7 +44,7 @@ export function Header() {
   if (framed) return null;
 
   return (
-    <header data-hide-in-tile className="h-13 md:h-14 shrink-0 px-4 md:px-6 flex items-center gap-7 bg-primary text-white">
+    <header data-hide-in-tile className="h-13 md:h-14 shrink-0 px-4 md:px-6 flex items-center gap-3 md:gap-7 bg-primary text-white">
       {/* 로고는 타일 큐를 항상 리셋(홈 전체화면). 나머지 헤더 링크는 일반 규칙 */}
       <Link href="/" data-tile="reset" className="flex items-center gap-2">
         <span className="w-7 h-7 rounded-md bg-green flex items-center justify-center">
@@ -66,32 +66,29 @@ export function Header() {
       <Link href="/notifications" aria-label="알림" className="md:hidden w-11 h-11 flex items-center justify-center text-on-primary">
         <Icon name="bell" />
       </Link>
-      {profile ? (
-        <UserMenu
-          nickname={profile.nickname}
-          kind={profile.kind}
-          onLoggedOut={() => {
-            setProfile(null);
-            setSessionChecked(true);
-            // 마이페이지처럼 로그인이 필요한 화면(옆 칸 포함)에 이전 사용자의 내용이 남지 않게 홈 전체화면으로 리셋 (로고와 같은 동작)
-            openTile("/", true);
-          }}
-        />
-      ) : sessionChecked ? (
-        <>
-          <Link href="/login" className="text-[13px] text-on-primary hover:text-white">
+      {/* 앱 메뉴(∷) + 로그인/사용자 메뉴. 회원가입은 로그인 화면의 개인·기업 탭에서만 (사용자 지시, 2026-10-13) */}
+      <div className="flex items-center gap-2">
+        <AppLauncher />
+        {profile ? (
+          <UserMenu
+            nickname={profile.nickname}
+            kind={profile.kind}
+            onLoggedOut={() => {
+              setProfile(null);
+              setSessionChecked(true);
+              // 마이페이지처럼 로그인이 필요한 화면(옆 칸 포함)에 이전 사용자의 내용이 남지 않게 홈 전체화면으로 리셋 (로고와 같은 동작)
+              openTile("/", true);
+            }}
+          />
+        ) : sessionChecked ? (
+          <Link href="/login" className="w-[60px] h-[34px] flex items-center justify-center rounded-md bg-green text-white text-[13px] font-bold">
             {t.login}
           </Link>
-          <Link
-            href={personalSignupPath.form}
-            className="hidden md:flex h-[34px] px-3.5 items-center rounded-md bg-green text-white text-[13px] font-bold"
-          >
-            {t.signup}
-          </Link>
-        </>
-      ) : (
-        <span aria-hidden="true" className="w-14" />
-      )}
+        ) : (
+          // 로그인 버튼과 같은 폭을 미리 잡아 세션 확인이 끝날 때 앱 메뉴가 밀리지 않게
+          <span aria-hidden="true" className="w-[60px] h-[34px]" />
+        )}
+      </div>
     </header>
   );
 }

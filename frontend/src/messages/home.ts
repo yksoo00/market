@@ -2,7 +2,6 @@ export const home = {
   brand: "커널마켓",
   nav: ["판매매물", "구매요청", "시세", "사업자", "고객센터"],
   login: "로그인",
-  signup: "회원가입",
   // 홈 검색창 위 한 줄 문구. 바꾸려면 여기만 수정
   tagline: "서버부터 라이선스까지, 필요한 IT 장비를 바로 찾으세요",
   search: {
@@ -12,8 +11,9 @@ export const home = {
     button: "검색",
     popularLabel: "인기 검색",
   },
-  // 홈 판매·구매 아이콘. 아이콘엔 글씨가 없으므로 이 문구가 툴팁(title)·aria-label 이 된다
+  // 헤더 앱 메뉴(∷)의 판매·구매 아이콘 이름 (AppLauncher)
   quick: {
+    apps: "판매·구매 메뉴",
     sell: "판매",
     buy: "구매",
     sellNew: "판매상품 등록",
@@ -29,10 +29,5 @@ export const home = {
     fileImage: "파일 추가 (이미지)",
     dismiss: "알림 닫기",
   },
-  buyRequests: "실시간 구매요청",
-  sellListings: "실시간 판매매물",
-  viewAll: "전체",
-  empty: "아직 등록된 매물이 없어요",
-  seller: { individual: "개인", business: "사업자" } as const,
   tabs: { home: "홈", listings: "매물", post: "등록", me: "내 정보" },
 };
