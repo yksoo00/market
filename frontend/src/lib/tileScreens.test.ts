@@ -6,8 +6,8 @@ import { isRelated, screenOf } from "./tileScreens";
 describe("screenOf", () => {
   it("공통 화면", () => {
     expect(screenOf("/")).toEqual({ id: "home", group: "common" });
-    expect(screenOf("/login/find-id")).toEqual({ id: "login", group: "common" });
-    expect(screenOf("/signup/personal/form?x=1")).toEqual({ id: "signup", group: "common" });
+    expect(screenOf("/login/find-id")).toEqual({ id: "auth", group: "common" });
+    expect(screenOf("/signup/personal/form?x=1")).toEqual({ id: "auth", group: "common" });
     expect(screenOf("/listings/u1/20261001090000")).toEqual({ id: "listingDetail", group: "common" });
   });
 

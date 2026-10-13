@@ -17,8 +17,7 @@
 | 화면 | 경로 | 그룹 |
 |---|---|---|
 | home | `/` | common |
-| login | `/login`, `/login/**` | common |
-| signup | `/signup`, `/signup/**` | common |
+| auth | `/login`, `/login/**`, `/signup`, `/signup/**` | common (2026-10-13: 로그인·가입을 한 화면으로 — 로그인 칸에서 [회원가입]을 누르면 칸이 늘지 않고 그 칸이 가입으로 바뀐다) |
 | listingDetail | `/listings/{userId}/{regDate}` | common |
 | search | `/search` | buy |
 | buyRequest | `/requests`, `/requests/**` | buy |
