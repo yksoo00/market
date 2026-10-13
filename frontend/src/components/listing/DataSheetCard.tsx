@@ -13,7 +13,7 @@ import type { ListingDetail } from "@/types/listing";
 const t = listing.detail;
 
 /**
- * 카드 ② 데이터시트 + 서류(테스트리포트·정품인증서) 작은 미리보기, 누르면 모달로 크게. 대체품은 파일이 아니라 글.
+ * 카드 ② 데이터시트 + 서류(테스트리포트·정품인증서) 작은 미리보기, 누르면 모달로 크게. 대체품은 글이라 ReplaceProdCard 로 따로.
  * 비공개 파일이라 로그인 사용자만, blob 으로 받아 띄운다 (decisions.md 2026-10-02, 2026-10-13).
  * loggedIn 이 null 이면 아직 모름 — "로그인 후 열람"이 잠깐 비쳤다 사라지지 않게 자리만 잡는다
  */
@@ -43,10 +43,6 @@ export function DataSheetCard({ detail, loggedIn }: { detail: ListingDetail; log
           ))}
         </div>
       )}
-      <p className="text-sm text-ink-2">
-        <span className="font-medium text-ink">{t.docs.replaceProd}</span>{" "}
-        {detail.replaceProd ? <span className="whitespace-pre-line wrap-break-word">{detail.replaceProd}</span> : <span className="text-ink-3">{t.empty}</span>}
-      </p>
     </section>
   );
 }

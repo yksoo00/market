@@ -183,6 +183,7 @@ export const listing = {
       certificate: "정품인증서",
       replaceProd: "대체품",
     },
+    noReplaceProd: "등록된 대체품이 없습니다.",
     photos: "사진",
     noPhotos: "등록된 사진이 없습니다.",
     openOriginal: (n: number) => `사진 ${n} 원본 보기`,
