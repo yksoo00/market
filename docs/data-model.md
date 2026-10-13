@@ -64,7 +64,7 @@
 | reg_date | varchar(14) | not null | 등록일시 |
 | spare_col | varchar(100) | | 예비 컬럼 |
 
-### trd_prod_reg (TRD_REG_INFO — 상품등록 정보)
+### trd_prod_reg (TRD_PROD_REG — 상품등록 정보)
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|

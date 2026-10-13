@@ -12,6 +12,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -72,6 +73,21 @@ class SchemaConstraintsTest {
 		insertUser("biz002", "biz1@example.com", "business", "1234567890", "active", "null");
 		assertThatThrownBy(() -> insertUser("biz003", "biz2@example.com", "business", "1234567890", "active", "null"))
 			.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	@DisplayName("정의서 물리명: trd_prod_master·trd_prod_reg·trd_user_info, prod_mpn·prod_scan_code·prov_date·prod_coa·uid 컬럼이 있다")
+	void legacyPhysicalNames() {
+		String[][] columns = { { "trd_prod_master", "prod_mpn" }, { "trd_prod_master", "prod_scan_code" },
+				{ "trd_prod_reg", "prov_date" }, { "trd_prod_reg", "prod_coa" }, { "trd_user_info", "uid" } };
+		for (String[] c : columns) {
+			assertThat(jdbc.queryForObject("select count(*) from information_schema.columns "
+					+ "where table_schema = current_schema() and table_name = ? and column_name = ?",
+					Integer.class, c[0], c[1])).as(c[0] + "." + c[1]).isEqualTo(1);
+		}
+		assertThat(jdbc.queryForObject("select count(*) from information_schema.tables "
+				+ "where table_schema = current_schema() and table_name in ('products', 'listings', 'users')",
+				Integer.class)).isZero();
 	}
 
 }
