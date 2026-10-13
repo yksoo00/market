@@ -81,7 +81,7 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
 
   await test.step("매물 등록 — 마지막 칸 입력 직후 [등록]이 켜진다", async () => {
     await page.goto("/listings/new");
-    await page.locator('input[name="categoryCode"]').fill("서버");
+    await page.locator('input[name="categoryCode"]').fill("P01-Q01-R001");
     await page.locator('input[name="prodBrand"]').fill("Dell");
     await page.locator('input[name="prodName"]').fill(prodName);
     await page.locator("#prodState").selectOption("신품");

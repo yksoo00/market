@@ -23,7 +23,7 @@ export const listing = {
     categoryCode: "카테고리",
     // TODO(카테고리 코드 체계 미정, decisions.md "미정"): 카테고리 마스터가 생기면 3단 선택으로 교체
     categoryHint: " (임시 입력)",
-    categoryPlaceholder: "예: SERVER",
+    categoryPlaceholder: "예: P01-Q01-R001",
     prodName: "상품명",
     prodNamePlaceholder: "예: PowerEdge R740 2U",
     prodBrand: "제조사",
@@ -84,7 +84,7 @@ export const listing = {
   // 칸별 오류. "무엇이 왜 틀렸고 어떻게 고치나" (rules/frontend.md). 수치는 docs/security.md "매물"
   validation: {
     required: "필수 입력 항목입니다",
-    categoryCode: "카테고리는 10자 이하로 입력하세요",
+    categoryCode: "카테고리는 12자 이하로 입력하세요",
     prodName: "상품명은 50자 이하로 입력하세요",
     prodBrand: "제조사는 50자 이하로 입력하세요",
     prodNo: "상품번호는 20자 이하로 입력하세요",

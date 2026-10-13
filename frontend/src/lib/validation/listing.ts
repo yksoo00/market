@@ -58,7 +58,7 @@ const optionalDate = z
 export function listingFormSchema(today: string) {
   return z
     .object({
-      categoryCode: requiredText(10, v.categoryCode),
+      categoryCode: requiredText(12, v.categoryCode),
       prodName: requiredText(50, v.prodName),
       prodBrand: requiredText(50, v.prodBrand),
       prodNo: optionalText(20, v.prodNo),

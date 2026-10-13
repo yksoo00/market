@@ -36,7 +36,8 @@ describe("listingFormSchema", () => {
     expect(parse({ prodName: "  a  " }).data?.prodName).toBe("a");
     expect(errorPaths({ prodName: "   " })).toEqual(["prodName"]);
     expect(errorPaths({ prodName: "가".repeat(51) })).toEqual(["prodName"]);
-    expect(errorPaths({ categoryCode: "A".repeat(11) })).toEqual(["categoryCode"]);
+    expect(errorPaths({ categoryCode: "A".repeat(13) })).toEqual(["categoryCode"]);
+    expect(parse({ categoryCode: "P01-Q01-R001" }).success).toBe(true);
     expect(errorPaths({ prodNo: "A".repeat(21) })).toEqual(["prodNo"]);
     expect(errorPaths({ prodSpecInfo: "A".repeat(101) })).toEqual(["prodSpecInfo"]);
     expect(errorPaths({ description: "A".repeat(201) })).toEqual(["description"]);
