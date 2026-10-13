@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState, type MouseEvent, type ReactNode } from "react";
 import { Icon } from "@/components/common/Icon";
+import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatPrice } from "@/lib/format";
 import { isOwner } from "@/lib/listingDetail";
@@ -68,7 +68,7 @@ interface Props {
 
 // 선택 상태는 결과 집합마다 새로 시작한다 — 페이지에서 key={buildSearchHref(query)}로 다시 마운트
 export function ResultList({ items, query, total, scope = "search", onEdit, ownerId = null }: Props) {
-  const router = useRouter();
+  const openTile = useTileOpen();
   const mine = scope === "mine";
   const canEdit = (item: ListingSearchItem) => mine && isOwner(ownerId, item.userId);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
@@ -87,7 +87,8 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   const toggleAll = () => setSelected(allChecked ? new Set() : new Set(items.map(keyOf)));
   // TODO(거래 흐름 미정, decisions.md 미정 항목): 견적 요청 → 견적 확인 흐름이 정해지면 실제 동작으로 교체
   const showPending = () => setNotice((prev) => (prev ?? 0) + 1);
-  const go = (item: ListingSearchItem) => router.push(listingHref(item));
+  // router.push 는 타일 큐를 안 거쳐, iframe 칸에서 누르면 그 칸이 닫히고 2분할이 된다. 이름 링크(data-tile)와 같은 규칙으로 연다
+  const go = (item: ListingSearchItem) => openTile(listingHref(item), mine);
 
   if (items.length === 0) return <Empty query={query} scope={scope} />;
 
