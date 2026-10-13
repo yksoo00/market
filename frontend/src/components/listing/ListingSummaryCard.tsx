@@ -28,17 +28,18 @@ export function ListingSummaryCard({ detail, owner }: { detail: ListingDetail; o
       </header>
 
       <div className="mt-4 flex flex-col @md:flex-row gap-5">
-        {/* 이 칸은 옆 정보 표 높이만큼 늘어나고(stretch), 대표 사진은 정사각 그대로, 그 아래 나머지 사진이 남는 높이를 채운다 (PhotoThumbs) */}
+        {/* 이 칸은 옆 정보 표 높이만큼 늘어나고(stretch), 대표 사진은 제 비율대로, 그 아래 나머지 사진이 남는 높이를 채운다 (PhotoThumbs) */}
         <div className="w-full @md:w-80 shrink-0 flex flex-col gap-2">
-          <div className="shrink-0 aspect-square rounded-md border border-line-2 bg-bg flex items-center justify-center overflow-hidden">
-            {photo ? (
-              // 사진은 API 서버의 공개 파일이라 next/image 를 쓰면 원격 호스트 설정이 필요해진다 — 그대로 <img>
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={fileUrl(photo)} alt={detail.prodName} className="w-full h-full object-contain" />
-            ) : (
+          {photo ? (
+            // 사진 비율대로 높이를 잡는다 — 정사각 상자에 넣으면 가로로 긴 사진 위아래가 배경으로 비어 자리만 차지한다.
+            // 세로로 아주 긴 사진만 높이를 24rem 으로 묶는다. API 서버의 공개 파일이라 next/image 원격 설정 없이 <img>
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={fileUrl(photo)} alt={detail.prodName} className="shrink-0 w-full h-auto max-h-96 object-contain rounded-md" />
+          ) : (
+            <div className="shrink-0 aspect-square rounded-md border border-line-2 bg-bg flex items-center justify-center">
               <Icon name="image" size={40} className="text-ink-3" aria-hidden={false} aria-label={t.noPhoto} role="img" />
-            )}
-          </div>
+            </div>
+          )}
           <PhotoThumbs photos={detail.photos.slice(1)} firstNo={2} />
         </div>
 
