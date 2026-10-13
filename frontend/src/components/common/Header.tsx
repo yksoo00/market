@@ -44,7 +44,7 @@ export function Header() {
   if (framed) return null;
 
   return (
-    <header data-hide-in-tile className="h-13 md:h-14 shrink-0 px-4 md:px-6 flex items-center gap-7 bg-primary text-white">
+    <header data-hide-in-tile className="h-13 md:h-14 shrink-0 px-4 md:px-6 flex items-center gap-3 md:gap-7 bg-primary text-white">
       {/* 로고는 타일 큐를 항상 리셋(홈 전체화면). 나머지 헤더 링크는 일반 규칙 */}
       <Link href="/" data-tile="reset" className="flex items-center gap-2">
         <span className="w-7 h-7 rounded-md bg-green flex items-center justify-center">
@@ -81,11 +81,12 @@ export function Header() {
             }}
           />
         ) : sessionChecked ? (
-          <Link href="/login" className="h-[34px] px-3.5 flex items-center rounded-md bg-green text-white text-[13px] font-bold">
+          <Link href="/login" className="w-[60px] h-[34px] flex items-center justify-center rounded-md bg-green text-white text-[13px] font-bold">
             {t.login}
           </Link>
         ) : (
-          <span aria-hidden="true" className="w-14" />
+          // 로그인 버튼과 같은 폭을 미리 잡아 세션 확인이 끝날 때 앱 메뉴가 밀리지 않게
+          <span aria-hidden="true" className="w-[60px] h-[34px]" />
         )}
       </div>
     </header>

@@ -13,7 +13,7 @@ export const home = {
   },
   // 헤더 앱 메뉴(∷)의 판매·구매 아이콘 이름 (AppLauncher)
   quick: {
-    apps: "메뉴",
+    apps: "판매·구매 메뉴",
     sell: "판매",
     buy: "구매",
     sellNew: "판매상품 등록",

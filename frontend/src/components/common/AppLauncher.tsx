@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { Icon } from "@/components/common/Icon";
 import { QuickIcon, type QuickIconName } from "@/components/common/QuickIcon";
 import {
@@ -9,9 +9,6 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { acceptOf, checkUpload, type UploadKind } from "@/lib/validation/upload";
@@ -52,6 +49,8 @@ export function AppLauncher() {
   const kindRef = useRef<UploadKind>("excel");
   const [notice, setNotice] = useState<Notice>(null);
   const [open, setOpen] = useState(false);
+  // 판매상품 등록의 등록 방법(직접 입력·파일) 펼침
+  const [newOpen, setNewOpen] = useState(false);
   // 링크 항목은 onClick 으로 직접 닫는다 — 타일 엔진이 링크 클릭을 캡처 단계에서 preventDefault 해서
   // Radix 의 선택 후 닫기가 건너뛰어진다 (UserMenu 와 같은 이유)
   const close = () => setOpen(false);
@@ -86,27 +85,43 @@ export function AppLauncher() {
         open={open}
         onOpenChange={(next) => {
           setOpen(next);
-          if (!next) setNotice(null);
+          if (!next) {
+            setNotice(null);
+            setNewOpen(false);
+          }
         }}
       >
         <DropdownMenuTrigger aria-label={t.apps} title={t.apps} className="w-11 h-11 flex items-center justify-center rounded-full text-on-primary hover:text-white hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-white/60">
           <Icon name="apps" size={22} />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" sideOffset={6} className="w-[19rem] p-3 shadow-none ring-0 border border-line bg-surface text-ink rounded-[10px]">
-          <Section tone="sell" label={t.sell}>
-            <DropdownMenuSub>
-              <DropdownMenuSubTrigger className={`${cellClass} ${toneClass.sell} [&>svg:last-child]:hidden`}>
-                <Cell icon="sellNew" label={t.sellNew} />
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent className="w-auto shadow-none ring-0 border border-line bg-surface text-ink">
-                <DropdownMenuItem asChild onClick={close}>
-                  <Link href={routes.sellManual}>{t.manual}</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={(e) => onPick(e, "excel")}>{t.fileExcel}</DropdownMenuItem>
-                <DropdownMenuItem onSelect={(e) => onPick(e, "pdf")}>{t.filePdf}</DropdownMenuItem>
-                <DropdownMenuItem onSelect={(e) => onPick(e, "image")}>{t.fileImage}</DropdownMenuItem>
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
+          <Section
+            tone="sell"
+            label={t.sell}
+            extra={
+              newOpen && (
+                <div className="mt-1 flex flex-col rounded-md bg-bg p-1">
+                  <DropdownMenuItem asChild onClick={close}>
+                    <Link href={routes.sellManual}>{t.manual}</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={(e) => onPick(e, "excel")}>{t.fileExcel}</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={(e) => onPick(e, "pdf")}>{t.filePdf}</DropdownMenuItem>
+                  <DropdownMenuItem onSelect={(e) => onPick(e, "image")}>{t.fileImage}</DropdownMenuItem>
+                </div>
+              )
+            }
+          >
+            {/* 등록 방법은 옆 하위 메뉴 대신 격자 아래에 펼친다 — 옆으로 열면 같은 줄의 다른 칸을 가린다 (코드리뷰) */}
+            <DropdownMenuItem
+              aria-expanded={newOpen}
+              className={`${cellClass} ${toneClass.sell} ${newOpen ? "bg-primary/10" : ""}`}
+              onSelect={(e) => {
+                e.preventDefault();
+                setNewOpen((o) => !o);
+              }}
+            >
+              <Cell icon="sellNew" label={t.sellNew} />
+            </DropdownMenuItem>
             <DropdownMenuItem className={`${cellClass} ${toneClass.sell}`} onSelect={(e) => onPick(e, "excel")}>
               <Cell icon="sellBulk" label={t.sellBulk} />
             </DropdownMenuItem>
@@ -141,7 +156,7 @@ export function AppLauncher() {
   );
 }
 
-function Section({ tone, label, children }: { tone: Tone; label: string; children: React.ReactNode }) {
+function Section({ tone, label, extra, children }: { tone: Tone; label: string; extra?: ReactNode; children: ReactNode }) {
   return (
     <DropdownMenuGroup aria-label={label} className="flex flex-col gap-1 not-first:mt-2 not-first:pt-2 not-first:border-t not-first:border-line-2">
       {/* 그룹 이름은 aria-label 로 읽히므로 배지는 스크린리더에서 뺀다 */}
@@ -149,6 +164,7 @@ function Section({ tone, label, children }: { tone: Tone; label: string; childre
         {label}
       </span>
       <div className="grid grid-cols-3 gap-1">{children}</div>
+      {extra}
     </DropdownMenuGroup>
   );
 }
