@@ -38,6 +38,8 @@ test("기업 가입 → 기업 탭에서 아이디로 로그인", async ({ page 
     await f.getByRole("button", { name: m.lookup, exact: true }).click();
     await expect(f.getByText(m.lookupDone)).toBeVisible();
     await f.locator('input[name="companyName"]').fill("테스트상사");
+    await f.locator('input[name="startDate"]').fill("2020-01-01");
+    await f.getByRole("button", { name: signup.form.contactMethods.email, exact: true }).click();
     await f.locator('input[name="address"]').fill("서울 중구 세종대로 110");
     await expect(submit).toBeDisabled();
     await f.getByRole("checkbox", { name: signup.terms.all }).click();

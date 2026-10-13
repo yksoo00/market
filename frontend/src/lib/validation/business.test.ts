@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { businessSignupSchema, type BusinessSignupInput } from "./business";
 
 const valid: BusinessSignupInput = {
@@ -10,12 +10,14 @@ const valid: BusinessSignupInput = {
   emailDomain: "naver.com",
   emailCustom: "",
   contactTel: "",
+  contactMethod: "1",
   loginId: "acme01",
   password: "Str0ng-pass!",
   passwordConfirm: "Str0ng-pass!",
   bizNo: "123-45-67890",
   bizType: "corporation",
   companyName: "테스트상사",
+  startDate: "2020-01-01",
   companyTel: "",
   address: "서울 중구 세종대로 110",
   addressDetail: "3층",
@@ -29,6 +31,8 @@ const issuesOf = (patch: Partial<BusinessSignupInput>) => {
 };
 
 describe("businessSignupSchema", () => {
+  afterEach(() => vi.useRealTimers());
+
   it("모두 채우면 통과", () => {
     expect(issuesOf({})).toEqual([]);
   });
@@ -36,6 +40,14 @@ describe("businessSignupSchema", () => {
   it("비밀번호에 아이디·사업자번호가 들어가면 password 오류 (백엔드와 같은 규칙)", () => {
     expect(issuesOf({ password: "Acme01-pass!", passwordConfirm: "Acme01-pass!" })).toContain("password");
     expect(issuesOf({ password: "x1234567890!", passwordConfirm: "x1234567890!" })).toContain("password");
+  });
+
+  it("개업년월일은 한국 날짜로 오늘 이전만 — UTC 16:00 은 한국 다음 날 01:00", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-10-07T16:00:00Z"));
+    expect(issuesOf({ startDate: "2026-10-07" })).toEqual([]);
+    expect(issuesOf({ startDate: "2026-10-08" })).toEqual(["startDate"]);
+    expect(issuesOf({ startDate: "" })).toContain("startDate");
   });
 
   it("필수 약관 둘 다 동의해야 한다", () => {

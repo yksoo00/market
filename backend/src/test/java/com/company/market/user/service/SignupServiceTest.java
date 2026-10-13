@@ -71,12 +71,24 @@ class SignupServiceTest {
 	@DisplayName("기업 가입이 검증에서 거부되면 조회 토큰을 지우지 않는다 — 고쳐서 다시 제출할 수 있게")
 	void rejectedSubmitKeepsToken() {
 		when(redis.opsForValue().get("signup:biz:t1")).thenReturn("1234567890");
-		SignupBusinessRequest req = new SignupBusinessRequest("t1", "acme01", "acme01-Pass!", "corporation", "테스트상사", "서울",
-				"김담당", "01055556666", "owner@biz.example", "", "", true, true);
+		SignupBusinessRequest req = new SignupBusinessRequest("t1", "acme01", "acme01-Pass!", "corporation", "테스트상사", "20200101", "서울",
+				"김담당", "01055556666", "owner@biz.example", "", "", "1", true, true);
 
 		assertThatThrownBy(() -> service().signupBusiness(req, "127.0.0.1"))
 			.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.getFields()).containsKey("password"));
 		verify(redis, never()).delete(anyString());
+	}
+
+	@Test
+	@DisplayName("개업년월일은 한국 날짜 기준: UTC 16:00(한국 다음 날 01:00)에 한국 오늘은 거부")
+	void openDateUsesSeoulToday() {
+		SignupService service = new SignupService(users, passwordEncoder, limiter, props, tx, redis, Clock.fixed(Instant.parse("2026-10-07T16:00:00Z"), ZoneOffset.UTC));
+		when(redis.opsForValue().get("signup:biz:t1")).thenReturn("1234567890");
+		SignupBusinessRequest today = new SignupBusinessRequest("t1", "acme01", "Str0ng-pass!", "corporation", "테스트상사", "20261008", "서울",
+				"김담당", "01055556666", "owner@biz.example", "", "", "1", true, true);
+
+		assertThatThrownBy(() -> service.signupBusiness(today, "127.0.0.1"))
+			.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.getFields()).containsKey("startDate"));
 	}
 
 }

@@ -12,6 +12,7 @@ import { IdentityVerifyButton } from "@/components/auth/IdentityVerifyButton";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { AddressField } from "@/components/signup/AddressField";
 import { CheckableField } from "@/components/signup/CheckableField";
+import { ContactMethodField } from "@/components/signup/ContactMethodField";
 import { EmailField } from "@/components/signup/EmailField";
 import { PhoneField } from "@/components/signup/PhoneField";
 import { TermsAgreement } from "@/components/signup/TermsAgreement";
@@ -64,7 +65,7 @@ export function PersonalSignupForm() {
     control,
     formState: { isValid, isSubmitting },
   } = form;
-  const [nicknameUsage, contactMethod, agreeTerms, agreePrivacy] = useWatch({ control, name: ["nicknameUsage", "contactMethod", "agreeTerms", "agreePrivacy"] });
+  const [nicknameUsage, agreeTerms, agreePrivacy] = useWatch({ control, name: ["nicknameUsage", "agreeTerms", "agreePrivacy"] });
   // TODO(본인인증 업체 계약 전): 화면에서만 확인한다. 서버는 아직 인증 토큰을 받지 않는다 (decisions.md 2026-10-13)
   const [verified, setVerified] = useState(false);
   const [checked, setChecked] = useState({ loginId: false, nickname: false });
@@ -171,24 +172,7 @@ export function PersonalSignupForm() {
           )}
 
           <AddressField inline="narrow" label={t.form.address} placeholder={t.form.addressPlaceholder} />
-          <FieldShell label={t.form.contactMethod} inline="narrow">
-            <div role="group" aria-label={t.form.contactMethod} className="grid grid-cols-3 gap-2">
-              {([["1", t.form.contactMethods.all], ["2", t.form.contactMethods.phone], ["3", t.form.contactMethods.email]] as const).map(([value, label]) => {
-                const selected = contactMethod === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => form.setValue("contactMethod", value, { shouldValidate: true, shouldDirty: true })}
-                    className={`h-11 rounded-md border text-sm font-medium transition-colors ${selected ? "border-primary bg-primary-soft text-primary" : "border-line bg-surface text-ink-2 hover:border-primary"}`}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </FieldShell>
+          <ContactMethodField />
 
           <TermsAgreement kind="personal" />
         </fieldset>

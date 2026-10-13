@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { todayInSeoul } from "@/lib/listingForm";
 import { bizNoSchema, emailSchema, loginIdSchema, passwordSchema } from "@/lib/validation/auth";
 import { addressTotalIssue, agreeSchema, CUSTOM_DOMAIN, joinEmail, nameSchema } from "@/lib/validation/signup";
 import { auth as ta } from "@/messages/auth";
@@ -20,12 +21,19 @@ export const businessSignupSchema = z
     emailDomain: z.enum([...emailDomains, CUSTOM_DOMAIN]),
     emailCustom: z.string(),
     contactTel: z.string().max(20, "전화번호는 20자 이하입니다."),
+    contactMethod: z.enum(["1", "2", "3"]),
     loginId: loginIdSchema,
     password: passwordSchema,
     passwordConfirm: z.string().min(1, ta.validation.required),
     bizNo: bizNoSchema,
     bizType: z.enum(["corporation", "individual"]),
     companyName: name50(v.companyName),
+    // 날짜 입력(YYYY-MM-DD)이라 실제 있는 날짜만 온다. 한국 날짜로 오늘 이전 (백엔드 SignupService 와 같은 기준). 보낼 때 하이픈을 뺀다
+    startDate: z
+      .string()
+      .min(1, ta.validation.required)
+      .regex(/^\d{4}-\d{2}-\d{2}$/, v.startDate)
+      .refine((d) => d < todayInSeoul(), v.startDate),
     companyTel: z.string().max(20, "회사 전화번호는 20자 이하입니다."),
     address: z.string().min(1, ta.validation.required).max(200, v.address),
     addressDetail: z.string().max(100, t.validation.addressTotal),

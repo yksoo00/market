@@ -215,11 +215,15 @@ class SignupApiTest {
 		}
 
 		MockHttpServletRequestBuilder signupBusiness(String token, String loginId, boolean agree) {
+			return signupBusiness(token, loginId, agree, "20200101");
+		}
+
+		MockHttpServletRequestBuilder signupBusiness(String token, String loginId, boolean agree, String startDate) {
 			return post("/api/v1/auth/signup/business").contentType(MediaType.APPLICATION_JSON).content("""
 					{"verificationToken":"%s","loginId":"%s","password":"Str0ng-pass!","bizType":"corporation",
-					 "companyName":"테스트상사","address":"서울 중구 세종대로 110 3층","contactName":"김담당",
+					 "companyName":"테스트상사","startDate":"%s","address":"서울 중구 세종대로 110 3층","contactName":"김담당",
 					 "contactPhone":"01055556666","contactEmail":"owner@biz.example","contactTel":"","companyTel":"",
-					 "agreeTerms":%s,"agreePrivacy":%s}""".formatted(token, loginId, agree, agree));
+					 "contactMethod":"3","agreeTerms":%s,"agreePrivacy":%s}""".formatted(token, loginId, startDate, agree, agree));
 		}
 
 		@Test
@@ -229,11 +233,16 @@ class SignupApiTest {
 			MvcResult r = mvc.perform(signupBusiness(token, "acme01", true)).andExpect(status().isCreated()).andReturn();
 			UUID userId = UUID.fromString(r.getResponse().getContentAsString().replaceAll(".*\"userId\":\"([^\"]+)\".*", "$1"));
 
-			Map<String, Object> u = jdbc.queryForMap("select user_class, user_id, bus_reg_id, spare_col from users where id = ?", userId);
+			Map<String, Object> u = jdbc.queryForMap("select user_class, user_id, bus_reg_id, spare_col, company_open_date, contact_method, user_address, company_address from users where id = ?", userId);
 			assertThat(u.get("user_class")).isEqualTo("business");
 			assertThat(u.get("user_id")).isEqualTo("acme01");
 			assertThat(u.get("bus_reg_id")).isEqualTo("1234567890");
 			assertThat((String) u.get("spare_col")).startsWith("terms:20261013@");
+			assertThat(u.get("company_open_date")).isEqualTo("20200101");
+			assertThat(u.get("contact_method")).isEqualTo("3");
+			// 담당자 주소는 받지 않는다 (사용자 지시) — 주소는 회사 주소에만
+			assertThat(u.get("user_address")).isNull();
+			assertThat(u.get("company_address")).isEqualTo("서울 중구 세종대로 110 3층");
 
 			mvc.perform(post("/api/v1/auth/login/business").contentType(MediaType.APPLICATION_JSON)
 					.content("""
@@ -259,12 +268,18 @@ class SignupApiTest {
 		}
 
 		@Test
-		@DisplayName("사업자번호 형식이 틀리면 400 fields.bizNo, 약관 미동의는 400 fields.agreeTerms")
+		@DisplayName("사업자번호 형식·약관 미동의·개업년월일(형식, 오늘 이후)은 400 과 그 필드")
 		void validation() throws Exception {
 			mvc.perform(post("/api/v1/auth/signup/business/verify").contentType(MediaType.APPLICATION_JSON).content("{\"bizNo\":\"12345\"}"))
 				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.bizNo").isString());
 			mvc.perform(signupBusiness(verify("1234567890"), "acme01", false))
 				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.agreeTerms").isString());
+			// 개업년월일: 형식은 Bean Validation, 오늘 이후는 서비스(한국 날짜)
+			String token = verify("1234567891");
+			mvc.perform(signupBusiness(token, "acme01", true, "2020-01-01"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.startDate").isString());
+			mvc.perform(signupBusiness(token, "acme01", true, "29991231"))
+				.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.startDate").isString());
 		}
 
 	}

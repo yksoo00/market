@@ -10,12 +10,14 @@ import { SubmitButton } from "@/components/auth/FormStatus";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { AddressField } from "@/components/signup/AddressField";
 import { CheckableField } from "@/components/signup/CheckableField";
+import { ContactMethodField } from "@/components/signup/ContactMethodField";
 import { EmailField } from "@/components/signup/EmailField";
 import { PhoneField } from "@/components/signup/PhoneField";
 import { TermsAgreement } from "@/components/signup/TermsAgreement";
 import { useSignupResult } from "@/hooks/useSignupResult";
 import { authApi } from "@/lib/api/auth";
 import { applyServerError } from "@/lib/form";
+import { todayInSeoul } from "@/lib/listingForm";
 import { joinAddress } from "@/lib/postcode";
 import { bizNoSchema } from "@/lib/validation/auth";
 import { businessSignupSchema, type BusinessSignupInput } from "@/lib/validation/business";
@@ -27,8 +29,8 @@ import { UNREACHABLE } from "@/types/api";
 const m = t.business.form;
 
 const fields = [
-  "contactName", "phoneMid", "phoneLast", "emailLocal", "emailCustom", "contactTel", "loginId", "password", "passwordConfirm",
-  "bizNo", "bizType", "companyName", "companyTel", "address", "addressDetail", "agreeTerms", "agreePrivacy",
+  "contactName", "phoneMid", "phoneLast", "emailLocal", "emailCustom", "contactTel", "contactMethod", "loginId", "password", "passwordConfirm",
+  "bizNo", "bizType", "companyName", "startDate", "companyTel", "address", "addressDetail", "agreeTerms", "agreePrivacy",
 ] as const;
 const serverFieldMap: Record<string, (typeof fields)[number]> = {
   contactEmail: "emailLocal",
@@ -52,12 +54,14 @@ export function BusinessSignupForm() {
       emailDomain: "naver.com",
       emailCustom: "",
       contactTel: "",
+      contactMethod: "1",
       loginId: "",
       password: "",
       passwordConfirm: "",
       bizNo: "",
       bizType: "corporation",
       companyName: "",
+      startDate: "",
       companyTel: "",
       address: "",
       addressDetail: "",
@@ -73,6 +77,12 @@ export function BusinessSignupForm() {
     formState: { isValid, isSubmitting },
   } = form;
   const [bizNo, agreeTerms, agreePrivacy] = useWatch({ control, name: ["bizNo", "agreeTerms", "agreePrivacy"] });
+  // 날짜 칸의 고를 수 있는 끝 = 한국 날짜로 어제 (개업년월일은 오늘 이전)
+  const [yesterday] = useState(() => {
+    const d = new Date(`${todayInSeoul()}T00:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 1);
+    return d.toISOString().slice(0, 10);
+  });
   const [token, setToken] = useState<string | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [loginIdChecked, setLoginIdChecked] = useState(false);
@@ -103,12 +113,14 @@ export function BusinessSignupForm() {
       password: v.password,
       bizType: v.bizType,
       companyName: v.companyName,
+      startDate: v.startDate.replaceAll("-", ""),
       address: joinAddress(v.address, v.addressDetail),
       contactName: v.contactName,
       contactPhone: `${v.phonePrefix}${v.phoneMid}${v.phoneLast}`,
       contactEmail: joinEmail(v.emailLocal, v.emailDomain, v.emailCustom),
       contactTel: v.contactTel,
       companyTel: v.companyTel,
+      contactMethod: v.contactMethod,
       agreeTerms: v.agreeTerms,
       agreePrivacy: v.agreePrivacy,
     });
@@ -148,6 +160,7 @@ export function BusinessSignupForm() {
           <PhoneField inline="narrow" label={m.contactPhone} />
           <EmailField inline="narrow" label={m.contactEmail} />
           <FormField<BusinessSignupInput> inline="narrow" name="contactTel" label={m.contactTel} placeholder={m.contactTelPlaceholder} autoComplete="tel" maxLength={20} />
+          <ContactMethodField />
         </Section>
 
         <Section title={m.accountSection}>
@@ -218,6 +231,7 @@ export function BusinessSignupForm() {
             />
           </FieldShell>
           <FormField<BusinessSignupInput> inline="narrow" name="companyName" label={m.companyName} placeholder={m.companyNamePlaceholder} autoComplete="organization" maxLength={50} />
+          <FormField<BusinessSignupInput> inline="narrow" name="startDate" label={m.startDate} type="date" max={yesterday} />
           <FormField<BusinessSignupInput> inline="narrow" name="companyTel" label={m.companyTel} placeholder={m.companyTelPlaceholder} autoComplete="tel" maxLength={20} />
           <AddressField inline="narrow" label={m.address} placeholder={m.addressPlaceholder} />
         </Section>
