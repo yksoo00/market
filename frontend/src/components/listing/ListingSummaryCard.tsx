@@ -34,8 +34,11 @@ export function ListingSummaryCard({ detail, owner }: { detail: ListingDetail; o
           {photo ? (
             // 사진 비율대로 높이를 잡는다 — 정사각 상자에 넣으면 가로로 긴 사진 위아래가 배경으로 비어 자리만 차지한다.
             // 세로로 아주 긴 사진만 높이를 묶는다(전체 화면은 정보 표 높이 정도 22rem). API 서버의 공개 파일이라 next/image 원격 설정 없이 <img>
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={fileUrl(photo)} alt={detail.prodName} className="shrink-0 w-full h-auto max-h-96 @min-[80rem]:max-h-88 object-contain rounded-md" />
+            // 누르면 원본을 새 탭 (나머지 사진과 같은 동작)
+            <a href={fileUrl(photo)} target="_blank" rel="noopener noreferrer" aria-label={t.openOriginal(1)} className="shrink-0 block">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={fileUrl(photo)} alt={detail.prodName} className="w-full h-auto max-h-96 @min-[80rem]:max-h-88 object-contain rounded-md" />
+            </a>
           ) : (
             <div className="shrink-0 aspect-square rounded-md border border-line-2 bg-bg flex items-center justify-center">
               <Icon name="image" size={40} className="text-ink-3" aria-hidden={false} aria-label={t.noPhoto} role="img" />
