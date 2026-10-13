@@ -91,9 +91,9 @@ class ListingApiTest {
 
 	@BeforeEach
 	void setUp() {
-		jdbc.update("delete from listings");
-		jdbc.update("delete from products");
-		jdbc.update("delete from users where role <> 'admin'");
+		jdbc.update("delete from trd_prod_reg");
+		jdbc.update("delete from trd_prod_master");
+		jdbc.update("delete from trd_user_info where role <> 'admin'");
 
 		User user = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("listingapitester")
 			.passwordHash("$2a$12$hash").nickname("listingapitester").email("listingapitester@example.com")
@@ -109,8 +109,8 @@ class ListingApiTest {
 	 */
 	@AfterEach
 	void cleanUp() {
-		jdbc.update("delete from listings");
-		jdbc.update("delete from products");
+		jdbc.update("delete from trd_prod_reg");
+		jdbc.update("delete from trd_prod_master");
 	}
 
 	@Test
@@ -131,7 +131,7 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.data.prodId").value(prodId))
 			.andExpect(jsonPath("$.data.photos[0]").value(p1));
 
-		assertThat(jdbc.queryForObject("select prod_photo_1 from products where prod_id = ?", String.class, prodId)).isEqualTo(p1);
+		assertThat(jdbc.queryForObject("select prod_photo_1 from trd_prod_master where prod_id = ?", String.class, prodId)).isEqualTo(p1);
 	}
 
 	@Test
@@ -251,7 +251,7 @@ class ListingApiTest {
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.prodId").value(prodId));
 
-		assertThat(jdbc.queryForObject("select count(*) from products", Integer.class)).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select count(*) from trd_prod_master", Integer.class)).isEqualTo(1);
 	}
 
 	@Test
@@ -378,7 +378,7 @@ class ListingApiTest {
 		patchListing(regDate, "{\"photos\":[]}").andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.photos").value("대표 사진을 올려 주세요."));
 
-		jdbc.update("update listings set prod_photo_1 = null, prod_photo_2 = null, prod_photo_3 = null, prod_image_4 = null where user_id = ? and reg_date = ?",
+		jdbc.update("update trd_prod_reg set prod_photo_1 = null, prod_photo_2 = null, prod_photo_3 = null, prod_image_4 = null where user_id = ? and reg_date = ?",
 				userId, regDate);
 		patchListing(regDate, "{\"photos\":[]}").andExpect(status().isOk());
 	}
@@ -427,9 +427,9 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.data.testReport").value(org.hamcrest.Matchers.nullValue()))
 			.andExpect(jsonPath("$.data.listingDataSheet").value(org.hamcrest.Matchers.nullValue()));
 
-		assertThat(jdbc.queryForObject("select test_report from listings where user_id = ? and reg_date = ?", String.class,
+		assertThat(jdbc.queryForObject("select test_report from trd_prod_reg where user_id = ? and reg_date = ?", String.class,
 				userId, regDate)).isNull();
-		assertThat(jdbc.queryForObject("select prod_data_sheet from listings where user_id = ? and reg_date = ?", String.class,
+		assertThat(jdbc.queryForObject("select prod_data_sheet from trd_prod_reg where user_id = ? and reg_date = ?", String.class,
 				userId, regDate)).isNull();
 	}
 
@@ -489,7 +489,7 @@ class ListingApiTest {
 	@DisplayName("수정에서 납기일을 이미 저장된 값 그대로 보내면 지난 날짜여도 통과한다 (수정 화면이 모든 칸을 다시 보낼 때)")
 	void updateKeepsStoredPastDeliveryDate() throws Exception {
 		String regDate = createListing(authCookie);
-		jdbc.update("update listings set delivery_date = '2020-01-01' where user_id = ? and reg_date = ?", userId, regDate);
+		jdbc.update("update trd_prod_reg set prov_date = '2020-01-01' where user_id = ? and reg_date = ?", userId, regDate);
 
 		patchListing(regDate, "{\"salesUnitPrice\":900,\"deliveryDate\":\"2020-01-01\"}").andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.salesUnitPrice").value(900));
@@ -567,7 +567,7 @@ class ListingApiTest {
 	@DisplayName("이미 저장된 옛 보증 일수(365)를 그대로 보내면 통과한다 — 다른 칸 수정이 막히지 않게")
 	void warrantyPeriodSameAsStoredPasses() throws Exception {
 		String regDate = createListing(authCookie);
-		jdbc.update("update listings set warranty_period = 365 where user_id = ? and reg_date = ?", userId, regDate);
+		jdbc.update("update trd_prod_reg set warranty_period = 365 where user_id = ? and reg_date = ?", userId, regDate);
 
 		patchListing(regDate, "{\"warrantyPeriod\":365,\"salesUnitPrice\":900}").andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.warrantyPeriod").value(365));
@@ -699,7 +699,7 @@ class ListingApiTest {
 	@DisplayName("거래완료일시가 있으면 tradeStatus 는 completed")
 	void tradeStatusCompletedWhenExpired() throws Exception {
 		saveListing("ELEC00010102", "20261001091500", null, null);
-		jdbc.update("update listings set dt_expire = '20261002100000' where user_id = ? and reg_date = '20261001091500'", userId);
+		jdbc.update("update trd_prod_reg set dt_expire = '20261002100000' where user_id = ? and reg_date = '20261001091500'", userId);
 
 		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091500"))
 			.andExpect(status().isOk())
@@ -934,11 +934,11 @@ class ListingApiTest {
 	}
 
 	private String prodIdOf(UUID owner, String regDate) {
-		return jdbc.queryForObject("select prod_id from listings where user_id = ? and reg_date = ?", String.class, owner, regDate);
+		return jdbc.queryForObject("select prod_id from trd_prod_reg where user_id = ? and reg_date = ?", String.class, owner, regDate);
 	}
 
 	private UUID userIdOf(Cookie cookie) {
-		return jdbc.queryForObject("select id from users where user_id = ?", UUID.class, cookie == authCookie ? "listingapitester" : "listingapiother");
+		return jdbc.queryForObject("select uid from trd_user_info where user_id = ?", UUID.class, cookie == authCookie ? "listingapitester" : "listingapiother");
 	}
 
 	@Test
@@ -957,8 +957,8 @@ class ListingApiTest {
 
 		assertThat(prodIdOf(userId, mine)).isEqualTo(target);
 		assertThat(prodIdOf(userIdOf(other), otherReg)).isEqualTo(target);
-		assertThat(jdbc.queryForObject("select count(*) from products where prod_id = ?", Integer.class, before)).isEqualTo(1);
-		assertThat(jdbc.queryForObject("select count(*) from products", Integer.class)).isEqualTo(2);
+		assertThat(jdbc.queryForObject("select count(*) from trd_prod_master where prod_id = ?", Integer.class, before)).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select count(*) from trd_prod_master", Integer.class)).isEqualTo(2);
 	}
 
 	@Test
@@ -976,7 +976,7 @@ class ListingApiTest {
 
 		assertThat(prodIdOf(userId, mine)).isNotEqualTo(shared);
 		assertThat(prodIdOf(userIdOf(other), otherReg)).isEqualTo(shared);
-		assertThat(jdbc.queryForObject("select prod_name from products where prod_id = ?", String.class, shared)).isEqualTo("노트북 U");
+		assertThat(jdbc.queryForObject("select prod_name from trd_prod_master where prod_id = ?", String.class, shared)).isEqualTo("노트북 U");
 	}
 
 	@Test
@@ -988,8 +988,8 @@ class ListingApiTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.prodNo").value("N-1"));
 
-		assertThat(jdbc.queryForObject("select prod_no from products where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("N-1");
-		assertThat(jdbc.queryForObject("select prod_spec_info from products where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("16GB");
+		assertThat(jdbc.queryForObject("select prod_mpn from trd_prod_master where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("N-1");
+		assertThat(jdbc.queryForObject("select prod_spec_info from trd_prod_master where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("16GB");
 	}
 
 	@Test
@@ -1003,7 +1003,7 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.code").value("PRODUCT_SHARED"))
 			.andExpect(jsonPath("$.fields.prodNo").isString());
 
-		assertThat(jdbc.queryForObject("select prod_no from products where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("OLD");
+		assertThat(jdbc.queryForObject("select prod_mpn from trd_prod_master where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("OLD");
 	}
 
 	@Test
@@ -1015,7 +1015,7 @@ class ListingApiTest {
 		patchListing(mine, "{\"prodNo\":\"N-3\",\"prodState\":\"신품대비 90~99%\"}")
 			.andExpect(status().isUnprocessableEntity());
 
-		assertThat(jdbc.queryForObject("select prod_state from listings where user_id = ? and reg_date = ?", String.class, userId, mine)).isEqualTo("신품");
+		assertThat(jdbc.queryForObject("select prod_state from trd_prod_reg where user_id = ? and reg_date = ?", String.class, userId, mine)).isEqualTo("신품");
 	}
 
 	@Test
@@ -1046,18 +1046,18 @@ class ListingApiTest {
 	void renameDoesNotCopyOldProductFiles() throws Exception {
 		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
 		String oldProduct = prodIdOf(userId, mine);
-		jdbc.update("update products set prod_data_sheet = 'private/listings/datasheets/2026/10/other.pdf', prod_photo_1 = 'public/listings/photos/2026/10/other.jpg' where prod_id = ?", oldProduct);
+		jdbc.update("update trd_prod_master set prod_data_sheet = 'private/listings/datasheets/2026/10/other.pdf', prod_photo_1 = 'public/listings/photos/2026/10/other.jpg' where prod_id = ?", oldProduct);
 
 		patchListing(mine, "{\"prodName\":\"완전 새 상품\"}").andExpect(status().isOk());
 
 		String created = prodIdOf(userId, mine);
 		assertThat(created).isNotEqualTo(oldProduct);
-		assertThat(jdbc.queryForObject("select prod_data_sheet from products where prod_id = ?", String.class, created)).isNull();
+		assertThat(jdbc.queryForObject("select prod_data_sheet from trd_prod_master where prod_id = ?", String.class, created)).isNull();
 		// 등록에 사진이 필수라 새 상품은 옛 상품(처음 등록한 다른 판매자)의 사진이 아니라 이 매물의 첫 사진을 쓴다
-		String ownFirstPhoto = jdbc.queryForObject("select prod_photo_1 from listings where user_id = ? and reg_date = ?", String.class,
+		String ownFirstPhoto = jdbc.queryForObject("select prod_photo_1 from trd_prod_reg where user_id = ? and reg_date = ?", String.class,
 				userId, mine);
 		assertThat(ownFirstPhoto).isNotNull();
-		assertThat(jdbc.queryForObject("select prod_photo_1 from products where prod_id = ?", String.class, created))
+		assertThat(jdbc.queryForObject("select prod_photo_1 from trd_prod_master where prod_id = ?", String.class, created))
 			.isEqualTo(ownFirstPhoto);
 	}
 
@@ -1066,13 +1066,13 @@ class ListingApiTest {
 	void renameThenInvalidUploadKeyRollsBackNewProduct() throws Exception {
 		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
 		String before = prodIdOf(userId, mine);
-		int productsBefore = jdbc.queryForObject("select count(*) from products", Integer.class);
+		int productsBefore = jdbc.queryForObject("select count(*) from trd_prod_master", Integer.class);
 
 		patchListing(mine, "{\"prodName\":\"완전 새 상품\",\"testReport\":\"private/listings/test-reports/2026/10/not-uploaded.pdf\"}")
 			.andExpect(status().isBadRequest());
 
 		assertThat(prodIdOf(userId, mine)).isEqualTo(before);
-		assertThat(jdbc.queryForObject("select count(*) from products", Integer.class)).isEqualTo(productsBefore);
+		assertThat(jdbc.queryForObject("select count(*) from trd_prod_master", Integer.class)).isEqualTo(productsBefore);
 	}
 
 }

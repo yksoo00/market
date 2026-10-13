@@ -44,7 +44,7 @@ class SignupApiTest {
 
 	@AfterEach
 	void tearDown() {
-		jdbc.update("delete from users where role <> 'admin'");
+		jdbc.update("delete from trd_user_info where role <> 'admin'");
 		Objects.requireNonNull(redis.getConnectionFactory()).getConnection().serverCommands().flushDb();
 	}
 
@@ -82,7 +82,7 @@ class SignupApiTest {
 				.andExpect(jsonPath("$.ok").value(true)).andReturn();
 			UUID userId = UUID.fromString(r.getResponse().getContentAsString().replaceAll(".*\"userId\":\"([^\"]+)\".*", "$1"));
 
-			Map<String, Object> u = jdbc.queryForMap("select user_class, user_id, user_nickname, nickname_usage, contact_method, user_email, user_name, user_phone, password, spare_col from users where id = ?", userId);
+			Map<String, Object> u = jdbc.queryForMap("select user_class, user_id, user_nickname, nickname_usage, contact_method, user_email, user_name, user_phone, password, spare_col from trd_user_info where uid = ?", userId);
 			assertThat(u.get("user_class")).isEqualTo("personal");
 			assertThat(u.get("user_id")).isEqualTo("gildong1");
 			assertThat(u.get("user_email")).isEqualTo("gildong@example.com");
@@ -173,7 +173,7 @@ class SignupApiTest {
 				.andExpect(jsonPath("$.fields.name").isString())
 				.andExpect(jsonPath("$.fields.email").isString())
 				.andExpect(jsonPath("$.fields.nickname").isString());
-			assertThat(jdbc.queryForObject("select count(*) from users where role <> 'admin'", Long.class)).isZero();
+			assertThat(jdbc.queryForObject("select count(*) from trd_user_info where role <> 'admin'", Long.class)).isZero();
 		}
 
 		@Test
@@ -233,7 +233,7 @@ class SignupApiTest {
 			MvcResult r = mvc.perform(signupBusiness(token, "acme01", true)).andExpect(status().isCreated()).andReturn();
 			UUID userId = UUID.fromString(r.getResponse().getContentAsString().replaceAll(".*\"userId\":\"([^\"]+)\".*", "$1"));
 
-			Map<String, Object> u = jdbc.queryForMap("select user_class, user_id, bus_reg_id, spare_col, company_open_date, contact_method, user_address, company_address from users where id = ?", userId);
+			Map<String, Object> u = jdbc.queryForMap("select user_class, user_id, bus_reg_id, spare_col, company_open_date, contact_method, user_address, company_address from trd_user_info where uid = ?", userId);
 			assertThat(u.get("user_class")).isEqualTo("business");
 			assertThat(u.get("user_id")).isEqualTo("acme01");
 			assertThat(u.get("bus_reg_id")).isEqualTo("1234567890");

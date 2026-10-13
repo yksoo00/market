@@ -21,7 +21,7 @@ import lombok.Getter;
  * 개인·기업 사용자 정보는 한 행에 저장한다. 세부 컬럼 정의는 docs/data-model.md를 따른다.
  */
 @Entity
-@Table(name = "users")
+@Table(name = "trd_user_info")
 @Getter
 public class User {
 
@@ -29,6 +29,7 @@ public class User {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
+	@Column(name = "uid")
 	private UUID id;
 
 	@Column(name = "user_class", nullable = false, length = 10)

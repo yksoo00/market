@@ -83,7 +83,7 @@ class AuthApiTest {
 
 	@AfterEach
 	void tearDown() {
-		jdbc.update("delete from users where role <> 'admin'");
+		jdbc.update("delete from trd_user_info where role <> 'admin'");
 		Objects.requireNonNull(redis.getConnectionFactory()).getConnection().serverCommands().flushDb();
 	}
 
@@ -171,7 +171,7 @@ class AuthApiTest {
 		@Test
 		@DisplayName("정지된 계정은 비밀번호가 맞아도 403 ACCOUNT_SUSPENDED")
 		void suspended() throws Exception {
-			jdbc.update("update users set status = 'suspended' where id = ?", personal.getId());
+			jdbc.update("update trd_user_info set status = 'suspended' where uid = ?", personal.getId());
 
 			mvc.perform(loginRequest("tester1", PASSWORD, true)).andExpect(status().isForbidden())
 				.andExpect(jsonPath("$.code").value("ACCOUNT_SUSPENDED"));
@@ -354,7 +354,7 @@ class AuthApiTest {
 		@DisplayName("access 토큰이 살아 있어도 정지되면 401")
 		void suspendedAfterLogin() throws Exception {
 			String access = cookieValue(loginOk(), "access_token");
-			jdbc.update("update users set status = 'suspended' where id = ?", personal.getId());
+			jdbc.update("update trd_user_info set status = 'suspended' where uid = ?", personal.getId());
 
 			mvc.perform(get("/api/v1/users/me").cookie(new Cookie("access_token", access))).andExpect(status().isUnauthorized());
 		}
@@ -417,7 +417,7 @@ class AuthApiTest {
 		@DisplayName("인증된 요청의 로그에는 requestId 와 userId 가 붙는다")
 		void mdcInLogLine(CapturedOutput output) throws Exception {
 			String access = cookieValue(loginOk(), "access_token");
-			jdbc.update("update users set status = 'suspended' where id = ?", personal.getId());
+			jdbc.update("update trd_user_info set status = 'suspended' where uid = ?", personal.getId());
 
 			// /me 가 401 을 내면서 아무 로그도 안 남기므로, 로그가 확실히 찍히는 정지 로그인 시도로 패턴을 확인
 			mvc.perform(loginRequest("tester1", PASSWORD, true));

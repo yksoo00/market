@@ -77,9 +77,9 @@ class ListingSearchApiTest {
 
 	@BeforeEach
 	void setUp() {
-		jdbc.update("delete from listings");
-		jdbc.update("delete from products");
-		jdbc.update("delete from users where role <> 'admin'");
+		jdbc.update("delete from trd_prod_reg");
+		jdbc.update("delete from trd_prod_master");
+		jdbc.update("delete from trd_user_info where role <> 'admin'");
 		User user = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("searchtester")
 			.passwordHash("$2a$12$hash").nickname("searchtester").email("searchtester@example.com")
 			.name("홍길동").phone("01012340000").phoneHash(hasher.hash("01012340000")).build());
@@ -92,9 +92,9 @@ class ListingSearchApiTest {
 	// 카운터가 남으면 ListingApiTest 의 비로그인 목록 호출이 429 에 걸린다
 	@AfterEach
 	void cleanUp() {
-		jdbc.update("delete from listings");
-		jdbc.update("delete from products");
-		jdbc.update("delete from users where role <> 'admin'");
+		jdbc.update("delete from trd_prod_reg");
+		jdbc.update("delete from trd_prod_master");
+		jdbc.update("delete from trd_user_info where role <> 'admin'");
 		limiter.reset(SEARCH_LIMIT_KEY);
 	}
 
@@ -250,7 +250,7 @@ class ListingSearchApiTest {
 		save("ELEC00010002", "20261001090003", "PowerEdge R740 2U", "R740-4210", "Dell", 3_500_000, 2, "2026-10-15");
 		save("ELEC00010003", "20261001090002", "Catalyst 9300 48P PoE+", "C9300-48P-E", "Cisco", 1_900_000, 30, null);
 		save("ELEC00010004", "20261001090001", "A100 80GB PCIe", null, "NVIDIA", 18_500_000, 0, "2026-11-30");
-		jdbc.update("update listings set dt_expire = '20261002100000' where reg_date = '20261001090001'");
+		jdbc.update("update trd_prod_reg set dt_expire = '20261002100000' where reg_date = '20261001090001'");
 	}
 
 	private static final String A = "20261001090004";
@@ -438,7 +438,7 @@ class ListingSearchApiTest {
 	@DisplayName("사진·데이터시트 표시는 매물 값만 본다 — 상품마스터 파일은 다른 판매자의 것")
 	void fileFlagsIgnoreProductMaster() throws Exception {
 		saveFour();
-		jdbc.update("update products set prod_photo_1 = 'p.jpg', prod_data_sheet = 'p.pdf' where prod_id = 'ELEC00010001'");
+		jdbc.update("update trd_prod_master set prod_photo_1 = 'p.jpg', prod_data_sheet = 'p.pdf' where prod_id = 'ELEC00010001'");
 		mvc.perform(get("/api/v1/listings").param("q", "LM324AD"))
 			.andExpect(jsonPath("$.data.items[0].hasDataSheet").value(false))
 			.andExpect(jsonPath("$.data.items[0].hasPhoto").value(false));

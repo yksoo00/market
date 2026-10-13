@@ -25,7 +25,7 @@ import org.springframework.data.domain.Persistable;
  * 같은 초 중복 등록을 INSERT 충돌이 아니라 UPDATE 로 조용히 덮어쓴다. Persistable.isNew() 로 진짜 신규만 INSERT(persist) 하게 한다.
  */
 @Entity
-@Table(name = "listings")
+@Table(name = "trd_prod_reg")
 @IdClass(ListingId.class)
 @Getter
 public class Listing implements Persistable<ListingId> {
@@ -62,6 +62,7 @@ public class Listing implements Persistable<ListingId> {
 	@Column(nullable = false)
 	private Integer orderUnit;
 
+	@Column(name = "prov_date")
 	private String deliveryDate;
 
 	private Integer stockQuantity;
@@ -90,6 +91,7 @@ public class Listing implements Persistable<ListingId> {
 
 	private String testReport;
 
+	@Column(name = "prod_coa")
 	private String certificateOfAuthen;
 
 	private String dtUpdate;

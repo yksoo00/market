@@ -77,9 +77,9 @@ class ListingMineApiTest {
 
 	@AfterEach
 	void cleanUp() {
-		jdbc.update("delete from listings");
-		jdbc.update("delete from products");
-		jdbc.update("delete from users where role <> 'admin'");
+		jdbc.update("delete from trd_prod_reg");
+		jdbc.update("delete from trd_prod_master");
+		jdbc.update("delete from trd_user_info where role <> 'admin'");
 	}
 
 	@Test
@@ -107,7 +107,7 @@ class ListingMineApiTest {
 	void mineExtraFilledCountsFiveFields() throws Exception {
 		save(userId, "ELEC00010001", "20261001090002", "채움");
 		save(userId, "ELEC00010002", "20261001090001", "빈것");
-		jdbc.update("update listings set warranty_period = 90, warranty_coverage = '대체', test_report = 'private/listings/test-reports/2026/10/x.pdf' where reg_date = '20261001090002'");
+		jdbc.update("update trd_prod_reg set warranty_period = 90, warranty_coverage = '대체', test_report = 'private/listings/test-reports/2026/10/x.pdf' where reg_date = '20261001090002'");
 
 		mvc.perform(get("/api/v1/listings/mine").cookie(auth))
 			.andExpect(status().isOk())
@@ -119,7 +119,7 @@ class ListingMineApiTest {
 	@DisplayName("보증기간 0일(없음)은 채운 것으로 세지 않는다 — 보여 줄 보증 정보가 없다")
 	void mineZeroWarrantyIsNotFilled() throws Exception {
 		save(userId, "ELEC00010001", "20261001090001", "없음");
-		jdbc.update("update listings set warranty_period = 0 where reg_date = '20261001090001'");
+		jdbc.update("update trd_prod_reg set warranty_period = 0 where reg_date = '20261001090001'");
 
 		mvc.perform(get("/api/v1/listings/mine").cookie(auth))
 			.andExpect(status().isOk())

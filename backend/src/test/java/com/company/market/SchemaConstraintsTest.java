@@ -26,12 +26,12 @@ class SchemaConstraintsTest {
 
 	@AfterEach
 	void cleanUp() {
-		jdbc.update("delete from users where role <> 'admin'");
+		jdbc.update("delete from trd_user_info where role <> 'admin'");
 	}
 
 	private void insertUser(String userId, String email, String userClass, String busRegId, String status, String deletedAt) {
 		jdbc.update("""
-				insert into users (user_id, password, user_class, user_name, user_email, bus_reg_id, company_type,
+				insert into trd_user_info (user_id, password, user_class, user_name, user_email, bus_reg_id, company_type,
 					company_name, company_open_date, dt_reg, dt_update, status, deleted_at)
 				values (?, 'hashed', ?, '사용자', ?, ?, case when ? = 'business' then 'corporate' else null end,
 					case when ? = 'business' then '회사' else null end,
@@ -65,7 +65,7 @@ class SchemaConstraintsTest {
 	@DisplayName("기업 계정은 회사 식별 필드가 필요하고 사업자번호는 중복될 수 없다")
 	void businessAccountNeedsCompanyFieldsAndUniqueNumber() {
 		assertThatThrownBy(() -> jdbc.update("""
-				insert into users (user_id, password, user_class, user_name, dt_reg, dt_update)
+				insert into trd_user_info (user_id, password, user_class, user_name, dt_reg, dt_update)
 				values ('biz001', 'hashed', 'business', '담당자', '20260928120000', '20260928120000')
 				""")).isInstanceOf(DataIntegrityViolationException.class);
 

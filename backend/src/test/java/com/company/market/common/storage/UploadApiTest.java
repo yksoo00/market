@@ -73,9 +73,9 @@ class UploadApiTest {
 
 	@BeforeEach
 	void setUp() {
-		jdbc.update("delete from listings");
-		jdbc.update("delete from products");
-		jdbc.update("delete from users where role <> 'admin'");
+		jdbc.update("delete from trd_prod_reg");
+		jdbc.update("delete from trd_prod_master");
+		jdbc.update("delete from trd_user_info where role <> 'admin'");
 		User user = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("uploadapitester")
 			.passwordHash("$2a$12$hash").nickname("uploadapitester").email("uploadapitester@example.com")
 			.name("홍길동").phone("01012345679").phoneHash(hasher.hash("01012345679")).build());
