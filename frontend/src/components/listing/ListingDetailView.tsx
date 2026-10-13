@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { DataSheetCard } from "@/components/listing/DataSheetCard";
 import { ListingSummaryCard } from "@/components/listing/ListingSummaryCard";
+import { PhotosCard } from "@/components/listing/PhotosCard";
 import { ReplaceProdCard } from "@/components/listing/ReplaceProdCard";
 import { authApi } from "@/lib/api/auth";
 import { listingsApi } from "@/lib/api/listings";
@@ -80,6 +81,7 @@ export function ListingDetailView({ userId, regDate }: { userId: string; regDate
       {/* unknown 이면 로그인으로 보고 파일을 받아 본다 — 실제로 로그인이 풀렸으면 파일 401 로 "로그인 후 열람"이 된다 */}
       <DataSheetCard detail={detail} loggedIn={me.kind === "pending" ? null : me.kind !== "anonymous"} />
       <ReplaceProdCard replaceProd={detail.replaceProd} />
+      <PhotosCard photos={detail.photos} />
     </>
   );
 }

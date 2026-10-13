@@ -28,7 +28,8 @@ export function ListingSummaryCard({ detail, owner }: { detail: ListingDetail; o
       </header>
 
       <div className="mt-4 flex flex-col @md:flex-row gap-5">
-        {/* 이 칸은 옆 정보 표 높이만큼 늘어나고(stretch), 대표 사진은 제 비율대로, 그 아래 나머지 사진이 남는 높이를 채운다 (PhotoThumbs) */}
+        {/* 이 칸은 옆 정보 표 높이만큼 늘어나고(stretch), 대표 사진은 제 비율대로, 768~1279 에선 그 아래 나머지 사진이 남는 높이를 채운다 (PhotoThumbs).
+            모바일·전체 화면의 나머지 사진은 아래 사진 카드(PhotosCard) */}
         <div className="w-full @md:w-80 @min-[80rem]:w-150 shrink-0 flex flex-col gap-2">
           {photo ? (
             // 사진 비율대로 높이를 잡는다 — 정사각 상자에 넣으면 가로로 긴 사진 위아래가 배경으로 비어 자리만 차지한다.
@@ -44,14 +45,14 @@ export function ListingSummaryCard({ detail, owner }: { detail: ListingDetail; o
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col gap-4">
-          {/* 넓은 칸(1024 이상)에선 라벨·값 두 쌍을 한 줄에 — 한 줄씩이면 표가 길어져 옆과 아래가 빈다 (사용자 지시).
-              칸 폭 1280 이상(전체 화면)은 값이 짧아 표 오른쪽이 비므로 사진 칸을 600px 로 넓혀(사용자 지시) 가로 사진이면 높이가 표와 맞는다 */}
-          <dl className="grid grid-cols-[7rem_1fr] @lg:grid-cols-[6rem_1fr_6rem_1fr] text-sm">
+          {/* 전체 화면(칸 폭 1280 이상)에선 라벨·값 두 쌍을 한 줄에 두고, 값이 짧아 남는 폭만큼 사진 칸을 600px 로 넓혀 가로 사진이면 높이가 표와 맞는다 (사용자 지시).
+              그보다 좁은 칸(768~1279)은 한 쌍씩 쌓고 사진 아래 나머지 사진이 표 높이까지 채운다 — 1024~1279 에서 두 쌍 + 320px 사진이면 사진 아래가 비었다 */}
+          <dl className="grid grid-cols-[7rem_1fr] @min-[80rem]:grid-cols-[6rem_1fr_6rem_1fr] text-sm">
             {infoRows(detail).map((row) => (
               <div key={row.label} className="contents">
                 <dt className="py-2 border-b border-line-2 text-ink-2">{row.label}</dt>
                 <dd
-                  className={`py-2 @lg:pr-4 border-b border-line-2 min-w-0 break-words ${row.value === t.empty ? "text-ink-3" : "text-ink"} ${row.mono ? "num" : ""}`}
+                  className={`py-2 @min-[80rem]:pr-4 border-b border-line-2 min-w-0 break-words ${row.value === t.empty ? "text-ink-3" : "text-ink"} ${row.mono ? "num" : ""}`}
                 >
                   {row.value}
                 </dd>
@@ -59,7 +60,7 @@ export function ListingSummaryCard({ detail, owner }: { detail: ListingDetail; o
             ))}
             {/* 행 수가 홀수면 두 쌍 배치의 마지막 줄 오른쪽이 비어 아래 선이 반만 그어진다 — 선만 있는 빈 칸으로 채운다 */}
             {infoRows(detail).length % 2 === 1 && (
-              <div aria-hidden="true" className="hidden @lg:contents">
+              <div aria-hidden="true" className="hidden @min-[80rem]:contents">
                 <span className="border-b border-line-2" />
                 <span className="border-b border-line-2" />
               </div>
