@@ -185,7 +185,6 @@ export const listing = {
     },
     noReplaceProd: "등록된 대체품이 없습니다.",
     photos: "사진",
-    noPhotos: "등록된 사진이 없습니다.",
     openOriginal: (n: number) => `사진 ${n} 원본 보기`,
     quote: "견적 요청",
     buy: "구매",
