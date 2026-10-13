@@ -1,8 +1,6 @@
-// 가입 약관 문안. 사용자가 가진 원문(hwp)을 받으면 각 body 를 그 문안으로 바꾸고 version 을 그날 날짜로 올린다.
-// version 은 백엔드 SignupService.TERMS_VERSION 과 같은 값 (동의 기록 users.spare_col 에 남는 판).
+// 가입 약관 문안. 사용자가 가진 원문(hwp)을 받으면 각 body 를 그 문안으로 바꾼다.
+// 문안을 바꾸면 백엔드 SignupService.TERMS_VERSION(동의 기록 users.spare_col 에 남는 판)을 그날 날짜로 올린다.
 // TODO(약관 원문 받기 전): 아래 body 는 자리 채움 초안이다. 법무 검토한 문안으로 바꾸기 전에는 서비스를 열지 않는다 (decisions.md 2026-09-21).
-
-export const TERMS_VERSION = "20261013";
 
 export type TermsDocId = "privacy" | "termsPersonal" | "termsBusiness";
 

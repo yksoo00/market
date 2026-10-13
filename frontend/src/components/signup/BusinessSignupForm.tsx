@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState, type ReactNode } from "react";
-import { useRouter } from "next/navigation";
 import { Controller, FormProvider, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,7 @@ import { CheckableField } from "@/components/signup/CheckableField";
 import { EmailField } from "@/components/signup/EmailField";
 import { PhoneField } from "@/components/signup/PhoneField";
 import { TermsAgreement } from "@/components/signup/TermsAgreement";
+import { useSignupResult } from "@/hooks/useSignupResult";
 import { authApi } from "@/lib/api/auth";
 import { applyServerError } from "@/lib/form";
 import { joinAddress } from "@/lib/postcode";
@@ -36,12 +36,9 @@ const serverFieldMap: Record<string, (typeof fields)[number]> = {
   verificationToken: "bizNo",
 };
 
-type Result = { tone: "success" } | { tone: "error"; message: string; retry: boolean } | null;
-
 // 한 페이지 기업 가입 (사용자 지시, 2026-10-13): 담당자 → 계정(아이디·비밀번호) → 사업자번호 [조회] + 회사 정보 → 약관.
 // 사업자번호 조회 결과(토큰)는 폼 값이 아니라 이 컴포넌트 상태 — 번호를 고치면 다시 조회해야 한다
 export function BusinessSignupForm() {
-  const router = useRouter();
   const form = useForm<BusinessSignupInput>({
     resolver: zodResolver(businessSignupSchema),
     mode: "onTouched",
@@ -79,7 +76,7 @@ export function BusinessSignupForm() {
   const [token, setToken] = useState<string | null>(null);
   const [lookingUp, setLookingUp] = useState(false);
   const [loginIdChecked, setLoginIdChecked] = useState(false);
-  const [result, setResult] = useState<Result>(null);
+  const { showSuccess, showFailure, dialogProps } = useSignupResult("business");
 
   const onCheckStatus = useCallback((_: "loginId" | "nickname", available: boolean) => setLoginIdChecked(available), []);
 
@@ -116,23 +113,22 @@ export function BusinessSignupForm() {
       agreePrivacy: v.agreePrivacy,
     });
     if (res.ok) {
-      setResult({ tone: "success" });
+      showSuccess();
       return;
     }
     const mapped = res.fields
       ? { ...res, fields: Object.fromEntries(Object.entries(res.fields).map(([k, msg]) => [serverFieldMap[k] ?? k, msg])) }
       : res;
     const message = applyServerError(mapped, setError, fields, m.errors) ?? t.result.checkFields;
-    setResult({ tone: "error", message, retry: res.code === UNREACHABLE });
+    showFailure(message, res.code === UNREACHABLE);
     // 조회가 만료됐거나 그 사이 누가 같은 번호로 가입했으면 번호 칸에서 다시 조회하게
     if (res.code === "VERIFICATION_EXPIRED" || res.code === "DUPLICATE_BIZ_NO") {
       setToken(null);
       setError("bizNo", { type: "server", message: m.errors[res.code] });
     }
-    if (res.code === "DUPLICATE_LOGIN_ID") {
-      setError("loginId", { type: "server", message: m.errors.DUPLICATE_LOGIN_ID });
-      setLoginIdChecked(false);
-    }
+    // 서버가 아이디를 거부하면(중복이든 형식이든) 중복확인을 다시 하게
+    if (res.code === "DUPLICATE_LOGIN_ID") setError("loginId", { type: "server", message: m.errors.DUPLICATE_LOGIN_ID });
+    if (res.code === "DUPLICATE_LOGIN_ID" || res.fields?.loginId) setLoginIdChecked(false);
   });
 
   const canSubmit = isValid && Boolean(token) && loginIdChecked;
@@ -233,18 +229,7 @@ export function BusinessSignupForm() {
         <SubmitButton label={m.submit} disabled={!canSubmit} submitting={isSubmitting} />
       </form>
 
-      <ResultDialog
-        open={result !== null}
-        tone={result?.tone ?? "success"}
-        title={result?.tone === "error" ? t.result.failTitle : t.result.businessTitle}
-        message={result?.tone === "error" ? result.message : t.result.businessMessage}
-        actionLabel={result?.tone === "error" ? t.result.ok : t.result.toLogin}
-        // 가입이 끝나면 이 칸을 기업 탭 로그인으로 (타일 칸이면 큐가 로그인 칸으로 정리)
-        onAction={() => (result?.tone === "success" ? router.replace("/login?type=business") : setResult(null))}
-        onClose={result?.tone === "error" ? () => setResult(null) : undefined}
-        retryLabel={tc.retry}
-        onRetry={result?.tone === "error" && result.retry ? () => { setResult(null); void onSubmit(); } : undefined}
-      />
+      <ResultDialog {...dialogProps(() => void onSubmit())} />
     </FormProvider>
   );
 }

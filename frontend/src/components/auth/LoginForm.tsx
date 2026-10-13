@@ -24,6 +24,10 @@ interface Props {
 type Values = LoginInput;
 const fields = ["loginId", "password"] as const;
 
+// 아이디 로그인 전에 가입한 기업 계정은 아이디가 사업자번호(숫자 10자리)다. 예전처럼 123-45-67890 으로 넣어도
+// 되게 하이픈만 뺀다 — 새 아이디 규칙엔 하이픈이 없어서 다른 아이디와 겹치지 않는다
+const legacyBizNoId = (id: string) => (/^\d{3}-\d{2}-\d{5}$/.test(id) ? id.replaceAll("-", "") : id);
+
 export function LoginForm({ kind, next }: Props) {
   const goAfterLogin = useGoAfterLogin();
   const isBusiness = kind === "business";
@@ -46,7 +50,7 @@ export function LoginForm({ kind, next }: Props) {
     setFormError(null);
     setUnreachable(false);
     const result = isBusiness
-      ? await authApi.loginBusiness({ loginId: values.loginId, password: values.password, remember: values.remember })
+      ? await authApi.loginBusiness({ loginId: legacyBizNoId(values.loginId), password: values.password, remember: values.remember })
       : await authApi.login({ loginId: values.loginId, password: values.password, remember: values.remember });
     if (result.ok) {
       goAfterLogin(next);

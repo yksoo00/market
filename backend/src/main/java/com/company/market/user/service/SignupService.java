@@ -49,7 +49,7 @@ public class SignupService {
 
 	private static final Duration BUSINESS_VERIFY_TTL = Duration.ofMinutes(30);
 
-	/** 약관 문안의 판. 문안을 바꾸면 날짜를 올린다 (프론트 messages/terms.ts 의 version 과 같은 값) */
+	/** 약관 문안의 판. 프론트 messages/terms.ts 의 문안을 바꾸면 그날 날짜로 올린다 (화면엔 판을 보내지 않고 서버 값만 기록) */
 	static final String TERMS_VERSION = "20261013";
 
 	private static final DateTimeFormatter TERMS_AT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
@@ -182,7 +182,13 @@ public class SignupService {
 				.nicknameUsage("N")
 				.spareCol(termsAgreement())
 				.build()).getId());
-			redis.delete(tokenKey);
+			// 계정은 이미 만들어졌다. 토큰 정리가 실패해도 가입 성공을 500 으로 바꾸지 않는다 (30분 뒤 만료, 재사용은 유일 제약이 막음)
+			try {
+				redis.delete(tokenKey);
+			}
+			catch (RuntimeException e) {
+				log.warn("사업자 조회 토큰 삭제 실패 userId={}", userId, e);
+			}
 			log.info("기업 가입 userId={} ip={}", userId, ip);
 			return userId;
 		}

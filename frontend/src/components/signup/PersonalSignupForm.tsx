@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { useRouter } from "next/navigation";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ShieldCheck } from "lucide-react";
@@ -16,11 +15,11 @@ import { CheckableField } from "@/components/signup/CheckableField";
 import { EmailField } from "@/components/signup/EmailField";
 import { PhoneField } from "@/components/signup/PhoneField";
 import { TermsAgreement } from "@/components/signup/TermsAgreement";
+import { useSignupResult } from "@/hooks/useSignupResult";
 import { authApi } from "@/lib/api/auth";
 import { applyServerError } from "@/lib/form";
 import { joinAddress } from "@/lib/postcode";
 import { joinEmail, personalSignupSchema, type PersonalSignupInput } from "@/lib/validation/signup";
-import { common as tc } from "@/messages/common";
 import { signup as t } from "@/messages/signup";
 import { UNREACHABLE } from "@/types/api";
 
@@ -31,12 +30,9 @@ const fields = [
 ] as const;
 const serverFieldMap: Record<string, (typeof fields)[number]> = { email: "emailLocal", phone: "phoneMid" };
 
-type Result = { tone: "success" } | { tone: "error"; message: string; retry: boolean } | null;
-
 // 칸 순서·배치는 사용자 지시 (2026-10-13): 본인인증 → 이름·아이디·이메일·비밀번호·연락처 → 별명 → 주소·연락 수단 → 약관.
 // 라벨은 입력 왼쪽(inline="narrow", 휴대폰 폭에선 위로)
 export function PersonalSignupForm() {
-  const router = useRouter();
   const form = useForm<PersonalSignupInput>({
     resolver: zodResolver(personalSignupSchema),
     mode: "onTouched",
@@ -72,7 +68,7 @@ export function PersonalSignupForm() {
   // TODO(본인인증 업체 계약 전): 화면에서만 확인한다. 서버는 아직 인증 토큰을 받지 않는다 (decisions.md 2026-10-13)
   const [verified, setVerified] = useState(false);
   const [checked, setChecked] = useState({ loginId: false, nickname: false });
-  const [result, setResult] = useState<Result>(null);
+  const { showSuccess, showFailure, dialogProps } = useSignupResult("personal");
 
   const onCheckStatus = useCallback((name: "loginId" | "nickname", available: boolean) => {
     setChecked((c) => (c[name] === available ? c : { ...c, [name]: available }));
@@ -94,7 +90,7 @@ export function PersonalSignupForm() {
       agreePrivacy: v.agreePrivacy,
     });
     if (res.ok) {
-      setResult({ tone: "success" });
+      showSuccess();
       return;
     }
     const mapped = res.fields
@@ -102,7 +98,7 @@ export function PersonalSignupForm() {
       : res;
     // 칸에 붙는 오류는 칸 옆에 그대로 두고, 팝업은 무엇이 틀렸는지 한 줄로 알린다
     const message = applyServerError(mapped, setError, fields, t.form.errors) ?? t.result.checkFields;
-    setResult({ tone: "error", message, retry: res.code === UNREACHABLE });
+    showFailure(message, res.code === UNREACHABLE);
     // 서버가 아이디·닉네임을 거부하면 그 칸에 오류를 붙이고(중복확인 버튼이 다시 열림) 확인 결과를 무효로
     for (const [code, name] of [["DUPLICATE_LOGIN_ID", "loginId"], ["DUPLICATE_NICKNAME", "nickname"]] as const) {
       if (res.code === code) setError(name, { type: "server", message: t.form.errors[code] });
@@ -201,18 +197,7 @@ export function PersonalSignupForm() {
         <SubmitButton label={t.form.submit} disabled={!canSubmit} submitting={isSubmitting} />
       </form>
 
-      <ResultDialog
-        open={result !== null}
-        tone={result?.tone ?? "success"}
-        title={result?.tone === "error" ? t.result.failTitle : t.result.title}
-        message={result?.tone === "error" ? result.message : t.result.message}
-        actionLabel={result?.tone === "error" ? t.result.ok : t.result.toLogin}
-        // 가입이 끝나면 이 칸을 로그인 화면으로 (타일 칸이면 큐가 로그인 칸으로 정리, decisions.md 2026-10-13)
-        onAction={() => (result?.tone === "success" ? router.replace("/login") : setResult(null))}
-        onClose={result?.tone === "error" ? () => setResult(null) : undefined}
-        retryLabel={tc.retry}
-        onRetry={result?.tone === "error" && result.retry ? () => { setResult(null); void onSubmit(); } : undefined}
-      />
+      <ResultDialog {...dialogProps(() => void onSubmit())} />
     </FormProvider>
   );
 }

@@ -39,7 +39,7 @@ frontend/src/
 - 이미지는 `next/image`, alt 필수. 버튼·링크에 접근 가능한 이름. 예외: API 서버의 업로드 파일(`lib/files.ts` `fileUrl`)은 `next/image` 원격 호스트 설정 없이 `<img>` + 해당 줄 lint 예외 주석.
 - 가격은 `formatPrice()` 헬퍼로만 표시.
 - 화면 분할(타일 큐): 새 `page.tsx`를 만들면 같은 PR에서 `lib/tileScreens.ts` 화면 표에 그룹(common·sell·buy)과 함께 넣는다. 표에 없으면 열 때마다 전체 화면으로 리셋된다 (`tileScreens.test.ts`가 실패). 어느 화면 옆에도 반반으로 떠야 하면 `common`. 분할 동작은 넓은 화면에서 직접 열어 확인한다.
-- 코드로 다른 화면에 가는 이동(저장·로그인 성공 후 등)은 `router.push` 대신 `useTileOpen()`. `router.push`는 큐를 거치지 않는다 (같은 화면 안 이동·쿼리 변경은 `router.push` 그대로).
+- 코드로 다른 화면을 여는 이동(저장·로그인 성공 후 등)은 `router.push` 대신 `useTileOpen()`. `router.push`는 큐를 거치지 않는다 (같은 화면 안 이동·쿼리 변경은 `router.push` 그대로). 예외: 그 칸 자체가 다른 화면으로 바뀌어야 하면(가입 완료 → 로그인) `router.replace` — iframe 칸이면 큐가 그 칸을 닫고 새 화면을 규칙대로 연다(`paneNavigated`).
 
 ## 테스트
 - Vitest: `lib/`, `hooks/` 단위. Playwright: 핵심 흐름 (가입→로그인→상품 등록) 최소 1개.
