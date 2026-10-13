@@ -72,6 +72,13 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await expect(page).toHaveURL(/\/$/);
   });
 
+  await test.step("헤더 앱 메뉴(∷) — 아이콘을 고르면 메뉴가 닫히고 옆 칸에 열린다", async () => {
+    await page.getByRole("banner").getByRole("button", { name: home.quick.apps }).click();
+    await page.getByRole("menuitem", { name: home.quick.sellExtra }).click();
+    await expect(page.getByRole("menu")).toBeHidden();
+    await expect(page.locator('iframe[src="/listings/extra"]')).toBeVisible();
+  });
+
   await test.step("매물 등록 — 마지막 칸 입력 직후 [등록]이 켜진다", async () => {
     await page.goto("/listings/new");
     await page.locator('input[name="categoryCode"]').fill("서버");
