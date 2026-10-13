@@ -28,11 +28,17 @@ export function ListingSummaryCard({ detail, owner }: { detail: ListingDetail; o
 
       <div className="mt-4 flex flex-col @md:flex-row gap-5">
         {/* self-start: 옆 정보 표 높이만큼 늘어나 사진 위아래가 비지 않게 (flex 기본 stretch 가 aspect-square 를 이김) */}
-        <div className="w-full @md:w-72 shrink-0 @md:self-start aspect-square rounded-md border border-line-2 bg-bg flex items-center justify-center overflow-hidden">
+        <div className="relative w-full @md:w-72 shrink-0 @md:self-start aspect-square rounded-md border border-line-2 bg-bg flex items-center justify-center overflow-hidden">
           {photo ? (
-            // 사진은 API 서버의 공개 파일이라 next/image 를 쓰면 원격 호스트 설정이 필요해진다 — 그대로 <img>
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={fileUrl(photo)} alt={detail.prodName} className="w-full h-full object-contain" />
+            <>
+              {/* 가로·세로로 긴 사진은 정사각 칸에 넣으면 위아래(좌우)가 비어 보인다. 사진을 늘이거나 자르지 않고,
+                  같은 사진을 흐리게 깔아 빈 곳을 채운다 (장식이라 스크린리더는 건너뛴다) */}
+              {/* 사진은 API 서버의 공개 파일이라 next/image 를 쓰면 원격 호스트 설정이 필요해진다 — 그대로 <img> */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={fileUrl(photo)} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-125 object-cover blur-xl opacity-70" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={fileUrl(photo)} alt={detail.prodName} className="relative w-full h-full object-contain" />
+            </>
           ) : (
             <Icon name="image" size={40} className="text-ink-3" aria-hidden={false} aria-label={t.noPhoto} role="img" />
           )}
