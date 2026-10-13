@@ -20,7 +20,7 @@
 | `bus_reg_id` | varchar(20) | 기업 사업자등록번호 |
 | `company_type` | varchar(10) | `corporate` 또는 `individual` (`corporation` UI 값은 저장 시 `corporate`로 변환) |
 | `company_name` | varchar(50) | 회사명 |
-| `company_open_date` | varchar(10) | 개업일. 선택 — 기업 행 필수 제약은 `V202610131200` 에서 뺐다 (사용자 제공 표에서 필수 아님) |
+| `company_open_date` | varchar(10) | 개업일 YYYYMMDD. 기업 가입 때 필수로 받는다(API 검증). DB 는 선택 — 기업 행 필수 제약은 `V202610131200` 에서 뺐다 (사용자 제공 표에서 필수 아님) |
 | `company_tel` | varchar(20) | 회사 전화번호 |
 | `company_address` | varchar(200) | 회사 주소 |
 | `dt_reg`, `dt_update`, `dt_expire` | varchar(14) | 등록·갱신·만료 시각 (`yyyyMMddHHmmss`) |

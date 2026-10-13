@@ -2,9 +2,12 @@ package com.company.market.user.service;
 
 import java.time.Clock;
 import java.time.Duration;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
@@ -51,6 +54,8 @@ public class SignupService {
 
 	/** 약관 문안의 판. 프론트 messages/terms.ts 의 문안을 바꾸면 그날 날짜로 올린다 (화면엔 판을 보내지 않고 서버 값만 기록) */
 	static final String TERMS_VERSION = "20261013";
+
+	private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
 	private static final DateTimeFormatter TERMS_AT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
@@ -143,6 +148,7 @@ public class SignupService {
 		if (bizNo == null) {
 			throw new ApiException(ErrorCode.VERIFICATION_EXPIRED);
 		}
+		checkOpenDate(req.startDate());
 		String lowerPassword = req.password().toLowerCase(Locale.ROOT);
 		if (lowerPassword.contains(req.loginId().toLowerCase(Locale.ROOT))) {
 			throw new ValidationException(Map.of("password", "비밀번호에 아이디를 포함할 수 없습니다."));
@@ -173,13 +179,14 @@ public class SignupService {
 				.phone(req.contactPhone())
 				.userTel(req.contactTel())
 				.email(email)
-				.userAddress(req.address())
 				.busRegId(bizNo)
 				.companyType("corporation".equals(req.bizType()) ? "corporate" : req.bizType())
 				.companyName(req.companyName())
+				.companyOpenDate(req.startDate())
 				.companyTel(req.companyTel())
 				.companyAddress(req.address())
 				.nicknameUsage("N")
+				.contactMethod(req.contactMethod())
 				.spareCol(termsAgreement())
 				.build()).getId());
 			// 계정은 이미 만들어졌다. 토큰 정리가 실패해도 가입 성공을 500 으로 바꾸지 않는다 (30분 뒤 만료, 재사용은 유일 제약이 막음)
@@ -203,6 +210,19 @@ public class SignupService {
 	 */
 	private String termsAgreement() {
 		return "terms:" + TERMS_VERSION + "@" + LocalDateTime.now(clock.withZone(ZoneOffset.UTC)).format(TERMS_AT);
+	}
+
+	/** 개업년월일: 실제 있는 날짜, 한국 날짜로 오늘 이전. 시스템 시간대(컨테이너는 UTC)를 쓰면 한국 00~09시에 "오늘"이 하루 밀린다 */
+	private void checkOpenDate(String yyyymmdd) {
+		try {
+			LocalDate date = LocalDate.parse(yyyymmdd, DateTimeFormatter.BASIC_ISO_DATE);
+			if (!date.isBefore(LocalDate.now(clock.withZone(SEOUL)))) {
+				throw new ValidationException(Map.of("startDate", "개업년월일은 오늘 이전 날짜여야 합니다."));
+			}
+		}
+		catch (DateTimeParseException e) {
+			throw new ValidationException(Map.of("startDate", "개업년월일이 올바른 날짜가 아닙니다."));
+		}
 	}
 
 	private void checkDuplicates(String loginId, String nickname, String email, String phone, boolean useNickname) {

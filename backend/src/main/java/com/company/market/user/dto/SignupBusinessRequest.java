@@ -16,6 +16,8 @@ public record SignupBusinessRequest(
 		@NotBlank(message = "기업 구분을 선택하세요.")
 		@Pattern(regexp = "^(corporation|individual)$", message = "기업 구분이 올바르지 않습니다.") String bizType,
 		@NotBlank(message = "기업명을 입력하세요.") @Size(min = 2, max = 50, message = "기업명은 2~50자입니다.") String companyName,
+		@NotBlank(message = "개업년월일을 입력하세요.")
+		@Pattern(regexp = "^\\d{8}$", message = "개업년월일은 YYYYMMDD 8자리입니다.") String startDate,
 		@NotBlank(message = "주소를 입력하세요.") @Size(max = 200, message = "주소는 200자 이하입니다.") String address,
 		@NotBlank(message = "담당자명을 입력하세요.")
 		@Pattern(regexp = "^[가-힣A-Za-z][가-힣A-Za-z ]{0,28}[가-힣A-Za-z]$", message = "담당자명은 한글·영문 2~30자입니다.") String contactName,
@@ -24,6 +26,8 @@ public record SignupBusinessRequest(
 		@NotBlank(message = "이메일을 입력하세요.") @Size(max = 100, message = "이메일은 100자 이하입니다.") @Email(message = "이메일 형식이 올바르지 않습니다.") String contactEmail,
 		@Size(max = 20, message = "전화번호는 20자 이하입니다.") String contactTel,
 		@Size(max = 20, message = "회사 전화번호는 20자 이하입니다.") String companyTel,
+		@NotBlank(message = "연락 수단을 선택하세요.")
+		@Pattern(regexp = "^[123]$", message = "연락 수단을 선택하세요.") String contactMethod,
 		@AssertTrue(message = "이용약관(기업회원)에 동의해야 가입할 수 있습니다.") boolean agreeTerms,
 		@AssertTrue(message = "개인정보 처리방침에 동의해야 가입할 수 있습니다.") boolean agreePrivacy) {
 }

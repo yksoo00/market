@@ -38,6 +38,14 @@ describe("decideOpen", () => {
     });
   });
 
+  it("로그인 칸에서 [회원가입]을 누르면 칸을 더 쌓지 않고 그 칸이 가입으로 바뀐다 (홈 | 가입)", () => {
+    expect(decideOpen([P("a", "/"), P("b", "/login")], "b", "/signup/personal/form", wide)).toEqual({
+      kind: "inPlace",
+      paneKey: "b",
+      path: "/signup/personal/form",
+    });
+  });
+
   it("연관 없는 화면은 리셋", () => {
     expect(decideOpen([P("a", "/"), P("b", "/search")], "a", "/listings/new", wide)).toEqual({
       kind: "reset",

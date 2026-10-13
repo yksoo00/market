@@ -19,7 +19,7 @@ export function Header() {
   // 로그인은 타일 큐의 칸(iframe)에서도 일어나므로 주소창 칸이든 다른 칸이든 로그인 화면이 열려 있는지를 본다
   const { panes } = useTileWorkspace();
   const openTile = useTileOpen();
-  const onLoginPage = usePathname() === "/login" || panes.some((p) => screenOf(p.path).id === "login");
+  const onLoginPage = usePathname() === "/login" || panes.some((p) => screenOf(p.path).id === "auth");
   const framed = useIsFramed();
   const [profile, setProfile] = useState<{ nickname: string; kind: "PERSONAL" | "BUSINESS" } | null>(null);
   const [sessionChecked, setSessionChecked] = useState(false);

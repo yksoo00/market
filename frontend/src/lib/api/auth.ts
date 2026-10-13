@@ -77,12 +77,15 @@ export const authApi = {
     password: string;
     bizType: "corporation" | "individual";
     companyName: string;
+    /** YYYYMMDD */
+    startDate: string;
     address: string;
     contactName: string;
     contactPhone: string;
     contactEmail: string;
     contactTel: string;
     companyTel: string;
+    contactMethod: "1" | "2" | "3";
     agreeTerms: boolean;
     agreePrivacy: boolean;
   }) => post<{ userId: string }>("/api/v1/auth/signup/business", body),

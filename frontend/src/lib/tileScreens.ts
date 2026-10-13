@@ -13,8 +13,8 @@ export interface Screen {
 // 배열 순서대로 매칭하므로 더 구체적인 경로를 위에 둔다 (/listings/new 가 상세보다, /quotes/adjust 가 /quotes 보다 먼저)
 const SCREENS: { id: string; group: TileGroup; pattern: RegExp }[] = [
   { id: "home", group: "common", pattern: /^\/$/ },
-  { id: "login", group: "common", pattern: /^\/login(\/.*)?$/ },
-  { id: "signup", group: "common", pattern: /^\/signup(\/.*)?$/ },
+  // 로그인·가입은 같은 화면(auth): 로그인 칸에서 [회원가입]을 누르면 칸을 더 쌓지 않고 그 칸이 가입으로 바뀐다 (decisions.md 2026-10-13)
+  { id: "auth", group: "common", pattern: /^\/(login|signup)(\/.*)?$/ },
   { id: "sellNew", group: "sell", pattern: /^\/listings\/new$/ },
   { id: "sellExtra", group: "sell", pattern: /^\/listings\/extra$/ },
   { id: "myListings", group: "sell", pattern: /^\/my\/listings$/ },

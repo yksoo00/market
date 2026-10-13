@@ -116,6 +116,7 @@ export const signup = {
       bizTypes: { corporation: "법인사업자", individual: "개인사업자" } as const,
       companyName: "기업명",
       companyNamePlaceholder: "사업자등록증의 상호",
+      startDate: "개업년월일",
       companyTel: "회사 전화번호",
       companyTelPlaceholder: "선택 입력",
       address: "주소",
@@ -146,6 +147,7 @@ export const signup = {
     },
     validation: {
       companyName: "기업명은 2~50자로 입력하세요.",
+      startDate: "개업년월일은 오늘 이전 날짜로 입력하세요.",
       passwordHasBizNo: "비밀번호에 사업자등록번호를 넣을 수 없습니다.",
       address: "주소는 200자 이하로 입력하세요.",
       licenseType: "사업자등록증은 PDF, JPG, PNG 파일만 올릴 수 있습니다.",
