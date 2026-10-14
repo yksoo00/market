@@ -17,7 +17,6 @@ import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.repository.ProductRepository;
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;
-import com.company.market.user.domain.UserRole;
 import com.company.market.user.repository.UserRepository;
 import com.jayway.jsonpath.JsonPath;
 import jakarta.servlet.http.Cookie;
@@ -77,9 +76,9 @@ class ListingSearchApiTest {
 
 	@BeforeEach
 	void setUp() {
-		jdbc.update("delete from listings");
-		jdbc.update("delete from products");
-		jdbc.update("delete from users where role <> 'admin'");
+		jdbc.update("delete from trd_prod_reg");
+		jdbc.update("delete from trd_prod_master");
+		jdbc.update("delete from trd_user_info");
 		User user = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("searchtester")
 			.passwordHash("$2a$12$hash").nickname("searchtester").email("searchtester@example.com")
 			.name("홍길동").phone("01012340000").phoneHash(hasher.hash("01012340000")).build());
@@ -92,9 +91,9 @@ class ListingSearchApiTest {
 	// 카운터가 남으면 ListingApiTest 의 비로그인 목록 호출이 429 에 걸린다
 	@AfterEach
 	void cleanUp() {
-		jdbc.update("delete from listings");
-		jdbc.update("delete from products");
-		jdbc.update("delete from users where role <> 'admin'");
+		jdbc.update("delete from trd_prod_reg");
+		jdbc.update("delete from trd_prod_master");
+		jdbc.update("delete from trd_user_info");
 		limiter.reset(SEARCH_LIMIT_KEY);
 	}
 
@@ -164,7 +163,7 @@ class ListingSearchApiTest {
 	@Test
 	@DisplayName("로그인 사용자 검색은 제한하지 않는다")
 	void loggedInSearchIsNotRateLimited() throws Exception {
-		Cookie auth = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId, UserRole.USER));
+		Cookie auth = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId));
 		for (int i = 0; i < 61; i++) {
 			mvc.perform(get("/api/v1/listings").cookie(auth)).andExpect(status().isOk());
 		}
@@ -172,7 +171,7 @@ class ListingSearchApiTest {
 
 	private void save(String prodId, String regDate, String name, String prodNo, String brand, int price, int stock,
 			String deliveryDate) {
-		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("ELEC0001").prodName(name)
+		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("P01-Q01-R001").prodName(name)
 			.prodNo(prodNo).prodBrand(brand).regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(userId).regDate(regDate).prodId(prodId).tradeType("등록")
 			.prodState("양호").salesUnitPrice(price).salesQuantity(Math.max(stock, 1)).minOrderQuantity(1).orderUnit(1)
@@ -184,7 +183,7 @@ class ListingSearchApiTest {
 		UUID other = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("searchother")
 			.passwordHash("$2a$12$hash").nickname("searchother").email("searchother@example.com")
 			.name("김철수").phone("01012340009").phoneHash(hasher.hash("01012340009")).build()).getId();
-		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("ELEC0001").prodName(name)
+		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("P01-Q01-R001").prodName(name)
 			.prodBrand("남의것").regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(other).regDate(regDate).prodId(prodId).tradeType("등록")
 			.prodState("신품").salesUnitPrice(1000).salesQuantity(1).minOrderQuantity(1).orderUnit(1).stockQuantity(1).build());
@@ -192,7 +191,7 @@ class ListingSearchApiTest {
 	}
 
 	private Cookie mine() {
-		return new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId, UserRole.USER));
+		return new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId));
 	}
 
 	@Test
@@ -250,7 +249,7 @@ class ListingSearchApiTest {
 		save("ELEC00010002", "20261001090003", "PowerEdge R740 2U", "R740-4210", "Dell", 3_500_000, 2, "2026-10-15");
 		save("ELEC00010003", "20261001090002", "Catalyst 9300 48P PoE+", "C9300-48P-E", "Cisco", 1_900_000, 30, null);
 		save("ELEC00010004", "20261001090001", "A100 80GB PCIe", null, "NVIDIA", 18_500_000, 0, "2026-11-30");
-		jdbc.update("update listings set dt_expire = '20261002100000' where reg_date = '20261001090001'");
+		jdbc.update("update trd_prod_reg set dt_expire = '20261002100000' where reg_date = '20261001090001'");
 	}
 
 	private static final String A = "20261001090004";
@@ -392,7 +391,7 @@ class ListingSearchApiTest {
 					null);
 		}
 		String tieDate = "20261001090100";
-		productRepository.saveAndFlush(Product.builder().prodId("ELEC00019000").categoryCode("ELEC0001").prodName("부품 동률")
+		productRepository.saveAndFlush(Product.builder().prodId("ELEC00019000").categoryCode("P01-Q01-R001").prodName("부품 동률")
 			.prodBrand("삼성").regDate(tieDate).build());
 		for (String loginId : List.of("searchtieb", "searchtiec")) {
 			UUID other = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
@@ -425,7 +424,7 @@ class ListingSearchApiTest {
 			.andExpect(jsonPath("$.data.items[0].userId").value(userId.toString()))
 			.andExpect(jsonPath("$.data.items[0].prodNo").value("LM324AD"))
 			.andExpect(jsonPath("$.data.items[0].prodBrand").value("STMICROELECTRONICS"))
-			.andExpect(jsonPath("$.data.items[0].category").value("ELEC0001"))
+			.andExpect(jsonPath("$.data.items[0].category").value("P01-Q01-R001"))
 			.andExpect(jsonPath("$.data.items[0].hasDataSheet").value(false))
 			.andExpect(jsonPath("$.data.items[0].hasPhoto").value(false))
 			.andExpect(jsonPath("$.data.items[0].stockQuantity").value(500))
@@ -438,7 +437,7 @@ class ListingSearchApiTest {
 	@DisplayName("사진·데이터시트 표시는 매물 값만 본다 — 상품마스터 파일은 다른 판매자의 것")
 	void fileFlagsIgnoreProductMaster() throws Exception {
 		saveFour();
-		jdbc.update("update products set prod_photo_1 = 'p.jpg', prod_data_sheet = 'p.pdf' where prod_id = 'ELEC00010001'");
+		jdbc.update("update trd_prod_master set prod_photo_1 = 'p.jpg', prod_data_sheet = 'p.pdf' where prod_id = 'ELEC00010001'");
 		mvc.perform(get("/api/v1/listings").param("q", "LM324AD"))
 			.andExpect(jsonPath("$.data.items[0].hasDataSheet").value(false))
 			.andExpect(jsonPath("$.data.items[0].hasPhoto").value(false));

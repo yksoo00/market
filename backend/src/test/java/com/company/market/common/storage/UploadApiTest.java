@@ -12,7 +12,6 @@ import com.company.market.common.auth.JwtProvider;
 import com.company.market.common.crypto.PiiHasher;
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;
-import com.company.market.user.domain.UserRole;
 import com.company.market.user.repository.UserRepository;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.BeforeEach;
@@ -73,14 +72,14 @@ class UploadApiTest {
 
 	@BeforeEach
 	void setUp() {
-		jdbc.update("delete from listings");
-		jdbc.update("delete from products");
-		jdbc.update("delete from users where role <> 'admin'");
+		jdbc.update("delete from trd_prod_reg");
+		jdbc.update("delete from trd_prod_master");
+		jdbc.update("delete from trd_user_info");
 		User user = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("uploadapitester")
 			.passwordHash("$2a$12$hash").nickname("uploadapitester").email("uploadapitester@example.com")
 			.name("홍길동").phone("01012345679").phoneHash(hasher.hash("01012345679")).build());
 		userId = user.getId();
-		authCookie = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId, UserRole.USER));
+		authCookie = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId));
 	}
 
 	@Test

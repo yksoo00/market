@@ -18,9 +18,8 @@ public class UserService {
 
 	private final UserRepository users;
 
-	/** access 토큰은 15분 살아 있으므로 그 사이 정지·탈퇴된 계정은 여기서 걸러 401 */
 	public MeResponse me(UUID id) {
-		User user = users.findById(id).filter(User::isActive)
+		User user = users.findById(id)
 			.orElseThrow(() -> new ApiException(ErrorCode.SESSION_EXPIRED));
 		return MeResponse.from(user);
 	}

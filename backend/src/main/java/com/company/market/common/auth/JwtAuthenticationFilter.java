@@ -10,7 +10,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.MDC;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -29,7 +28,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 			throws ServletException, IOException {
 		cookies.read(req, AuthCookies.ACCESS).flatMap(jwt::parse).ifPresent(user -> {
 			var auth = new UsernamePasswordAuthenticationToken(user, null,
-					List.of(new SimpleGrantedAuthority("ROLE_" + user.role().name())));
+					List.of());
 			SecurityContextHolder.getContext().setAuthentication(auth);
 			MDC.put("userId", user.id().toString()); // RequestIdFilter 가 요청 끝에 MDC 를 비운다
 		});

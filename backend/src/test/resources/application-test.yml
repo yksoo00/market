@@ -15,9 +15,6 @@ app:
     secret: test-secret-test-secret-test-secret-32bytes
   identity-verification:
     provider: stub
-  admin:
-    login-id: admin
-    password: admin-test-password!1
   storage:
     root: build/test-uploads
     min-free: 1MB   # 개발 PC 디스크 여유와 무관하게 통과. 하한 동작은 UploadServiceTest 가 본다

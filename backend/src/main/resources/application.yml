@@ -29,7 +29,7 @@ spring:
     redis:
       url: ${REDIS_URL:redis://localhost:6379}
 
-  # 소셜 로그인은 단일 users 테이블 전환을 마칠 때까지 비활성화한다.
+  # 소셜 로그인은 단일 trd_user_info 테이블 전환을 마칠 때까지 비활성화한다.
   # security:
   #   oauth2:
   #     client:
@@ -80,9 +80,6 @@ app:
     provider: ${IDENTITY_VERIFICATION_PROVIDER:pass}   # 기본값은 안전한 쪽(stub 거부). 로컬 .env 에서만 stub
   terms:
     version: ${TERMS_VERSION:2026-09-22-draft}          # 약관 시행일. 법무 검토 후 확정값으로
-  admin:
-    login-id: ${ADMIN_LOGIN_ID:}               # 둘 다 있고 admin 이 없을 때만 앱 시작 시 1명 생성
-    password: ${ADMIN_PASSWORD:}
   pii-key: ${PII_ENCRYPTION_KEY}    # 이름·휴대폰·CI 컬럼 암호화 키. 32바이트 base64. 바꾸면 전체 재암호화 필요
   domain-root: ${DOMAIN_ROOT:localhost}
   storage:

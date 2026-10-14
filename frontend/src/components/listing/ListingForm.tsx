@@ -113,7 +113,7 @@ export function ListingForm({ initialValues, submitLabel, secondarySubmitLabel, 
         <FormError message={formError} onRetry={unreachable && !uploading && !isSubmitting ? () => void (intent === "extra" ? submitExtra() : submit()) : undefined} />
 
         <Section title={t.sectionProduct}>
-          <FormField<ListingFormInput> inline name="categoryCode" label={t.categoryCode} hint={t.categoryHint} placeholder={t.categoryPlaceholder} maxLength={10} />
+          <FormField<ListingFormInput> inline name="categoryCode" label={t.categoryCode} hint={t.categoryHint} placeholder={t.categoryPlaceholder} maxLength={12} />
           <FormField<ListingFormInput> inline name="prodBrand" label={t.prodBrand} placeholder={t.prodBrandPlaceholder} maxLength={50} />
           <Wide>
             <FormField<ListingFormInput> inline name="prodName" label={t.prodName} placeholder={t.prodNamePlaceholder} maxLength={50} />

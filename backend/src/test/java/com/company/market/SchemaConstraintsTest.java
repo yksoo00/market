@@ -12,7 +12,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
-import static org.assertj.core.api.Assertions.assertThatCode;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 /** 단일 users 테이블의 핵심 제약을 DB에서 확인한다. */
@@ -26,38 +26,27 @@ class SchemaConstraintsTest {
 
 	@AfterEach
 	void cleanUp() {
-		jdbc.update("delete from users where role <> 'admin'");
+		jdbc.update("delete from trd_user_info");
 	}
 
-	private void insertUser(String userId, String email, String userClass, String busRegId, String status, String deletedAt) {
+	private void insertUser(String userId, String email, String userClass, String busRegId) {
 		jdbc.update("""
-				insert into users (user_id, password, user_class, user_name, user_email, bus_reg_id, company_type,
-					company_name, company_open_date, dt_reg, dt_update, status, deleted_at)
+				insert into trd_user_info (user_id, password, user_class, user_name, user_email, bus_reg_id, company_type,
+					company_name, company_open_date, dt_reg, dt_update)
 				values (?, 'hashed', ?, '사용자', ?, ?, case when ? = 'business' then 'corporate' else null end,
 					case when ? = 'business' then '회사' else null end,
 					case when ? = 'business' then '20200101' else null end,
-					'20260928120000', '20260928120000', ?, %s)
-				""".formatted(deletedAt), userId, userClass, email, busRegId, userClass, userClass, userClass, status);
+					'20260928120000', '20260928120000')
+				""", userId, userClass, email, busRegId, userClass, userClass, userClass);
 	}
 
 	@Test
-	@DisplayName("withdrawn 상태와 deleted_at 은 함께 설정되어야 한다")
-	void withdrawnAndDeletedAtMoveTogether() {
-		assertThatThrownBy(() -> insertUser("user001", "a@x.com", "personal", null, "withdrawn", "null"))
-			.isInstanceOf(DataIntegrityViolationException.class);
-		assertThatThrownBy(() -> insertUser("user002", "b@x.com", "personal", null, "active", "now()"))
-			.isInstanceOf(DataIntegrityViolationException.class);
-		assertThatCode(() -> insertUser("user003", "c@x.com", "personal", null, "withdrawn", "now()"))
-			.doesNotThrowAnyException();
-	}
-
-	@Test
-	@DisplayName("활성 사용자 ID와 이메일은 중복될 수 없다")
+	@DisplayName("사용자 ID와 이메일은 중복될 수 없다")
 	void activeIdsAndEmailsAreUnique() {
-		insertUser("user004", "Same@Example.com", "personal", null, "active", "null");
-		assertThatThrownBy(() -> insertUser("user004", "other@x.com", "personal", null, "active", "null"))
+		insertUser("user004", "Same@Example.com", "personal", null);
+		assertThatThrownBy(() -> insertUser("user004", "other@x.com", "personal", null))
 			.isInstanceOf(DataIntegrityViolationException.class);
-		assertThatThrownBy(() -> insertUser("user005", "same@example.com", "personal", null, "active", "null"))
+		assertThatThrownBy(() -> insertUser("user005", "same@example.com", "personal", null))
 			.isInstanceOf(DataIntegrityViolationException.class);
 	}
 
@@ -65,13 +54,54 @@ class SchemaConstraintsTest {
 	@DisplayName("기업 계정은 회사 식별 필드가 필요하고 사업자번호는 중복될 수 없다")
 	void businessAccountNeedsCompanyFieldsAndUniqueNumber() {
 		assertThatThrownBy(() -> jdbc.update("""
-				insert into users (user_id, password, user_class, user_name, dt_reg, dt_update)
+				insert into trd_user_info (user_id, password, user_class, user_name, dt_reg, dt_update)
 				values ('biz001', 'hashed', 'business', '담당자', '20260928120000', '20260928120000')
 				""")).isInstanceOf(DataIntegrityViolationException.class);
 
-		insertUser("biz002", "biz1@example.com", "business", "1234567890", "active", "null");
-		assertThatThrownBy(() -> insertUser("biz003", "biz2@example.com", "business", "1234567890", "active", "null"))
+		insertUser("biz002", "biz1@example.com", "business", "1234567890");
+		assertThatThrownBy(() -> insertUser("biz003", "biz2@example.com", "business", "1234567890"))
 			.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	@DisplayName("trd_user_info 에 role·status·deleted_at·must_change_password·user_tel 이 없다")
+	void droppedUserColumns() {
+		assertThat(jdbc.queryForList("select column_name from information_schema.columns "
+				+ "where table_schema = current_schema() and table_name = 'trd_user_info' "
+				+ "and column_name in ('role', 'status', 'deleted_at', 'must_change_password', 'user_tel')",
+				String.class)).isEmpty();
+	}
+
+	@Test
+	@DisplayName("정의서 물리명: trd_prod_master·trd_prod_reg·trd_user_info, prod_mpn·prod_scan_code·prov_date·prod_coa·uid 컬럼이 있다")
+	void legacyPhysicalNames() {
+		String[][] columns = { { "trd_prod_master", "prod_mpn" }, { "trd_prod_master", "prod_scan_code" },
+				{ "trd_prod_reg", "prov_date" }, { "trd_prod_reg", "prod_coa" }, { "trd_user_info", "uid" } };
+		for (String[] c : columns) {
+			assertThat(jdbc.queryForObject("select count(*) from information_schema.columns "
+					+ "where table_schema = current_schema() and table_name = ? and column_name = ?",
+					Integer.class, c[0], c[1])).as(c[0] + "." + c[1]).isEqualTo(1);
+		}
+		assertThat(jdbc.queryForObject("select count(*) from information_schema.tables "
+				+ "where table_schema = current_schema() and table_name in ('products', 'listings', 'users')",
+				Integer.class)).isZero();
+	}
+
+	@Test
+	@DisplayName("trd_ctgr_code 에 시드가 있고 P01-Q01-R001 의 부모는 Q01")
+	void categorySeedExists() {
+		assertThat(jdbc.queryForObject("select count(*) from trd_ctgr_code", Integer.class)).isEqualTo(239);
+		assertThat(jdbc.queryForObject("select parent_code from trd_ctgr_code where category_code = 'P01-Q01-R001'",
+				String.class)).isEqualTo("Q01");
+	}
+
+	@Test
+	@DisplayName("trd_prod_master.category_code 가 카테고리에 없으면 외래키가 거부한다")
+	void productCategoryForeignKey() {
+		assertThatThrownBy(() -> jdbc.update("""
+				insert into trd_prod_master (prod_id, category_code, prod_name, prod_brand, reg_date)
+				values ('FKTEST0001', 'NOPE-CODE', '상품', '브랜드', '20261013120000')
+				""")).isInstanceOf(DataIntegrityViolationException.class);
 	}
 
 }

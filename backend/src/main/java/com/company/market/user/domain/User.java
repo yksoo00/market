@@ -21,7 +21,7 @@ import lombok.Getter;
  * 개인·기업 사용자 정보는 한 행에 저장한다. 세부 컬럼 정의는 docs/data-model.md를 따른다.
  */
 @Entity
-@Table(name = "users")
+@Table(name = "trd_user_info")
 @Getter
 public class User {
 
@@ -29,16 +29,11 @@ public class User {
 
 	@Id
 	@GeneratedValue(strategy = GenerationType.UUID)
+	@Column(name = "uid")
 	private UUID id;
 
 	@Column(name = "user_class", nullable = false, length = 10)
 	private UserKind kind;
-
-	@Column(name = "role", nullable = false, length = 10)
-	private UserRole role;
-
-	@Column(name = "status", nullable = false, length = 10)
-	private UserStatus status;
 
 	/** 로그인 ID. */
 	@Column(name = "user_id", nullable = false, length = 20)
@@ -53,9 +48,6 @@ public class User {
 
 	@Column(name = "user_phone", length = 20)
 	private String phone;
-
-	@Column(name = "user_tel", length = 20)
-	private String userTel;
 
 	@Column(name = "user_email", length = 100)
 	private String email;
@@ -102,30 +94,20 @@ public class User {
 	@Column(name = "spare_col", length = 40)
 	private String spareCol;
 
-	/** 시드 관리자·관리자가 초기화한 비밀번호. true 면 로그인 직후 변경 화면으로 */
-	@Column(nullable = false)
-	private boolean mustChangePassword;
-
-	@Column(name = "deleted_at")
-	private Instant deletedAt;
-
 	protected User() {
 	}
 
 	@Builder
-	private User(UserKind kind, UserRole role, String loginId, String passwordHash, String nickname,
+	private User(UserKind kind, String loginId, String passwordHash, String nickname,
 			Instant emailVerifiedAt, String phoneHash, Instant marketingOptInAt, String name, String phone,
-			String userTel, String email, String userAddress, String busRegId, String companyType, String companyName,
+			String email, String userAddress, String busRegId, String companyType, String companyName,
 			String companyOpenDate, String companyTel, String companyAddress, String dtExpire, String userNickname,
-			String nicknameUsage, String contactMethod, String spareCol, boolean mustChangePassword) {
+			String nicknameUsage, String contactMethod, String spareCol) {
 		this.kind = kind;
-		this.role = role == null ? UserRole.USER : role;
-		this.status = UserStatus.ACTIVE;
 		this.loginId = loginId;
 		this.passwordHash = passwordHash;
 		this.name = name;
 		this.phone = phone;
-		this.userTel = userTel;
 		this.email = email;
 		this.userAddress = userAddress;
 		this.busRegId = busRegId;
@@ -139,8 +121,7 @@ public class User {
 		this.nicknameUsage = nicknameUsage == null ? "N" : nicknameUsage;
 		this.contactMethod = contactMethod == null ? "1" : contactMethod;
 		this.spareCol = spareCol;
-		this.mustChangePassword = mustChangePassword;
-		// 예전 소셜·해시 필드는 builder 호출부의 이행 중 컴파일 호환용이며 단일 users 표에 저장하지 않는다.
+		// 예전 소셜·해시 필드는 builder 호출부의 이행 중 컴파일 호환용이며 단일 trd_user_info 표에 저장하지 않는다.
 	}
 
 	@PrePersist
@@ -155,12 +136,6 @@ public class User {
 	@PreUpdate
 	void onUpdate() {
 		dtUpdate = LocalDateTime.now(ZoneOffset.UTC).format(DATABASE_TIMESTAMP);
-	}
-
-	/** 로그인 가능한 상태인가. 정지·탈퇴는 불가 */
-	public boolean isActive() {
-		String now = LocalDateTime.now(ZoneOffset.UTC).format(DATABASE_TIMESTAMP);
-		return status == UserStatus.ACTIVE && deletedAt == null && (dtExpire == null || dtExpire.isBlank() || dtExpire.compareTo(now) > 0);
 	}
 
 	public String getNickname() {

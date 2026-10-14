@@ -81,10 +81,6 @@ public class OAuthLoginService {
 		Optional<SocialAccount> linked = socialAccounts.findByProviderAndProviderUserId(profile.provider(), profile.providerUserId());
 		if (linked.isPresent()) {
 			User user = linked.get().getUser();
-			if (!user.isActive()) {
-				log.warn("정지·탈퇴 계정 소셜 로그인 시도 userId={}", user.getId());
-				return new Rejected(ErrorCode.ACCOUNT_SUSPENDED, null);
-			}
 			user.recordLogin();
 			users.save(user);
 			log.info("소셜 로그인 userId={} provider={}", user.getId(), profile.provider());
@@ -110,7 +106,7 @@ public class OAuthLoginService {
 		// 가입 시도와 같은 한도(IP 5회/시간). 토큰이 10분 살아 있는 동안 닉네임 중복 응답으로 닉네임을 훑지 못하게
 		limiter.hit("signup:ip:" + ip, 5, Duration.ofHours(1));
 		SocialProfile profile = signupStore.find(token, flowHash).orElseThrow(() -> new ApiException(ErrorCode.OAUTH_EXPIRED));
-		if (users.existsByNicknameAndKindAndDeletedAtIsNull(nickname, UserKind.PERSONAL)) {
+		if (users.existsByNicknameAndKind(nickname, UserKind.PERSONAL)) {
 			throw new ApiException(ErrorCode.DUPLICATE_NICKNAME);
 		}
 		// 콜백 이후 10분 사이에 같은 이메일이 다른 방식으로 가입했을 수 있다
@@ -123,10 +119,10 @@ public class OAuthLoginService {
 		}
 		catch (DataIntegrityViolationException e) {
 			String message = String.valueOf(e.getMostSpecificCause().getMessage());
-			if (message.contains("ux_users_nickname_personal")) {
+			if (message.contains("ux_trd_user_info_nickname")) {
 				throw new ApiException(ErrorCode.DUPLICATE_NICKNAME);
 			}
-			if (message.contains("ux_users_email") || message.contains("ux_social_accounts_provider_user")) {
+			if (message.contains("ux_trd_user_info_email") || message.contains("ux_social_accounts_provider_user")) {
 				throw new ApiException(ErrorCode.EMAIL_ALREADY_REGISTERED);
 			}
 			throw e;
@@ -168,7 +164,7 @@ public class OAuthLoginService {
 
 	/** 소셜은 "로그인 유지"를 물을 화면이 없다. 앱 관례대로 유지(영구 쿠키) */
 	private LoginResult issue(User user) {
-		return new LoginResult(user.getId(), jwt.createAccessToken(user.getId(), user.getRole()), sessions.issue(user.getId(), true), true);
+		return new LoginResult(user.getId(), jwt.createAccessToken(user.getId()), sessions.issue(user.getId(), true), true);
 	}
 
 	private static InetAddress parseIp(String ip) {

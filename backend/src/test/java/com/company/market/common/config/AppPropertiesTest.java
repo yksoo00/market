@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class AppPropertiesTest {
 
 	private static AppProperties props(String env, Boolean cookieSecure, String appUrl, List<String> extra) {
-		return new AppProperties(env, null, null, null, null, appUrl, null, cookieSecure, extra);
+		return new AppProperties(env, null, null, null, appUrl, null, cookieSecure, extra);
 	}
 
 	@Test

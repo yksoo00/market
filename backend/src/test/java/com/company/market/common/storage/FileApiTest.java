@@ -6,7 +6,6 @@ import java.util.UUID;
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.auth.AuthCookies;
 import com.company.market.common.auth.JwtProvider;
-import com.company.market.user.domain.UserRole;
 import jakarta.servlet.http.Cookie;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -77,7 +76,7 @@ class FileApiTest {
 	@DisplayName("비공개 데이터시트는 로그인하면 200, application/pdf, inline, 캐시 private")
 	void privateForLoggedIn() throws Exception {
 		String key = saved("private/listings/datasheets", "pdf", UploadApiTest.PDF);
-		Cookie cookie = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(UUID.randomUUID(), UserRole.USER));
+		Cookie cookie = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(UUID.randomUUID()));
 
 		mvc.perform(get("/api/v1/files/" + key).cookie(cookie))
 			.andExpect(status().isOk())

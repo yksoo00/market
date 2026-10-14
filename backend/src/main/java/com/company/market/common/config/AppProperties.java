@@ -9,7 +9,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 
 /** application.yml 의 `app.*`. 값은 전부 환경변수 (.env) */
 @ConfigurationProperties("app")
-public record AppProperties(String env, Jwt jwt, Admin admin, IdentityVerification identityVerification, Terms terms,
+public record AppProperties(String env, Jwt jwt, IdentityVerification identityVerification, Terms terms,
 		String appUrl, String domainRoot, Boolean cookieSecure, List<String> allowedOrigins) {
 
 	public AppProperties {
@@ -49,10 +49,6 @@ public record AppProperties(String env, Jwt jwt, Admin admin, IdentityVerificati
 	}
 
 	public record Jwt(String secret, int accessTtlMinutes, int refreshTtlDays) {
-	}
-
-	/** 첫 관리자 시드. 비어 있으면 시드하지 않음 */
-	public record Admin(String loginId, String password) {
 	}
 
 	/** 본인인증 업체. `stub` 은 개발용 — 운영은 pass/nice 여야 stub 토큰이 거부된다 */

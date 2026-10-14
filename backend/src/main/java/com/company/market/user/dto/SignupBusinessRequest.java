@@ -24,7 +24,6 @@ public record SignupBusinessRequest(
 		@NotBlank(message = "휴대폰 번호를 입력하세요.")
 		@Pattern(regexp = "^01[016789]\\d{8}$", message = "휴대폰 번호 형식이 올바르지 않습니다.") String contactPhone,
 		@NotBlank(message = "이메일을 입력하세요.") @Size(max = 100, message = "이메일은 100자 이하입니다.") @Email(message = "이메일 형식이 올바르지 않습니다.") String contactEmail,
-		@Size(max = 20, message = "전화번호는 20자 이하입니다.") String contactTel,
 		@Size(max = 20, message = "회사 전화번호는 20자 이하입니다.") String companyTel,
 		@NotBlank(message = "연락 수단을 선택하세요.")
 		@Pattern(regexp = "^[123]$", message = "연락 수단을 선택하세요.") String contactMethod,

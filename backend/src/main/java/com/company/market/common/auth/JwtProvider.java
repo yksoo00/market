@@ -10,7 +10,6 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 import com.company.market.common.config.AppProperties;
-import com.company.market.user.domain.UserRole;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwsHeader;
@@ -25,13 +24,11 @@ import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.stereotype.Component;
 
 /**
- * access 토큰 (JWT HS256, 15분, stateless). 페이로드는 user_id·role·만료만 — 개인정보 없음 (security.md "인증").
+ * access 토큰 (JWT HS256, 15분, stateless). 페이로드는 user_id·만료만 — 개인정보 없음 (security.md "인증").
  * 라이브러리는 이미 있는 spring-security-oauth2-jose(nimbus) 를 쓴다.
  */
 @Component
 public class JwtProvider {
-
-	private static final String ROLE_CLAIM = "role";
 
 	private final JwtEncoder encoder;
 
@@ -54,11 +51,10 @@ public class JwtProvider {
 		return accessTtl;
 	}
 
-	public String createAccessToken(UUID userId, UserRole role) {
+	public String createAccessToken(UUID userId) {
 		Instant now = Instant.now();
 		JwtClaimsSet claims = JwtClaimsSet.builder()
 			.subject(userId.toString())
-			.claim(ROLE_CLAIM, role.name())
 			.issuedAt(now)
 			.expiresAt(now.plus(accessTtl))
 			.id(UUID.randomUUID().toString())
@@ -70,11 +66,11 @@ public class JwtProvider {
 	public Optional<AuthenticatedUser> parse(String token) {
 		try {
 			Jwt jwt = decoder.decode(token);
-			String role = jwt.getClaimAsString(ROLE_CLAIM);
-			if (jwt.getSubject() == null || role == null) {
+			// 옛 토큰의 role 클레임은 읽지 않고 무시한다 (역할 제거 후에도 발급된 access 15분 동안 유효)
+			if (jwt.getSubject() == null) {
 				return Optional.empty();
 			}
-			return Optional.of(new AuthenticatedUser(UUID.fromString(jwt.getSubject()), UserRole.valueOf(role)));
+			return Optional.of(new AuthenticatedUser(UUID.fromString(jwt.getSubject())));
 		}
 		catch (JwtException | IllegalArgumentException e) {
 			return Optional.empty();

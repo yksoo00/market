@@ -20,7 +20,6 @@ export const businessSignupSchema = z
     emailLocal: z.string().min(1, t.validation.emailLocal).max(64, t.validation.emailLocal),
     emailDomain: z.enum([...emailDomains, CUSTOM_DOMAIN]),
     emailCustom: z.string(),
-    contactTel: z.string().max(20, "전화번호는 20자 이하입니다."),
     contactMethod: z.enum(["1", "2", "3"]),
     loginId: loginIdSchema,
     password: passwordSchema,

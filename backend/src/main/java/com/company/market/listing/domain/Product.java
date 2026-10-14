@@ -21,7 +21,7 @@ import org.springframework.data.domain.Persistable;
  * 중복 prod_id 를 UPDATE 로 조용히 덮어쓴다. Persistable.isNew() 로 진짜 신규만 INSERT(persist) 하게 한다.
  */
 @Entity
-@Table(name = "products")
+@Table(name = "trd_prod_master")
 @Getter
 public class Product implements Persistable<String> {
 
@@ -38,6 +38,7 @@ public class Product implements Persistable<String> {
 	@Column(nullable = false)
 	private String prodName;
 
+	@Column(name = "prod_mpn")
 	private String prodNo;
 
 	@Column(nullable = false)
