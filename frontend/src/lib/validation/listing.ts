@@ -90,7 +90,8 @@ export function listingFormSchema(today: string) {
         ctx.addIssue({ code: "custom", path: ["minOrderQuantity"], message: v.minOrderOverSales });
       }
       // YYYY-MM-DD 문자열은 사전순 = 날짜순
-      if (typeof d.prodMufcDate === "string" && d.prodMufcDate > today) {
+      // 마스터를 골랐으면 제조일은 마스터 값(잠긴 칸)이고 서버도 요청의 제조일을 안 본다 — 오늘 이후여도 막지 않는다
+      if (d.prodId === "" && typeof d.prodMufcDate === "string" && d.prodMufcDate > today) {
         ctx.addIssue({ code: "custom", path: ["prodMufcDate"], message: v.prodMufcDate });
       }
       if (typeof d.deliveryDate === "string" && d.deliveryDate < today) {

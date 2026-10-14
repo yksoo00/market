@@ -90,6 +90,11 @@ describe("listingFormSchema", () => {
     expect(parse({ photos: [] }).error?.issues[0]?.message).toBe(listing.validation.photosRequired);
   });
 
+  it("상품마스터를 골랐으면 마스터의 제조일이 오늘 이후여도 통과 (잠긴 칸이라 고칠 수 없다)", () => {
+    expect(errorPaths({ prodMufcDate: "2026-10-03" })).toEqual(["prodMufcDate"]);
+    expect(parse({ prodId: "KP-2026-000001", prodMufcDate: "2026-10-03" }).success).toBe(true);
+  });
+
   it("고른 상품마스터에 사진이 있으면 올린 사진이 없어도 통과, 마스터에도 없으면 오류", () => {
     expect(parse({ photos: [], prodId: "KP-2026-000001", masterPhoto: "public/listings/photos/2026/10/m.jpg" }).success).toBe(true);
     expect(errorPaths({ photos: [], prodId: "KP-2026-000001", masterPhoto: "" })).toEqual(["photos"]);
