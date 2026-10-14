@@ -81,7 +81,9 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
 
   await test.step("매물 등록 — 마지막 칸 입력 직후 [등록]이 켜진다", async () => {
     await page.goto("/listings/new");
-    await page.locator('input[name="categoryCode"]').fill("P01-Q01-R001");
+    // 카테고리는 검색 목록에서 고른다 (P01-Q01-R001 = 인텔 CPU)
+    await page.locator("#categoryPicker").fill("인텔");
+    await page.getByRole("option", { name: /인텔 CPU/ }).click();
     await page.locator('input[name="prodBrand"]').fill("Dell");
     await page.locator('input[name="prodName"]').fill(prodName);
     await page.locator("#prodState").selectOption("신품");

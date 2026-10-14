@@ -7,6 +7,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { FormField } from "@/components/auth/FormField";
 import { FormError, SubmitButton } from "@/components/auth/FormStatus";
 import { Button } from "@/components/ui/button";
+import { CategoryPicker } from "@/components/listing/CategoryPicker";
+import { ProductPicker } from "@/components/listing/ProductPicker";
 import { SingleFileUploader } from "@/components/listing/SingleFileUploader";
 import { DescriptionField, NumberField, Section, Wide } from "@/components/listing/ListingFormFields";
 import { PhotoUploader } from "@/components/listing/PhotoUploader";
@@ -59,6 +61,12 @@ export function ListingForm({ initialValues, submitLabel, secondarySubmitLabel, 
   const price = useWatch({ control, name: "salesUnitPrice" });
   const photos = useWatch({ control, name: "photos" });
   const datasheet = useWatch({ control, name: "listingDataSheet" });
+  // 상품마스터를 골랐으면 상품 칸은 마스터 값이라 잠근다. 올리지 않은 데이터시트·사진은 마스터 것을 쓴다
+  const prodId = useWatch({ control, name: "prodId" });
+  const masterPhoto = useWatch({ control, name: "masterPhoto" });
+  const masterDataSheet = useWatch({ control, name: "masterDataSheet" });
+  const locked = prodId !== "";
+  const lockedClass = locked ? "bg-bg text-ink-2" : "";
   const [photosUploading, setPhotosUploading] = useState(false);
   const [datasheetUploading, setDatasheetUploading] = useState(false);
   // 업로더의 effect 의존성이라 참조가 바뀌지 않게 (바뀌면 렌더마다 effect 가 다시 돈다)
@@ -113,15 +121,20 @@ export function ListingForm({ initialValues, submitLabel, secondarySubmitLabel, 
         <FormError message={formError} onRetry={unreachable && !uploading && !isSubmitting ? () => void (intent === "extra" ? submitExtra() : submit()) : undefined} />
 
         <Section title={t.sectionProduct}>
-          <FormField<ListingFormInput> inline name="categoryCode" label={t.categoryCode} hint={t.categoryHint} placeholder={t.categoryPlaceholder} maxLength={12} />
-          <FormField<ListingFormInput> inline name="prodBrand" label={t.prodBrand} placeholder={t.prodBrandPlaceholder} maxLength={50} />
           <Wide>
-            <FormField<ListingFormInput> inline name="prodName" label={t.prodName} placeholder={t.prodNamePlaceholder} maxLength={50} />
+            <ProductPicker />
           </Wide>
-          <FormField<ListingFormInput> inline name="prodNo" label={t.prodNo} placeholder={t.prodNoPlaceholder} maxLength={20} className="font-mono" />
-          <FormField<ListingFormInput> inline name="prodMufcDate" label={t.prodMufcDate} type="date" max={today} />
           <Wide>
-            <FormField<ListingFormInput> inline name="prodSpecInfo" label={t.prodSpecInfo} placeholder={t.prodSpecInfoPlaceholder} maxLength={100} />
+            <CategoryPicker readOnly={locked} />
+          </Wide>
+          <FormField<ListingFormInput> inline name="prodBrand" label={t.prodBrand} placeholder={t.prodBrandPlaceholder} maxLength={50} readOnly={locked} className={lockedClass} />
+          <Wide>
+            <FormField<ListingFormInput> inline name="prodName" label={t.prodName} placeholder={t.prodNamePlaceholder} maxLength={50} readOnly={locked} className={lockedClass} />
+          </Wide>
+          <FormField<ListingFormInput> inline name="prodNo" label={t.prodNo} placeholder={t.prodNoPlaceholder} maxLength={20} readOnly={locked} className={`font-mono ${lockedClass}`} />
+          <FormField<ListingFormInput> inline name="prodMufcDate" label={t.prodMufcDate} type="date" max={today} readOnly={locked} className={lockedClass} />
+          <Wide>
+            <FormField<ListingFormInput> inline name="prodSpecInfo" label={t.prodSpecInfo} placeholder={t.prodSpecInfoPlaceholder} maxLength={100} readOnly={locked} className={lockedClass} />
           </Wide>
         </Section>
 
@@ -148,7 +161,8 @@ export function ListingForm({ initialValues, submitLabel, secondarySubmitLabel, 
             <DescriptionField />
           </Wide>
           <Wide>
-            <PhotoUploader value={photos} onChange={setPhotos} onUploadingChange={setPhotosUploading} error={errors.photos?.message} requiredMain />
+            <PhotoUploader value={photos} onChange={setPhotos} onUploadingChange={setPhotosUploading} error={errors.photos?.message} requiredMain={masterPhoto === ""} />
+            {masterPhoto !== "" && <p className="mt-1 text-xs text-ink-3">{t.master.filesNote}</p>}
           </Wide>
           <Wide>
             <SingleFileUploader
@@ -163,6 +177,7 @@ export function ListingForm({ initialValues, submitLabel, secondarySubmitLabel, 
               onUploadingChange={setDatasheetUploading}
               error={errors.listingDataSheet?.message}
             />
+            {masterDataSheet !== "" && <p className="mt-1 text-xs text-ink-3">{t.master.filesNote}</p>}
           </Wide>
         </Section>
 

@@ -90,6 +90,11 @@ describe("listingFormSchema", () => {
     expect(parse({ photos: [] }).error?.issues[0]?.message).toBe(listing.validation.photosRequired);
   });
 
+  it("고른 상품마스터에 사진이 있으면 올린 사진이 없어도 통과, 마스터에도 없으면 오류", () => {
+    expect(parse({ photos: [], prodId: "KP-2026-000001", masterPhoto: "public/listings/photos/2026/10/m.jpg" }).success).toBe(true);
+    expect(errorPaths({ photos: [], prodId: "KP-2026-000001", masterPhoto: "" })).toEqual(["photos"]);
+  });
+
   it("사진은 4장까지", () => {
     expect(parse({ photos: ["a", "b", "c", "d"] }).success).toBe(true);
     expect(errorPaths({ photos: ["a", "b", "c", "d", "e"] })).toEqual(["photos"]);
