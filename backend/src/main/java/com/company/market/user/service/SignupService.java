@@ -53,7 +53,7 @@ public class SignupService {
 	private static final Duration BUSINESS_VERIFY_TTL = Duration.ofMinutes(30);
 
 	/** 약관 문안의 판. 프론트 messages/terms.ts 의 문안을 바꾸면 그날 날짜로 올린다 (화면엔 판을 보내지 않고 서버 값만 기록) */
-	static final String TERMS_VERSION = "20261013";
+	static final String TERMS_VERSION = "20261014";
 
 	private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
