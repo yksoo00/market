@@ -6,10 +6,19 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import com.company.market.listing.domain.Category;
 import com.company.market.listing.domain.Product;
+import com.company.market.listing.dto.ProductSearchItemResponse;
+import com.company.market.listing.repository.CategoryRepository;
 import com.company.market.listing.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,7 +35,11 @@ public class ProductService {
 
 	private static final DateTimeFormatter REG_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
+	public static final int SEARCH_LIMIT = 10;
+
 	private final ProductRepository products;
+
+	private final CategoryRepository categories;
 
 	private final Clock clock;
 
@@ -34,6 +47,25 @@ public class ProductService {
 	public Product findOrCreate(ProductDraft draft) {
 		return products.findByProdNameAndProdBrand(draft.prodName(), draft.prodBrand())
 			.orElseGet(() -> createOrReuseOnRace(draft));
+	}
+
+	/** 등록 폼이 고른 마스터. 없으면 호출한 쪽이 400 으로 알린다 */
+	public Optional<Product> find(String prodId) {
+		return products.findById(prodId);
+	}
+
+	/** 마스터 검색(등록 폼의 상품 찾기). %·_·\ 는 문자 그대로 찾는다 — 그대로 LIKE 에 넣으면 "%" 한 글자로 전체가 나온다 */
+	public List<ProductSearchItemResponse> search(String query) {
+		String escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+		List<Product> found = products.search("%" + escaped + "%", PageRequest.of(0, SEARCH_LIMIT));
+		Map<String, String> names = categories.findAllById(found.stream().map(Product::getCategoryCode).distinct().toList())
+			.stream()
+			.collect(Collectors.toMap(Category::getCategoryCode, Category::getCategoryName));
+		return found.stream()
+			.map(p -> new ProductSearchItemResponse(p.getProdId(), p.getCategoryCode(), names.get(p.getCategoryCode()),
+					p.getProdName(), p.getProdNo(), p.getProdBrand(), p.getProdMufcDate(), p.getProdSpecInfo(),
+					p.getProdDataSheet(), p.getProdPhoto1()))
+			.toList();
 	}
 
 	/** 리스팅이 FK로 갖고 있는 prod_id 는 항상 유효(제약) — 없으면 데이터 정합성 문제이므로 예외를 그대로 던진다 */

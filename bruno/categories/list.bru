@@ -1,0 +1,15 @@
+meta {
+  name: 카테고리 목록
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/categories
+  body: none
+  auth: none
+}
+
+docs {
+  로그인 필요(access_token 쿠키). 메뉴에 보이는 카테고리 전부(239건)를 코드순으로. 소분류만 등록에 쓴다.
+}

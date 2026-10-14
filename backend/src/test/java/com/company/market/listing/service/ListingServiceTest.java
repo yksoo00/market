@@ -3,6 +3,7 @@ package com.company.market.listing.service;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.UUID;
 
 import com.company.market.common.exception.ApiException;
@@ -54,8 +55,8 @@ class ListingServiceTest {
 			.categoryCode("P01-Q01-R001").prodName("노트북").prodBrand("삼성").build());
 		when(listings.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("duplicate key"));
 
-		ListingCreateRequest req = new ListingCreateRequest("P01-Q01-R001", "노트북", null, "삼성", null, null, null,
-			"판매", "신품", 1000, 1, null, null, null, null, null, null, null);
+		ListingCreateRequest req = new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성", null, null, null,
+			"판매", "신품", 1000, 1, null, null, null, null, null, null, List.of("p.jpg"));
 
 		assertThatThrownBy(() -> service.create(UUID.randomUUID(), req))
 			.isInstanceOf(ApiException.class)
@@ -71,11 +72,11 @@ class ListingServiceTest {
 		when(products.findOrCreate(any())).thenReturn(Product.builder().prodId("ELEC00010001").regDate("20261001233000")
 			.categoryCode("P01-Q01-R001").prodName("노트북").prodBrand("삼성").build());
 
-		service.create(UUID.randomUUID(), new ListingCreateRequest("P01-Q01-R001", "노트북", null, "삼성", "20261002", null, null,
-				"판매", "신품", 1000, 1, null, null, "2026-10-02", null, null, null, null));
+		service.create(UUID.randomUUID(), new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성", "20261002", null, null,
+				"판매", "신품", 1000, 1, null, null, "2026-10-02", null, null, null, List.of("p.jpg")));
 
-		assertThatThrownBy(() -> service.create(UUID.randomUUID(), new ListingCreateRequest("P01-Q01-R001", "노트북", null, "삼성",
-				null, null, null, "판매", "신품", 1000, 1, null, null, "2026-10-01", null, null, null, null)))
+		assertThatThrownBy(() -> service.create(UUID.randomUUID(), new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성",
+				null, null, null, "판매", "신품", 1000, 1, null, null, "2026-10-01", null, null, null, List.of("p.jpg"))))
 			.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.getFields()).containsKey("deliveryDate"));
 	}
 

@@ -5,23 +5,24 @@ import java.util.List;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
- * 매물 직접입력 등록. 상품마스터용 필드(categoryCode~productDataSheet)는 상품명+제조사로 찾거나 새로 만드는 데 쓰인다.
- * prodId 는 클라이언트가 지정하지 않는다(서버가 채번) — security.md "매물".
+ * 매물 등록. prodId 가 있으면 그 상품마스터를 쓰고 상품 칸(categoryCode~prodSpecInfo)은 무시한다.
+ * prodId 가 없으면 상품 칸(categoryCode·prodName·prodBrand 필수)으로 마스터를 찾거나 새로 만든다 — 필수 검사는 서비스(조건부라 @NotBlank 로 못 한다).
+ * 새 마스터의 prodId 는 서버가 채번한다 — 클라이언트의 prodId 는 이미 있는 마스터를 고르는 용도뿐 (security.md "매물").
  * 보증기한·불량지원방법·대체품·테스트리포트·정품인증서는 등록 시점에 받지 않는다. 등록 후 필요한 사람만
  * PATCH(ListingUpdateRequest)로 추가한다.
  * 경로 필드(photos·데이터시트)는 /api/v1/uploads 가 돌려준 키 — 본인이 올린 것만 받는다 (UploadService.claim).
  */
 public record ListingCreateRequest(
-		@NotBlank @Size(max = 12) String categoryCode,
-		@NotBlank @Size(max = 50) String prodName,
+		@Size(max = 20) String prodId,
+		@Size(max = 12) String categoryCode,
+		@Size(max = 50) String prodName,
 		@Size(max = 20) String prodNo,
-		@NotBlank @Size(max = 50) String prodBrand,
+		@Size(max = 50) String prodBrand,
 		@Pattern(regexp = "^\\d{8}$", message = "제조일은 yyyyMMdd 형식이어야 합니다.") String prodMufcDate,
 		@Size(max = 100) String prodSpecInfo,
 		@Size(max = 100) String productDataSheet,
@@ -35,8 +36,9 @@ public record ListingCreateRequest(
 		@Min(0) @Max(100_000) Integer stockQuantity,
 		@Size(max = 200) String description,
 		@Size(max = 100) String listingDataSheet,
-		// 대표 사진(첫 장) 필수 — 등록 화면의 규칙과 같다. 수정(ListingUpdateRequest)은 옛 매물도 열 수 있어 필수로 하지 않는다
-		@NotEmpty(message = "대표 사진을 올려 주세요.") @Size(max = 4) List<@NotBlank @Size(max = 100) String> photos) {
+		// 대표 사진(첫 장) 필수 — 등록 화면의 규칙과 같다. 단 마스터를 골랐고 그 마스터에 사진이 있으면 비워도 된다(서비스가 검사).
+		// 수정(ListingUpdateRequest)은 옛 매물도 열 수 있어 필수로 하지 않는다
+		@Size(max = 4) List<@NotBlank @Size(max = 100) String> photos) {
 
 	/**
 	 * 등록 폼 드롭다운의 구간 값만 (2026-10-06, security.md "매물"). 위쪽은 10% 단위로 촘촘하게, 50% 미만은 하나로.

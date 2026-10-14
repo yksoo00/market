@@ -6,6 +6,7 @@ import java.time.ZoneOffset;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.listing.domain.Product;
+import com.company.market.listing.repository.CategoryRepository;
 import com.company.market.listing.repository.ProductRepository;
 import com.company.market.listing.service.ProductService.ProductDraft;
 import org.junit.jupiter.api.DisplayName;
@@ -29,6 +30,9 @@ class ProductServiceTest {
 
 	@Autowired
 	ProductRepository products;
+
+	@Autowired
+	CategoryRepository categories;
 
 	@Test
 	@DisplayName("이름+제조사가 같은 상품이 이미 있으면 새로 만들지 않고 그 행을 돌려준다")
@@ -76,8 +80,47 @@ class ProductServiceTest {
 		assertThat(next.getProdId()).isEqualTo("KP-2027-000001");
 	}
 
+	@Test
+	@DisplayName("검색은 이름·제조사·상품번호 어디든 부분 일치, 대소문자 무시, 카테고리 이름을 붙인다")
+	void searchMatchesNameBrandAndNumber() {
+		products.saveAndFlush(Product.builder().prodId("KP-2026-900001").categoryCode("P01-Q01-R001").prodName("PowerEdge R740")
+			.prodBrand("Dell").prodNo("R740-4210").regDate("20261014120000").build());
+		products.saveAndFlush(Product.builder().prodId("KP-2026-900002").categoryCode("P01-Q01-R001").prodName("노트북 Z")
+			.prodBrand("삼성").regDate("20261014120000").build());
+
+		assertThat(service.search("poweredge")).extracting("prodId").containsExactly("KP-2026-900001");
+		assertThat(service.search("dell")).extracting("prodId").containsExactly("KP-2026-900001");
+		assertThat(service.search("4210")).extracting("prodId").containsExactly("KP-2026-900001");
+		assertThat(service.search("삼성")).extracting("prodId").containsExactly("KP-2026-900002");
+		assertThat(service.search("poweredge").get(0).categoryName()).isEqualTo("인텔 CPU");
+	}
+
+	@Test
+	@DisplayName("검색어의 %·_ 는 문자 그대로 찾는다 — \"%\" 한 글자로 전체가 나오지 않는다")
+	void searchTreatsWildcardsAsLiterals() {
+		products.saveAndFlush(Product.builder().prodId("KP-2026-900003").categoryCode("P01-Q01-R001").prodName("SSD 100%")
+			.prodBrand("A").regDate("20261014120000").build());
+		products.saveAndFlush(Product.builder().prodId("KP-2026-900004").categoryCode("P01-Q01-R001").prodName("HDD")
+			.prodBrand("B").regDate("20261014120000").build());
+
+		assertThat(service.search("%")).extracting("prodId").containsExactly("KP-2026-900003");
+		assertThat(service.search("_")).isEmpty();
+	}
+
+	@Test
+	@DisplayName("검색 결과는 최대 10건")
+	void searchLimitsTo10() {
+		for (int i = 0; i < 12; i++) {
+			products.save(Product.builder().prodId("KP-2026-91%04d".formatted(i)).categoryCode("P01-Q01-R001").prodName("대량 상품 " + i)
+				.prodBrand("대량").regDate("20261014120000").build());
+		}
+		products.flush();
+
+		assertThat(service.search("대량 상품")).hasSize(10);
+	}
+
 	private ProductService at(String instant) {
-		return new ProductService(products, Clock.fixed(Instant.parse(instant), ZoneOffset.UTC));
+		return new ProductService(products, categories, Clock.fixed(Instant.parse(instant), ZoneOffset.UTC));
 	}
 
 }

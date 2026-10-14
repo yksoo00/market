@@ -1,0 +1,20 @@
+meta {
+  name: 상품마스터 검색
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/products
+  body: none
+  auth: none
+}
+
+params:query {
+  q: poweredge
+}
+
+docs {
+  로그인 필요(access_token 쿠키). 상품명·제조사·상품번호 부분 일치(대소문자 무시) 최대 10건. q 는 공백 제거 후 1~50자.
+  등록 폼에서 고른 상품의 prodId 를 매물 등록(POST /listings)에 넣는다.
+}
