@@ -61,11 +61,12 @@ export function ListingForm({ initialValues, submitLabel, secondarySubmitLabel, 
   const price = useWatch({ control, name: "salesUnitPrice" });
   const photos = useWatch({ control, name: "photos" });
   const datasheet = useWatch({ control, name: "listingDataSheet" });
-  // 상품마스터를 골랐으면 상품 칸은 마스터 값이라 잠근다. 올리지 않은 데이터시트·사진은 마스터 것을 쓴다
-  const prodId = useWatch({ control, name: "prodId" });
+  // 올리지 않은 데이터시트·사진은 고른 마스터 것을 쓴다
   const masterPhoto = useWatch({ control, name: "masterPhoto" });
   const masterDataSheet = useWatch({ control, name: "masterDataSheet" });
-  const locked = prodId !== "";
+  // 상품 칸은 "직접 입력"을 골랐을 때만 열린다. 처음엔 잠겨 있고, 마스터를 고르면 마스터 값으로 채워져 잠긴 채로 있다
+  const manual = useWatch({ control, name: "manual" }) === "1";
+  const locked = !manual;
   const lockedClass = locked ? "bg-bg text-ink-2" : "";
   const [photosUploading, setPhotosUploading] = useState(false);
   const [datasheetUploading, setDatasheetUploading] = useState(false);

@@ -3,7 +3,6 @@
 import { useEffect, useId, useState } from "react";
 import { useFormContext, useWatch } from "react-hook-form";
 import { cn } from "cn";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FieldShell } from "@/components/auth/FormField";
 import { catalogApi } from "@/lib/api/catalog";
@@ -20,18 +19,20 @@ function toDateInput(s: string | null): string {
 
 // 마스터가 채우는(직접 입력으로 바꾸면 비우는) 폼 칸
 const productFields = ["prodId", "masterPhoto", "masterDataSheet", "categoryCode", "prodName", "prodBrand", "prodNo", "prodMufcDate", "prodSpecInfo"] as const;
-type ProductField = (typeof productFields)[number];
+type ProductField = (typeof productFields)[number] | "manual";
 
 type Search = { q: string; items: ProductSearchItem[] | null };
 
 /**
- * 상품마스터 드롭다운 (카테고리 칸과 같은 모양). 누르면 목록이 열리고, 이름·제조사·번호를 치면 걸러진다.
- * 고르면 상품 칸(카테고리·상품명·제조사·번호·제조일·사양)이 마스터 값으로 채워지고(읽기 전용), 마스터의 데이터시트·사진 키는 폼에 따로 담긴다.
- * [직접 입력으로 바꾸기]를 누르면 비워져 직접 입력. 마스터에 없으면 그냥 아래 칸에 직접 입력하면 서버가 새 마스터로 저장한다.
+ * 상품마스터 드롭다운 (카테고리 칸과 같은 모양). 처음엔 아무것도 고르지 않은 상태라 아래 상품 칸이 잠겨 있다.
+ * 누르면 맨 위 "직접 입력" + 마스터 목록(이름순 앞 10건, 이름·제조사·번호를 치면 걸러짐)이 열린다.
+ * - 마스터를 고르면 상품 칸(카테고리·상품명·제조사·번호·제조일·사양)이 마스터 값으로 채워진 채 잠기고, 마스터의 데이터시트·사진 키는 폼에 따로 담긴다.
+ * - "직접 입력"을 고르면 상품 칸이 비워져 열린다. 입력한 상품은 서버가 새 마스터로 저장한다.
  */
 export function ProductPicker() {
   const { setValue, control } = useFormContext<ListingFormInput>();
   const prodId = useWatch({ control, name: "prodId" });
+  const manual = useWatch({ control, name: "manual" }) === "1";
   const name = useWatch({ control, name: "prodName" });
   const brand = useWatch({ control, name: "prodBrand" });
   const prodNo = useWatch({ control, name: "prodNo" });
@@ -60,7 +61,8 @@ export function ProductPicker() {
 
   const set = (field: ProductField, value: string) => setValue(field, value, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
 
-  const pick = (p: ProductSearchItem) => {
+  const pickMaster = (p: ProductSearchItem) => {
+    set("manual", "");
     set("prodId", p.prodId);
     set("masterPhoto", p.prodPhoto1 ?? "");
     set("masterDataSheet", p.prodDataSheet ?? "");
@@ -73,102 +75,118 @@ export function ProductPicker() {
     setOpen(false);
   };
 
-  const switchToManual = () => {
-    for (const field of productFields) set(field, "");
+  const pickManual = () => {
+    // 이미 직접 입력 중이면 쳐 둔 값을 지우지 않는다. 마스터에서 바꿔 오면 마스터 값을 비운다
+    if (!manual) {
+      for (const field of productFields) set(field, "");
+      set("manual", "1");
+    }
+    setOpen(false);
   };
 
   const result = search && search.q === q ? search : null;
-  const items = result?.items ?? [];
-  const selectedLabel = prodId !== "" ? [name, brand, prodNo].filter(Boolean).join(" · ") : "";
+  const masters = result?.items ?? [];
+  // 목록 번호: 0 = "직접 입력", 1~ = 마스터
+  const count = 1 + masters.length;
+  const choose = (index: number) => (index === 0 ? pickManual() : masters[index - 1] && pickMaster(masters[index - 1]!));
+  const selectedLabel = manual ? t.manualOption : prodId !== "" ? [name, brand, prodNo].filter(Boolean).join(" · ") : "";
   const status = result === null ? t.searching : result.items === null ? t.failed : result.items.length === 0 ? t.noResult : null;
+
+  const optionClass = (i: number) => cn("px-3 py-2 cursor-pointer", i === active && "bg-primary-soft");
 
   return (
     <FieldShell inline label={t.label} htmlFor="productPicker" note={<span className="text-ink-3">{t.hint}</span>}>
-      <div className="flex gap-2">
-        <div className="relative grow min-w-0">
-          <Input
-            id="productPicker"
-            role="combobox"
-            aria-expanded={open}
-            aria-controls={listId}
-            aria-autocomplete="list"
-            aria-activedescendant={open && items[active] ? `${listId}-${active}` : undefined}
-            autoComplete="off"
-            maxLength={50}
-            placeholder={t.placeholder}
-            // 열려 있으면 검색어, 닫혀 있으면 고른 상품
-            value={open ? query : selectedLabel}
-            className={cn("h-11 px-3 text-[15px] bg-surface", prodId !== "" && !open && "border-primary bg-primary-soft")}
-            onFocus={() => {
-              setQuery("");
-              setActive(0);
+      <div className="relative">
+        <Input
+          id="productPicker"
+          role="combobox"
+          aria-expanded={open}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={open ? `${listId}-${active}` : undefined}
+          autoComplete="off"
+          maxLength={50}
+          placeholder={t.placeholder}
+          // 열려 있으면 검색어, 닫혀 있으면 고른 것
+          value={open ? query : selectedLabel}
+          className={cn("h-11 px-3 text-[15px] bg-surface", (prodId !== "" || manual) && !open && "border-primary bg-primary-soft")}
+          onFocus={() => {
+            setQuery("");
+            setActive(0);
+            setOpen(true);
+          }}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setActive(0);
+            setOpen(true);
+          }}
+          onBlur={() => setOpen(false)}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
               setOpen(true);
-            }}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setActive(0);
-              setOpen(true);
-            }}
-            onBlur={() => setOpen(false)}
-            onKeyDown={(e) => {
-              if (e.key === "ArrowDown") {
+              setActive((a) => Math.min(a + 1, count - 1));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setActive((a) => Math.max(a - 1, 0));
+            } else if (e.key === "Enter") {
+              // 등록 폼이 제출되지 않게. 열려 있으면 고르기
+              e.preventDefault();
+              if (open) choose(active);
+            } else if (e.key === "Escape") {
+              setOpen(false);
+            }
+          }}
+        />
+        {open && (
+          <ul
+            id={listId}
+            role="listbox"
+            className="absolute z-20 left-0 right-0 top-full mt-1 max-h-72 overflow-y-auto rounded-md border border-line bg-surface py-1 shadow-md"
+          >
+            {/* mousedown 에서 막아야 입력의 blur 가 먼저 목록을 닫지 않는다 */}
+            <li
+              id={`${listId}-0`}
+              role="option"
+              aria-selected={manual}
+              onMouseDown={(e) => {
                 e.preventDefault();
-                setOpen(true);
-                setActive((a) => Math.min(a + 1, Math.max(items.length - 1, 0)));
-              } else if (e.key === "ArrowUp") {
-                e.preventDefault();
-                setActive((a) => Math.max(a - 1, 0));
-              } else if (e.key === "Enter") {
-                // 등록 폼이 제출되지 않게. 열려 있으면 고르기
-                e.preventDefault();
-                const item = open ? items[active] : undefined;
-                if (item) pick(item);
-              } else if (e.key === "Escape") {
-                setOpen(false);
-              }
-            }}
-          />
-          {open && (
-            <ul
-              id={listId}
-              role="listbox"
-              className="absolute z-20 left-0 right-0 top-full mt-1 max-h-72 overflow-y-auto rounded-md border border-line bg-surface py-1 shadow-md"
+                pickManual();
+              }}
+              onMouseEnter={() => setActive(0)}
+              className={cn(optionClass(0), "border-b border-line-2")}
             >
-              {status !== null ? (
-                <li role="presentation" className={cn("px-3 py-2 text-sm", result?.items === null ? "text-down" : "text-ink-3")}>
-                  {status}
+              <span className="block text-[15px] font-semibold text-primary-dark">{t.manualOption}</span>
+              <span className="block text-xs text-ink-2">{t.manualOptionNote}</span>
+            </li>
+            {status !== null ? (
+              <li role="presentation" className={cn("px-3 py-2 text-sm", result?.items === null ? "text-down" : "text-ink-3")}>
+                {status}
+              </li>
+            ) : (
+              masters.map((p, i) => (
+                <li
+                  key={p.prodId}
+                  id={`${listId}-${i + 1}`}
+                  role="option"
+                  aria-selected={p.prodId === prodId}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    pickMaster(p);
+                  }}
+                  onMouseEnter={() => setActive(i + 1)}
+                  className={optionClass(i + 1)}
+                >
+                  <span className="block text-[15px] font-semibold text-ink break-words">{p.prodName}</span>
+                  <span className="block text-xs text-ink-2 break-words">
+                    {p.prodBrand}
+                    {p.prodNo && <span className="num"> · {p.prodNo}</span>}
+                    {p.categoryName && <span> · {p.categoryName}</span>}
+                  </span>
                 </li>
-              ) : (
-                items.map((p, i) => (
-                  <li
-                    key={p.prodId}
-                    id={`${listId}-${i}`}
-                    role="option"
-                    aria-selected={p.prodId === prodId}
-                    // mousedown 에서 막아야 입력의 blur 가 먼저 목록을 닫지 않는다
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      pick(p);
-                    }}
-                    onMouseEnter={() => setActive(i)}
-                    className={cn("px-3 py-2 cursor-pointer", i === active && "bg-primary-soft")}
-                  >
-                    <span className="block text-[15px] font-semibold text-ink break-words">{p.prodName}</span>
-                    <span className="block text-xs text-ink-2 break-words">
-                      {p.prodBrand}
-                      {p.prodNo && <span className="num"> · {p.prodNo}</span>}
-                      {p.categoryName && <span> · {p.categoryName}</span>}
-                    </span>
-                  </li>
-                ))
-              )}
-            </ul>
-          )}
-        </div>
-        {prodId !== "" && (
-          <Button type="button" variant="outline" className="h-11 shrink-0" onClick={switchToManual}>
-            {t.switchToManual}
-          </Button>
+              ))
+            )}
+          </ul>
         )}
       </div>
     </FieldShell>

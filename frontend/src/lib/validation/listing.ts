@@ -60,6 +60,8 @@ export function listingFormSchema(today: string) {
     .object({
       // 상품마스터에서 고른 상품의 id. 고르면 아래 상품 칸은 마스터 값으로 채워져(읽기 전용) 같은 규칙을 그대로 통과한다
       prodId: z.string(),
+      // "1" = 상품 찾기에서 "직접 입력"을 골랐다. 마스터도 직접 입력도 안 고른 처음엔 상품 칸이 잠겨 있다
+      manual: z.string(),
       // 고른 마스터의 파일 키(없으면 ""). 올리지 않으면 서버가 이 파일을 쓴다 — 대표 사진 필수 여부와 안내 문구에 쓴다
       masterPhoto: z.string(),
       masterDataSheet: z.string(),
@@ -105,6 +107,7 @@ export type ListingFormOutput = z.output<ReturnType<typeof listingFormSchema>>;
 
 export const emptyListingForm: ListingFormInput = {
   prodId: "",
+  manual: "",
   masterPhoto: "",
   masterDataSheet: "",
   categoryCode: "",
