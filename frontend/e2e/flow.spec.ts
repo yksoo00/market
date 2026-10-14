@@ -170,9 +170,11 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
 
   await test.step("상품마스터 선택 — 방금 만들어진 상품을 검색해 고르면 상품 칸이 채워지고 사진 없이도 등록된다 (같은 이름 글이 둘이 되므로 마지막 단계)", async () => {
     await page.goto("/listings/new");
-    await page.getByRole("searchbox", { name: listing.form.master.label }).fill(prodName);
-    await page.getByRole("button", { name: new RegExp(prodName) }).click();
-    await expect(page.getByText(listing.form.master.selected)).toBeVisible();
+    // 드롭다운: 누르면 목록이 열리고, 쳐서 거른 뒤 고른다
+    await page.locator("#productPicker").fill(prodName);
+    await page.getByRole("option", { name: new RegExp(prodName) }).click();
+    await expect(page.locator("#productPicker")).toHaveValue(new RegExp(prodName));
+    await expect(page.getByRole("button", { name: listing.form.master.switchToManual })).toBeVisible();
     await expect(page.locator('input[name="prodName"]')).toHaveValue(prodName);
     await expect(page.locator('input[name="prodName"]')).toHaveAttribute("readonly", "");
     await page.locator("#prodState").selectOption("신품");

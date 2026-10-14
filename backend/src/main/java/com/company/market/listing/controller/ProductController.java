@@ -26,8 +26,9 @@ public class ProductController {
 	@GetMapping
 	public ApiResponse<List<ProductSearchItemResponse>> search(@RequestParam(name = "q", defaultValue = "") String q) {
 		String query = q.trim();
-		if (query.isEmpty() || query.length() > MAX_QUERY_LENGTH) {
-			throw new ValidationException(Map.of("q", "검색어는 1~" + MAX_QUERY_LENGTH + "자로 입력하세요."));
+		// 빈 검색어는 허용 — 등록 폼의 드롭다운이 열릴 때 이름순 앞 10건을 보여 준다
+		if (query.length() > MAX_QUERY_LENGTH) {
+			throw new ValidationException(Map.of("q", "검색어는 " + MAX_QUERY_LENGTH + "자 이하로 입력하세요."));
 		}
 		return ApiResponse.of(products.search(query));
 	}

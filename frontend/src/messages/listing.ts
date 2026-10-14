@@ -33,7 +33,6 @@ export const listing = {
       searching: "찾는 중이에요",
       noResult: "찾는 상품이 없어요. 아래에 직접 입력해 주세요.",
       failed: "상품을 불러오지 못했어요. 아래에 직접 입력할 수도 있어요.",
-      selected: "상품마스터에서 고른 상품이에요",
       switchToManual: "직접 입력으로 바꾸기",
       filesNote: "올리지 않으면 상품마스터의 파일을 써요",
     },

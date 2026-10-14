@@ -70,14 +70,18 @@ class ProductCategoryApiTest {
 	}
 
 	@Test
-	@DisplayName("상품 검색: 로그인 없이는 401, 빈 검색어·51자는 400 fields.q")
+	@DisplayName("상품 검색: 로그인 없이는 401, 51자는 400 fields.q, 빈 검색어는 이름순 앞 10건")
 	void searchRequiresAuthAndValidQuery() throws Exception {
 		mvc.perform(get("/api/v1/products").param("q", "a")).andExpect(status().isUnauthorized());
-		mvc.perform(get("/api/v1/products").param("q", "  ").cookie(cookie()))
+		mvc.perform(get("/api/v1/products").param("q", "a".repeat(51)).cookie(cookie()))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.q").isString());
-		mvc.perform(get("/api/v1/products").param("q", "a".repeat(51)).cookie(cookie()))
-			.andExpect(status().isBadRequest());
+		products.saveAndFlush(Product.builder().prodId("KP-2026-900009").categoryCode("P01-Q01-R001").prodName("아무 상품")
+			.prodBrand("A").regDate("20261014120000").build());
+		mvc.perform(get("/api/v1/products").param("q", "  ").cookie(cookie()))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.length()").value(1))
+			.andExpect(jsonPath("$.data[0].prodId").value("KP-2026-900009"));
 	}
 
 	@Test

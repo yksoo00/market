@@ -98,7 +98,7 @@
   | 가격·수량 | 아래 "숫자" 항목과 동일 |
   | 최소주문량·주문단위·재고수량 | 1(재고는 0) ~ 100,000, 최소주문량은 판매수량 이하 |
   | 보증기한 | 허용 일수만: 0·30·90·180·360·720·1080 (= 없음·1·3·6·12·24·36개월 × 30일, 2026-10-06). 이미 저장된 값과 같으면 통과(옛 값 매물의 다른 칸 수정이 막히지 않게) |
-- 상품마스터 검색 `GET /api/v1/products?q=` (2026-10-14): 로그인 필요(없으면 401). `q` 공백 제거 후 1~50자(아니면 400 `fields.q`), 상품명·제조사·상품번호 부분 일치(대소문자 무시, `%`·`_`·`\` 는 문자 그대로), 최대 10건. 응답은 `prodId·categoryCode·categoryName·prodName·prodNo·prodBrand·prodMufcDate·prodSpecInfo·prodDataSheet·prodPhoto1` — 개인정보 없음. 읽기라 별도 rate limit 없음. 등록 폼의 상품 찾기가 쓴다.
+- 상품마스터 검색 `GET /api/v1/products?q=` (2026-10-14): 로그인 필요(없으면 401). `q` 공백 제거 후 50자 이하(넘으면 400 `fields.q`, 비우면 이름순 앞 10건 — 드롭다운이 열릴 때), 상품명·제조사·상품번호 부분 일치(대소문자 무시, `%`·`_`·`\` 는 문자 그대로), 최대 10건. 응답은 `prodId·categoryCode·categoryName·prodName·prodNo·prodBrand·prodMufcDate·prodSpecInfo·prodDataSheet·prodPhoto1` — 개인정보 없음. 읽기라 별도 rate limit 없음. 등록 폼의 상품 찾기가 쓴다.
 - 카테고리 목록 `GET /api/v1/categories` (2026-10-14): 로그인 필요. `is_display='Y'` 전부(239건)를 코드순으로 `categoryCode·categoryName·categoryDepth·categoryClass·parentCode`. 읽기라 별도 rate limit 없음. 등록 폼의 카테고리 검색 목록이 쓴다.
 - 내 매물 `GET /api/v1/listings/mine` (2026-10-06): 로그인 필요(없으면 401), 요청자 본인의 매물만(id 는 인증 정보에서, 파라미터 없음), 최신순 20개 + 커서(`regDate`, 같은 사용자 안에서 유일). 응답은 `userId·regDate·prodNo·prodName·prodBrand·extraFilled·salesUnitPrice·salesQuantity·tradeStatus·photo`뿐 — 개인정보 없음. `photo` 는 대표 사진 키로 공개 경로(`public/…`)만 담고 비공개 파일(데이터시트·테스트리포트 등) 키는 담지 않는다. 읽기라 별도 rate limit 없음. 판매정보 추가등록 화면의 대상 고르기와 마이페이지(`/my`) 내 판매글 목록이 쓴다.
 - 매물 검색 `GET /api/v1/listings` (2026-10-02):
