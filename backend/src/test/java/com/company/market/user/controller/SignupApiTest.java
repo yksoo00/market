@@ -93,7 +93,7 @@ class SignupApiTest {
 			assertThat(u.get("contact_method")).isEqualTo("1");
 			assertThat((String) u.get("password")).startsWith("$2a$12$").doesNotContain("Str0ng");
 			// 약관 동의 기록: 판 + 동의 시각(UTC yyyyMMddHHmmss)
-			assertThat((String) u.get("spare_col")).matches("terms:20261013@\\d{14}");
+			assertThat((String) u.get("spare_col")).matches("terms:20261014@\\d{14}");
 		}
 
 		@Test
@@ -252,7 +252,7 @@ class SignupApiTest {
 			assertThat(u.get("user_class")).isEqualTo("business");
 			assertThat(u.get("user_id")).isEqualTo("acme01");
 			assertThat(u.get("bus_reg_id")).isEqualTo("1234567890");
-			assertThat((String) u.get("spare_col")).startsWith("terms:20261013@");
+			assertThat((String) u.get("spare_col")).startsWith("terms:20261014@");
 			assertThat(u.get("company_open_date")).isEqualTo("20200101");
 			assertThat(u.get("contact_method")).isEqualTo("3");
 			// 담당자 주소는 받지 않는다 (사용자 지시) — 주소는 회사 주소에만
