@@ -67,7 +67,7 @@ export function ListingForm({ initialValues, submitLabel, secondarySubmitLabel, 
   // 상품 칸은 "직접 입력"을 골랐을 때만 열린다. 처음엔 잠겨 있고, 마스터를 고르면 마스터 값으로 채워져 잠긴 채로 있다
   const manual = useWatch({ control, name: "manual" }) === "1";
   const locked = !manual;
-  const lockedClass = locked ? "bg-bg text-ink-2" : "";
+  const lockedClass = locked ? "bg-bg" : "";
   const [photosUploading, setPhotosUploading] = useState(false);
   const [datasheetUploading, setDatasheetUploading] = useState(false);
   // 업로더의 effect 의존성이라 참조가 바뀌지 않게 (바뀌면 렌더마다 effect 가 다시 돈다)
@@ -128,14 +128,14 @@ export function ListingForm({ initialValues, submitLabel, secondarySubmitLabel, 
           <Wide>
             <CategoryPicker readOnly={locked} />
           </Wide>
-          <FormField<ListingFormInput> inline name="prodBrand" label={t.prodBrand} placeholder={t.prodBrandPlaceholder} maxLength={50} readOnly={locked} className={lockedClass} />
+          <FormField<ListingFormInput> inline name="prodBrand" label={t.prodBrand} placeholder={t.prodBrandPlaceholder} maxLength={50} readOnly={locked} noStatus={locked} className={lockedClass} />
           <Wide>
-            <FormField<ListingFormInput> inline name="prodName" label={t.prodName} placeholder={t.prodNamePlaceholder} maxLength={50} readOnly={locked} className={lockedClass} />
+            <FormField<ListingFormInput> inline name="prodName" label={t.prodName} placeholder={t.prodNamePlaceholder} maxLength={50} readOnly={locked} noStatus={locked} className={lockedClass} />
           </Wide>
-          <FormField<ListingFormInput> inline name="prodNo" label={t.prodNo} placeholder={t.prodNoPlaceholder} maxLength={20} readOnly={locked} className={`font-mono ${lockedClass}`} />
-          <FormField<ListingFormInput> inline name="prodMufcDate" label={t.prodMufcDate} type="date" max={today} readOnly={locked} className={lockedClass} />
+          <FormField<ListingFormInput> inline name="prodNo" label={t.prodNo} placeholder={t.prodNoPlaceholder} maxLength={20} readOnly={locked} noStatus={locked} className={`font-mono ${lockedClass}`} />
+          <FormField<ListingFormInput> inline name="prodMufcDate" label={t.prodMufcDate} type="date" max={today} readOnly={locked} noStatus={locked} className={lockedClass} />
           <Wide>
-            <FormField<ListingFormInput> inline name="prodSpecInfo" label={t.prodSpecInfo} placeholder={t.prodSpecInfoPlaceholder} maxLength={100} readOnly={locked} className={lockedClass} />
+            <FormField<ListingFormInput> inline name="prodSpecInfo" label={t.prodSpecInfo} placeholder={t.prodSpecInfoPlaceholder} maxLength={100} readOnly={locked} noStatus={locked} className={lockedClass} />
           </Wide>
         </Section>
 

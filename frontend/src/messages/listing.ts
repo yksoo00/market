@@ -31,6 +31,7 @@ export const listing = {
       placeholder: "상품마스터에서 고르거나 '직접 입력'을 선택하세요",
       hint: "상품마스터에 있으면 골라 주세요. 없으면 '직접 입력'을 고르면 아래 칸을 입력할 수 있고, 입력한 상품은 상품마스터에 등록돼요.",
       manualOption: "직접 입력",
+      manualPlaceholder: "직접 입력 중 — 상품마스터에서 고르려면 눌러 주세요",
       manualOptionNote: "찾는 상품이 없을 때 — 아래 상품 정보를 직접 입력해요",
       searching: "찾는 중이에요",
       noResult: "맞는 상품이 없어요. '직접 입력'을 고르면 입력할 수 있어요.",

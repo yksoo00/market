@@ -98,12 +98,17 @@ interface Props<T extends FieldValues> extends Omit<ComponentProps<"input">, "na
   inline?: Inline;
   /** 입력 오른쪽에 붙는 요소 (중복확인 버튼 등) */
   trailing?: ReactNode;
+  /** true = 검증 표시(오류 문구·초록/빨간 테두리)를 하지 않는다 — 잠긴 칸(채워진 값을 보여만 주는 칸)용 */
+  noStatus?: boolean;
 }
 
 /** 라벨 + 텍스트 입력 + 오류 문구. 비밀번호는 보기 토글 포함 */
-export function FormField<T extends FieldValues>({ name, label, hint, note, inline, trailing, className, type, onChange, ...rest }: Props<T>) {
+export function FormField<T extends FieldValues>({ name, label, hint, note, inline, trailing, noStatus = false, className, type, onChange, ...rest }: Props<T>) {
   const { register } = useFormContext<T>();
-  const { error, valid, touched } = useFieldStatus<T>(name);
+  const status = useFieldStatus<T>(name);
+  const error = noStatus ? undefined : status.error;
+  const valid = noStatus ? false : status.valid;
+  const touched = noStatus ? false : status.touched;
   const [show, setShow] = useState(false);
   const isPassword = type === "password";
   const reg = register(name);

@@ -30,7 +30,11 @@ function loadOptions(): Promise<CategoryOption[] | null> {
 export function CategoryPicker({ readOnly = false }: { readOnly?: boolean }) {
   const { register, setValue, control } = useFormContext<ListingFormInput>();
   const code = useWatch({ control, name: "categoryCode" });
-  const { error, valid, touched } = useFieldStatus<ListingFormInput>("categoryCode");
+  const fieldStatus = useFieldStatus<ListingFormInput>("categoryCode");
+  // 잠긴 칸(마스터 값을 보여만 주는 칸)은 검증 표시를 하지 않는다
+  const error = readOnly ? undefined : fieldStatus.error;
+  const valid = readOnly ? false : fieldStatus.valid;
+  const touched = readOnly ? false : fieldStatus.touched;
   const [options, setOptions] = useState<CategoryOption[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [open, setOpen] = useState(false);
@@ -86,7 +90,7 @@ export function CategoryPicker({ readOnly = false }: { readOnly?: boolean }) {
           readOnly={readOnly}
           placeholder={t.categoryPlaceholder}
           value={shown}
-          className={cn(statusClass(valid), readOnly && "bg-bg text-ink-2")}
+          className={cn(statusClass(valid), readOnly && "bg-bg")}
           onFocus={() => {
             if (readOnly) return;
             setQuery("");

@@ -30,7 +30,7 @@ type Search = { q: string; items: ProductSearchItem[] | null };
  * - "직접 입력"을 고르면 상품 칸이 비워져 열린다. 입력한 상품은 서버가 새 마스터로 저장한다.
  */
 export function ProductPicker() {
-  const { setValue, control } = useFormContext<ListingFormInput>();
+  const { setValue, resetField, control } = useFormContext<ListingFormInput>();
   const prodId = useWatch({ control, name: "prodId" });
   const manual = useWatch({ control, name: "manual" }) === "1";
   const name = useWatch({ control, name: "prodName" });
@@ -59,7 +59,8 @@ export function ProductPicker() {
     };
   }, [q, open]);
 
-  const set = (field: ProductField, value: string) => setValue(field, value, { shouldValidate: true, shouldDirty: true, shouldTouch: true });
+  // touched 로 만들지 않는다 — 고른 값을 채울 뿐 사용자가 칸을 건드린 게 아니다 (오류·초록 테두리는 직접 입력일 때 칸을 벗어난 뒤에야)
+  const set = (field: ProductField, value: string) => setValue(field, value, { shouldValidate: true, shouldDirty: true });
 
   const pickMaster = (p: ProductSearchItem) => {
     set("manual", "");
@@ -78,7 +79,8 @@ export function ProductPicker() {
   const pickManual = () => {
     // 이미 직접 입력 중이면 쳐 둔 값을 지우지 않는다. 마스터에서 바꿔 오면 마스터 값을 비운다
     if (!manual) {
-      for (const field of productFields) set(field, "");
+      // resetField: 값뿐 아니라 touched·오류도 비워, 직접 입력을 고르자마자 빨간 오류가 뜨지 않게
+      for (const field of productFields) resetField(field, { defaultValue: "" });
       set("manual", "1");
     }
     setOpen(false);
@@ -89,7 +91,8 @@ export function ProductPicker() {
   // 목록 번호: 0 = "직접 입력", 1~ = 마스터
   const count = 1 + masters.length;
   const choose = (index: number) => (index === 0 ? pickManual() : masters[index - 1] && pickMaster(masters[index - 1]!));
-  const selectedLabel = manual ? t.manualOption : prodId !== "" ? [name, brand, prodNo].filter(Boolean).join(" · ") : "";
+  // 직접 입력은 값이 아니라 입력 방식이라 칸에 글자로 두지 않는다 (아래 칸이 열리는 것으로 알 수 있다)
+  const selectedLabel = prodId !== "" ? [name, brand, prodNo].filter(Boolean).join(" · ") : "";
   const status = result === null ? t.searching : result.items === null ? t.failed : result.items.length === 0 ? t.noResult : null;
 
   const optionClass = (i: number) => cn("px-3 py-2 cursor-pointer", i === active && "bg-primary-soft");
@@ -106,7 +109,7 @@ export function ProductPicker() {
           aria-activedescendant={open ? `${listId}-${active}` : undefined}
           autoComplete="off"
           maxLength={50}
-          placeholder={t.placeholder}
+          placeholder={manual ? t.manualPlaceholder : t.placeholder}
           // 열려 있으면 검색어, 닫혀 있으면 고른 것
           value={open ? query : selectedLabel}
           className={cn("h-11 px-3 text-[15px] bg-surface", (prodId !== "" || manual) && !open && "border-primary bg-primary-soft")}
