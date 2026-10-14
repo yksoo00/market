@@ -167,4 +167,21 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("iframe")).toHaveCount(0);
   });
+
+  await test.step("상품마스터 선택 — 방금 만들어진 상품을 검색해 고르면 상품 칸이 채워지고 사진 없이도 등록된다 (같은 이름 글이 둘이 되므로 마지막 단계)", async () => {
+    await page.goto("/listings/new");
+    await page.getByRole("searchbox", { name: listing.form.master.label }).fill(prodName);
+    await page.getByRole("button", { name: new RegExp(prodName) }).click();
+    await expect(page.getByText(listing.form.master.selected)).toBeVisible();
+    await expect(page.locator('input[name="prodName"]')).toHaveValue(prodName);
+    await expect(page.locator('input[name="prodName"]')).toHaveAttribute("readonly", "");
+    await page.locator("#prodState").selectOption("신품");
+    await page.locator('input[name="salesUnitPrice"]').fill("900000");
+    await page.locator('input[name="salesQuantity"]').fill("1");
+    const submit = page.getByRole("button", { name: listing.form.submit, exact: true });
+    await expect(submit).toBeEnabled();
+    await submit.click();
+    await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
+    await expect(page.getByText(prodName).first()).toBeVisible();
+  });
 });
