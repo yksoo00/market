@@ -58,6 +58,13 @@ const optionalDate = z
 export function listingFormSchema(today: string) {
   return z
     .object({
+      // 상품마스터에서 고른 상품의 id. 고르면 아래 상품 칸은 마스터 값으로 채워져(읽기 전용) 같은 규칙을 그대로 통과한다
+      prodId: z.string(),
+      // "1" = 상품 찾기에서 "직접 입력"을 골랐다. 마스터도 직접 입력도 안 고른 처음엔 상품 칸이 잠겨 있다
+      manual: z.string(),
+      // 고른 마스터의 파일 키(없으면 ""). 올리지 않으면 서버가 이 파일을 쓴다 — 대표 사진 필수 여부와 안내 문구에 쓴다
+      masterPhoto: z.string(),
+      masterDataSheet: z.string(),
       categoryCode: requiredText(12, v.categoryCode),
       prodName: requiredText(50, v.prodName),
       prodBrand: requiredText(50, v.prodBrand),
@@ -72,17 +79,21 @@ export function listingFormSchema(today: string) {
       orderUnit: optionalInt(1, MAX_QUANTITY, v.orderUnit),
       deliveryDate: optionalDate,
       description: optionalText(MAX_DESCRIPTION, v.description),
-      // 대표 사진(첫 장) 필수 — 등록 화면 규칙. 수정은 사진 없는 옛 매물도 열 수 있어 listingEdit 은 필수로 하지 않는다
-      photos: z.array(z.string()).min(1, v.photosRequired).max(MAX_PHOTOS, v.photos),
+      // 대표 사진(첫 장) 필수 — 등록 화면 규칙(아래 superRefine: 마스터 사진이 있으면 예외). 수정은 사진 없는 옛 매물도 열 수 있어 listingEdit 은 필수로 하지 않는다
+      photos: z.array(z.string()).max(MAX_PHOTOS, v.photos),
       listingDataSheet: z.string().transform((s) => (s === "" ? undefined : s)),
     })
     // zod 4는 칸 검사가 실패해도 이 단계를 돈다 → 값이 이미 변환된 타입일 때만 비교한다
     .superRefine((d, ctx) => {
+      if (Array.isArray(d.photos) && d.photos.length === 0 && d.masterPhoto === "") {
+        ctx.addIssue({ code: "custom", path: ["photos"], message: v.photosRequired });
+      }
       if (typeof d.minOrderQuantity === "number" && typeof d.salesQuantity === "number" && d.minOrderQuantity > d.salesQuantity) {
         ctx.addIssue({ code: "custom", path: ["minOrderQuantity"], message: v.minOrderOverSales });
       }
       // YYYY-MM-DD 문자열은 사전순 = 날짜순
-      if (typeof d.prodMufcDate === "string" && d.prodMufcDate > today) {
+      // 마스터를 골랐으면 제조일은 마스터 값(잠긴 칸)이고 서버도 요청의 제조일을 안 본다 — 오늘 이후여도 막지 않는다
+      if (d.prodId === "" && typeof d.prodMufcDate === "string" && d.prodMufcDate > today) {
         ctx.addIssue({ code: "custom", path: ["prodMufcDate"], message: v.prodMufcDate });
       }
       if (typeof d.deliveryDate === "string" && d.deliveryDate < today) {
@@ -95,6 +106,10 @@ export type ListingFormInput = z.input<ReturnType<typeof listingFormSchema>>;
 export type ListingFormOutput = z.output<ReturnType<typeof listingFormSchema>>;
 
 export const emptyListingForm: ListingFormInput = {
+  prodId: "",
+  manual: "",
+  masterPhoto: "",
+  masterDataSheet: "",
   categoryCode: "",
   prodName: "",
   prodBrand: "",

@@ -41,6 +41,30 @@ describe("toCreateRequest", () => {
     });
   });
 
+  it("상품마스터를 골랐으면 prodId 와 매물 칸만 보내고 상품 칸은 보내지 않는다 (사진을 안 올려도 된다)", () => {
+    const req = toCreateRequest(
+      output({
+        prodId: "KP-2026-000001",
+        masterPhoto: "public/listings/photos/2026/10/m.jpg",
+        prodNo: "MASTER-1",
+        prodMufcDate: "2020-01-31",
+        prodSpecInfo: "마스터 사양",
+        photos: [],
+      }),
+    );
+    expect(req).toEqual({
+      prodId: "KP-2026-000001",
+      tradeType: "등록",
+      prodState: "신품",
+      salesUnitPrice: 1000,
+      salesQuantity: 3,
+    });
+  });
+
+  it("상품마스터를 고르지 않으면 prodId 없이 상품 칸을 보낸다", () => {
+    expect("prodId" in toCreateRequest(output({}))).toBe(false);
+  });
+
   it("상품상태는 고른 값 그대로", () => {
     expect(toCreateRequest(output({ prodState: "신품대비 80~89%" })).prodState).toBe("신품대비 80~89%");
   });

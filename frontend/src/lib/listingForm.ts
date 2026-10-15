@@ -11,21 +11,23 @@ export function todayInSeoul(now: Date = new Date()): string {
   return seoulDate.format(now);
 }
 
-/** 검증을 통과한 폼 값 → 등록 요청. 비운 선택 칸은 키를 빼서 서버 기본값을 쓰게 한다 */
+/**
+ * 검증을 통과한 폼 값 → 등록 요청. 비운 선택 칸은 키를 빼서 서버 기본값을 쓰게 한다.
+ * 마스터를 골랐으면 prodId 만 보낸다 — 상품 칸은 서버가 마스터 값을 쓰고 요청의 것은 무시한다
+ */
 export function toCreateRequest(v: ListingFormOutput): ListingCreateRequest {
+  const picked = v.prodId !== "";
   const req: ListingCreateRequest = {
-    categoryCode: v.categoryCode,
-    prodName: v.prodName,
-    prodBrand: v.prodBrand,
+    ...(picked ? { prodId: v.prodId } : { categoryCode: v.categoryCode, prodName: v.prodName, prodBrand: v.prodBrand }),
     tradeType: TRADE_TYPE,
     prodState: v.prodState,
     salesUnitPrice: v.salesUnitPrice,
     salesQuantity: v.salesQuantity,
   };
   const optional: Partial<ListingCreateRequest> = {
-    prodNo: v.prodNo,
-    prodMufcDate: v.prodMufcDate?.replaceAll("-", ""),
-    prodSpecInfo: v.prodSpecInfo,
+    prodNo: picked ? undefined : v.prodNo,
+    prodMufcDate: picked ? undefined : v.prodMufcDate?.replaceAll("-", ""),
+    prodSpecInfo: picked ? undefined : v.prodSpecInfo,
     stockQuantity: v.stockQuantity,
     minOrderQuantity: v.minOrderQuantity,
     orderUnit: v.orderUnit,

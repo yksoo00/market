@@ -86,19 +86,42 @@ public class ListingService {
 		if (minOrderQuantity > req.salesQuantity()) {
 			throw new ValidationException(Map.of("minOrderQuantity", "최소주문량은 판매수량을 넘을 수 없습니다."));
 		}
-		validateDates(req.prodMufcDate(), req.deliveryDate());
-		String categoryCode = req.categoryCode().trim();
-		requireCategory(categoryCode);
+
+		// 마스터를 골랐으면 그 상품이 기준 — 요청의 상품 칸은 보지 않는다(클라이언트 값 불신)
+		Product master = hasText(req.prodId()) ? products.find(req.prodId().trim())
+			.orElseThrow(() -> new ValidationException(Map.of("prodId", "없는 상품입니다."))) : null;
+		if (master == null) {
+			requireProductFields(req);
+		}
+		// 대표 사진 필수. 마스터를 골랐고 그 마스터에 사진이 있으면 올리지 않아도 마스터 사진이 대표가 된다
+		if (photos.isEmpty() && (master == null || !hasText(master.getProdPhoto1()))) {
+			throw new ValidationException(Map.of("photos", "대표 사진을 올려 주세요."));
+		}
+		validateDates(master == null ? req.prodMufcDate() : null, req.deliveryDate());
+		String categoryCode = master == null ? req.categoryCode().trim() : null;
+		if (master == null) {
+			requireCategory(categoryCode);
+		}
 
 		// 입력 검사(Redis 조회)를 상품마스터 채번·INSERT 보다 먼저 — 잘못된 키 요청이 DB 작업을 하지 않게
 		List<UploadRef> files = new ArrayList<>();
 		photos.forEach(p -> files.add(new UploadRef("photos", p, UploadKind.LISTING_PHOTO)));
 		addRef(files, "listingDataSheet", req.listingDataSheet(), UploadKind.LISTING_DATASHEET);
-		addRef(files, "productDataSheet", req.productDataSheet(), UploadKind.LISTING_DATASHEET);
+		if (master == null) {
+			addRef(files, "productDataSheet", req.productDataSheet(), UploadKind.LISTING_DATASHEET);
+		}
 		uploads.claim(userId, files);
 
-		Product product = products.findOrCreate(new ProductDraft(categoryCode, req.prodName().trim(), req.prodNo(),
-				req.prodBrand().trim(), req.prodMufcDate(), req.prodSpecInfo(), req.productDataSheet(), firstPhoto));
+		Product product = master != null ? master : products.findOrCreate(new ProductDraft(categoryCode, req.prodName().trim(),
+				req.prodNo(), req.prodBrand().trim(), req.prodMufcDate(), req.prodSpecInfo(),
+				// 새 마스터의 데이터시트는 이 판매자가 올린 것 (productDataSheet 칸은 폼이 안 보낸다)
+				hasText(req.productDataSheet()) ? req.productDataSheet() : req.listingDataSheet(), firstPhoto));
+
+		// 올리지 않은 데이터시트·사진만 마스터 것을 복사한다(키 문자열). 이미 저장된 파일이라 업로드 기록(claim) 대상이 아니다
+		String dataSheet = hasText(req.listingDataSheet()) ? req.listingDataSheet() : product.getProdDataSheet();
+		if (photos.isEmpty()) {
+			photos = List.of(product.getProdPhoto1());
+		}
 
 		Listing listing = Listing.builder()
 			.userId(userId)
@@ -113,7 +136,7 @@ public class ListingService {
 			.deliveryDate(req.deliveryDate() == null || req.deliveryDate().isEmpty() ? null : req.deliveryDate())
 			.stockQuantity(req.stockQuantity() == null ? req.salesQuantity() : req.stockQuantity())
 			.prodDescription(req.description())
-			.prodDataSheet(req.listingDataSheet())
+			.prodDataSheet(dataSheet)
 			.prodPhoto1(photoAt(photos, 0))
 			.prodPhoto2(photoAt(photos, 1))
 			.prodPhoto3(photoAt(photos, 2))
@@ -181,6 +204,27 @@ public class ListingService {
 
 		listing.applyUpdate(req, LocalDateTime.now(clock).format(REG_DATE_FORMAT));
 		return toResponse(listing, product);
+	}
+
+	/** 마스터를 안 고른 등록은 상품 칸 세 개가 필수 — 조건부라 Bean Validation 대신 여기서 같은 400 필드 오류로 */
+	private static void requireProductFields(ListingCreateRequest req) {
+		Map<String, String> missing = new LinkedHashMap<>();
+		if (!hasText(req.categoryCode())) {
+			missing.put("categoryCode", "필수 입력입니다.");
+		}
+		if (!hasText(req.prodName())) {
+			missing.put("prodName", "필수 입력입니다.");
+		}
+		if (!hasText(req.prodBrand())) {
+			missing.put("prodBrand", "필수 입력입니다.");
+		}
+		if (!missing.isEmpty()) {
+			throw new ValidationException(missing);
+		}
+	}
+
+	private static boolean hasText(String s) {
+		return s != null && !s.isBlank();
 	}
 
 	/** 카테고리는 trd_ctgr_code 에 있는 코드만. FK 위반(500)이 되기 전에 필드 오류로 알린다 */

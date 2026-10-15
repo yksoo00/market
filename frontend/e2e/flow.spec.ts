@@ -81,7 +81,17 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
 
   await test.step("매물 등록 — 마지막 칸 입력 직후 [등록]이 켜진다", async () => {
     await page.goto("/listings/new");
-    await page.locator('input[name="categoryCode"]').fill("P01-Q01-R001");
+    // 처음엔 상품 칸이 잠겨 있다 — 상품 찾기에서 "직접 입력"을 골라야 열린다
+    await expect(page.locator('input[name="prodName"]')).toHaveAttribute("readonly", "");
+    await page.locator("#productPicker").click();
+    await page.getByRole("option", { name: listing.form.master.manualOption }).click();
+    await expect(page.locator('input[name="prodName"]')).not.toHaveAttribute("readonly", "");
+    // 직접 입력은 칸에 글자로 남지 않고, 고르자마자 빨간 오류가 뜨지 않는다 (검증은 칸을 건드린 뒤)
+    await expect(page.locator("#productPicker")).toHaveValue("");
+    await expect(page.locator("form").getByRole("alert")).toHaveCount(0);
+    // 카테고리는 검색 목록에서 고른다 (P01-Q01-R001 = 인텔 CPU)
+    await page.locator("#categoryPicker").fill("인텔");
+    await page.getByRole("option", { name: /인텔 CPU/ }).click();
     await page.locator('input[name="prodBrand"]').fill("Dell");
     await page.locator('input[name="prodName"]').fill(prodName);
     await page.locator("#prodState").selectOption("신품");
@@ -164,5 +174,23 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await expect(page.getByRole("button", { name: my.menu.label })).toBeVisible();
     await expect(page).toHaveURL(/\/$/);
     await expect(page.locator("iframe")).toHaveCount(0);
+  });
+
+  await test.step("상품마스터 선택 — 방금 만들어진 상품을 검색해 고르면 상품 칸이 채워지고 사진 없이도 등록된다 (같은 이름 글이 둘이 되므로 마지막 단계)", async () => {
+    await page.goto("/listings/new");
+    // 드롭다운: 누르면 목록이 열리고, 쳐서 거른 뒤 고른다
+    await page.locator("#productPicker").fill(prodName);
+    await page.getByRole("option", { name: new RegExp(prodName) }).click();
+    await expect(page.locator("#productPicker")).toHaveValue(new RegExp(prodName));
+    await expect(page.locator('input[name="prodName"]')).toHaveValue(prodName);
+    await expect(page.locator('input[name="prodName"]')).toHaveAttribute("readonly", "");
+    await page.locator("#prodState").selectOption("신품");
+    await page.locator('input[name="salesUnitPrice"]').fill("900000");
+    await page.locator('input[name="salesQuantity"]').fill("1");
+    const submit = page.getByRole("button", { name: listing.form.submit, exact: true });
+    await expect(submit).toBeEnabled();
+    await submit.click();
+    await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
+    await expect(page.getByText(prodName).first()).toBeVisible();
   });
 });

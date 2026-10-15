@@ -2,10 +2,13 @@ export type TradeStatus = "available" | "completed";
 
 /** POST /api/v1/listings 요청. 백엔드 ListingCreateRequest 와 1:1 (선택 필드는 보내지 않으면 서버 기본값) */
 export interface ListingCreateRequest {
-  categoryCode: string;
-  prodName: string;
+  /** 상품마스터에서 고른 상품. 있으면 서버가 마스터 값을 쓰고 아래 상품 칸은 무시한다 (보내지도 않는다) */
+  prodId?: string;
+  // 상품 칸 — 마스터를 안 고른(직접 입력) 등록에서 categoryCode·prodName·prodBrand 필수
+  categoryCode?: string;
+  prodName?: string;
   prodNo?: string;
-  prodBrand: string;
+  prodBrand?: string;
   /** yyyyMMdd */
   prodMufcDate?: string;
   prodSpecInfo?: string;
@@ -163,4 +166,29 @@ export interface ListingMineItem {
 export interface ListingMinePage {
   items: ListingMineItem[];
   nextCursor: string | null;
+}
+
+/** GET /api/v1/products?q= 의 한 줄. 백엔드 ProductSearchItemResponse 와 1:1. 파일 칸은 업로드 키(없으면 null) */
+export interface ProductSearchItem {
+  prodId: string;
+  categoryCode: string;
+  categoryName: string | null;
+  prodName: string;
+  prodNo: string | null;
+  prodBrand: string;
+  /** yyyyMMdd */
+  prodMufcDate: string | null;
+  prodSpecInfo: string | null;
+  prodDataSheet: string | null;
+  prodPhoto1: string | null;
+}
+
+/** GET /api/v1/categories 의 한 줄. 백엔드 CategoryResponse 와 1:1. parentCode 는 조각(`Q01`) */
+export interface CategoryItem {
+  categoryCode: string;
+  categoryName: string;
+  categoryDepth: string;
+  /** 대·중·소 */
+  categoryClass: string;
+  parentCode: string | null;
 }

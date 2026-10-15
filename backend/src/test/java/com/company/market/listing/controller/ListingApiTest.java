@@ -1109,4 +1109,107 @@ class ListingApiTest {
 		assertThat(jdbc.queryForObject("select count(*) from trd_prod_master", Integer.class)).isEqualTo(productsBefore);
 	}
 
+	// ---- 상품마스터에서 고르기 (스펙 2026-10-14-listing-from-master) ----
+
+	private Product master(String prodId, String name, String photo, String dataSheet) {
+		return productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("P01-Q01-R001").prodName(name)
+			.prodNo("MASTER-1").prodBrand("마스터사").prodSpecInfo("마스터 사양").prodPhoto1(photo).prodDataSheet(dataSheet)
+			.regDate("20261014120000").build());
+	}
+
+	@Test
+	@DisplayName("마스터를 고르면 상품 칸은 마스터 값이고 요청의 상품 칸은 무시한다. 사진·데이터시트를 안 올리면 마스터 것을 복사한다")
+	void selectingMasterUsesMasterAndCopiesFiles() throws Exception {
+		master("KP-2026-900001", "마스터 상품", "public/listings/photos/2026/10/m.jpg", "private/listings/datasheets/2026/10/m.pdf");
+
+		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"prodId":"KP-2026-900001","categoryCode":"NOPE","prodName":"무시될 이름","prodBrand":"무시",
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					"""))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.prodId").value("KP-2026-900001"))
+			.andExpect(jsonPath("$.data.prodName").value("마스터 상품"))
+			.andExpect(jsonPath("$.data.prodBrand").value("마스터사"))
+			.andExpect(jsonPath("$.data.prodNo").value("MASTER-1"))
+			.andExpect(jsonPath("$.data.photos.length()").value(1))
+			.andExpect(jsonPath("$.data.photos[0]").value("public/listings/photos/2026/10/m.jpg"))
+			.andExpect(jsonPath("$.data.listingDataSheet").value("private/listings/datasheets/2026/10/m.pdf"));
+
+		assertThat(jdbc.queryForObject("select count(*) from trd_prod_master", Integer.class)).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("마스터를 골라도 사진·데이터시트를 올리면 올린 것이 우선이고 마스터 값은 바뀌지 않는다")
+	void ownFilesWinOverMasterFiles() throws Exception {
+		master("KP-2026-900001", "마스터 상품", "public/listings/photos/2026/10/m.jpg", "private/listings/datasheets/2026/10/m.pdf");
+		String photo = uploaded(authCookie, UploadKind.LISTING_PHOTO);
+		String sheet = uploaded(authCookie, UploadKind.LISTING_DATASHEET);
+
+		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"prodId":"KP-2026-900001","tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+					 "photos":["%s"],"listingDataSheet":"%s"}
+					""".formatted(photo, sheet)))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.photos[0]").value(photo))
+			.andExpect(jsonPath("$.data.listingDataSheet").value(sheet));
+
+		assertThat(jdbc.queryForObject("select prod_photo_1 from trd_prod_master where prod_id = 'KP-2026-900001'", String.class))
+			.isEqualTo("public/listings/photos/2026/10/m.jpg");
+	}
+
+	@Test
+	@DisplayName("마스터에도 사진이 없고 올리지도 않으면 400 fields.photos")
+	void masterWithoutPhotoStillNeedsMainPhoto() throws Exception {
+		master("KP-2026-900001", "사진 없는 마스터", null, null);
+
+		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"prodId":"KP-2026-900001","tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.photos").value("대표 사진을 올려 주세요."));
+	}
+
+	@Test
+	@DisplayName("없는 prodId 면 400 fields.prodId")
+	void unknownProdIdIsBadRequest() throws Exception {
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"prodId":"KP-2026-999999","tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.prodId").value("없는 상품입니다."));
+	}
+
+	@Test
+	@DisplayName("마스터를 안 고르면 카테고리·상품명·제조사가 필수 — 빠진 칸마다 400 fields")
+	void directInputRequiresProductFields() throws Exception {
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.categoryCode").value("필수 입력입니다."))
+			.andExpect(jsonPath("$.fields.prodName").value("필수 입력입니다."))
+			.andExpect(jsonPath("$.fields.prodBrand").value("필수 입력입니다."));
+	}
+
+	@Test
+	@DisplayName("직접 입력으로 새 마스터가 만들어지면 올린 데이터시트가 마스터 데이터시트가 된다")
+	void directInputSavesDataSheetToNewMaster() throws Exception {
+		String sheet = uploaded(authCookie, UploadKind.LISTING_DATASHEET);
+
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"P01-Q01-R001","prodName":"새 마스터","prodBrand":"새제조사",
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,"listingDataSheet":"%s"}
+					""".formatted(sheet)))
+			.andExpect(status().isCreated());
+
+		assertThat(jdbc.queryForObject("select prod_data_sheet from trd_prod_master where prod_name = '새 마스터'", String.class))
+			.isEqualTo(sheet);
+	}
+
 }
