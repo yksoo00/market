@@ -1,7 +1,7 @@
 # 데이터 모델
 
 > 현재 계정 데이터는 `trd_user_info` 한 테이블에 둔다. 다른 계정 테이블은 사용하지 않는다.
-> 매물 스키마(`trd_prod_master`, `trd_prod_reg`)는 사용자가 제공한 레거시 스펙을 그대로 옮긴 초안이다. PRD 확정 전이라 카테고리 마스터·이미지 구조·상태값 체계는 다시 바뀔 수 있다. 거래 스키마는 아직 없다 (채팅은 기능에서 제외, decisions.md 2026-10-01).
+> 매물 스키마(`trd_prod_master`, `trd_prod_reg`)는 사용자가 제공한 레거시 스펙을 그대로 옮긴 초안이다. PRD 확정 전이라 카테고리 마스터·이미지 구조·상태값 체계는 다시 바뀔 수 있다. 거래 스키마(`trd_trade_info`, `trd_trade_history`)는 직접 구매만 쓴다 — 장바구니·견적은 아직 없다 (채팅은 기능에서 제외, decisions.md 2026-10-01).
 
 ## 계정: `trd_user_info`
 
@@ -113,5 +113,56 @@
 제약: `trd_prod_master`·`trd_prod_reg` 엔티티는 PK를 직접 채우므로(uuid `@GeneratedValue` 없음) `Persistable` 구현 필수 — 없으면 Spring Data가 항상 `merge`(UPDATE)를 타서 중복 키를 조용히 덮어쓴다(코드리뷰로 발견, 2026-09-29 수정). 매물 목록 커서는 `reg_date` 단독이 아니라 `reg_date_userId` 복합값 — 같은 초에 다른 사용자가 등록하면 reg_date만으로는 페이지 경계에서 소실될 수 있어서.
 
 검색(`GET /api/v1/listings`, 2026-10-02): 상품명·상품번호·제조사(`trd_prod_master`)에 낱말별 `lower(...) like`, 거래상태는 `trd_prod_reg.dt_expire` 유무, 가격·재고·납기일은 `trd_prod_reg` 컬럼. 검색용 인덱스는 없다 — 느린 게 측정되면 pg_trgm 등 검토. 카테고리 필터는 아직 없음 (마스터 테이블은 있음).
+
+## 거래: `trd_trade_info`, `trd_trade_history`
+
+> 구현: `V202610151000__create_trade_tables.sql`. 사용자가 준 정의서(TRD_TRADE_INFO, TRD_TRADE_HISTORY)를 옮기고 아래 "정의서와 다른 점"만 바꿨다 (사용자 결정, 2026-10-15). 스펙: `docs/superpowers/specs/2026-10-15-purchase-design.md`.
+> 코드 값은 지금은 한글 문자열이다. 나중에 공통코드 테이블과 숫자 코드로 바꾼다 (사용자 지시) — 변환은 백엔드 enum 한 곳.
+
+### trd_trade_info (TRD_TRADE_INFO — 거래정보)
+
+구매요청 1건 = 1행. 매물에서 가져올 수 있는 칸은 요청 때 서버가 복사한다(스냅샷 — 나중에 매물이 바뀌어도 그대로).
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| user_id | uuid | PK(복합), FK→trd_user_info(uid) `fk_trd_trade_info_buyer` | 구매자. 정의서 varchar(20) → uuid |
+| trade_id | varchar(20) | PK(복합), **unique** `ux_trd_trade_info_trade_id` | `yyMMddHH`(한국 시간) + 순번 3자리, 11자 (예 `26092917001`). 순번은 그 시간대 전체에서 001부터. unique 는 거래이력 FK 용 (정의서 밖) |
+| trade_type | varchar(20) | not null | 거래종류: `구매요청` / `구매확정` / `구매취소` |
+| seller_id | uuid | FK(seller_id, reg_date)→trd_prod_reg(user_id, reg_date) `fk_trd_trade_info_listing` | 판매자. 정의서 물리명 `USER_ID`가 구매자와 겹쳐 이름 변경 |
+| reg_date | varchar(14) | 위 FK | 매물 등록일시 |
+| prod_id | varchar(20) | | 복사. 정의서 50 → 마스터에 맞춰 20 |
+| prod_state | varchar(20) | | 복사 |
+| sales_unit_price | integer | | 복사 (등록단가) |
+| stock_quantity | integer | | 복사 (요청 시점, 줄이기 전) |
+| min_order_quantity | integer | | 복사 |
+| order_unit | integer | | 복사 |
+| prov_date | varchar(10) | **nullable** | 복사 (제공가능일). 정의서 NOT NULL — 매물 납기일이 선택이라 |
+| order_unit_price | integer | not null | = 등록단가 (구매자가 못 바꿈) |
+| order_quantity | integer | not null | 구매자 입력, 기본 최소주문량 |
+| req_deli_date | varchar(10) | not null | 납품희망일 yyyy-MM-dd. 구매자 입력, 기본 제공가능일 (매물 납기일이 없으면 필수 입력) |
+| remarks | varchar(100) | | 요청사항 |
+| trade_stats | varchar(10) | not null | 거래상태: `구매요청` / `구매확정` / `취소` |
+| spare_col | varchar(100) | | |
+
+인덱스: `ix_trd_trade_info_listing (seller_id, reg_date)` (FK·판매자 목록·매물별 요청 건수). 구매자 목록은 PK 앞부분 `user_id`.
+
+### trd_trade_history (TRD_TRADE_HISTORY — 거래이력)
+
+거래가 완료된(구매확정) 거래만 1줄. 취소는 쌓지 않는다 (거래정보 상태로만 남음).
+
+| 컬럼 | 타입 | 제약 | 설명 |
+|---|---|---|---|
+| trade_id | varchar(20) | PK(복합), FK→trd_trade_info(trade_id) `fk_trd_trade_history_trade` | |
+| trade_date | varchar(14) | PK(복합) | 확정일시 yyyyMMddHHmmss |
+| prod_id | varchar(20) | PK(복합) | |
+| trade_type | varchar(10) | not null | `구매확정` |
+| seller_id | uuid | not null, FK→trd_user_info(uid) | 정의서 물리명이 논리명과 뒤바뀜(판매자=BUYER_ID) → 바로잡음 |
+| buyer_id | uuid | not null, FK→trd_user_info(uid) | |
+| trade_unit_price | integer | | |
+| trade_quantity | integer | | |
+| trade_amount | integer | | 단가 × 수량 (int 범위를 넘는 주문은 요청 때 거절) |
+| spare_col | varchar(100) | | |
+
+인덱스: `ix_trd_trade_history_seller`, `ix_trd_trade_history_buyer` (FK). 지금 흐름은 거래 1건 = 이력 1줄이지만 PK 는 정의서대로 둔다(나중 견적·분할 확정).
 
 **다음에 정할 것**: PRD 작성 시 이미지 다건 구조(별도 테이블) 전환, prod_state enum화, 조직(seller_org_id) 도입 여부, quantity·가격 검증 규칙(`security.md`).

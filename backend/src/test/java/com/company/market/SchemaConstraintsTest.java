@@ -26,6 +26,10 @@ class SchemaConstraintsTest {
 
 	@AfterEach
 	void cleanUp() {
+		jdbc.update("delete from trd_trade_history");
+		jdbc.update("delete from trd_trade_info");
+		jdbc.update("delete from trd_prod_reg");
+		jdbc.update("delete from trd_prod_master");
 		jdbc.update("delete from trd_user_info");
 	}
 
@@ -73,10 +77,12 @@ class SchemaConstraintsTest {
 	}
 
 	@Test
-	@DisplayName("정의서 물리명: trd_prod_master·trd_prod_reg·trd_user_info, prod_mpn·prod_scan_code·prov_date·prod_coa·uid 컬럼이 있다")
+	@DisplayName("정의서 물리명: trd_prod_master·trd_prod_reg·trd_user_info·trd_trade_info·trd_trade_history 의 정의서 컬럼이 있다")
 	void legacyPhysicalNames() {
 		String[][] columns = { { "trd_prod_master", "prod_mpn" }, { "trd_prod_master", "prod_scan_code" },
-				{ "trd_prod_reg", "prov_date" }, { "trd_prod_reg", "prod_coa" }, { "trd_user_info", "uid" } };
+				{ "trd_prod_reg", "prov_date" }, { "trd_prod_reg", "prod_coa" }, { "trd_user_info", "uid" },
+				{ "trd_trade_info", "seller_id" }, { "trd_trade_info", "trade_stats" },
+				{ "trd_trade_history", "buyer_id" }, { "trd_trade_history", "trade_amount" } };
 		for (String[] c : columns) {
 			assertThat(jdbc.queryForObject("select count(*) from information_schema.columns "
 					+ "where table_schema = current_schema() and table_name = ? and column_name = ?",
@@ -93,6 +99,54 @@ class SchemaConstraintsTest {
 		assertThat(jdbc.queryForObject("select count(*) from trd_ctgr_code", Integer.class)).isEqualTo(239);
 		assertThat(jdbc.queryForObject("select parent_code from trd_ctgr_code where category_code = 'P01-Q01-R001'",
 				String.class)).isEqualTo("Q01");
+	}
+
+	/** 판매자·매물·구매자 한 벌을 만들고 [구매자 uid, 판매자 uid] 를 돌려준다. 매물 키는 (판매자, '20261015100000') */
+	private UUID[] insertListingAndBuyer() {
+		insertUser("seller01", "seller@example.com", "personal", null);
+		insertUser("buyer01", "buyer@example.com", "personal", null);
+		UUID seller = jdbc.queryForObject("select uid from trd_user_info where user_id = 'seller01'", UUID.class);
+		UUID buyer = jdbc.queryForObject("select uid from trd_user_info where user_id = 'buyer01'", UUID.class);
+		jdbc.update("""
+				insert into trd_prod_master (prod_id, category_code, prod_name, prod_brand, reg_date)
+				values ('TRADETEST1', 'P01-Q01-R001', '상품', '브랜드', '20261015100000')
+				""");
+		jdbc.update("""
+				insert into trd_prod_reg (user_id, reg_date, prod_id, trade_type, prod_state, sales_unit_price, sales_quantity)
+				values (?, '20261015100000', 'TRADETEST1', '판매', '신품', 1000, 10)
+				""", seller);
+		return new UUID[] { buyer, seller };
+	}
+
+	private void insertTrade(UUID buyer, UUID seller, String tradeId) {
+		jdbc.update("""
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
+					order_unit_price, order_quantity, req_deli_date, trade_stats)
+				values (?, ?, '구매요청', ?, '20261015100000', 'TRADETEST1', 1000, 1, '2026-10-20', '구매요청')
+				""", buyer, tradeId, seller);
+	}
+
+	@Test
+	@DisplayName("거래 테이블: trade_id 는 유일하고, 이력은 없는 거래를 가리킬 수 없다")
+	void tradeIdUniqueAndHistoryForeignKey() {
+		UUID[] ids = insertListingAndBuyer();
+		insertTrade(ids[0], ids[1], "26101510001");
+		// 구매자가 달라도 같은 trade_id 는 안 된다 (이력 FK 가 trade_id 하나로 거래를 가리키므로)
+		assertThatThrownBy(() -> insertTrade(ids[1], ids[1], "26101510001"))
+			.isInstanceOf(DataIntegrityViolationException.class);
+		assertThatThrownBy(() -> jdbc.update("""
+				insert into trd_trade_history (trade_id, trade_date, prod_id, trade_type, seller_id, buyer_id)
+				values ('26101599999', '20261015120000', 'TRADETEST1', '구매확정', ?, ?)
+				""", ids[1], ids[0])).isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	@DisplayName("거래 매물 FK: 거래가 있는 매물은 지울 수 없다")
+	void listingWithTradeCannotBeDeleted() {
+		UUID[] ids = insertListingAndBuyer();
+		insertTrade(ids[0], ids[1], "26101510001");
+		assertThatThrownBy(() -> jdbc.update("delete from trd_prod_reg where user_id = ?", ids[1]))
+			.isInstanceOf(DataIntegrityViolationException.class);
 	}
 
 	@Test
