@@ -12,10 +12,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.exception.ValidationException;
+import com.company.market.listing.domain.ListingId;
 import com.company.market.listing.dto.ListingTradeSnapshot;
 import com.company.market.listing.service.ListingService;
 import com.company.market.trade.domain.TradeHistory;
@@ -23,11 +25,13 @@ import com.company.market.trade.domain.TradeInfo;
 import com.company.market.trade.domain.TradeStats;
 import com.company.market.trade.domain.TradeType;
 import com.company.market.trade.dto.TradeCreateRequest;
+import com.company.market.trade.dto.TradePageResponse;
 import com.company.market.trade.dto.TradeResponse;
 import com.company.market.trade.repository.TradeHistoryRepository;
 import com.company.market.trade.repository.TradeInfoRepository;
 import com.company.market.user.service.UserDirectory;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,6 +46,8 @@ import org.springframework.transaction.annotation.Transactional;
 public class TradeService {
 
 	private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
+
+	private static final int PAGE_SIZE = 20;
 
 	private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM-dd")
 		.withResolverStyle(ResolverStyle.STRICT);
@@ -146,6 +152,43 @@ public class TradeService {
 		ListingTradeSnapshot listing = listings.snapshotForTrade(trade.getSellerId(), trade.getRegDate());
 		UUID counterpart = viewerId.equals(trade.getUserId()) ? trade.getSellerId() : trade.getUserId();
 		return toResponse(trade, listing, nicknameOf(counterpart));
+	}
+
+	/** role = buyer(내 구매) | seller(받은 구매요청, regDate 로 한 매물만). 최신순 20개 + 커서 */
+	public TradePageResponse list(UUID me, String role, String regDate, String cursor) {
+		String after = cursor != null && cursor.matches("\\d{11}") ? cursor : null;
+		PageRequest page = PageRequest.of(0, PAGE_SIZE + 1);
+		boolean asBuyer;
+		List<TradeInfo> rows;
+		if ("buyer".equals(role)) {
+			asBuyer = true;
+			rows = trades.findBuyerPage(me, after, page);
+		}
+		else if ("seller".equals(role)) {
+			asBuyer = false;
+			rows = trades.findSellerPage(me, regDate == null || regDate.isBlank() ? null : regDate, after, page);
+		}
+		else {
+			throw new ValidationException(Map.of("role", "role 은 buyer 또는 seller 여야 합니다."));
+		}
+		boolean hasMore = rows.size() > PAGE_SIZE;
+		List<TradeInfo> pageRows = hasMore ? rows.subList(0, PAGE_SIZE) : rows;
+
+		Map<ListingId, ListingTradeSnapshot> listingsById = listings.snapshotsForTrades(
+				pageRows.stream().map(t -> new ListingId(t.getSellerId(), t.getRegDate())).collect(Collectors.toSet()));
+		Map<UUID, String> nicknames = userDirectory.nicknamesOf(
+				pageRows.stream().map(t -> asBuyer ? t.getSellerId() : t.getUserId()).collect(Collectors.toSet()));
+		List<TradeResponse> items = pageRows.stream()
+			.map(t -> toResponse(t, listingsById.get(new ListingId(t.getSellerId(), t.getRegDate())),
+					nicknames.get(asBuyer ? t.getSellerId() : t.getUserId())))
+			.toList();
+		return new TradePageResponse(items, hasMore ? pageRows.get(pageRows.size() - 1).getTradeId() : null);
+	}
+
+	/** 내 매물별 구매요청(대기) 건수. 키 = 매물 regDate. 내 판매글 표의 "구매요청 N건" */
+	public Map<String, Long> pendingCounts(UUID sellerId) {
+		return trades.countBySellerGroupByListing(sellerId, TradeStats.REQUESTED).stream()
+			.collect(Collectors.toMap(r -> (String) r[0], r -> (Long) r[1]));
 	}
 
 	private void validate(ListingTradeSnapshot listing, int quantity, String reqDeliDate) {

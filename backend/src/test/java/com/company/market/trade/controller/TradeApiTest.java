@@ -41,6 +41,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
+import static org.hamcrest.Matchers.nullValue;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -460,6 +463,110 @@ class TradeApiTest {
 			assertThat(e.getCode()).isEqualTo(ErrorCode.TRADE_NOT_PENDING);
 			return false;
 		}
+	}
+
+	// ---- 목록·요청 건수 ----
+
+	static final String REG_DATE_2 = "20261015100001";
+
+	private void secondListing() {
+		productRepository.saveAndFlush(Product.builder().prodId("TRADEAPI02").categoryCode("P01-Q01-R001")
+			.prodName("스위치 C9300").prodBrand("Cisco").regDate(REG_DATE_2).build());
+		listingRepository.saveAndFlush(Listing.builder().userId(sellerId).regDate(REG_DATE_2).prodId("TRADEAPI02")
+			.tradeType("등록").prodState("신품").salesUnitPrice(500).salesQuantity(100).stockQuantity(100)
+			.minOrderQuantity(1).orderUnit(1).build());
+	}
+
+	private String requestAs(UUID who, String regDate, int quantity, String remarks) {
+		return tradeService.request(who, new TradeCreateRequest(sellerId, regDate, quantity, future(), remarks)).tradeId();
+	}
+
+	@Test
+	@DisplayName("구매자 목록: 내 거래만 최신순, 상대 닉네임은 판매자, 이메일·전화 없음")
+	void buyerList() throws Exception {
+		listing(1000, 100, 1, 1, null);
+		UUID other = newUser("tradebuyer2", "01012340003");
+		String first = requestAs(buyerId, REG_DATE, 1, null);
+		requestAs(other, REG_DATE, 1, null);
+		String second = requestAs(buyerId, REG_DATE, 2, null);
+
+		mvc.perform(get("/api/v1/trades?role=buyer").cookie(buyer))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items", hasSize(2)))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value(second))
+			.andExpect(jsonPath("$.data.items[1].tradeId").value(first))
+			.andExpect(jsonPath("$.data.items[0].counterpartNickname").value("tradeseller"))
+			.andExpect(jsonPath("$.data.items[0].prodName").value("서버 R740"))
+			.andExpect(jsonPath("$.data.items[0].email").doesNotExist())
+			.andExpect(jsonPath("$.data.items[0].phone").doesNotExist())
+			.andExpect(jsonPath("$.data.nextCursor").value(nullValue()));
+	}
+
+	@Test
+	@DisplayName("판매자 목록: 받은 요청만, reg 로 한 매물만, 상대 닉네임은 구매자")
+	void sellerListFilteredByListing() throws Exception {
+		listing(1000, 100, 1, 1, null);
+		secondListing();
+		requestAs(buyerId, REG_DATE, 1, "첫 매물");
+		String onSecond = requestAs(buyerId, REG_DATE_2, 1, "둘째 매물");
+
+		mvc.perform(get("/api/v1/trades?role=seller").cookie(seller))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items", hasSize(2)));
+		mvc.perform(get("/api/v1/trades?role=seller&reg=" + REG_DATE_2).cookie(seller))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items", hasSize(1)))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value(onSecond))
+			.andExpect(jsonPath("$.data.items[0].remarks").value("둘째 매물"))
+			.andExpect(jsonPath("$.data.items[0].counterpartNickname").value("tradebuyer"));
+		// 구매자에게 판매자 목록은 비어 있다 (남의 매물 요청이 안 보임)
+		mvc.perform(get("/api/v1/trades?role=seller").cookie(buyer))
+			.andExpect(jsonPath("$.data.items", hasSize(0)));
+	}
+
+	@Test
+	@DisplayName("20개가 넘으면 nextCursor 로 다음 페이지")
+	void cursorPaging() throws Exception {
+		listing(1, 1000, 1, 1, null);
+		for (int i = 0; i < 21; i++) {
+			requestAs(buyerId, REG_DATE, 1, null);
+		}
+		String page = mvc.perform(get("/api/v1/trades?role=buyer").cookie(buyer))
+			.andExpect(jsonPath("$.data.items", hasSize(20)))
+			.andReturn().getResponse().getContentAsString();
+		String cursor = page.replaceAll(".*\"nextCursor\":\"([^\"]+)\".*", "$1");
+
+		mvc.perform(get("/api/v1/trades?role=buyer&cursor=" + cursor).cookie(buyer))
+			.andExpect(jsonPath("$.data.items", hasSize(1)))
+			.andExpect(jsonPath("$.data.nextCursor").value(nullValue()));
+	}
+
+	@Test
+	@DisplayName("role 이 없거나 다른 값이면 400 fields.role, 비로그인은 401")
+	void listValidation() throws Exception {
+		mvc.perform(get("/api/v1/trades").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.role").exists());
+		mvc.perform(get("/api/v1/trades?role=admin").cookie(buyer)).andExpect(status().isBadRequest());
+		mvc.perform(get("/api/v1/trades?role=buyer")).andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	@DisplayName("pending-counts: 내 매물별 구매요청 상태 건수만")
+	void pendingCounts() throws Exception {
+		listing(1000, 100, 1, 1, null);
+		secondListing();
+		requestAs(buyerId, REG_DATE, 1, null);
+		requestAs(buyerId, REG_DATE, 1, null);
+		tradeService.cancel(buyerId, requestAs(buyerId, REG_DATE, 1, null));
+		tradeService.complete(buyerId, requestAs(buyerId, REG_DATE, 1, null));
+		requestAs(buyerId, REG_DATE_2, 1, null);
+
+		mvc.perform(get("/api/v1/trades/pending-counts").cookie(seller))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data['" + REG_DATE + "']").value(2))
+			.andExpect(jsonPath("$.data['" + REG_DATE_2 + "']").value(1));
+		mvc.perform(get("/api/v1/trades/pending-counts").cookie(buyer))
+			.andExpect(jsonPath("$.data").isEmpty());
 	}
 
 }

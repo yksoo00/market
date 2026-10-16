@@ -1,12 +1,14 @@
 package com.company.market.trade.controller;
 
 import java.time.Duration;
+import java.util.Map;
 
 import com.company.market.common.api.ApiResponse;
 import com.company.market.common.auth.AuthenticatedUser;
 import com.company.market.common.idempotency.IdempotencyGuard;
 import com.company.market.common.ratelimit.RateLimiter;
 import com.company.market.trade.dto.TradeCreateRequest;
+import com.company.market.trade.dto.TradePageResponse;
 import com.company.market.trade.dto.TradeResponse;
 import com.company.market.trade.service.TradeService;
 import jakarta.validation.Valid;
@@ -14,11 +16,13 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -54,6 +58,20 @@ public class TradeController {
 	@PostMapping("/{tradeId}/cancel")
 	public ApiResponse<TradeResponse> cancel(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable String tradeId) {
 		return ApiResponse.of(trades.cancel(me.id(), tradeId));
+	}
+
+	/** 내 구매(role=buyer)·받은 구매요청(role=seller, reg 로 한 매물). 본인 id 는 인증 정보에서만. 읽기라 한도 없음 */
+	@GetMapping
+	public ApiResponse<TradePageResponse> list(@AuthenticationPrincipal AuthenticatedUser me,
+			@RequestParam(required = false) String role, @RequestParam(required = false) String reg,
+			@RequestParam(required = false) String cursor) {
+		return ApiResponse.of(trades.list(me.id(), role, reg, cursor));
+	}
+
+	/** 내 매물별 구매요청 건수 { regDate: n } — 내 판매글 표. 매물 검색 응답에 넣지 않는 이유: 매물 → 거래 역참조(순환 의존) */
+	@GetMapping("/pending-counts")
+	public ApiResponse<Map<String, Long>> pendingCounts(@AuthenticationPrincipal AuthenticatedUser me) {
+		return ApiResponse.of(trades.pendingCounts(me.id()));
 	}
 
 }

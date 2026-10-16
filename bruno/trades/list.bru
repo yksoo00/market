@@ -1,0 +1,29 @@
+meta {
+  name: 거래 목록 (내 구매·받은 구매요청)
+  type: http
+  seq: 4
+}
+
+get {
+  url: {{baseUrl}}/api/v1/trades?role=buyer
+  body: none
+  auth: none
+}
+
+params:query {
+  role: buyer
+  ~reg: 20261015100000
+  ~cursor: 26101517001
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  로그인(login.bru) 먼저. 본인 id 는 인증 정보에서만.
+  role=buyer: 내가 구매자인 거래(내 구매목록). role=seller: 내 매물에 들어온 거래(받은 구매요청), reg=<매물 regDate> 로 한 매물만.
+  최신순(tradeId 내림차순) 20개 + nextCursor(마지막 tradeId). 다음 페이지는 cursor=<nextCursor>.
+  200 { ok, data: { items: TradeResponse[], nextCursor } } — 상대방은 counterpartNickname 만(이메일·전화 없음).
+  400 fields.role: role 없음·다른 값. 401: 비로그인.
+}

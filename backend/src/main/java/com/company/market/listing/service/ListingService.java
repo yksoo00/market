@@ -9,6 +9,7 @@ import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -318,12 +319,22 @@ public class ListingService {
 	public ListingTradeSnapshot snapshotForTrade(UUID sellerId, String regDate) {
 		Listing listing = listings.findById(new ListingId(sellerId, regDate))
 			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
-		Product product = products.get(listing.getProdId());
+		return toSnapshot(listing, products.get(listing.getProdId()));
+	}
+
+	private static ListingTradeSnapshot toSnapshot(Listing listing, Product product) {
 		String photo = firstPhoto(listing);
 		return new ListingTradeSnapshot(listing.getUserId(), listing.getRegDate(), listing.getProdId(),
 				product.getProdName(), listing.getProdState(), listing.getSalesUnitPrice(), listing.getStockQuantity(),
 				listing.getMinOrderQuantity(), listing.getOrderUnit(), listing.getDeliveryDate(),
 				listing.getDtExpire() != null, photo != null && photo.startsWith("public/") ? photo : null);
+	}
+
+	/** 거래 목록용 — 여러 매물의 스냅샷을 매물·상품 각 한 쿼리로. 없는 키는 빠진다 */
+	public Map<ListingId, ListingTradeSnapshot> snapshotsForTrades(Collection<ListingId> ids) {
+		List<Listing> found = listings.findAllById(ids);
+		Map<String, Product> productsById = products.getAll(found.stream().map(Listing::getProdId).collect(Collectors.toSet()));
+		return found.stream().collect(Collectors.toMap(Listing::getId, l -> toSnapshot(l, productsById.get(l.getProdId()))));
 	}
 
 	/** 구매요청의 재고 차감. 재고 부족·거래완료면 TRADE_OUT_OF_STOCK (호출자 트랜잭션에 합류해 같이 롤백) */
