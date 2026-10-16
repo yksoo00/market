@@ -210,7 +210,7 @@ export const listing = {
     edit: "수정",
     addExtra: "판매정보 추가",
     remove: "삭제",
-    pendingTrade: "구매·견적 요청은 준비 중이에요. 거래 방식이 정해지면 열립니다.",
+    pendingTrade: "견적 요청은 준비 중이에요. 견적 방식이 정해지면 열립니다.",
     dismiss: "알림 닫기",
     confirmDelete: "이 매물을 삭제할까요? 되돌릴 수 없습니다.",
     notFound: "매물을 찾을 수 없습니다.",

@@ -3,16 +3,20 @@
 import Link from "next/link";
 import { useState, type MouseEvent, type ReactNode } from "react";
 import { Icon } from "@/components/common/Icon";
+import { ResultDialog } from "@/components/common/ResultDialog";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
+import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatPrice } from "@/lib/format";
 import { isOwner } from "@/lib/listingDetail";
 import { activeFilterCount, buildSearchHref, clearFilters, listingHref, type SearchQuery, type SearchScope } from "@/lib/search";
 import { my } from "@/messages/my";
 import { search as t } from "@/messages/search";
+import { trade } from "@/messages/trade";
 import type { ListingSearchItem } from "@/types/listing";
 
 const r = t.result;
+const p = trade.purchase;
 const keyOf = (i: ListingSearchItem) => `${i.userId}/${i.regDate}`;
 const qty = new Intl.NumberFormat("ko-KR");
 // 체크박스·링크 클릭이 행 클릭(상세 이동)으로 번지지 않게
@@ -73,7 +77,10 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   const canEdit = (item: ListingSearchItem) => mine && isOwner(ownerId, item.userId);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   // seq: 같은 문구가 연달아 나와도 알림 요소를 새로 그려 스크린리더가 다시 읽게 한다 (key 로 사용)
-  const [notice, setNotice] = useState<number | null>(null);
+  const [notice, setNotice] = useState<{ seq: number; text: string } | null>(null);
+  // [구매] 모달 대상(체크한 매물 1개)과 성공 안내
+  const [buying, setBuying] = useState<ListingSearchItem | null>(null);
+  const [purchased, setPurchased] = useState(false);
 
   const toggle = (key: string) =>
     setSelected((prev) => {
@@ -86,7 +93,13 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   const headerChecked = allChecked ? true : selected.size > 0 ? "indeterminate" : false;
   const toggleAll = () => setSelected(allChecked ? new Set() : new Set(items.map(keyOf)));
   // TODO(거래 흐름 미정, decisions.md 미정 항목): 견적 요청 → 견적 확인 흐름이 정해지면 실제 동작으로 교체
-  const showPending = () => setNotice((prev) => (prev ?? 0) + 1);
+  const showNotice = (text: string) => setNotice((prev) => ({ seq: (prev?.seq ?? 0) + 1, text }));
+  // 구매 모달은 매물 1개용 — 여러 개를 체크했으면 하나만 고르라고 알린다 (계획 2026-10-15 "스펙과 달라진 점")
+  const buySelected = () => {
+    const chosen = items.filter((i) => selected.has(keyOf(i)));
+    if (chosen.length === 1) setBuying(chosen[0]);
+    else showNotice(p.oneAtATime);
+  };
   // router.push 는 타일 큐를 안 거쳐, iframe 칸에서 누르면 그 칸이 닫히고 2분할이 된다. 이름 링크(data-tile)와 같은 규칙으로 연다
   const go = (item: ListingSearchItem) => openTile(listingHref(item), mine);
 
@@ -97,7 +110,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
       <button
         type="button"
         disabled={selected.size === 0}
-        onClick={showPending}
+        onClick={() => showNotice(r.pending)}
         className={`${size} px-3 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft disabled:opacity-40 disabled:pointer-events-none`}
       >
         {r.quote}
@@ -105,7 +118,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
       <button
         type="button"
         disabled={selected.size === 0}
-        onClick={showPending}
+        onClick={buySelected}
         className={`${size} px-4 rounded-md bg-primary text-white text-sm font-bold hover:bg-primary-dark disabled:opacity-40 disabled:pointer-events-none`}
       >
         {r.buy}
@@ -131,9 +144,31 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
         {!mine && <div className="hidden @min-[36rem]:flex gap-2">{actions("h-8.5")}</div>}
       </div>
 
+      {!mine && buying && (
+        <PurchaseDialog
+          sellerId={buying.userId}
+          regDate={buying.regDate}
+          open
+          onOpenChange={(open) => !open && setBuying(null)}
+          onPurchased={() => setPurchased(true)}
+        />
+      )}
+      <ResultDialog
+        open={purchased}
+        tone="success"
+        title={p.doneTitle}
+        message={p.doneMessage}
+        actionLabel={p.toPurchases}
+        onAction={() => {
+          setPurchased(false);
+          openTile("/my/purchases", false);
+        }}
+        onClose={() => setPurchased(false)}
+      />
+
       {!mine && notice !== null && (
-        <div key={notice} role="status" className="flex items-center gap-2 text-[13px] text-ink-2">
-          <span className="min-w-0">{r.pending}</span>
+        <div key={notice.seq} role="status" className="flex items-center gap-2 text-[13px] text-ink-2">
+          <span className="min-w-0">{notice.text}</span>
           <button type="button" aria-label={r.dismiss} onClick={() => setNotice(null)} className="shrink-0 text-ink-3 hover:text-ink">
             <Icon name="close" size={14} strokeWidth={2} />
           </button>

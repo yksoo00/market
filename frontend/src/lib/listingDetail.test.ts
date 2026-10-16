@@ -8,6 +8,7 @@ import {
   isOwner,
   isValidListingPath,
   mainPhoto,
+  purchaseBlockReason,
 } from "@/lib/listingDetail";
 
 const UUID = "3f2b6c1e-8a4d-4f7b-9c21-5d0e7a9b1c11";
@@ -86,6 +87,32 @@ describe("buyerActionsDisabled", () => {
   it("거래완료면 true, 거래 가능이면 false", () => {
     expect(buyerActionsDisabled({ ...base, tradeStatus: "completed" })).toBe(true);
     expect(buyerActionsDisabled(base)).toBe(false);
+  });
+});
+
+describe("purchaseBlockReason", () => {
+  const OTHER = "11111111-2222-3333-4444-555555555555";
+  const buyable = { ...base, stockQuantity: 10, minOrderQuantity: 2 };
+
+  it("거래완료면 completed (로그인 여부와 관계없이)", () => {
+    expect(purchaseBlockReason({ ...buyable, tradeStatus: "completed" }, null)).toBe("completed");
+  });
+
+  it("내 매물이면 own", () => {
+    expect(purchaseBlockReason(buyable, UUID.toUpperCase())).toBe("own");
+  });
+
+  it("재고가 최소주문량보다 적으면 lowStock", () => {
+    expect(purchaseBlockReason({ ...buyable, stockQuantity: 1 }, OTHER)).toBe("lowStock");
+    expect(purchaseBlockReason({ ...buyable, stockQuantity: null }, OTHER)).toBe("lowStock");
+  });
+
+  it("비로그인이면 login (누르면 로그인으로)", () => {
+    expect(purchaseBlockReason(buyable, null)).toBe("login");
+  });
+
+  it("살 수 있으면 null", () => {
+    expect(purchaseBlockReason(buyable, OTHER)).toBeNull();
   });
 });
 
