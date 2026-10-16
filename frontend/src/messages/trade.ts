@@ -64,4 +64,32 @@ export const trade = {
     // 검색 결과에서 여러 개를 체크하고 [구매]를 누를 때
     oneAtATime: "구매는 한 번에 한 매물씩 요청할 수 있어요. 하나만 체크해 주세요.",
   },
+  // 내 구매목록·받은 구매요청 (TradeList)
+  list: {
+    loading: "불러오는 중…",
+    loadFailed: "목록을 불러오지 못했어요.",
+    retry: "다시 시도",
+    more: "더 보기",
+    columns: {
+      tradeId: "거래번호",
+      product: "상품명",
+      seller: "판매자",
+      buyer: "구매자",
+      quantity: "주문량",
+      unitPrice: "단가",
+      amount: "금액",
+      reqDeliDate: "납품희망일",
+      remarks: "요청사항",
+      status: "상태",
+      actions: "처리",
+    },
+    stats: { requested: "구매요청", confirmed: "구매확정", canceled: "취소" },
+    complete: "거래완료",
+    cancel: "취소",
+    completeAria: (name: string) => `${name} 거래완료`,
+    cancelAria: (name: string) => `${name} 취소`,
+    confirmComplete: "물건을 받으셨나요?\n거래완료하면 구매가 확정되고 더는 취소할 수 없어요.",
+    confirmCancel: "이 구매요청을 취소할까요?\n주문한 수량은 판매자 재고로 돌아가요.",
+    reloaded: "목록을 새로 불러왔어요.",
+  },
 };

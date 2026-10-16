@@ -22,6 +22,7 @@ describe("screenOf", () => {
     expect(screenOf("/listings/new")).toEqual({ id: "sellNew", group: "sell" });
     expect(screenOf("/listings/extra")).toEqual({ id: "sellExtra", group: "sell" });
     expect(screenOf("/my/listings?q=R740")).toEqual({ id: "myListings", group: "sell" });
+    expect(screenOf("/my/sales?reg=20261015100000")).toEqual({ id: "mySales", group: "sell" });
   });
 
   it("마이페이지는 공통이라 어느 칸 옆에도 반반으로 열린다", () => {
