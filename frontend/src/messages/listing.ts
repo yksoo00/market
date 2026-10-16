@@ -6,6 +6,8 @@ export const listing = {
     LISTING_NOT_FOUND: "매물을 찾을 수 없습니다.",
     FORBIDDEN: "내 매물만 수정·삭제할 수 있습니다.",
     PRODUCT_SHARED: "다른 매물과 같이 쓰는 상품 정보라 고칠 수 없어요. 상품명이나 제조사를 바꾸면 다른 상품으로 옮길 수 있어요.",
+    LISTING_COMPLETED: "거래가 끝난 매물이라 고칠 수 없어요. 구매요청이 취소돼 재고가 돌아오면 다시 고칠 수 있어요.",
+    LISTING_HAS_TRADES: "거래 내역이 있는 매물은 삭제할 수 없어요.",
     // 등록·수정·삭제가 함께 쓰는 문구라 한도 숫자를 넣지 않는다 (등록 10회/시간, 수정 20회, 삭제 10회)
     RATE_LIMITED: "요청이 너무 많아요. 잠시 후 다시 시도해 주세요.",
     // 응답이 유실돼 다시 누른 등록이 첫 요청과 겹칠 때 (Idempotency-Key)
@@ -208,7 +210,7 @@ export const listing = {
     edit: "수정",
     addExtra: "판매정보 추가",
     remove: "삭제",
-    pendingTrade: "구매·견적 요청은 준비 중이에요. 거래 방식이 정해지면 열립니다.",
+    pendingTrade: "견적 요청은 준비 중이에요. 견적 방식이 정해지면 열립니다.",
     dismiss: "알림 닫기",
     confirmDelete: "이 매물을 삭제할까요? 되돌릴 수 없습니다.",
     notFound: "매물을 찾을 수 없습니다.",

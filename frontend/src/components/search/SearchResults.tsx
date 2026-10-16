@@ -5,10 +5,12 @@ import { RowEditor } from "@/components/my/RowEditor";
 import { ResultList } from "@/components/search/ResultList";
 import { authApi } from "@/lib/api/auth";
 import { listingsApi } from "@/lib/api/listings";
+import { tradesApi } from "@/lib/api/trades";
 import { applyDetailToItem } from "@/lib/rowEdit";
 import type { SearchQuery, SearchScope } from "@/lib/search";
 import { search as t } from "@/messages/search";
 import type { ListingSearchItem } from "@/types/listing";
+import type { PendingCounts } from "@/types/trade";
 
 const r = t.result;
 
@@ -40,11 +42,17 @@ export function SearchResults({
   const savedScroll = useRef(0);
   // 내 판매글: 내 글에만 [수정]을 그리려고 로그인한 사용자 id 를 안다 (아직 모르면 버튼을 그리지 않는다)
   const [meId, setMeId] = useState<string | null>(null);
+  // 내 판매글: 매물별 구매요청 건수. 매물 검색 응답이 아니라 거래 API 에서 따로 받는다 (매물 → 거래 순환 의존 방지).
+  // 실패하면 건수 칸이 비어 보일 뿐 목록은 그대로
+  const [pendingCounts, setPendingCounts] = useState<PendingCounts | null>(null);
   useEffect(() => {
     if (scope !== "mine") return;
     let alive = true;
     void authApi.me().then((res) => {
       if (alive && res.ok) setMeId(res.data.id);
+    });
+    void tradesApi.pendingCounts().then((res) => {
+      if (alive && res.ok) setPendingCounts(res.data);
     });
     return () => {
       alive = false;
@@ -137,7 +145,7 @@ export function SearchResults({
 
   return (
     <div ref={rootRef} className="contents">
-      <ResultList items={items} query={query} total={total} scope={scope} onEdit={scope === "mine" ? startEdit : undefined} ownerId={meId} />
+      <ResultList items={items} query={query} total={total} scope={scope} onEdit={scope === "mine" ? startEdit : undefined} ownerId={meId} pendingCounts={pendingCounts} />
       {nextCursor && (
         <div className="flex items-center justify-center gap-2 pt-1">
           <button

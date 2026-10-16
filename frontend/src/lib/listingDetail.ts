@@ -41,6 +41,18 @@ export function buyerActionsDisabled(d: ListingDetail): boolean {
   return d.tradeStatus === "completed";
 }
 
+/** [구매]를 못 누르는 이유. login 만 버튼을 켜 두고 누르면 로그인으로 보낸다. 표시용 — 서버가 403·409 로 다시 막는다 */
+export type PurchaseBlock = "completed" | "own" | "lowStock" | "login";
+
+export function purchaseBlockReason(d: ListingDetail, meId: string | null): PurchaseBlock | null {
+  if (d.tradeStatus === "completed") return "completed";
+  if (isOwner(meId, d.userId)) return "own";
+  // 최소주문량만큼도 남지 않으면 어떤 주문량도 규칙을 못 맞춘다
+  if (d.stockQuantity === null || d.stockQuantity < d.minOrderQuantity) return "lowStock";
+  if (meId === null) return "login";
+  return null;
+}
+
 export interface InfoRow {
   label: string;
   value: string;

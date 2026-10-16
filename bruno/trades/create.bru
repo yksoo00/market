@@ -1,0 +1,36 @@
+meta {
+  name: 구매요청
+  type: http
+  seq: 1
+}
+
+post {
+  url: {{baseUrl}}/api/v1/trades
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "sellerId": "00000000-0000-0000-0000-000000000000",
+    "regDate": "20261015100000",
+    "orderQuantity": 2,
+    "reqDeliDate": "2026-12-31",
+    "remarks": "빠른 납품 부탁드립니다"
+  }
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  로그인(login.bru) 먼저 — 쿠키(access_token)는 Bruno가 자동으로 실어 보낸다. 구매자는 인증 정보에서만.
+  sellerId·regDate 는 매물 키 (listings/get.bru 경로의 userId·regDate). 예시 값은 자리표시.
+  201 { ok, data: TradeResponse } — tradeId(yyMMddHH+순번 3자리), tradeStats "requested", amount = 등록단가 × 수량.
+  단가는 보내지 않는다 — 등록단가 고정. 요청하면 재고가 바로 줄고, 0이 되면 매물이 거래완료가 된다.
+  reqDeliDate 생략 시 매물 납기일, 매물에도 없으면 400 fields.reqDeliDate.
+  400 fields.orderQuantity: 최소주문량 미만, 주문단위 배수 아님, 금액 int 초과. 400 fields.reqDeliDate: 과거·형식.
+  403 TRADE_OWN_LISTING: 내 매물. 404: 없는 매물. 409 LISTING_COMPLETED, TRADE_OUT_OF_STOCK, TRADE_ID_EXHAUSTED.
+  429: 20회/시간/사용자. Idempotency-Key 헤더(UUID, 선택) — 같은 키 재전송은 처음 거래를 그대로 돌려준다.
+}

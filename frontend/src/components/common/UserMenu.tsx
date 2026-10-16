@@ -87,6 +87,9 @@ export function UserMenu({ nickname, kind, onLoggedOut }: Props) {
           <Link href="/my/listings">{t.myListings}</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild onClick={() => setOpen(false)}>
+          <Link href="/my/sales">{t.mySales}</Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem asChild onClick={() => setOpen(false)}>
           <Link href="/my/purchases">{t.myPurchases}</Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />

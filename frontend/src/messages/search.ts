@@ -40,7 +40,7 @@ export const search = {
     selectRow: (name: string) => `${name} 선택`,
     quote: "견적 요청",
     buy: "구매",
-    pending: "구매·견적 요청은 준비 중이에요. 거래 방식이 정해지면 열립니다.",
+    pending: "견적 요청은 준비 중이에요. 견적 방식이 정해지면 열립니다.",
     dismiss: "알림 닫기",
     completedBadge: "거래완료",
     dataSheet: "데이터시트",

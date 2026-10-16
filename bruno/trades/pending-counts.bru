@@ -1,0 +1,20 @@
+meta {
+  name: 매물별 구매요청 건수
+  type: http
+  seq: 5
+}
+
+get {
+  url: {{baseUrl}}/api/v1/trades/pending-counts
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  로그인(login.bru) 먼저. 내 매물별 "구매요청" 상태 건수 { "<regDate>": n } — 내 판매글 표의 "구매요청 N건".
+  확정·취소된 거래는 세지 않는다. 요청이 없는 매물은 키가 없다.
+}

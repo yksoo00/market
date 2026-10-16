@@ -6,6 +6,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -71,6 +72,11 @@ public class ProductService {
 	/** 리스팅이 FK로 갖고 있는 prod_id 는 항상 유효(제약) — 없으면 데이터 정합성 문제이므로 예외를 그대로 던진다 */
 	public Product get(String prodId) {
 		return products.findById(prodId).orElseThrow();
+	}
+
+	/** 여러 상품을 한 쿼리로 (목록 N+1 방지) */
+	public Map<String, Product> getAll(Collection<String> prodIds) {
+		return products.findAllById(prodIds).stream().collect(Collectors.toMap(Product::getProdId, p -> p));
 	}
 
 	/**

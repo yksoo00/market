@@ -109,8 +109,19 @@
   | 재고 `minStock` | 0 ~ 100,000 |
   | 가격 `minPrice`·`maxPrice` | 0 ~ 10억, 최소 ≤ 최대 (오류는 `maxPrice`) |
   | 납품일 `deliveryBy` | 실제 날짜 YYYY-MM-DD |
+- 구매 (2026-10-15, `POST /api/v1/trades` 외 — 스펙 `2026-10-15-purchase-design.md`). 프론트 `lib/validation/trade.ts` 와 서버 `TradeCreateRequest`·`TradeService` 가 같은 규칙:
+  | 항목 | 규칙 |
+  |---|---|
+  | 매물 `sellerId`·`regDate` | 필수, UUID·14자 이하. 없는 매물 404, 내 매물 403 `TRADE_OWN_LISTING`, 거래완료 409 `LISTING_COMPLETED` |
+  | 주문량 `orderQuantity` | 1 ~ 100,000, 최소주문량 이상, 주문단위 배수, 단가 × 수량 ≤ 2,147,483,647(거래이력 금액이 int) → 400 `fields.orderQuantity`. 재고 초과는 409 `TRADE_OUT_OF_STOCK` (조건부 UPDATE 가 최종 판정) |
+  | 납품희망일 `reqDeliDate` | YYYY-MM-DD 실제 날짜, 오늘(한국) 이후. 비우면 매물 납기일, 매물에도 없으면 필수 → 400 `fields.reqDeliDate` |
+  | 요청사항 `remarks` | 100자 이하 |
+  | 단가 | 받지 않는다 — 서버가 등록단가로 고정. 매물 값 복사도 서버가(클라이언트 값 불신) |
+  - 거래완료 `POST /trades/{id}/complete`: 구매자만(아니면 403). 취소 `/cancel`: 구매자·그 매물의 판매자만. 둘 다 `구매요청` 상태에서만(아니면 409 `TRADE_NOT_PENDING`), 상태 조건부 UPDATE 라 동시 확정·취소 중 하나만 성공.
+  - 목록 `GET /trades?role=buyer|seller` 는 본인 거래만(id 는 인증 정보에서). 응답의 상대방은 닉네임만 — 이메일·전화 없음. 사진은 공개 키만.
+  - 거래ID(`yyMMddHH`+순번)는 UUID 가 아니라 추측할 수 있다. 그래서 모든 거래 API 가 구매자·판매자 확인을 먼저 한다(조회 `get` 은 남의 거래면 404). 확정·취소는 남의 거래에 403 이라 존재 여부는 드러난다 — 내용은 안 보이므로 감수.
 - 숫자: 가격 0 ~ 10억, 수량 1 ~ 100,000.
-- ID는 UUID 형식 검사. 정수 ID 없음 (열거 공격 방지).
+- ID는 UUID 형식 검사. 정수 ID 없음 (열거 공격 방지). 예외: 거래ID (위 "구매", 사용자 지정 형식).
 - SQL: JPA/파라미터 바인딩만. 문자열 결합 쿼리 금지. `@Query`에 사용자 입력 직접 삽입 금지. 예외로 허용: 코드에 고정된 조건 조각만 이어 붙이고 값은 전부 바인딩하는 동적 JPQL(`listing/repository/ListingSearchRepository`).
 - 출력: React가 기본 이스케이프. `dangerouslySetInnerHTML` 금지. 마크다운 허용 시 sanitize.
 
@@ -148,6 +159,7 @@
 | 상품 등록                    | 10회/시간                                   |
 | 매물 수정                    | 20회/시간                                   |
 | 매물 삭제                    | 10회/시간                                   |
+| 구매요청                     | 20회/시간 (검증 실패 400 은 안 셈)          |
 | 신고                         | 하루 20회                                   |
 | 검색 API (비로그인)          | IP 분당 60                                  |
 
@@ -156,6 +168,8 @@
 매물 등록(위 표 "상품 등록", `listing:create`)·수정은 입력 검증 실패(400 `VALIDATION`)를 세지 않는다 (`RateLimiter.hitUnlessInvalid`). Bean Validation 실패는 원래 메서드 전에 끝나 안 세는데, 서비스 검증(최소주문량 ≤ 판매수량, 날짜 범위, 파일 키)만 세면 고쳐서 다시 보내는 사용자가 막힌다. 검증 실패는 아무것도 만들지 않는다.
 
 **중복 생성 방지 (Idempotency-Key)** 매물 등록은 `Idempotency-Key` 헤더(UUID, 선택)를 받는다. Redis `idem:listing-create:<userId>:<key>`에 처리 중이면 `PENDING`(1분), 끝나면 만든 매물의 `regDate`(24시간). 같은 키가 다시 오면 처리 중은 409 `REQUEST_IN_PROGRESS`, 끝났으면 처음 매물을 그대로 201로 돌려준다. 실패하면 키를 풀어 고쳐서 같은 키로 다시 보낼 수 있다. UUID가 아니면 400 `BAD_REQUEST`. 키는 사용자별이라 남의 키와 겹치지 않는다. 멱등 검사가 rate limit보다 먼저라 재전송·409는 한도를 깎지 않는다 (한도의 마지막 등록을 다시 받을 때 429가 나지 않게). CORS 허용 헤더에 추가. 프론트는 폼을 연 동안 같은 키 하나를 쓴다 — 실패한 요청의 키는 서버가 풀므로 고쳐 다시 내도 되고, 429 뒤에 키를 바꾸면 응답이 유실된 첫 등록과 겹쳐 두 개가 생길 수 있어서.
+
+구매요청(`POST /api/v1/trades`)도 같은 방식이다 — scope `trade-create`, 저장하는 값은 만든 거래의 `tradeId`, 재전송이면 처음 거래를 201로 돌려준다(본인 거래만). 구매요청은 재고를 바로 줄이므로 두 번 눌러 재고가 두 번 주는 것을 막는다. 프론트는 구매 모달을 연 동안 같은 키를 쓴다.
 
 ## 네트워크·인프라
 

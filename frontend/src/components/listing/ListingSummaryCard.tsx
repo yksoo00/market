@@ -9,7 +9,20 @@ import type { ListingDetail } from "@/types/listing";
 const t = listing.detail;
 
 /** 카드 ① 상품 상세 내역 — 사용자가 준 화면 순서(제목 · 사진 | 정보 표 · 제품 개요) */
-export function ListingSummaryCard({ detail, owner }: { detail: ListingDetail; owner: boolean }) {
+/** meId·anonymous: [구매] 판단용 (ListingActions) */
+export function ListingSummaryCard({
+  detail,
+  owner,
+  meId,
+  anonymous,
+  onPurchased,
+}: {
+  detail: ListingDetail;
+  owner: boolean;
+  meId: string | null;
+  anonymous: boolean;
+  onPurchased?: () => void;
+}) {
   const photo = mainPhoto(detail);
 
   return (
@@ -69,7 +82,7 @@ export function ListingSummaryCard({ detail, owner }: { detail: ListingDetail; o
               </div>
             )}
           </dl>
-          <ListingActions detail={detail} owner={owner} />
+          <ListingActions detail={detail} owner={owner} meId={meId} anonymous={anonymous} onPurchased={onPurchased} />
         </div>
       </div>
 

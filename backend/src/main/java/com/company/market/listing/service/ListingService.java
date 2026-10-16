@@ -9,6 +9,7 @@ import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -34,6 +35,7 @@ import com.company.market.listing.dto.ListingPageResponse;
 import com.company.market.listing.dto.ListingResponse;
 import com.company.market.listing.dto.ListingSearchCondition;
 import com.company.market.listing.dto.ListingSearchItemResponse;
+import com.company.market.listing.dto.ListingTradeSnapshot;
 import com.company.market.listing.dto.ListingUpdateRequest;
 import com.company.market.listing.repository.CategoryRepository;
 import com.company.market.listing.repository.ListingRepository;
@@ -155,10 +157,10 @@ public class ListingService {
 
 	@Transactional
 	public ListingResponse update(UUID pathUserId, String regDate, UUID requesterId, ListingUpdateRequest req) {
-		Listing listing = listings.findById(new ListingId(pathUserId, regDate))
-			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
-		if (!requesterId.equals(pathUserId)) {
-			throw new ApiException(ErrorCode.FORBIDDEN);
+		Listing listing = lockOwned(pathUserId, regDate, requesterId);
+		// 거래완료(재고 소진)된 매물은 못 고친다 (사용자 결정 2026-10-15). 취소로 재고가 돌아오면 dt_expire 가 지워져 다시 된다
+		if (listing.getDtExpire() != null) {
+			throw new ApiException(ErrorCode.LISTING_COMPLETED);
 		}
 		// 이미 저장된 납기일을 그대로 다시 보내면(수정 화면이 모든 칸을 보낼 때) 지난 날짜여도 통과
 		Product currentProduct = products.get(listing.getProdId());
@@ -293,12 +295,77 @@ public class ListingService {
 
 	@Transactional
 	public void delete(UUID pathUserId, String regDate, UUID requesterId) {
-		Listing listing = listings.findById(new ListingId(pathUserId, regDate))
-			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
-		if (!requesterId.equals(pathUserId)) {
-			throw new ApiException(ErrorCode.FORBIDDEN);
+		Listing listing = lockOwned(pathUserId, regDate, requesterId);
+		// 거래가 1건이라도 있으면 trd_trade_info 의 매물 FK 가 막는다. 거래 테이블을 여기서 직접 보지 않으려고(도메인 간은
+		// service 로만, 거래 → 매물 방향이라 역참조 불가) 위반을 잡아 409 로 바꾼다. flush 해야 이 메서드 안에서 위반이 난다
+		try {
+			listings.delete(listing);
+			listings.flush();
 		}
-		listings.delete(listing);
+		catch (DataIntegrityViolationException e) {
+			throw new ApiException(ErrorCode.LISTING_HAS_TRADES);
+		}
+	}
+
+	/**
+	 * 수정·삭제 대상: 소유자 확인을 먼저 하고 그다음 행을 잠그고 읽는다. 잠금 먼저면 남이 수정·삭제 요청을 반복해
+	 * 매물 행을 잠가 구매요청을 막을 수 있다. 확인용 조회는 엔티티를 올리지 않는다(existsById) — 먼저 올려 두면
+	 * 잠금 조회가 그 옛 상태를 그대로 돌려준다. 없는 매물은 남이 보내도 404 (기존 응답 그대로)
+	 */
+	private Listing lockOwned(UUID pathUserId, String regDate, UUID requesterId) {
+		if (!requesterId.equals(pathUserId)) {
+			throw new ApiException(listings.existsById(new ListingId(pathUserId, regDate)) ? ErrorCode.FORBIDDEN
+					: ErrorCode.LISTING_NOT_FOUND);
+		}
+		return listings.findForUpdate(pathUserId, regDate).orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
+	}
+
+	/**
+	 * 구매요청용 — 행을 잠그고 읽는다. 잠금 없이 읽으면 판매자 수정이 그 뒤 커밋돼도 옛 단가·최소주문량으로 거래가
+	 * 저장된다. 같은 매물의 구매·수정은 이 잠금으로 차례가 정해진다 (거래ID 의 시간대 락보다 먼저 잡아, 한 매물에서
+	 * 기다리는 요청이 다른 매물 구매를 막지 않게)
+	 */
+	@Transactional
+	public ListingTradeSnapshot lockForTrade(UUID sellerId, String regDate) {
+		Listing listing = listings.findForUpdate(sellerId, regDate)
+			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
+		return toSnapshot(listing, products.get(listing.getProdId()));
+	}
+
+	/** 구매요청이 복사해 갈 매물 값 (거래 도메인용) */
+	public ListingTradeSnapshot snapshotForTrade(UUID sellerId, String regDate) {
+		Listing listing = listings.findById(new ListingId(sellerId, regDate))
+			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
+		return toSnapshot(listing, products.get(listing.getProdId()));
+	}
+
+	private static ListingTradeSnapshot toSnapshot(Listing listing, Product product) {
+		String photo = firstPhoto(listing);
+		return new ListingTradeSnapshot(listing.getUserId(), listing.getRegDate(), listing.getProdId(),
+				product.getProdName(), listing.getProdState(), listing.getSalesUnitPrice(), listing.getStockQuantity(),
+				listing.getMinOrderQuantity(), listing.getOrderUnit(), listing.getDeliveryDate(),
+				listing.getDtExpire() != null, photo != null && photo.startsWith("public/") ? photo : null);
+	}
+
+	/** 거래 목록용 — 여러 매물의 스냅샷을 매물·상품 각 한 쿼리로. 없는 키는 빠진다 */
+	public Map<ListingId, ListingTradeSnapshot> snapshotsForTrades(Collection<ListingId> ids) {
+		List<Listing> found = listings.findAllById(ids);
+		Map<String, Product> productsById = products.getAll(found.stream().map(Listing::getProdId).collect(Collectors.toSet()));
+		return found.stream().collect(Collectors.toMap(Listing::getId, l -> toSnapshot(l, productsById.get(l.getProdId()))));
+	}
+
+	/** 구매요청의 재고 차감. 재고 부족·거래완료면 TRADE_OUT_OF_STOCK (호출자 트랜잭션에 합류해 같이 롤백) */
+	@Transactional
+	public void reserveStock(UUID sellerId, String regDate, int quantity) {
+		if (listings.reserveStock(sellerId, regDate, quantity, LocalDateTime.now(clock).format(REG_DATE_FORMAT)) == 0) {
+			throw new ApiException(ErrorCode.TRADE_OUT_OF_STOCK);
+		}
+	}
+
+	/** 거래 취소로 재고 복원 + 거래완료일시 지움 */
+	@Transactional
+	public void releaseStock(UUID sellerId, String regDate, int quantity) {
+		listings.releaseStock(sellerId, regDate, quantity);
 	}
 
 	public ListingResponse get(UUID userId, String regDate) {

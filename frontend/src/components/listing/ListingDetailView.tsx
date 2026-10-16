@@ -77,7 +77,14 @@ export function ListingDetailView({ userId, regDate }: { userId: string; regDate
   const { detail } = state;
   return (
     <>
-      <ListingSummaryCard detail={detail} owner={isOwner(me.kind === "user" ? me.id : null, detail.userId)} />
+      <ListingSummaryCard
+        detail={detail}
+        owner={isOwner(me.kind === "user" ? me.id : null, detail.userId)}
+        meId={me.kind === "user" ? me.id : null}
+        anonymous={me.kind === "anonymous"}
+        // 재고가 줄었으니 다시 읽는다 (loading 으로 안 바꿔 화면·결과 안내가 그대로)
+        onPurchased={() => setAttempt((n) => n + 1)}
+      />
       {/* unknown 이면 로그인으로 보고 파일을 받아 본다 — 실제로 로그인이 풀렸으면 파일 401 로 "로그인 후 열람"이 된다 */}
       <DataSheetCard detail={detail} loggedIn={me.kind === "pending" ? null : me.kind !== "anonymous"} />
       <ReplaceProdCard replaceProd={detail.replaceProd} />

@@ -1,0 +1,25 @@
+meta {
+  name: 거래완료(구매확정)
+  type: http
+  seq: 2
+}
+
+post {
+  url: {{baseUrl}}/api/v1/trades/:tradeId/complete
+  body: none
+  auth: none
+}
+
+params:path {
+  tradeId: 26101517001
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  로그인(login.bru) 먼저. tradeId 는 create.bru 응답의 tradeId (예시 값은 자리표시).
+  구매자만(판매자·제3자 403). 구매요청 상태에서만 — 아니면 409 TRADE_NOT_PENDING. 성공하면 tradeStats "confirmed", 거래이력 1줄(구매확정·단가·수량·금액). 확정 뒤엔 취소 불가.
+  200 { ok, data: TradeResponse }. 404 TRADE_NOT_FOUND.
+}

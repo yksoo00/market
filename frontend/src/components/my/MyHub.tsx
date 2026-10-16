@@ -3,6 +3,7 @@ import { my } from "@/messages/my";
 
 const cards = [
   { href: "/my/listings", title: my.menu.myListings, desc: my.hub.listingsDesc },
+  { href: "/my/sales", title: my.menu.mySales, desc: my.hub.salesDesc },
   { href: "/my/purchases", title: my.menu.myPurchases, desc: my.hub.purchasesDesc },
 ];
 
