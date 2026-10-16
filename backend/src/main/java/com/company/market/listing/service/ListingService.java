@@ -157,7 +157,7 @@ public class ListingService {
 
 	@Transactional
 	public ListingResponse update(UUID pathUserId, String regDate, UUID requesterId, ListingUpdateRequest req) {
-		Listing listing = listings.findById(new ListingId(pathUserId, regDate))
+		Listing listing = listings.findForUpdate(pathUserId, regDate)
 			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
 		if (!requesterId.equals(pathUserId)) {
 			throw new ApiException(ErrorCode.FORBIDDEN);
@@ -299,7 +299,7 @@ public class ListingService {
 
 	@Transactional
 	public void delete(UUID pathUserId, String regDate, UUID requesterId) {
-		Listing listing = listings.findById(new ListingId(pathUserId, regDate))
+		Listing listing = listings.findForUpdate(pathUserId, regDate)
 			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
 		if (!requesterId.equals(pathUserId)) {
 			throw new ApiException(ErrorCode.FORBIDDEN);

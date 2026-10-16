@@ -1,10 +1,13 @@
 package com.company.market.listing.repository;
 
+import java.util.Optional;
 import java.util.UUID;
 
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.ListingId;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -39,4 +42,12 @@ public interface ListingRepository extends JpaRepository<Listing, ListingId> {
 			""", nativeQuery = true)
 	int releaseStock(@Param("sellerId") UUID sellerId, @Param("regDate") String regDate,
 			@Param("quantity") int quantity);
+
+	/**
+	 * 수정·삭제용 — 행을 잠그고 읽는다. 매물 저장은 전체 컬럼 UPDATE 라, 잠금 없이 읽으면 그 사이 구매요청이 줄인
+	 * 재고·거래완료일시를 옛 값으로 덮어쓴다(초과판매). 잠그면 재고 차감(reserveStock)과 차례로 실행된다.
+	 */
+	@Lock(LockModeType.PESSIMISTIC_WRITE)
+	@Query("select l from Listing l where l.userId = :userId and l.regDate = :regDate")
+	Optional<Listing> findForUpdate(@Param("userId") UUID userId, @Param("regDate") String regDate);
 }
