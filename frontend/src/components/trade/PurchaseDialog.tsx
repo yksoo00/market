@@ -1,15 +1,19 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FormProvider, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormField } from "@/components/auth/FormField";
 import { FormError, SubmitButton } from "@/components/auth/FormStatus";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { authApi } from "@/lib/api/auth";
 import { listingsApi } from "@/lib/api/listings";
 import { tradesApi } from "@/lib/api/trades";
 import { formatPrice } from "@/lib/format";
 import { applyServerError } from "@/lib/form";
+import { isAuthLost, purchaseBlockReason } from "@/lib/listingDetail";
 import { todayInSeoul } from "@/lib/listingForm";
 import { isInt } from "@/lib/validation/listing";
 import { orderAmount, purchaseSchema, type PurchaseFormInput, type PurchaseFormOutput } from "@/lib/validation/trade";
@@ -49,20 +53,33 @@ export function PurchaseDialog({ sellerId, regDate, open, onOpenChange, onPurcha
   );
 }
 
-type Load = { kind: "loading" } | { kind: "error" } | { kind: "ready"; detail: ListingDetail; version: number };
+type Load =
+  | { kind: "loading" }
+  | { kind: "error" }
+  | { kind: "ready"; detail: ListingDetail; meId: string | null; anonymous: boolean; version: number };
 
 function PurchaseBody({ sellerId, regDate, onClose, onPurchased }: Omit<Props, "open" | "onOpenChange"> & { onClose: () => void }) {
   const [load, setLoad] = useState<Load>({ kind: "loading" });
+  const pathname = usePathname();
   const [notice, setNotice] = useState<string | null>(null);
   // 올리면 다시 읽는다 (다시 시도·재고 부족 뒤)
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let alive = true;
-    void listingsApi.get(sellerId, regDate).then((res) => {
+    // 로그인 사용자도 함께 — 검색 결과에서 열면 상세처럼 미리 막을 정보(내 매물·비로그인)가 없어서
+    void Promise.all([listingsApi.get(sellerId, regDate), authApi.me()]).then(([res, me]) => {
       if (!alive) return;
       setLoad((prev) =>
-        res.ok ? { kind: "ready", detail: res.data, version: prev.kind === "ready" ? prev.version + 1 : 0 } : { kind: "error" },
+        res.ok
+          ? {
+              kind: "ready",
+              detail: res.data,
+              meId: me.ok ? me.data.id : null,
+              anonymous: !me.ok && isAuthLost(me.code),
+              version: prev.kind === "ready" ? prev.version + 1 : 0,
+            }
+          : { kind: "error" },
       );
     });
     return () => {
@@ -90,6 +107,30 @@ function PurchaseBody({ sellerId, regDate, onClose, onPurchased }: Omit<Props, "
           className="h-8.5 px-4 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft"
         >
           {t.retry}
+        </button>
+      </div>
+    );
+  }
+  // 상세의 [구매] 버튼과 같은 규칙(purchaseBlockReason). 로그인 여부를 모르면(확인 실패) 폼을 열고 서버 401 에 맡긴다
+  const block = purchaseBlockReason(load.detail, load.meId);
+  if (block === "login" && load.anonymous) {
+    return (
+      <div className="py-4 flex flex-col items-center gap-3 text-center">
+        <p className="text-[14px] text-ink">{t.loginRequired}</p>
+        <Link href={`/login?next=${encodeURIComponent(pathname)}`} className="h-9 px-5 inline-flex items-center rounded-md bg-primary text-white text-sm font-bold">
+          {t.toLogin}
+        </Link>
+      </div>
+    );
+  }
+  if (block !== null && block !== "login") {
+    return (
+      <div className="py-4 flex flex-col items-center gap-3 text-center">
+        <p role="alert" className="text-[14px] text-ink">
+          {t.blocked[block]}
+        </p>
+        <button type="button" onClick={onClose} className="h-9 px-5 rounded-md border border-line text-sm font-medium text-ink-2 hover:bg-bg">
+          {t.cancel}
         </button>
       </div>
     );

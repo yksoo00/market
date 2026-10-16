@@ -51,6 +51,8 @@ export const trade = {
     amount: "금액",
     submit: "구매요청",
     cancel: "닫기",
+    loginRequired: "로그인해야 구매요청을 보낼 수 있어요.",
+    toLogin: "로그인하기",
     stockRefreshed: "재고가 바뀌어 다시 불러왔어요. 주문량을 확인해 주세요.",
     doneTitle: "구매요청을 보냈어요",
     doneMessage: "물건을 받으면 내 구매목록에서 [거래완료]를 눌러 주세요.\n확정 전에는 구매자·판매자 누구나 취소할 수 있어요.",

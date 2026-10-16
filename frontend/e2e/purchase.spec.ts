@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import { auth } from "@/messages/auth";
 import { listing } from "@/messages/listing";
 import { my } from "@/messages/my";
+import { search } from "@/messages/search";
 import { signup } from "@/messages/signup";
 import { trade } from "@/messages/trade";
 
@@ -97,6 +98,14 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     listingPath = new URL(page.url()).pathname;
     // 내 매물이라 [구매]가 없다
     await expect(page.getByRole("button", { name: listing.detail.buy, exact: true })).toHaveCount(0);
+    // 검색 결과에서는 체크하고 [구매]를 누를 수 있지만, 모달이 내 매물이라고 막는다 (폼을 채운 뒤 403 이 아니라)
+    await page.goto(`/search?q=${encodeURIComponent(prodName)}`);
+    await page.getByRole("checkbox", { name: search.result.selectRow(prodName) }).first().check();
+    await page.getByRole("button", { name: search.result.buy, exact: true }).first().click();
+    const dialog = page.getByRole("dialog", { name: trade.purchase.title });
+    await expect(dialog.getByText(trade.purchase.blocked.own)).toBeVisible();
+    await expect(dialog.locator('input[name="orderQuantity"]')).toHaveCount(0);
+    await page.keyboard.press("Escape");
     await logOut(page);
   });
 
