@@ -7,6 +7,8 @@ import java.util.concurrent.TimeUnit;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.crypto.PiiHasher;
+import com.company.market.common.exception.ApiException;
+import com.company.market.common.exception.ErrorCode;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.dto.ListingUpdateRequest;
@@ -105,6 +107,40 @@ class ListingConcurrencyTest {
 			.isEqualTo(5);
 		assertThat(jdbc.queryForObject("select sales_unit_price from trd_prod_reg where user_id = ?", Integer.class, sellerId))
 			.isEqualTo(1200);
+	}
+
+	@Test
+	@DisplayName("남의 매물 수정 시도는 행 잠금을 기다리지 않고 바로 403 — 남이 매물을 잠가 구매를 막지 못하게")
+	void nonOwnerUpdateDoesNotWaitForRowLock() throws Exception {
+		CountDownLatch reserved = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		CompletableFuture<Void> purchase = CompletableFuture.runAsync(() -> tx.executeWithoutResult(s -> {
+			service.reserveStock(sellerId, REG_DATE, 1);
+			reserved.countDown();
+			await(release);
+		}));
+		assertThat(reserved.await(10, TimeUnit.SECONDS)).isTrue();
+		UUID stranger = UUID.randomUUID();
+		CompletableFuture<Throwable> attempt = CompletableFuture.supplyAsync(() -> {
+			try {
+				service.update(sellerId, REG_DATE, stranger, new ListingUpdateRequest(null, null, 1, null, null, null, null,
+						null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+				return null;
+			}
+			catch (RuntimeException e) {
+				return e;
+			}
+		});
+		try {
+			Throwable result = attempt.get(2, TimeUnit.SECONDS);
+			assertThat(result).isInstanceOfSatisfying(ApiException.class,
+					e -> assertThat(e.getCode()).isEqualTo(ErrorCode.FORBIDDEN));
+		}
+		finally {
+			release.countDown();
+			purchase.get(10, TimeUnit.SECONDS);
+			attempt.get(10, TimeUnit.SECONDS);
+		}
 	}
 
 	private static void await(CountDownLatch latch) {

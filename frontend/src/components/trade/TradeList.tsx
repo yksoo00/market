@@ -64,7 +64,10 @@ export function TradeList({ role, reg }: Props) {
       setMoreFailed(true);
       return;
     }
-    setLoad({ kind: "ready", items: [...load.items, ...res.data.items], nextCursor: res.data.nextCursor });
+    // 기다리는 동안 [거래완료]·[취소]로 바뀐 행을 잃지 않게 지금 상태에 붙인다 (요청 전 load 가 아니라)
+    setLoad((prev) =>
+      prev.kind === "ready" ? { kind: "ready", items: [...prev.items, ...res.data.items], nextCursor: res.data.nextCursor } : prev,
+    );
   };
 
   const act = async (item: Trade, what: "complete" | "cancel") => {
@@ -192,7 +195,7 @@ function Body({ load, asBuyer, busy, onAct, onRetry }: BodyProps) {
     <>
       {/* 넓은 칸: 표. 좁은 칸(휴대폰·1/4 타일): 카드 — 기준은 검색 결과와 같은 칸 폭 576 */}
       <div className="hidden @min-[36rem]:block overflow-x-auto bg-surface border border-line rounded-md">
-        <table className="w-full min-w-[56rem] text-sm">
+        <table className="w-full min-w-4xl text-sm">
           <thead className="bg-bg text-[12px] text-ink-2">
             <tr>
               <th className="px-3 py-2.5 text-left font-medium w-28">{c.tradeId}</th>

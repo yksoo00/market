@@ -68,7 +68,7 @@ public class TradeService {
 
 	@Transactional
 	public TradeResponse request(UUID buyerId, TradeCreateRequest req) {
-		ListingTradeSnapshot listing = listings.snapshotForTrade(req.sellerId(), req.regDate());
+		ListingTradeSnapshot listing = listings.lockForTrade(req.sellerId(), req.regDate());
 		if (buyerId.equals(listing.sellerId())) {
 			throw new ApiException(ErrorCode.TRADE_OWN_LISTING);
 		}

@@ -157,11 +157,7 @@ public class ListingService {
 
 	@Transactional
 	public ListingResponse update(UUID pathUserId, String regDate, UUID requesterId, ListingUpdateRequest req) {
-		Listing listing = listings.findForUpdate(pathUserId, regDate)
-			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
-		if (!requesterId.equals(pathUserId)) {
-			throw new ApiException(ErrorCode.FORBIDDEN);
-		}
+		Listing listing = lockOwned(pathUserId, regDate, requesterId);
 		// 거래완료(재고 소진)된 매물은 못 고친다 (사용자 결정 2026-10-15). 취소로 재고가 돌아오면 dt_expire 가 지워져 다시 된다
 		if (listing.getDtExpire() != null) {
 			throw new ApiException(ErrorCode.LISTING_COMPLETED);
@@ -299,11 +295,7 @@ public class ListingService {
 
 	@Transactional
 	public void delete(UUID pathUserId, String regDate, UUID requesterId) {
-		Listing listing = listings.findForUpdate(pathUserId, regDate)
-			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
-		if (!requesterId.equals(pathUserId)) {
-			throw new ApiException(ErrorCode.FORBIDDEN);
-		}
+		Listing listing = lockOwned(pathUserId, regDate, requesterId);
 		// 거래가 1건이라도 있으면 trd_trade_info 의 매물 FK 가 막는다. 거래 테이블을 여기서 직접 보지 않으려고(도메인 간은
 		// service 로만, 거래 → 매물 방향이라 역참조 불가) 위반을 잡아 409 로 바꾼다. flush 해야 이 메서드 안에서 위반이 난다
 		try {
@@ -313,6 +305,31 @@ public class ListingService {
 		catch (DataIntegrityViolationException e) {
 			throw new ApiException(ErrorCode.LISTING_HAS_TRADES);
 		}
+	}
+
+	/**
+	 * 수정·삭제 대상: 소유자 확인을 먼저 하고 그다음 행을 잠그고 읽는다. 잠금 먼저면 남이 수정·삭제 요청을 반복해
+	 * 매물 행을 잠가 구매요청을 막을 수 있다. 확인용 조회는 엔티티를 올리지 않는다(existsById) — 먼저 올려 두면
+	 * 잠금 조회가 그 옛 상태를 그대로 돌려준다. 없는 매물은 남이 보내도 404 (기존 응답 그대로)
+	 */
+	private Listing lockOwned(UUID pathUserId, String regDate, UUID requesterId) {
+		if (!requesterId.equals(pathUserId)) {
+			throw new ApiException(listings.existsById(new ListingId(pathUserId, regDate)) ? ErrorCode.FORBIDDEN
+					: ErrorCode.LISTING_NOT_FOUND);
+		}
+		return listings.findForUpdate(pathUserId, regDate).orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
+	}
+
+	/**
+	 * 구매요청용 — 행을 잠그고 읽는다. 잠금 없이 읽으면 판매자 수정이 그 뒤 커밋돼도 옛 단가·최소주문량으로 거래가
+	 * 저장된다. 같은 매물의 구매·수정은 이 잠금으로 차례가 정해진다 (거래ID 의 시간대 락보다 먼저 잡아, 한 매물에서
+	 * 기다리는 요청이 다른 매물 구매를 막지 않게)
+	 */
+	@Transactional
+	public ListingTradeSnapshot lockForTrade(UUID sellerId, String regDate) {
+		Listing listing = listings.findForUpdate(sellerId, regDate)
+			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
+		return toSnapshot(listing, products.get(listing.getProdId()));
 	}
 
 	/** 구매요청이 복사해 갈 매물 값 (거래 도메인용) */

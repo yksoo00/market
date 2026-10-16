@@ -9,6 +9,8 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.CompletableFuture;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.auth.AuthCookies;
@@ -19,7 +21,9 @@ import com.company.market.common.exception.ErrorCode;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.repository.ListingRepository;
+import com.company.market.listing.dto.ListingUpdateRequest;
 import com.company.market.listing.repository.ProductRepository;
+import com.company.market.listing.service.ListingService;
 import com.company.market.trade.dto.TradeCreateRequest;
 import com.company.market.trade.service.TradeService;
 import com.company.market.user.domain.User;
@@ -39,6 +43,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -81,6 +86,12 @@ class TradeApiTest {
 
 	@Autowired
 	TradeService tradeService;
+
+	@Autowired
+	ListingService listingService;
+
+	@Autowired
+	TransactionTemplate tx;
 
 	UUID sellerId;
 
@@ -316,6 +327,35 @@ class TradeApiTest {
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.tradeId").value(tradeId));
 		assertThat(stock()).isEqualTo(8);
+	}
+
+	@Test
+	@DisplayName("판매자가 단가를 고치는 중에 온 구매요청은 고친 뒤의 단가로 저장된다 (옛 스냅샷으로 저장되지 않는다)")
+	void requestWaitsForConcurrentListingEdit() throws Exception {
+		listing(1000, 10, 1, 1, null);
+		CountDownLatch edited = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		// 판매자 수정: 단가 2000 으로 바꾸고 커밋 전에 멈춘다 (행 잠금을 쥔 채)
+		CompletableFuture<Void> edit = CompletableFuture.runAsync(() -> tx.executeWithoutResult(s -> {
+			listingService.update(sellerId, REG_DATE, sellerId, new ListingUpdateRequest(null, null, 2000, null, null, null,
+					null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+			edited.countDown();
+			try {
+				release.await(10, TimeUnit.SECONDS);
+			}
+			catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		}));
+		assertThat(edited.await(10, TimeUnit.SECONDS)).isTrue();
+		CompletableFuture<String> purchase = CompletableFuture.supplyAsync(() -> requested(1));
+		Thread.sleep(300);
+		release.countDown();
+		edit.get(10, TimeUnit.SECONDS);
+		String tradeId = purchase.get(10, TimeUnit.SECONDS);
+
+		assertThat(jdbc.queryForObject("select order_unit_price from trd_trade_info where trade_id = ?", Integer.class, tradeId))
+			.isEqualTo(2000);
 	}
 
 	// ---- 거래완료·취소 ----
