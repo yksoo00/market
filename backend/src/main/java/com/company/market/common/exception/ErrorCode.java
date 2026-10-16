@@ -44,6 +44,15 @@ public enum ErrorCode {
 	LISTING_DUPLICATE_REG_TIME(HttpStatus.CONFLICT, "같은 시각에 이미 등록된 매물이 있습니다. 다시 시도해 주세요."),
 	LISTING_NOT_FOUND(HttpStatus.NOT_FOUND, "매물을 찾을 수 없습니다."),
 	PRODUCT_SHARED(HttpStatus.UNPROCESSABLE_ENTITY, "다른 매물과 같이 쓰는 상품 정보라 고칠 수 없습니다."),
+	LISTING_COMPLETED(HttpStatus.CONFLICT, "거래가 끝난 매물입니다."),
+	LISTING_HAS_TRADES(HttpStatus.CONFLICT, "거래 내역이 있는 매물은 삭제할 수 없습니다."),
+
+	// 거래
+	TRADE_NOT_FOUND(HttpStatus.NOT_FOUND, "거래를 찾을 수 없습니다."),
+	TRADE_OWN_LISTING(HttpStatus.FORBIDDEN, "내 매물은 구매할 수 없습니다."),
+	TRADE_OUT_OF_STOCK(HttpStatus.CONFLICT, "재고가 부족합니다."),
+	TRADE_NOT_PENDING(HttpStatus.CONFLICT, "이미 확정되었거나 취소된 거래입니다."),
+	TRADE_ID_EXHAUSTED(HttpStatus.CONFLICT, "주문이 몰려 있습니다. 잠시 후 다시 시도해 주세요."),
 
 	// 업로드
 	UPLOAD_INVALID_TYPE(HttpStatus.BAD_REQUEST, "올릴 수 없는 파일 형식입니다."),
