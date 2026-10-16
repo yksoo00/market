@@ -92,4 +92,10 @@ export const trade = {
     confirmCancel: "이 구매요청을 취소할까요?\n주문한 수량은 판매자 재고로 돌아가요.",
     reloaded: "목록을 새로 불러왔어요.",
   },
+  // 내 판매글 표의 구매요청 건수 열
+  pending: {
+    column: "구매요청",
+    count: (n: number) => `${n.toLocaleString("ko-KR")}건`,
+    aria: (name: string, n: number) => `${name} 구매요청 ${n}건 보기`,
+  },
 };

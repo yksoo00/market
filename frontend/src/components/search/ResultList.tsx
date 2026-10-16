@@ -9,11 +9,13 @@ import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatPrice } from "@/lib/format";
 import { isOwner } from "@/lib/listingDetail";
+import { pendingLabel, salesHref } from "@/lib/tradeCounts";
 import { activeFilterCount, buildSearchHref, clearFilters, listingHref, type SearchQuery, type SearchScope } from "@/lib/search";
 import { my } from "@/messages/my";
 import { search as t } from "@/messages/search";
 import { trade } from "@/messages/trade";
 import type { ListingSearchItem } from "@/types/listing";
+import type { PendingCounts } from "@/types/trade";
 
 const r = t.result;
 const p = trade.purchase;
@@ -68,13 +70,34 @@ interface Props {
   onEdit?: (item: ListingSearchItem) => void;
   /** mine 모드: 로그인한 사용자 id. 내 글에만 [수정]을 그린다 (서버가 mine=true 로 거르지 못해도 남의 글에 수정 버튼이 뜨지 않게) */
   ownerId?: string | null;
+  /** mine 모드: 매물별 구매요청 건수 (GET /api/v1/trades/pending-counts). 아직 모르면 null */
+  pendingCounts?: PendingCounts | null;
 }
 
 // 선택 상태는 결과 집합마다 새로 시작한다 — 페이지에서 key={buildSearchHref(query)}로 다시 마운트
-export function ResultList({ items, query, total, scope = "search", onEdit, ownerId = null }: Props) {
+export function ResultList({ items, query, total, scope = "search", onEdit, ownerId = null, pendingCounts = null }: Props) {
   const openTile = useTileOpen();
   const mine = scope === "mine";
-  const canEdit = (item: ListingSearchItem) => mine && isOwner(ownerId, item.userId);
+  // 거래완료(재고 소진)된 매물은 서버가 수정을 막는다 (409 LISTING_COMPLETED) — 버튼도 그리지 않는다
+  const canEdit = (item: ListingSearchItem) => mine && isOwner(ownerId, item.userId) && item.tradeStatus !== "completed";
+  // "구매요청 N건" → 받은 구매요청을 그 매물로 걸러 연다. 같은 판매 그룹이라 옆 칸에 반반으로
+  const pendingLink = (item: ListingSearchItem) => {
+    const label = pendingLabel(pendingCounts, item.regDate);
+    if (!label) return null;
+    return (
+      <button
+        type="button"
+        onClick={(e) => {
+          stop(e);
+          openTile(salesHref(item.regDate), false);
+        }}
+        aria-label={trade.pending.aria(item.prodName, pendingCounts?.[item.regDate] ?? 0)}
+        className="inline-flex h-7 px-2 items-center rounded-md bg-primary-soft text-primary text-[12px] font-semibold hover:underline"
+      >
+        {label}
+      </button>
+    );
+  };
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   // seq: 같은 문구가 연달아 나와도 알림 요소를 새로 그려 스크린리더가 다시 읽게 한다 (key 로 사용)
   const [notice, setNotice] = useState<{ seq: number; text: string } | null>(null);
@@ -187,6 +210,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
             {columns.map((c) => (
               <col key={c.label} className={c.width} />
             ))}
+            {mine && <col className="w-22" />}
             {mine && <col className="w-20" />}
           </colgroup>
           <thead className="bg-bg text-xs text-ink-2">
@@ -204,6 +228,11 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
                   {c.label}
                 </th>
               ))}
+              {mine && (
+                <th scope="col" className="px-2 font-medium text-center">
+                  {trade.pending.column}
+                </th>
+              )}
               {mine && (
                 <th scope="col" className="sticky right-0 z-10 bg-bg px-2 font-medium text-center border-l border-line-2">
                   {my.mine.editColumn}
@@ -240,6 +269,11 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
                       {c.cell(item, done)}
                     </td>
                   ))}
+                  {mine && (
+                    <td className="px-2 text-center" onClick={stop}>
+                      {pendingLink(item) ?? DASH}
+                    </td>
+                  )}
                   {mine && (
                     <td className="sticky right-0 z-10 bg-surface group-hover:bg-bg px-2 text-center border-l border-line-2" onClick={stop}>
                       {canEdit(item) && <EditButton item={item} onEdit={onEdit} />}
@@ -286,6 +320,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
                   </span>
                 </div>
                 <ExtraChips item={item} />
+                {mine && pendingLink(item)}
                 {/* 좁은 카드는 칸 단위 편집이 어려워 행 안 수정 대신 수정 화면으로 간다 */}
                 {canEdit(item) && (
                   <div onClick={stop}>
