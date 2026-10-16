@@ -2,6 +2,7 @@ package com.company.market.trade.service;
 
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -17,11 +18,13 @@ import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.exception.ValidationException;
 import com.company.market.listing.dto.ListingTradeSnapshot;
 import com.company.market.listing.service.ListingService;
+import com.company.market.trade.domain.TradeHistory;
 import com.company.market.trade.domain.TradeInfo;
 import com.company.market.trade.domain.TradeStats;
 import com.company.market.trade.domain.TradeType;
 import com.company.market.trade.dto.TradeCreateRequest;
 import com.company.market.trade.dto.TradeResponse;
+import com.company.market.trade.repository.TradeHistoryRepository;
 import com.company.market.trade.repository.TradeInfoRepository;
 import com.company.market.user.service.UserDirectory;
 import lombok.RequiredArgsConstructor;
@@ -43,7 +46,11 @@ public class TradeService {
 	private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM-dd")
 		.withResolverStyle(ResolverStyle.STRICT);
 
+	private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
 	private final TradeInfoRepository trades;
+
+	private final TradeHistoryRepository histories;
 
 	private final TradeIdGenerator tradeIds;
 
@@ -90,6 +97,45 @@ public class TradeService {
 			.build());
 		listings.reserveStock(listing.sellerId(), listing.regDate(), req.orderQuantity());
 		return toResponse(trade, listing, nicknameOf(listing.sellerId()));
+	}
+
+	/** 구매자 [거래완료] → 구매확정 + 거래이력 1줄. 판매자는 못 한다 (사용자 결정 2026-10-15) */
+	@Transactional
+	public TradeResponse complete(UUID me, String tradeId) {
+		TradeInfo trade = trades.findByTradeId(tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
+		if (!me.equals(trade.getUserId())) {
+			throw new ApiException(ErrorCode.FORBIDDEN);
+		}
+		if (trades.updateStatus(tradeId, TradeStats.REQUESTED, TradeStats.CONFIRMED, TradeType.PURCHASE_CONFIRM) == 0) {
+			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
+		}
+		histories.save(TradeHistory.builder()
+			.tradeId(tradeId)
+			.tradeDate(LocalDateTime.now(clock).format(TIMESTAMP_FORMAT))
+			.prodId(trade.getProdId())
+			.tradeType(TradeType.PURCHASE_CONFIRM)
+			.sellerId(trade.getSellerId())
+			.buyerId(trade.getUserId())
+			.tradeUnitPrice(trade.getOrderUnitPrice())
+			.tradeQuantity(trade.getOrderQuantity())
+			// 요청 때 int 범위를 넘는 금액은 거절했으므로 넘치지 않는다
+			.tradeAmount(trade.getOrderUnitPrice() * trade.getOrderQuantity())
+			.build());
+		return get(me, tradeId);
+	}
+
+	/** 확정 전이면 구매자·판매자 누구나 취소. 재고를 돌려준다. 취소는 이력에 쌓지 않는다 */
+	@Transactional
+	public TradeResponse cancel(UUID me, String tradeId) {
+		TradeInfo trade = trades.findByTradeId(tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
+		if (!me.equals(trade.getUserId()) && !me.equals(trade.getSellerId())) {
+			throw new ApiException(ErrorCode.FORBIDDEN);
+		}
+		if (trades.updateStatus(tradeId, TradeStats.REQUESTED, TradeStats.CANCELED, TradeType.PURCHASE_CANCEL) == 0) {
+			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
+		}
+		listings.releaseStock(trade.getSellerId(), trade.getRegDate(), trade.getOrderQuantity());
+		return get(me, tradeId);
 	}
 
 	/** 구매자·판매자만 본다. 남이면 없는 것과 같게 404 (거래ID 존재 여부를 흘리지 않게) */

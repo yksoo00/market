@@ -14,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestHeader;
@@ -41,6 +42,18 @@ public class TradeController {
 						() -> trades.request(me.id(), req)),
 				TradeResponse::tradeId, tradeId -> trades.get(me.id(), tradeId));
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(created));
+	}
+
+	/** 구매자 거래완료 → 구매확정. 상태가 바뀌는 쓰기지만 거래당 한 번만 성공하므로 별도 한도는 두지 않는다 */
+	@PostMapping("/{tradeId}/complete")
+	public ApiResponse<TradeResponse> complete(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable String tradeId) {
+		return ApiResponse.of(trades.complete(me.id(), tradeId));
+	}
+
+	/** 확정 전 취소 (구매자·판매자) */
+	@PostMapping("/{tradeId}/cancel")
+	public ApiResponse<TradeResponse> cancel(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable String tradeId) {
+		return ApiResponse.of(trades.cancel(me.id(), tradeId));
 	}
 
 }
