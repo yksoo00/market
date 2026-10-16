@@ -34,6 +34,7 @@ import com.company.market.listing.dto.ListingPageResponse;
 import com.company.market.listing.dto.ListingResponse;
 import com.company.market.listing.dto.ListingSearchCondition;
 import com.company.market.listing.dto.ListingSearchItemResponse;
+import com.company.market.listing.dto.ListingTradeSnapshot;
 import com.company.market.listing.dto.ListingUpdateRequest;
 import com.company.market.listing.repository.CategoryRepository;
 import com.company.market.listing.repository.ListingRepository;
@@ -159,6 +160,10 @@ public class ListingService {
 			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
 		if (!requesterId.equals(pathUserId)) {
 			throw new ApiException(ErrorCode.FORBIDDEN);
+		}
+		// 거래완료(재고 소진)된 매물은 못 고친다 (사용자 결정 2026-10-15). 취소로 재고가 돌아오면 dt_expire 가 지워져 다시 된다
+		if (listing.getDtExpire() != null) {
+			throw new ApiException(ErrorCode.LISTING_COMPLETED);
 		}
 		// 이미 저장된 납기일을 그대로 다시 보내면(수정 화면이 모든 칸을 보낼 때) 지난 날짜여도 통과
 		Product currentProduct = products.get(listing.getProdId());
@@ -298,7 +303,41 @@ public class ListingService {
 		if (!requesterId.equals(pathUserId)) {
 			throw new ApiException(ErrorCode.FORBIDDEN);
 		}
-		listings.delete(listing);
+		// 거래가 1건이라도 있으면 trd_trade_info 의 매물 FK 가 막는다. 거래 테이블을 여기서 직접 보지 않으려고(도메인 간은
+		// service 로만, 거래 → 매물 방향이라 역참조 불가) 위반을 잡아 409 로 바꾼다. flush 해야 이 메서드 안에서 위반이 난다
+		try {
+			listings.delete(listing);
+			listings.flush();
+		}
+		catch (DataIntegrityViolationException e) {
+			throw new ApiException(ErrorCode.LISTING_HAS_TRADES);
+		}
+	}
+
+	/** 구매요청이 복사해 갈 매물 값 (거래 도메인용) */
+	public ListingTradeSnapshot snapshotForTrade(UUID sellerId, String regDate) {
+		Listing listing = listings.findById(new ListingId(sellerId, regDate))
+			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
+		Product product = products.get(listing.getProdId());
+		String photo = firstPhoto(listing);
+		return new ListingTradeSnapshot(listing.getUserId(), listing.getRegDate(), listing.getProdId(),
+				product.getProdName(), listing.getProdState(), listing.getSalesUnitPrice(), listing.getStockQuantity(),
+				listing.getMinOrderQuantity(), listing.getOrderUnit(), listing.getDeliveryDate(),
+				listing.getDtExpire() != null, photo != null && photo.startsWith("public/") ? photo : null);
+	}
+
+	/** 구매요청의 재고 차감. 재고 부족·거래완료면 TRADE_OUT_OF_STOCK (호출자 트랜잭션에 합류해 같이 롤백) */
+	@Transactional
+	public void reserveStock(UUID sellerId, String regDate, int quantity) {
+		if (listings.reserveStock(sellerId, regDate, quantity, LocalDateTime.now(clock).format(REG_DATE_FORMAT)) == 0) {
+			throw new ApiException(ErrorCode.TRADE_OUT_OF_STOCK);
+		}
+	}
+
+	/** 거래 취소로 재고 복원 + 거래완료일시 지움 */
+	@Transactional
+	public void releaseStock(UUID sellerId, String regDate, int quantity) {
+		listings.releaseStock(sellerId, regDate, quantity);
 	}
 
 	public ListingResponse get(UUID userId, String regDate) {

@@ -90,6 +90,7 @@ class ListingApiTest {
 
 	@BeforeEach
 	void setUp() {
+		jdbc.update("delete from trd_trade_info");
 		jdbc.update("delete from trd_prod_reg");
 		jdbc.update("delete from trd_prod_master");
 		jdbc.update("delete from trd_user_info");
@@ -108,6 +109,7 @@ class ListingApiTest {
 	 */
 	@AfterEach
 	void cleanUp() {
+		jdbc.update("delete from trd_trade_info");
 		jdbc.update("delete from trd_prod_reg");
 		jdbc.update("delete from trd_prod_master");
 	}
@@ -937,6 +939,36 @@ class ListingApiTest {
 
 		mvc.perform(delete("/api/v1/listings/" + userId + "/" + regDate).cookie(otherUserCookie()))
 			.andExpect(status().isForbidden());
+		mvc.perform(get("/api/v1/listings/" + userId + "/" + regDate)).andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("거래완료된 매물은 수정할 수 없다 — 409 LISTING_COMPLETED")
+	void completedListingCannotBeUpdated() throws Exception {
+		String regDate = createListing(authCookie);
+		jdbc.update("update trd_prod_reg set stock_quantity = 0, dt_expire = '20261015120000' where user_id = ? and reg_date = ?",
+				userId, regDate);
+
+		mvc.perform(patch("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("{\"salesUnitPrice\":600000}"))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("LISTING_COMPLETED"));
+	}
+
+	@Test
+	@DisplayName("거래가 있는 매물은 삭제할 수 없다 — 409 LISTING_HAS_TRADES, 매물은 남는다")
+	void listingWithTradeCannotBeDeleted() throws Exception {
+		String regDate = createListing(authCookie);
+		UUID buyer = userIdOf(otherUserCookie());
+		jdbc.update("""
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, order_unit_price,
+					order_quantity, req_deli_date, trade_stats)
+				values (?, '26101510001', '구매취소', ?, ?, 500000, 1, '2026-10-20', '취소')
+				""", buyer, userId, regDate);
+
+		mvc.perform(delete("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("LISTING_HAS_TRADES"));
 		mvc.perform(get("/api/v1/listings/" + userId + "/" + regDate)).andExpect(status().isOk());
 	}
 
