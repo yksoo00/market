@@ -27,3 +27,5 @@ docker compose up -d          # postgres, redis
 cd backend && ./gradlew bootRun   # 또는 docker compose up --watch api-dev (컨테이너, 저장 시 자동 재시작)
 cd frontend && pnpm dev
 ```
+
+개발하지 않는 PC(시연용)에서는 `start-market.bat` 더블클릭. main 최신화 → Docker Desktop 켜기 → DB·Redis·백엔드(`api-dev` 컨테이너, JDK 불필요) → 프론트(`pnpm dev`, 별도 창) → 브라우저 순서로 띄운다. 필요한 것: Git, Docker Desktop, Node + pnpm, 루트 `.env`.
