@@ -4,7 +4,14 @@ rem 백엔드는 실행 PC 에 JDK 가 없어도 되도록 compose 의 api-dev �
 rem 한글 출력 때문에 UTF-8(BOM 없음) + CRLF 로 저장한다 (.gitattributes). LF 면 cmd 가 goto 라벨을 못 찾는다.
 chcp 65001 >nul
 setlocal
-cd /d "%~dp0"
+rem git pull 이 이 파일을 바꾸면 cmd 가 바뀐 파일을 옛 위치부터 이어 읽어 엉뚱한 줄을 실행한다.
+rem 그래서 %TEMP% 에 복사한 사본으로 다시 시작하고, 저장소 위치는 인자로 넘긴다
+if not "%~1"=="--copied" (
+  copy /y "%~f0" "%TEMP%\start-market-run.bat" >nul
+  "%TEMP%\start-market-run.bat" --copied "%~dp0."
+)
+cd /d "%~2"
+set "REPO=%CD%"
 
 set "FRONT_URL=http://localhost:3000"
 set "HEALTH_URL=http://localhost:8080/actuator/health"
@@ -18,6 +25,8 @@ where docker >nul 2>&1
 if errorlevel 1 set "MSG=Docker Desktop 이 설치되어 있지 않습니다." & goto :fail
 where pnpm >nul 2>&1
 if errorlevel 1 set "MSG=pnpm 이 설치되어 있지 않습니다." & goto :fail
+where curl >nul 2>&1
+if errorlevel 1 set "MSG=curl 이 없습니다. Windows 10 이상이 필요합니다." & goto :fail
 if not exist ".env" set "MSG=.env 파일이 없습니다. 개발자에게 받아 이 폴더에 두세요." & goto :fail
 
 echo.
@@ -81,18 +90,20 @@ set "MSG=백엔드가 10분 안에 준비되지 않았습니다. 위 로그를 �
 echo   백엔드 준비 완료.
 echo.
 echo [5/5] 프론트 켜기
-netstat -ano | findstr /r /c:":3000 .*LISTENING" >nul
-if not errorlevel 1 echo   이미 켜져 있습니다. & goto :open
+rem 프론트가 이미 켜져 있어도 설치는 한다. 받은 코드에 새 의존성이 있으면 켜진 서버가 Module not found 로 깨진다
 pushd frontend
 call pnpm install --frozen-lockfile
-if errorlevel 1 popd & set "MSG=프론트 의존성 설치에 실패했습니다." & goto :fail
+if errorlevel 1 popd & set "MSG=프론트 의존성 설치에 실패했습니다. market-frontend 창이 켜져 있으면 닫고 다시 실행하세요." & goto :fail
 popd
+netstat -ano | findstr /r /c:":3000 .*LISTENING" >nul
+if not errorlevel 1 echo   이미 켜져 있습니다. & goto :open
 rem 따로 창을 띄워 둔다. 그 창을 닫으면 프론트가 꺼진다
-start "market-frontend" /d "%~dp0frontend" cmd /k pnpm dev
+start "market-frontend" /d "%REPO%\frontend" cmd /k pnpm dev
 echo   프론트 준비 기다리는 중...
 set /a TRIES=0
 :wait_front
-curl -s -o nul --max-time 60 "%FRONT_URL%" >nul 2>&1
+rem -f: 컴파일 오류(500) 화면을 성공으로 보지 않는다. 첫 컴파일이 10초를 넘으면 다음 시도에서 받는다
+curl -sf -o nul --max-time 10 "%FRONT_URL%" >nul 2>&1
 if not errorlevel 1 goto :open
 set /a TRIES+=1
 if %TRIES% geq 60 set "MSG=프론트가 준비되지 않았습니다. market-frontend 창의 메시지를 확인하세요." & goto :fail
