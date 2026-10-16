@@ -108,10 +108,20 @@ class TradeApiTest {
 		jdbc.update("delete from trd_user_info");
 	}
 
+	/** 별명 사용(Y) 사용자 — 별명이 로그인 아이디와 같아 테스트에서 알아보기 쉽다 */
 	private UUID newUser(String loginId, String phone) {
 		return users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
-			.nickname(loginId).email(loginId + "@example.com").name("홍길동").phone(phone).phoneHash(hasher.hash(phone))
-			.build()).getId();
+			.nickname(loginId).nicknameUsage("Y").email(loginId + "@example.com").name("홍길동").phone(phone)
+			.phoneHash(hasher.hash(phone)).build()).getId();
+	}
+
+	@Test
+	@DisplayName("별명을 쓰지 않는 상대는 로그인 아이디를 보여 주지 않는다 (counterpartNickname 없음)")
+	void counterpartWithoutNicknameHidesLoginId() throws Exception {
+		jdbc.update("update trd_user_info set nickname_usage = 'N' where uid = ?", sellerId);
+		listing(1000, 10, 1, 1, null);
+		request(buyer, body(1, future())).andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.counterpartNickname").value(org.hamcrest.Matchers.nullValue()));
 	}
 
 	/** 판매자 매물: 단가·재고·최소주문량·주문단위·납기일(null 이면 없음) */
