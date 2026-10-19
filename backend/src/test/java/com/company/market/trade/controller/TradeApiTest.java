@@ -325,6 +325,60 @@ class TradeApiTest {
 	}
 
 	@Test
+	@DisplayName("매물 삭제와 첫 구매요청이 동시에 와도 500 은 없다 — 삭제가 이기면 구매 404, 구매가 이기면 삭제 409")
+	void deleteAndFirstRequestRace() throws Exception {
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+		try {
+			for (int i = 0; i < 20; i++) {
+				jdbc.update("delete from trd_trade_info");
+				jdbc.update("delete from trd_prod_reg");
+				jdbc.update("delete from trd_prod_master");
+				listing(1000, 10, 1, 1, null);
+				CountDownLatch start = new CountDownLatch(1);
+				Future<String> delete = pool.submit(() -> outcome(start,
+						() -> listingService.delete(sellerId, REG_DATE, sellerId)));
+				Future<String> request = pool.submit(() -> outcome(start,
+						() -> tradeService.request(buyerId, new TradeCreateRequest(sellerId, REG_DATE, 1, future(), null))));
+				start.countDown();
+				String deleted = delete.get();
+				String requested = request.get();
+
+				int listings = jdbc.queryForObject("select count(*) from trd_prod_reg", Integer.class);
+				int tradeRows = jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class);
+				if ("ok".equals(deleted)) {
+					assertThat(requested).isEqualTo(ErrorCode.LISTING_NOT_FOUND.name());
+					assertThat(listings).isZero();
+					assertThat(tradeRows).isZero();
+				}
+				else {
+					assertThat(deleted).isEqualTo(ErrorCode.LISTING_HAS_TRADES.name());
+					assertThat(requested).isEqualTo("ok");
+					assertThat(listings).isEqualTo(1);
+					assertThat(tradeRows).isEqualTo(1);
+				}
+			}
+		}
+		finally {
+			pool.shutdown();
+		}
+	}
+
+	/** "ok" | ApiException 코드 | 그 밖의 예외(= 500) 클래스 이름 */
+	private static String outcome(CountDownLatch start, Runnable action) throws InterruptedException {
+		start.await();
+		try {
+			action.run();
+			return "ok";
+		}
+		catch (ApiException e) {
+			return e.getCode().name();
+		}
+		catch (RuntimeException e) {
+			return e.getClass().getName() + ": " + e.getMessage();
+		}
+	}
+
+	@Test
 	@DisplayName("같은 Idempotency-Key 로 다시 보내면 같은 거래를 돌려주고 재고는 한 번만 준다")
 	void idempotentRequest() throws Exception {
 		listing(1000, 10, 1, 1, null);
