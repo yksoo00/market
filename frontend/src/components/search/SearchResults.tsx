@@ -6,7 +6,7 @@ import { ResultList } from "@/components/search/ResultList";
 import { authApi } from "@/lib/api/auth";
 import { listingsApi } from "@/lib/api/listings";
 import { tradesApi } from "@/lib/api/trades";
-import { applyDetailToItem } from "@/lib/rowEdit";
+import { replaceRow } from "@/lib/rowEdit";
 import type { SearchQuery, SearchScope } from "@/lib/search";
 import { search as t } from "@/messages/search";
 import type { ListingSearchItem } from "@/types/listing";
@@ -122,6 +122,13 @@ export function SearchResults({
     else setMoreFailed(res.code === "RATE_LIMITED" ? r.rateLimited : r.moreFailed);
   };
 
+  // 구매 성공 뒤 그 매물만 다시 읽어 재고·거래상태를 맞춘다. 실패하면 그대로 둔다 — 구매는 이미 성공했고
+  // 다음 검색에서 맞춰진다
+  const refreshRow = async (key: { userId: string; regDate: string }) => {
+    const res = await listingsApi.get(key.userId, key.regDate);
+    if (res.ok) setState((prev) => (prev.kind === "ready" ? { ...prev, items: replaceRow(prev.items, res.data) } : prev));
+  };
+
   if (editing) {
     return (
       <div ref={rootRef}>
@@ -132,7 +139,7 @@ export function SearchResults({
             // 저장 응답으로 그 행만 갱신 (새 상품으로 옮겨졌으면 그 상품 값)
             setState({
               kind: "ready",
-              items: items.map((i) => (i.userId === editing.userId && i.regDate === editing.regDate ? applyDetailToItem(i, detail) : i)),
+              items: replaceRow(items, detail),
               nextCursor,
               total,
             });
@@ -145,7 +152,7 @@ export function SearchResults({
 
   return (
     <div ref={rootRef} className="contents">
-      <ResultList items={items} query={query} total={total} scope={scope} onEdit={scope === "mine" ? startEdit : undefined} ownerId={meId} pendingCounts={pendingCounts} />
+      <ResultList items={items} query={query} total={total} scope={scope} onEdit={scope === "mine" ? startEdit : undefined} ownerId={meId} pendingCounts={pendingCounts} onPurchased={refreshRow} />
       {nextCursor && (
         <div className="flex items-center justify-center gap-2 pt-1">
           <button

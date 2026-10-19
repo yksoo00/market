@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyDetailToItem,
   diffToRowPatch,
+  replaceRow,
   rowEditInitialValues,
   validateRowEdit,
   type RowEditValues,
@@ -205,6 +206,20 @@ describe("applyDetailToItem", () => {
       hasPhoto: false,
       prodDescription: null,
       hasDataSheet: false,
+    });
+  });
+
+  describe("replaceRow", () => {
+    const other: ListingSearchItem = { ...item, regDate: "20260101000000", prodName: "다른 매물" };
+
+    it("구매한 행만 재고·거래상태가 바뀌고 다른 행은 그대로(같은 참조)", () => {
+      const next = replaceRow([other, item], { ...detail, stockQuantity: 0, tradeStatus: "completed" });
+      expect(next[0]).toBe(other);
+      expect(next[1]).toMatchObject({ stockQuantity: 0, tradeStatus: "completed" });
+    });
+
+    it("목록에 없는 매물이면 그대로", () => {
+      expect(replaceRow([other], detail)).toEqual([other]);
     });
   });
 });

@@ -72,10 +72,12 @@ interface Props {
   ownerId?: string | null;
   /** mine 모드: 매물별 구매요청 건수 (GET /api/v1/trades/pending-counts). 아직 모르면 null */
   pendingCounts?: PendingCounts | null;
+  /** 구매요청 성공 — 목록이 그 매물 행을 다시 읽게 */
+  onPurchased?: (key: { userId: string; regDate: string }) => void;
 }
 
 // 선택 상태는 결과 집합마다 새로 시작한다 — 페이지에서 key={buildSearchHref(query)}로 다시 마운트
-export function ResultList({ items, query, total, scope = "search", onEdit, ownerId = null, pendingCounts = null }: Props) {
+export function ResultList({ items, query, total, scope = "search", onEdit, ownerId = null, pendingCounts = null, onPurchased }: Props) {
   const openTile = useTileOpen();
   const mine = scope === "mine";
   // 거래완료(재고 소진)된 매물은 서버가 수정을 막는다 (409 LISTING_COMPLETED) — 버튼도 그리지 않는다
@@ -174,7 +176,10 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
           regDate={buying.regDate}
           open
           onOpenChange={(open) => !open && setBuying(null)}
-          onPurchased={() => setPurchased(true)}
+          onPurchased={() => {
+            setPurchased(true);
+            onPurchased?.({ userId: buying.userId, regDate: buying.regDate });
+          }}
         />
       )}
       <ResultDialog

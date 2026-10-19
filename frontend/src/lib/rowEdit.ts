@@ -135,3 +135,8 @@ export function applyDetailToItem(item: ListingSearchItem, d: ListingDetail): Li
     tradeStatus: d.tradeStatus,
   };
 }
+
+/** 목록에서 그 매물(userId·regDate) 행만 상세 값으로 바꾼다. 행 수정 저장·구매 뒤 다시 읽기에 쓴다 */
+export function replaceRow(items: ListingSearchItem[], d: ListingDetail): ListingSearchItem[] {
+  return items.map((i) => (i.userId === d.userId && i.regDate === d.regDate ? applyDetailToItem(i, d) : i));
+}
