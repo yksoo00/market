@@ -68,6 +68,18 @@ describe("decideOpen — 주기능·보조 칸에서 열기", () => {
     });
   });
 
+  it("마이페이지 바로가기는 마이페이지 칸을 바꾼다 — 주기능이면 홈 | 내 판매글", () => {
+    expect(decideOpen([P("a", "/my")], "a", "/my/listings", wide)).toEqual({ kind: "inPlace", paneKey: "a", path: "/my/listings" });
+  });
+
+  it("마이페이지가 보조 칸이면 보조만 바뀐다 — 홈 | 주기능 | 내 구매목록", () => {
+    expect(decideOpen([P("a", "/listings/new"), P("b", "/my")], "b", "/my/purchases", wide)).toEqual({
+      kind: "inPlace",
+      paneKey: "b",
+      path: "/my/purchases",
+    });
+  });
+
   it("표에 없는 화면은 새 주기능", () => {
     expect(decideOpen([P("a", "/search")], "a", "/prices", wide)).toEqual({ kind: "main", path: "/prices" });
   });
