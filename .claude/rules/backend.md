@@ -42,7 +42,7 @@ com.company.market
 - 모든 요청 DTO에 Bean Validation (`@Valid`, `@NotBlank`, `@Size`, `@Min/@Max` …). 프론트가 검증했다고 생략하지 않는다. 수치는 `docs/security.md` "입력 검증"과 동일.
 - 검증 실패 응답은 400 + `{ ok: false, code: "VALIDATION", message, fields: { "<필드>": "<문구>" } }`. 프론트가 필드별로 표시하므로 필드명은 요청 DTO 필드명 그대로.
 - 형식은 맞지만 상태가 안 맞는 경우(예: 이미 사용 중인 이메일, 예약중인 글 수정)는 409/422 + 같은 형태.
-- 쓰기 API에는 rate limit (Redis 카운터).
+- 쓰기 API에는 rate limit (Redis 카운터). **지금은 보류(2026-10-19 전부 삭제) — 새 API 에도 넣지 않고, 운영 전 재도입 때 security.md 표 기준으로 한 번에 넣는다.**
 
 ## 인증
 - JWT access 15분(stateless) + refresh 30일(Redis `session:{userId}:{deviceId}`).

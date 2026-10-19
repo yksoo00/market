@@ -16,7 +16,6 @@ import com.company.market.common.config.AppProperties;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.exception.ValidationException;
-import com.company.market.common.ratelimit.RateLimiter;
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;
 import com.company.market.user.dto.SignupPersonalRequest;
@@ -38,15 +37,8 @@ public class SignupService {
 
 	private static final Logger log = LoggerFactory.getLogger(SignupService.class);
 
-	/** 가입 IP 5회/시간 (security.md "Rate limit") */
-	private static final int SIGNUP_PER_IP = 5;
-
-	private static final Duration SIGNUP_WINDOW = Duration.ofHours(1);
-
-	/** 중복확인 IP 분당 30회 — 무제한이면 "어떤 아이디가 존재하나"를 사전으로 훑을 수 있다 */
-	private static final int CHECK_PER_IP = 30;
-
-	private static final Duration CHECK_WINDOW = Duration.ofMinutes(1);
+	// TODO(rate limit 보류, decisions.md 2026-10-19): 가입·중복확인·사업자 조회 IP 한도를 지웠다. 운영 전에 다시 넣는다
+	// (중복확인에 한도가 없으면 "어떤 아이디가 존재하나"를 사전으로 훑을 수 있다)
 
 	private static final String BUSINESS_VERIFY_PREFIX = "signup:biz:";
 
@@ -71,8 +63,6 @@ public class SignupService {
 
 	private final PasswordEncoder passwordEncoder;
 
-	private final RateLimiter limiter;
-
 	private final AppProperties props;
 
 	/** 같은 클래스의 @Transactional 메서드는 프록시를 안 거쳐 트랜잭션이 안 걸리므로 템플릿으로 감싼다 */
@@ -83,12 +73,10 @@ public class SignupService {
 	private final Clock clock;
 
 	public boolean isLoginIdAvailable(String loginId, String ip) {
-		limiter.hit("signup:check:ip:" + ip, CHECK_PER_IP, CHECK_WINDOW);
 		return !users.existsByLoginId(loginId);
 	}
 
 	public boolean isNicknameAvailable(String nickname, String ip) {
-		limiter.hit("signup:check:ip:" + ip, CHECK_PER_IP, CHECK_WINDOW);
 		return !users.existsByNicknameAndKind(nickname, UserKind.PERSONAL);
 	}
 
@@ -97,7 +85,6 @@ public class SignupService {
 	 * 비밀번호 해시(bcrypt ~250ms)는 트랜잭션 밖에서 먼저 계산해 DB 커넥션을 오래 잡지 않는다.
 	 */
 	public UUID signupPersonal(SignupPersonalRequest req, String ip) {
-		limiter.hit("signup:ip:" + ip, SIGNUP_PER_IP, SIGNUP_WINDOW);
 
 		// 아이디 포함 금지는 두 필드가 필요해 Bean Validation 이 아니라 여기서. 응답은 같은 VALIDATION 형식
 		if (req.password().toLowerCase(Locale.ROOT).contains(req.loginId().toLowerCase(Locale.ROOT))) {
@@ -126,7 +113,6 @@ public class SignupService {
 	 * TODO(국세청 연동 전): 지금은 로컬 개발에서만 형식·중복만 보고 토큰을 발급한다. 연동하면 휴·폐업 확인을 여기에.
 	 */
 	public String verifyBusiness(BusinessVerifyRequest req, String ip) {
-		limiter.hit("signup:biz-verify:ip:" + ip, SIGNUP_PER_IP, SIGNUP_WINDOW);
 		if (!props.isLocal()) {
 			throw new ApiException(ErrorCode.BUSINESS_VERIFICATION_UNAVAILABLE);
 		}
@@ -140,7 +126,6 @@ public class SignupService {
 
 	/** 사업자번호는 조회 토큰에서 가져오고, 계정·회사 정보는 trd_user_info 한 행에 저장한다. */
 	public UUID signupBusiness(SignupBusinessRequest req, String ip) {
-		limiter.hit("signup:ip:" + ip, SIGNUP_PER_IP, SIGNUP_WINDOW);
 		// 한 페이지 폼이라 아이디 중복 같은 오류로 다시 제출하는 일이 흔하다. 토큰은 가입이 끝난 뒤에 지운다
 		// (같은 토큰으로 두 번 가입되는 경쟁은 bus_reg_id 유일 제약이 막는다)
 		String tokenKey = BUSINESS_VERIFY_PREFIX + req.verificationToken();

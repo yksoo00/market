@@ -21,7 +21,6 @@ public enum ErrorCode {
 
 	// 인증
 	INVALID_CREDENTIALS(HttpStatus.UNAUTHORIZED, "아이디 또는 비밀번호가 맞지 않습니다."),
-	LOCKED(HttpStatus.TOO_MANY_REQUESTS, "로그인을 5회 이상 실패해 15분간 잠겼습니다."),
 	SESSION_EXPIRED(HttpStatus.UNAUTHORIZED, "다시 로그인해 주세요."),
 
 	// 가입
@@ -57,7 +56,6 @@ public enum ErrorCode {
 	// 업로드
 	UPLOAD_INVALID_TYPE(HttpStatus.BAD_REQUEST, "올릴 수 없는 파일 형식입니다."),
 	UPLOAD_TOO_LARGE(HttpStatus.CONTENT_TOO_LARGE, "파일이 너무 큽니다."),
-	UPLOAD_QUOTA_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "오늘 올릴 수 있는 파일 용량(300MB)을 넘었습니다."),
 	STORAGE_FULL(HttpStatus.SERVICE_UNAVAILABLE, "지금은 파일을 올릴 수 없습니다. 잠시 후 다시 시도해 주세요.");
 
 	private final HttpStatus status;

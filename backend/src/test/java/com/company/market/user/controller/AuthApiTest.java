@@ -170,17 +170,6 @@ class AuthApiTest {
 		}
 
 		@Test
-		@DisplayName("5회 실패하면 맞는 비밀번호로도 429 LOCKED")
-		void lockAfterFiveFailures() throws Exception {
-			for (int i = 0; i < 5; i++) {
-				mvc.perform(loginRequest("tester1", "wrong-wrong-1!", true)).andExpect(status().isUnauthorized());
-			}
-
-			mvc.perform(loginRequest("tester1", PASSWORD, true)).andExpect(status().isTooManyRequests())
-				.andExpect(jsonPath("$.code").value("LOCKED"));
-		}
-
-		@Test
 		@DisplayName("우리 프론트 출처의 POST 는 통과, 다른 출처는 403 (CSRF)")
 		void originCheck() throws Exception {
 			mvc.perform(loginRequest("tester1", PASSWORD, true).header(HttpHeaders.ORIGIN, APP_ORIGIN)).andExpect(status().isOk());
@@ -372,13 +361,11 @@ class AuthApiTest {
 	class SecurityLogs {
 
 		@Test
-		@DisplayName("로그인 실패·잠금은 IP 와 userId 만 남기고 아이디·이메일은 남기지 않는다")
-		void failureAndLockLogged(CapturedOutput output) throws Exception {
-			for (int i = 0; i < 5; i++) {
-				mvc.perform(loginRequest("tester1", "wrong-wrong-1!", true).with(r -> { r.setRemoteAddr("10.1.2.3"); return r; }));
-			}
+		@DisplayName("로그인 실패는 IP 와 userId 만 남기고 아이디·이메일은 남기지 않는다")
+		void failureLogged(CapturedOutput output) throws Exception {
+			mvc.perform(loginRequest("tester1", "wrong-wrong-1!", true).with(r -> { r.setRemoteAddr("10.1.2.3"); return r; }));
 
-			assertThat(output).contains("로그인 실패 userId=" + personal.getId() + " ip=10.1.2.3").contains("로그인 잠금");
+			assertThat(output).contains("로그인 실패 userId=" + personal.getId() + " ip=10.1.2.3");
 			assertThat(output.getOut()).doesNotContain("tester1").doesNotContain("tester1@example.com");
 		}
 

@@ -522,22 +522,6 @@ class ListingApiTest {
 	}
 
 	@Test
-	@DisplayName("서비스 입력 검증 실패(최소주문량 > 판매수량, 남의 파일 키)는 등록·수정 한도를 깎지 않는다")
-	void validationFailureDoesNotConsumeRateLimit() throws Exception {
-		createWithFields("노트북 R1", "\"minOrderQuantity\":5").andExpect(status().isBadRequest());
-		createWithPhoto(uploaded(otherUserCookie(), UploadKind.LISTING_PHOTO), "노트북 R2").andExpect(status().isBadRequest());
-		assertThat(redis.opsForValue().get("listing:create:" + userId)).isIn(null, "0");
-
-		String regDate = createListing(authCookie);
-		assertThat(redis.opsForValue().get("listing:create:" + userId)).isEqualTo("1");
-
-		patchListing(regDate, "{\"minOrderQuantity\":99}").andExpect(status().isBadRequest());
-		assertThat(redis.opsForValue().get("listing:update:" + userId)).isIn(null, "0");
-		patchListing(regDate, "{\"salesUnitPrice\":900}").andExpect(status().isOk());
-		assertThat(redis.opsForValue().get("listing:update:" + userId)).isEqualTo("1");
-	}
-
-	@Test
 	@DisplayName("같은 Idempotency-Key 로 다시 등록하면(응답 유실 후 재시도) 새로 만들지 않고 처음 매물을 돌려준다")
 	void idempotentCreateReturnsFirstListing() throws Exception {
 		String key = UUID.randomUUID().toString();
@@ -548,21 +532,6 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.data.regDate").value(first))
 			.andExpect(jsonPath("$.data.prodName").value("노트북 I1"));
 		assertThat(listingRepository.count()).isEqualTo(1);
-	}
-
-	@Test
-	@DisplayName("한도를 다 쓴 뒤에도 같은 키 재요청은 처음 매물을 돌려주고, 재전송·처리 중 응답은 한도를 깎지 않는다")
-	void idempotentReplayIgnoresRateLimit() throws Exception {
-		String key = UUID.randomUUID().toString();
-		createIdempotent(key, "노트북 I7").andExpect(status().isCreated());
-		redis.opsForValue().set("listing:create:" + userId, "10");
-
-		createIdempotent(key, "노트북 I7").andExpect(status().isCreated())
-			.andExpect(jsonPath("$.data.prodName").value("노트북 I7"));
-		String pending = UUID.randomUUID().toString();
-		redis.opsForValue().set("idem:listing-create:" + userId + ":" + pending, "PENDING");
-		createIdempotent(pending, "노트북 I8").andExpect(status().isConflict());
-		assertThat(redis.opsForValue().get("listing:create:" + userId)).isEqualTo("10");
 	}
 
 	@Test

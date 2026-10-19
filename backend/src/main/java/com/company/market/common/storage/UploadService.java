@@ -14,7 +14,6 @@ import java.util.UUID;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.exception.ValidationException;
-import com.company.market.common.ratelimit.RateLimiter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
@@ -67,21 +66,16 @@ public class UploadService {
 
 	private static final Duration RECORD_TTL = Duration.ofHours(24);
 
-	/** 사용자당 하루 업로드 용량 (security.md "파일 업로드"). 계정 하나가 디스크를 채우지 못하게 */
-	static final long DAILY_BYTES = 300L * 1024 * 1024;
-
 	private final FileStorage storage;
 
 	private final StringRedisTemplate redis;
-
-	private final RateLimiter limiter;
 
 	private final Clock clock;
 
 	private final StorageProperties props;
 
 	public String upload(UUID userId, String kindValue, MultipartFile file) throws IOException {
-		limiter.hit("upload:rate:" + userId, 20, Duration.ofMinutes(10));
+		// TODO(rate limit 보류, decisions.md 2026-10-19): 업로드 횟수·하루 용량 한도를 지웠다. 운영 전에 다시 넣는다
 		UploadKind kind = UploadKind.fromValue(kindValue)
 			.orElseThrow(() -> new ValidationException(Map.of("kind", "알 수 없는 업로드 용도입니다.")));
 		FileType type = FileType.fromFilename(file.getOriginalFilename())
@@ -98,12 +92,9 @@ public class UploadService {
 				throw new ApiException(ErrorCode.UPLOAD_INVALID_TYPE);
 			}
 		}
-		// 디스크 하한을 하루 사용량보다 먼저 본다 — 서버 사정으로 거부된 업로드가 사용자 한도를 깎지 않게
+		// 디스크 하한 — 같은 디스크의 Postgres 보호 (security.md "파일 업로드")
 		if (storage.usableSpace() - file.getSize() < props.minFree().toBytes()) {
 			throw new ApiException(ErrorCode.STORAGE_FULL);
-		}
-		if (!limiter.tryConsume("upload:bytes:" + userId, file.getSize(), DAILY_BYTES, Duration.ofDays(1))) {
-			throw new ApiException(ErrorCode.UPLOAD_QUOTA_EXCEEDED);
 		}
 
 		String key = kind.newKey(type, clock);

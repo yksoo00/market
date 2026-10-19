@@ -11,7 +11,6 @@ const checkButton = (page: Page, name: string) =>
   page.locator(`input[name="${name}"]`).locator("xpath=ancestor::div[.//button][1]").getByRole("button", { name: signup.form.check });
 
 // 가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 내 판매글(행 안 수정). 실행마다 새 계정이라 로컬 DB 에 사용자·매물이 하나씩 남는다 (서로 안 겹침)
-// 가입은 IP 당 시간당 5회 — 한 시간에 6번 이상 돌리면 가입 단계가 429 로 실패한다
 // 방금 등록한 글의 표 행 (다른 글이 함께 보여도 이 행만 본다)
 const rowOf = (page: Page, name: string) => page.getByRole("table").getByRole("row").filter({ hasText: name });
 

@@ -1,12 +1,10 @@
 package com.company.market.trade.controller;
 
-import java.time.Duration;
 import java.util.Map;
 
 import com.company.market.common.api.ApiResponse;
 import com.company.market.common.auth.AuthenticatedUser;
 import com.company.market.common.idempotency.IdempotencyGuard;
-import com.company.market.common.ratelimit.RateLimiter;
 import com.company.market.trade.dto.TradeCreateRequest;
 import com.company.market.trade.dto.TradePageResponse;
 import com.company.market.trade.dto.TradeResponse;
@@ -32,23 +30,20 @@ public class TradeController {
 
 	private final TradeService trades;
 
-	private final RateLimiter limiter;
-
 	private final IdempotencyGuard idempotency;
 
-	/** 구매요청. 매물 등록과 같은 순서 — 멱등 검사가 한도 바깥이라 응답 유실 후 재전송은 한도를 깎지 않는다 */
+	/** 구매요청. 응답 유실 후 재전송은 멱등 키로 처음 거래를 돌려준다. TODO(rate limit 보류, decisions.md 2026-10-19): 요청 한도를 지웠다 */
 	@PostMapping
 	public ResponseEntity<ApiResponse<TradeResponse>> create(@AuthenticationPrincipal AuthenticatedUser me,
 			@Valid @RequestBody TradeCreateRequest req,
 			@RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey) {
 		TradeResponse created = idempotency.run("trade-create", me.id(), idempotencyKey,
-				() -> limiter.hitUnlessInvalid("trade:create:" + me.id(), 20, Duration.ofHours(1),
-						() -> trades.request(me.id(), req)),
+				() -> trades.request(me.id(), req),
 				TradeResponse::tradeId, tradeId -> trades.get(me.id(), tradeId));
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(created));
 	}
 
-	/** 구매자 거래완료 → 구매확정. 상태가 바뀌는 쓰기지만 거래당 한 번만 성공하므로 별도 한도는 두지 않는다 */
+	/** 구매자 거래완료 → 구매확정 */
 	@PostMapping("/{tradeId}/complete")
 	public ApiResponse<TradeResponse> complete(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable String tradeId) {
 		return ApiResponse.of(trades.complete(me.id(), tradeId));

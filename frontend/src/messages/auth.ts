@@ -23,7 +23,6 @@ export const auth = {
     // 서버 코드 → 문구. 없는 코드는 서버 message 그대로
     errors: {
       INVALID_CREDENTIALS: "아이디 또는 비밀번호가 맞지 않습니다.",
-      LOCKED: "로그인을 5회 이상 실패해 15분간 잠겼습니다. 잠시 후 다시 시도하세요.",
       RATE_LIMITED: "시도가 너무 많습니다. 잠시 후 다시 시도하세요.",
       SESSION_EXPIRED: "로그인이 만료되었습니다. 다시 로그인해 주세요.",
     } as Record<string, string>,

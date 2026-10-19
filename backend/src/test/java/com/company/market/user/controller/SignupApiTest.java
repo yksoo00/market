@@ -299,29 +299,4 @@ class SignupApiTest {
 
 	}
 
-	@Test
-	@DisplayName("중복확인은 같은 IP 에서 분당 30회까지 — 아이디 존재 여부 훑기 방지")
-	void checkApisRateLimited() throws Exception {
-		for (int i = 0; i < 30; i++) {
-			mvc.perform(post("/api/v1/auth/signup/check-login-id").contentType(MediaType.APPLICATION_JSON).content("{\"loginId\":\"probe" + i + "\"}")
-				.with(r -> { r.setRemoteAddr("10.7.7.7"); return r; })).andExpect(status().isOk());
-		}
-
-		mvc.perform(post("/api/v1/auth/signup/check-nickname").contentType(MediaType.APPLICATION_JSON).content("{\"nickname\":\"아무거나\"}")
-				.with(r -> { r.setRemoteAddr("10.7.7.7"); return r; }))
-			.andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.code").value("RATE_LIMITED"));
-	}
-
-	@Test
-	@DisplayName("같은 IP 에서 6번째 가입 시도는 429 (5회/시간)")
-	void rateLimitedPerIp() throws Exception {
-		for (int i = 0; i < 5; i++) {
-			// 서비스 검증 실패(비밀번호에 아이디 포함)도 시도로 센다 — 비용이 드는 건 시도 자체라서
-			mvc.perform(signupFrom("10.9.9.9", Map.of("password", "Gildong1-pass!"))).andExpect(status().isBadRequest());
-		}
-
-		mvc.perform(signupFrom("10.9.9.9", Map.of())).andExpect(status().isTooManyRequests()).andExpect(jsonPath("$.code").value("RATE_LIMITED"));
-		mvc.perform(signupFrom("10.9.9.10", Map.of())).andExpect(status().isCreated());
-	}
-
 }

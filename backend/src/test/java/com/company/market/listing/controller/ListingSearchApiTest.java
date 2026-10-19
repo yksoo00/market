@@ -10,7 +10,6 @@ import com.company.market.TestInfraConfiguration;
 import com.company.market.common.auth.AuthCookies;
 import com.company.market.common.auth.JwtProvider;
 import com.company.market.common.crypto.PiiHasher;
-import com.company.market.common.ratelimit.RateLimiter;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.repository.ListingRepository;
@@ -69,9 +68,6 @@ class ListingSearchApiTest {
 	@Autowired
 	JwtProvider jwtProvider;
 
-	@Autowired
-	RateLimiter limiter;
-
 	UUID userId;
 
 	@BeforeEach
@@ -83,21 +79,15 @@ class ListingSearchApiTest {
 			.passwordHash("$2a$12$hash").nickname("searchtester").email("searchtester@example.com")
 			.name("홍길동").phone("01012340000").phoneHash(hasher.hash("01012340000")).build());
 		userId = user.getId();
-		// 비로그인 검색은 IP(MockMvc 는 127.0.0.1) 분당 60 — 테스트끼리 카운터가 쌓이지 않게
-		limiter.reset(SEARCH_LIMIT_KEY);
 	}
 
-	// 다른 테스트 클래스에 흔적을 남기지 않는다: 매물이 남으면 그쪽의 "사용자 전체 삭제"가 FK 로 실패하고,
-	// 카운터가 남으면 ListingApiTest 의 비로그인 목록 호출이 429 에 걸린다
+	// 다른 테스트 클래스에 흔적을 남기지 않는다: 매물이 남으면 그쪽의 "사용자 전체 삭제"가 FK 로 실패한다
 	@AfterEach
 	void cleanUp() {
 		jdbc.update("delete from trd_prod_reg");
 		jdbc.update("delete from trd_prod_master");
 		jdbc.update("delete from trd_user_info");
-		limiter.reset(SEARCH_LIMIT_KEY);
 	}
-
-	private static final String SEARCH_LIMIT_KEY = "listing:search:ip:127.0.0.1";
 
 	private void expectInvalid(String field, String... params) throws Exception {
 		MockHttpServletRequestBuilder req = get("/api/v1/listings");
@@ -147,26 +137,6 @@ class ListingSearchApiTest {
 	@DisplayName("최소 가격이 최대 가격보다 크면 400, 오류는 maxPrice 에")
 	void minPriceOverMaxIs400() throws Exception {
 		expectInvalid("maxPrice", "minPrice", "10", "maxPrice", "5");
-	}
-
-	@Test
-	@DisplayName("비로그인 검색은 IP 분당 60회, 61번째는 429")
-	void anonymousSearchIsRateLimited() throws Exception {
-		for (int i = 0; i < 60; i++) {
-			mvc.perform(get("/api/v1/listings")).andExpect(status().isOk());
-		}
-		mvc.perform(get("/api/v1/listings"))
-			.andExpect(status().isTooManyRequests())
-			.andExpect(jsonPath("$.code").value("RATE_LIMITED"));
-	}
-
-	@Test
-	@DisplayName("로그인 사용자 검색은 제한하지 않는다")
-	void loggedInSearchIsNotRateLimited() throws Exception {
-		Cookie auth = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId));
-		for (int i = 0; i < 61; i++) {
-			mvc.perform(get("/api/v1/listings").cookie(auth)).andExpect(status().isOk());
-		}
 	}
 
 	private void save(String prodId, String regDate, String name, String prodNo, String brand, int price, int stock,
