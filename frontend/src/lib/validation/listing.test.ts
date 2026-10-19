@@ -56,11 +56,11 @@ describe("listingFormSchema", () => {
     }
   });
 
-  it("재고·최소주문량·주문단위는 비우면 undefined, 범위 밖이면 오류", () => {
+  it("최소주문량·주문단위는 비우면 undefined, 범위 밖이면 오류", () => {
     const d = parse({}).data;
-    expect([d?.stockQuantity, d?.minOrderQuantity, d?.orderUnit]).toEqual([undefined, undefined, undefined]);
-    expect(parse({ stockQuantity: "0" }).data?.stockQuantity).toBe(0);
-    expect(errorPaths({ stockQuantity: "100001" })).toEqual(["stockQuantity"]);
+    expect([d?.minOrderQuantity, d?.orderUnit]).toEqual([undefined, undefined]);
+    // 등록엔 재고 칸이 없다 — 서버가 재고 = 판매수량으로 저장 (재고는 수정 화면에서)
+    expect(d).not.toHaveProperty("stockQuantity");
     expect(errorPaths({ minOrderQuantity: "0" })).toEqual(["minOrderQuantity"]);
     expect(errorPaths({ orderUnit: "100001" })).toEqual(["orderUnit"]);
   });

@@ -28,7 +28,6 @@ export function toCreateRequest(v: ListingFormOutput): ListingCreateRequest {
     prodNo: picked ? undefined : v.prodNo,
     prodMufcDate: picked ? undefined : v.prodMufcDate?.replaceAll("-", ""),
     prodSpecInfo: picked ? undefined : v.prodSpecInfo,
-    stockQuantity: v.stockQuantity,
     minOrderQuantity: v.minOrderQuantity,
     orderUnit: v.orderUnit,
     deliveryDate: v.deliveryDate,

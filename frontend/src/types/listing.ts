@@ -22,7 +22,6 @@ export interface ListingCreateRequest {
   orderUnit?: number;
   /** YYYY-MM-DD */
   deliveryDate?: string;
-  stockQuantity?: number;
   description?: string;
   /** 업로드 키 (POST /api/v1/uploads 응답) */
   listingDataSheet?: string;

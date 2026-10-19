@@ -26,7 +26,7 @@ const t = listing.form;
 // 서버 fields 를 붙일 수 있는 칸. 서버 필드명 = 요청 필드명 = 폼 칸 이름
 const fields = [
   "categoryCode", "prodName", "prodBrand", "prodNo", "prodMufcDate", "prodSpecInfo", "prodState",
-  "salesUnitPrice", "salesQuantity", "stockQuantity", "minOrderQuantity", "orderUnit", "deliveryDate", "description",
+  "salesUnitPrice", "salesQuantity", "minOrderQuantity", "orderUnit", "deliveryDate", "description",
   "photos", "listingDataSheet",
 ] as const;
 
@@ -151,7 +151,6 @@ export function ListingForm({ initialValues, submitLabel, secondarySubmitLabel, 
             note={/^\d+$/.test(price) ? <span className="text-ink-3">{t.price(formatPrice(Number(price)))}</span> : undefined}
           />
           <NumberField name="salesQuantity" label={t.salesQuantity} />
-          <NumberField name="stockQuantity" label={t.stockQuantity} placeholder={t.stockQuantityPlaceholder} />
           <NumberField name="minOrderQuantity" label={t.minOrderQuantity} placeholder={t.defaultOne} />
           <NumberField name="orderUnit" label={t.orderUnit} placeholder={t.defaultOne} />
           <FormField<ListingFormInput> inline name="deliveryDate" label={t.deliveryDate} type="date" min={today} />

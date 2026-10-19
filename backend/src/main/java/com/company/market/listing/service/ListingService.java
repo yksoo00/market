@@ -136,7 +136,8 @@ public class ListingService {
 			.minOrderQuantity(minOrderQuantity)
 			.orderUnit(orderUnit)
 			.deliveryDate(req.deliveryDate() == null || req.deliveryDate().isEmpty() ? null : req.deliveryDate())
-			.stockQuantity(req.stockQuantity() == null ? req.salesQuantity() : req.stockQuantity())
+			// 등록할 땐 재고 = 판매수량 (사용자 지시 2026-10-19). 재고만 따로 고치는 건 수정 화면에서
+			.stockQuantity(req.salesQuantity())
 			.prodDescription(req.description())
 			.prodDataSheet(dataSheet)
 			.prodPhoto1(photoAt(photos, 0))

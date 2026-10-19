@@ -25,8 +25,11 @@ export function Wide({ children }: { children: ReactNode }) {
   return <div className="@md:col-span-2">{children}</div>;
 }
 
-export function NumberField({ name, label, placeholder }: { name: "salesQuantity" | "stockQuantity" | "minOrderQuantity" | "orderUnit"; label: string; placeholder?: string }) {
-  return <FormField<ListingFormInput> inline name={name} label={label} placeholder={placeholder} inputMode="numeric" maxLength={6} className="font-mono tabular-nums" />;
+type NumberName = "salesQuantity" | "stockQuantity" | "minOrderQuantity" | "orderUnit";
+
+// 재고수량은 수정 폼에만 있어(등록은 재고 = 판매수량) 등록 폼 타입 대신 이 칸들만 가진 타입으로 본다
+export function NumberField({ name, label, placeholder }: { name: NumberName; label: string; placeholder?: string }) {
+  return <FormField<Record<NumberName, string>> inline name={name} label={label} placeholder={placeholder} inputMode="numeric" maxLength={6} className="font-mono tabular-nums" />;
 }
 
 export function DescriptionField() {

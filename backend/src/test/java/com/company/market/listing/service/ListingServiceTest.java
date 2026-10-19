@@ -56,7 +56,7 @@ class ListingServiceTest {
 		when(listings.saveAndFlush(any())).thenThrow(new DataIntegrityViolationException("duplicate key"));
 
 		ListingCreateRequest req = new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성", null, null, null,
-			"판매", "신품", 1000, 1, null, null, null, null, null, null, List.of("p.jpg"));
+			"판매", "신품", 1000, 1, null, null, null, null, null, List.of("p.jpg"));
 
 		assertThatThrownBy(() -> service.create(UUID.randomUUID(), req))
 			.isInstanceOf(ApiException.class)
@@ -73,10 +73,10 @@ class ListingServiceTest {
 			.categoryCode("P01-Q01-R001").prodName("노트북").prodBrand("삼성").build());
 
 		service.create(UUID.randomUUID(), new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성", "20261002", null, null,
-				"판매", "신품", 1000, 1, null, null, "2026-10-02", null, null, null, List.of("p.jpg")));
+				"판매", "신품", 1000, 1, null, null, "2026-10-02", null, null, List.of("p.jpg")));
 
 		assertThatThrownBy(() -> service.create(UUID.randomUUID(), new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성",
-				null, null, null, "판매", "신품", 1000, 1, null, null, "2026-10-01", null, null, null, List.of("p.jpg"))))
+				null, null, null, "판매", "신품", 1000, 1, null, null, "2026-10-01", null, null, List.of("p.jpg"))))
 			.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.getFields()).containsKey("deliveryDate"));
 	}
 

@@ -272,6 +272,18 @@ class ListingApiTest {
 	}
 
 	@Test
+	@DisplayName("등록하면 재고는 판매수량과 같다 — 요청에 stockQuantity 를 보내도 무시한다")
+	void createSetsStockToSalesQuantity() throws Exception {
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"P01-Q01-R001","prodName":"노트북 S","prodBrand":"삼성",
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":7,"stockQuantity":2}
+					"""))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.stockQuantity").value(7));
+	}
+
+	@Test
 	@DisplayName("등록 시 보낸 상품번호·사양정보·매물 데이터시트가 응답에 그대로 담긴다")
 	void responseIncludesProductAndListingDetailFields() throws Exception {
 		String sheet = uploaded(authCookie, UploadKind.LISTING_DATASHEET);
