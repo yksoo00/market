@@ -18,6 +18,13 @@ params:query {
   ~minPrice: 0
   ~maxPrice: 1000000
   ~deliveryBy: 2026-12-31
+  ~category: P01
+  ~state: 80
+  ~brand: Dell
+  ~minWarranty: 360
+  ~coverage: replace
+  ~has: datasheet,photo
+  ~maxMinOrder: 5
   ~cursor:
   ~mine: true
 }
@@ -29,6 +36,9 @@ docs {
   - field: all(상품명+상품번호+제조사, 기본) | name(상품명+상품번호) | brand(제조사)
   - status: available | completed | all(기본 — 파라미터 없는 호출은 전체)
   - minStock(0~100,000), minPrice·maxPrice(0~10억, 최소 ≤ 최대), deliveryBy(YYYY-MM-DD, 납기일 없는 매물 제외)
+  - 상세 필터 (2026-10-19): category(대·중·소 코드, 그 아래 전부), state(new|90|80|70|60|50 — 그 구간 이상),
+    brand(제조사 부분 일치, 50자), minWarranty(보증기한 일수 이상, 0~1080), coverage(replace=대체|refund=환불),
+    has(datasheet,photo,testReport,certificate,replaceProd 쉼표 — 전부 가진 것), maxMinOrder(최소주문 N 이하, 1~100,000)
   - mine: true 면 요청자 본인 글만 (로그인 필요 — 없으면 401 UNAUTHENTICATED). 본인 id 는 인증 정보에서만, 다른 조건과 함께 쓴다
   - cursor: 앞 응답의 nextCursor
   200 { ok, data: { items: [ListingSearchItemResponse], nextCursor, total } }. 등록일시 내림차순, 20건씩.

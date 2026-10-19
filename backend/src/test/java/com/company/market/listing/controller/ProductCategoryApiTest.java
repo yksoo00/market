@@ -85,9 +85,9 @@ class ProductCategoryApiTest {
 	}
 
 	@Test
-	@DisplayName("카테고리 목록: 시드 239건이 코드순으로 나오고, 로그인 없이는 401")
+	@DisplayName("카테고리 목록: 시드 239건이 코드순으로, 로그인 없이도 (검색 필터가 비로그인에도 쓴다)")
 	void categoriesListSeed() throws Exception {
-		mvc.perform(get("/api/v1/categories")).andExpect(status().isUnauthorized());
+		mvc.perform(get("/api/v1/categories")).andExpect(status().isOk());
 		mvc.perform(get("/api/v1/categories").cookie(cookie()))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.length()").value(239))
