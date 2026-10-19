@@ -128,6 +128,13 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await expect(page.locator("iframe")).toHaveCount(1);
   });
 
+  await test.step("마이페이지 바로가기 — 마이페이지 칸이 그 화면으로 바뀐다 (홈 | 내 판매글, 3분할 아님)", async () => {
+    await page.getByRole("main").getByRole("link", { name: my.menu.myListings }).click();
+    await expect(page).toHaveURL(/\/my\/listings$/);
+    await expect(rowOf(page, prodName)).toBeVisible();
+    await expect(page.locator("iframe")).toHaveCount(1);
+  });
+
   await test.step("내 판매글 — 검색 화면 모양으로 방금 글이 보이고, 행 안에서 상품상태를 고친다", async () => {
     await page.getByRole("button", { name: my.menu.label }).click();
     await page.getByRole("menuitem", { name: my.menu.myListings }).click();
