@@ -48,6 +48,8 @@ public class SecurityConfig {
 				.requestMatchers("/api/v1/auth/**", "/actuator/health", "/actuator/health/**").permitAll()
 				// 매물 목록·상세는 공개 조회 (등록·수정·삭제는 아래 anyRequest 로 인증 필요)
 				.requestMatchers(HttpMethod.GET, "/api/v1/listings", "/api/v1/listings/*/*").permitAll()
+				// 카테고리 목록은 검색 필터(비로그인 공개)가 쓴다. 분류 이름뿐이라 개인정보 없음 (2026-10-19)
+				.requestMatchers(HttpMethod.GET, "/api/v1/categories").permitAll()
 				// 업로드 파일 열람: 공개/비공개(로그인) 판단은 FileController 가 폴더로 한다
 				.requestMatchers(HttpMethod.GET, "/api/v1/files/**").permitAll()
 				.requestMatchers(HttpMethod.HEAD, "/api/v1/files/**").permitAll()

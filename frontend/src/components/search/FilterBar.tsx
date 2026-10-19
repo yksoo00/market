@@ -3,9 +3,21 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { Icon } from "@/components/common/Icon";
-import { activeFilterCount, buildSearchHref, clearFilters, type SearchQuery, type SearchScope } from "@/lib/search";
+import { FilterCategoryPicker } from "@/components/search/FilterCategoryPicker";
+import {
+  activeFilterCount,
+  buildSearchHref,
+  clearFilters,
+  COVERAGE_FILTERS,
+  detailFilterCount,
+  HAS_ITEMS,
+  STATE_FILTERS,
+  WARRANTY_FILTER_MONTHS,
+  type SearchQuery,
+  type SearchScope,
+} from "@/lib/search";
 import {
   filterDefaults,
   searchFilterSchema,
@@ -24,10 +36,15 @@ export function FilterBar({ query, scope = "search" }: { query: SearchQuery; sco
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const count = activeFilterCount(query, scope);
+  const detailCount = detailFilterCount(query);
+  // 상세 필터: 걸린 게 있으면 펼친 채로 연다 (걸려 있는데 안 보이면 왜 결과가 적은지 모른다)
+  const [detailOpen, setDetailOpen] = useState(detailCount > 0);
   const {
     register,
     handleSubmit,
     reset,
+    setValue,
+    control: formControl,
     formState: { errors, isValid },
   } = useForm<SearchFilterInput, unknown, SearchFilterOutput>({
     resolver: zodResolver(searchFilterSchema),
@@ -35,6 +52,11 @@ export function FilterBar({ query, scope = "search" }: { query: SearchQuery; sco
     reValidateMode: "onChange",
     defaultValues: filterDefaults(query),
   });
+
+  const category = useWatch({ control: formControl, name: "category" });
+  // 상세 칸에 오류가 있으면 접어도 보이게 — 숨은 오류로 [적용]만 꺼져 있으면 이유를 모른다
+  const detailError = Boolean(errors.deliveryBy || errors.brand || errors.maxMinOrder);
+  const showDetail = detailOpen || detailError;
 
   const onSubmit = handleSubmit((values) => router.push(buildSearchHref({ ...query, ...values }, scope)));
   const onReset = () => {
@@ -64,9 +86,6 @@ export function FilterBar({ query, scope = "search" }: { query: SearchQuery; sco
         noValidate
         className={`${open ? "flex" : "hidden"} @md:flex flex-col @md:flex-row @md:flex-wrap @md:items-start gap-3 @md:gap-x-5 p-3 rounded-md border border-line bg-surface`}
       >
-        {/* 카테고리 필터 보류: 카테고리 마스터 미정 (decisions.md 2026-10-02 매물 검색) — 정해지면 select 복원.
-            폼 값의 category 는 그대로 둬 URL 에 있던 값이 '적용' 뒤에도 유지된다 */}
-
         <Field label={t.status} labelId="f-status">
           <div role="radiogroup" aria-labelledby="f-status" className="flex h-8.5 rounded-md border border-line overflow-hidden">
             {STATUSES.map((s, i) => (
@@ -79,6 +98,15 @@ export function FilterBar({ query, scope = "search" }: { query: SearchQuery; sco
               </label>
             ))}
           </div>
+        </Field>
+
+        {/* 카테고리 (2026-10-19 복원 — 마스터 테이블 도입). 대·중에서 멈추면 그 아래 전부 */}
+        <Field label={t.category} htmlFor="f-category">
+          <FilterCategoryPicker
+            id="f-category"
+            value={category}
+            onChange={(code) => setValue("category", code, { shouldDirty: true, shouldValidate: true })}
+          />
         </Field>
 
         <Field label={t.stock} htmlFor="f-stock" error={errors.minStock?.message} errorId="f-stock-err">
@@ -121,19 +149,20 @@ export function FilterBar({ query, scope = "search" }: { query: SearchQuery; sco
           <span className="text-sm text-ink-2">{t.won}</span>
         </Field>
 
-        <Field label={t.delivery} htmlFor="f-delivery" error={errors.deliveryBy?.message} errorId="f-delivery-err">
-          <input
-            id="f-delivery"
-            type="date"
-            {...register("deliveryBy")}
-            aria-invalid={!!errors.deliveryBy}
-            aria-describedby={errors.deliveryBy ? "f-delivery-err" : undefined}
-            className={`${control} num`}
-          />
-          <span className="text-sm text-ink-2">{t.deliverySuffix}</span>
-        </Field>
-
         <div className="flex items-center justify-end gap-2 @md:ml-auto">
+          <button
+            type="button"
+            aria-expanded={showDetail}
+            aria-controls="search-filter-detail"
+            onClick={() => setDetailOpen((v) => !v)}
+            className="h-8.5 px-2.5 mr-auto @md:mr-2 flex items-center gap-1 rounded-md border border-line text-sm text-ink-2 hover:text-ink"
+          >
+            {t.detail}
+            {detailCount > 0 && <span className="num text-primary">({detailCount})</span>}
+            <span aria-hidden="true" className="text-xs text-ink-3">
+              {showDetail ? "▴" : "▾"}
+            </span>
+          </button>
           <button type="button" onClick={onReset} className="h-8.5 px-2 text-sm text-ink-2 hover:text-ink">
             {t.reset}
           </button>
@@ -144,6 +173,91 @@ export function FilterBar({ query, scope = "search" }: { query: SearchQuery; sco
           >
             {t.apply}
           </button>
+        </div>
+
+        {/* 상세 필터 (사용자 지시 2026-10-19: 한 줄에 다 안 들어가 나눔). 접어도 칸은 남겨 둬 입력하던 값이 지워지지 않는다 */}
+        <div
+          id="search-filter-detail"
+          className={`${showDetail ? "flex" : "hidden"} basis-full flex-col @md:flex-row @md:flex-wrap @md:items-start gap-3 @md:gap-x-5 pt-3 border-t border-line-2`}
+        >
+          <Field label={t.delivery} htmlFor="f-delivery" error={errors.deliveryBy?.message} errorId="f-delivery-err">
+            <input
+              id="f-delivery"
+              type="date"
+              {...register("deliveryBy")}
+              aria-invalid={!!errors.deliveryBy}
+              aria-describedby={errors.deliveryBy ? "f-delivery-err" : undefined}
+              className={`${control} num`}
+            />
+            <span className="text-sm text-ink-2">{t.deliverySuffix}</span>
+          </Field>
+
+          <Field label={t.state} htmlFor="f-state">
+            <select id="f-state" {...register("state")} className={control}>
+              <option value="">{t.stateAny}</option>
+              {STATE_FILTERS.map((s) => (
+                <option key={s} value={s}>
+                  {t.states[s]}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label={t.brand} htmlFor="f-brand" error={errors.brand?.message} errorId="f-brand-err">
+            <input
+              id="f-brand"
+              {...register("brand")}
+              placeholder={t.brandPlaceholder}
+              aria-invalid={!!errors.brand}
+              aria-describedby={errors.brand ? "f-brand-err" : undefined}
+              className={`${control} w-36`}
+            />
+          </Field>
+
+          <Field label={t.warranty} htmlFor="f-warranty">
+            <select id="f-warranty" {...register("minWarranty")} className={control}>
+              <option value="">{t.warrantyAny}</option>
+              {WARRANTY_FILTER_MONTHS.map((m) => (
+                <option key={m} value={String(m * 30)}>
+                  {t.warrantyAtLeast(m)}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label={t.coverage} htmlFor="f-coverage">
+            <select id="f-coverage" {...register("coverage")} className={control}>
+              <option value="">{t.coverageAny}</option>
+              {COVERAGE_FILTERS.map((c) => (
+                <option key={c} value={c}>
+                  {t.coverages[c]}
+                </option>
+              ))}
+            </select>
+          </Field>
+
+          <Field label={t.minOrder} htmlFor="f-min-order" error={errors.maxMinOrder?.message} errorId="f-min-order-err">
+            <input
+              id="f-min-order"
+              inputMode="numeric"
+              {...register("maxMinOrder")}
+              aria-invalid={!!errors.maxMinOrder}
+              aria-describedby={errors.maxMinOrder ? "f-min-order-err" : undefined}
+              className={`${control} w-20 num text-right`}
+            />
+            <span className="text-sm text-ink-2">{t.minOrderSuffix}</span>
+          </Field>
+
+          <Field label={t.has} labelId="f-has">
+            <div role="group" aria-labelledby="f-has" className="flex flex-wrap gap-x-3 gap-y-1.5">
+              {HAS_ITEMS.map((h) => (
+                <label key={h} className="h-8.5 flex items-center gap-1.5 text-sm text-ink cursor-pointer">
+                  <input type="checkbox" value={h} {...register("has")} className="size-4 accent-primary" />
+                  {t.hasItems[h]}
+                </label>
+              ))}
+            </div>
+          </Field>
         </div>
       </form>
     </div>

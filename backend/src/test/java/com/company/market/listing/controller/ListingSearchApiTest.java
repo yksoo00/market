@@ -404,6 +404,82 @@ class ListingSearchApiTest {
 	}
 
 	@Test
+	@DisplayName("상세 필터 형식 오류는 400 과 해당 필드")
+	void detailFilterParamsAre400() throws Exception {
+		expectInvalid("category", "category", "P01%");
+		expectInvalid("category", "category", "P01-Q01-R001-S01");
+		expectInvalid("state", "state", "95");
+		expectInvalid("brand", "brand", "가".repeat(51));
+		expectInvalid("minWarranty", "minWarranty", "1081");
+		expectInvalid("coverage", "coverage", "대체");
+		expectInvalid("has", "has", "datasheet,foo");
+		expectInvalid("maxMinOrder", "maxMinOrder", "0");
+	}
+
+	@Test
+	@DisplayName("카테고리는 고른 대·중·소 코드와 그 아래 전부 (P01 은 P01-Q01-R001 포함, P011 은 아님)")
+	void categoryPrefix() throws Exception {
+		saveFour();
+		jdbc.update("update trd_prod_master set category_code = 'E01-F01-G001' where prod_id = 'ELEC00010002'");
+		assertThat(regDates("category", "P01")).containsExactly(A, C, D);
+		assertThat(regDates("category", "P01-Q01")).containsExactly(A, C, D);
+		assertThat(regDates("category", "P01-Q01-R001")).containsExactly(A, C, D);
+		assertThat(regDates("category", "E01")).containsExactly(B);
+		assertThat(regDates("category", "P0")).isEmpty();
+	}
+
+	@Test
+	@DisplayName("상품상태는 고른 구간 이상 — 목록 밖 옛 값은 어느 구간에도 안 걸린다")
+	void stateAtLeast() throws Exception {
+		saveFour();
+		jdbc.update("update trd_prod_reg set prod_state = '신품' where reg_date = ?", A);
+		jdbc.update("update trd_prod_reg set prod_state = '신품대비 80~89%' where reg_date = ?", B);
+		jdbc.update("update trd_prod_reg set prod_state = '신품대비 50% 미만' where reg_date = ?", C);
+		assertThat(regDates("state", "new")).containsExactly(A);
+		assertThat(regDates("state", "90")).containsExactly(A);
+		assertThat(regDates("state", "80")).containsExactly(A, B);
+		assertThat(regDates("state", "50")).containsExactly(A, B);
+	}
+
+	@Test
+	@DisplayName("제조사는 부분 일치·대소문자 무시, % 는 글자 그대로")
+	void brandContains() throws Exception {
+		saveFour();
+		assertThat(regDates("brand", "micro")).containsExactly(A);
+		assertThat(regDates("brand", "DELL")).containsExactly(B);
+		assertThat(regDates("brand", "%")).isEmpty();
+	}
+
+	@Test
+	@DisplayName("보증기간 N일 이상, 불량지원 대체·환불, 최소주문 N개 이하")
+	void warrantyCoverageMinOrder() throws Exception {
+		saveFour();
+		jdbc.update("update trd_prod_reg set warranty_period = 360, warranty_coverage = '대체' where reg_date = ?", A);
+		jdbc.update("update trd_prod_reg set warranty_period = 90, warranty_coverage = '환불', min_order_quantity = 5 where reg_date = ?", B);
+		assertThat(regDates("minWarranty", "90")).containsExactly(A, B);
+		assertThat(regDates("minWarranty", "180")).containsExactly(A);
+		assertThat(regDates("minWarranty", "0")).containsExactly(A, B, C, D);
+		assertThat(regDates("coverage", "replace")).containsExactly(A);
+		assertThat(regDates("coverage", "refund")).containsExactly(B);
+		assertThat(regDates("maxMinOrder", "4")).containsExactly(A, C, D);
+		assertThat(regDates("maxMinOrder", "5")).containsExactly(A, B, C, D);
+	}
+
+	@Test
+	@DisplayName("자료 있음은 고른 것을 전부 가진 매물만 (매물 값 기준)")
+	void hasFiles() throws Exception {
+		saveFour();
+		jdbc.update("update trd_prod_reg set prod_data_sheet = 'd.pdf', prod_photo_2 = 'p.jpg', test_report = 't.pdf' where reg_date = ?", A);
+		jdbc.update("update trd_prod_reg set prod_data_sheet = 'd.pdf', prod_coa = 'c.pdf', replace_prod = 'X' where reg_date = ?", B);
+		// 상품마스터 파일은 보지 않는다
+		jdbc.update("update trd_prod_master set prod_data_sheet = 'm.pdf' where prod_id = 'ELEC00010003'");
+		assertThat(regDates("has", "datasheet")).containsExactly(A, B);
+		assertThat(regDates("has", "datasheet,photo")).containsExactly(A);
+		assertThat(regDates("has", "testReport")).containsExactly(A);
+		assertThat(regDates("has", "certificate,replaceProd")).containsExactly(B);
+	}
+
+	@Test
 	@DisplayName("사진·데이터시트 표시는 매물 값만 본다 — 상품마스터 파일은 다른 판매자의 것")
 	void fileFlagsIgnoreProductMaster() throws Exception {
 		saveFour();

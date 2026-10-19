@@ -11,9 +11,10 @@ import { listing } from "@/messages/listing";
 
 const t = listing.form;
 
-// 목록(239건)은 모든 사용자가 같아 화면을 다시 열어도 한 번만 받는다. 실패하면 비워 다음에 다시 받는다
+// 목록(239건)은 모든 사용자가 같아 화면을 다시 열어도 한 번만 받는다. 실패하면 비워 다음에 다시 받는다.
+// 검색 필터의 카테고리 패널(FilterCategoryPicker)도 같은 캐시를 쓴다
 let treeCache: Promise<CategoryNode[] | null> | null = null;
-function loadTree(): Promise<CategoryNode[] | null> {
+export function loadTree(): Promise<CategoryNode[] | null> {
   treeCache ??= catalogApi.categories().then((r) => {
     if (r.ok) return buildCategoryTree(r.data);
     treeCache = null;
