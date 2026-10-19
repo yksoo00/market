@@ -7,7 +7,7 @@ import { signup } from "@/messages/signup";
 import { trade } from "@/messages/trade";
 
 // 구매 흐름: 판매자 등록 → 구매자 [구매] 모달로 요청 → 내 구매목록 [거래완료] → 다시 요청 → 판매자가 받은 구매요청에서 [취소].
-// 가입이 2번(판매자·구매자) — IP 당 시간당 5회 한도라 flow.spec 과 같이 돌리면 한 시간에 두 번까지만
+// 가입이 2번(판매자·구매자)
 const password = "Test1234!@";
 const t = trade.list;
 

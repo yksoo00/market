@@ -10,7 +10,6 @@ import com.company.market.common.config.AppProperties;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.exception.ValidationException;
-import com.company.market.common.ratelimit.RateLimiter;
 import com.company.market.user.dto.BusinessVerifyRequest;
 import com.company.market.user.dto.SignupBusinessRequest;
 import com.company.market.user.dto.SignupPersonalRequest;
@@ -45,9 +44,6 @@ class SignupServiceTest {
 	PasswordEncoder passwordEncoder;
 
 	@Mock
-	RateLimiter limiter;
-
-	@Mock
 	AppProperties props;
 
 	@Mock
@@ -57,7 +53,7 @@ class SignupServiceTest {
 	StringRedisTemplate redis;
 
 	SignupService service() {
-		return new SignupService(users, passwordEncoder, limiter, props, tx, redis, Clock.fixed(Instant.parse("2026-10-13T00:00:00Z"), ZoneOffset.UTC));
+		return new SignupService(users, passwordEncoder, props, tx, redis, Clock.fixed(Instant.parse("2026-10-13T00:00:00Z"), ZoneOffset.UTC));
 	}
 
 	@Test
@@ -86,7 +82,7 @@ class SignupServiceTest {
 	@Test
 	@DisplayName("개업년월일은 한국 날짜 기준: UTC 16:00(한국 다음 날 01:00)에 한국 오늘은 거부")
 	void openDateUsesSeoulToday() {
-		SignupService service = new SignupService(users, passwordEncoder, limiter, props, tx, redis, Clock.fixed(Instant.parse("2026-10-07T16:00:00Z"), ZoneOffset.UTC));
+		SignupService service = new SignupService(users, passwordEncoder, props, tx, redis, Clock.fixed(Instant.parse("2026-10-07T16:00:00Z"), ZoneOffset.UTC));
 		when(redis.opsForValue().get("signup:biz:t1")).thenReturn("1234567890");
 		SignupBusinessRequest today = new SignupBusinessRequest("t1", "acme01", "Str0ng-pass!", "corporation", "테스트상사", "20261008", "서울",
 				"김담당", "01055556666", "owner@biz.example", "", "1", true, true);

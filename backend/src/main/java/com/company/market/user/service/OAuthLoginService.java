@@ -2,7 +2,6 @@ package com.company.market.user.service;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
@@ -15,7 +14,6 @@ import com.company.market.common.auth.oauth.SocialProfile;
 import com.company.market.common.config.AppProperties;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
-import com.company.market.common.ratelimit.RateLimiter;
 import com.company.market.user.domain.SocialAccount;
 import com.company.market.user.domain.TermsAgreement;
 import com.company.market.user.domain.TermsId;
@@ -60,8 +58,6 @@ public class OAuthLoginService {
 
 	private final TransactionTemplate tx;
 
-	private final RateLimiter limiter;
-
 	/** 콜백 결과. 핸들러가 이걸 보고 리다이렉트 URL 을 고른다 */
 	public sealed interface Outcome permits LoggedIn, NeedsSignup, Rejected {
 	}
@@ -103,8 +99,6 @@ public class OAuthLoginService {
 	 */
 	/** @param flowHash 요청의 oauth_flow 쿠키 해시. 없거나 다르면 토큰이 있어도 만료로 취급 */
 	public LoginResult complete(String token, String flowHash, String nickname, boolean marketingOptIn, String ip) {
-		// 가입 시도와 같은 한도(IP 5회/시간). 토큰이 10분 살아 있는 동안 닉네임 중복 응답으로 닉네임을 훑지 못하게
-		limiter.hit("signup:ip:" + ip, 5, Duration.ofHours(1));
 		SocialProfile profile = signupStore.find(token, flowHash).orElseThrow(() -> new ApiException(ErrorCode.OAUTH_EXPIRED));
 		if (users.existsByNicknameAndKind(nickname, UserKind.PERSONAL)) {
 			throw new ApiException(ErrorCode.DUPLICATE_NICKNAME);

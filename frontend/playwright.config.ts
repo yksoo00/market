@@ -9,7 +9,7 @@ const channel = process.env.E2E_CHANNEL ?? "msedge";
 // CI 에는 아직 없음 (백엔드 스택을 띄워야 해서 워크플로가 커진다 — decisions.md 2026-10-06 Playwright)
 export default defineConfig({
   testDir: "./e2e",
-  // 가입은 IP 당 시간당 5회 제한이라 병렬·재시도로 한도를 깎지 않는다
+  // 가입·등록이 같은 개발 DB 를 쓰므로 한 번에 하나씩 (rate limit 은 2026-10-19 보류 — 재도입되면 가입 한도도 다시 고려)
   workers: 1,
   retries: 0,
   timeout: 60_000,

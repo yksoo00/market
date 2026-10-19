@@ -6,7 +6,6 @@ import java.util.UUID;
 
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
-import com.company.market.common.ratelimit.RateLimiter;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,13 +32,10 @@ class UploadServiceTest {
 	@Mock
 	StringRedisTemplate redis;
 
-	@Mock
-	RateLimiter limiter;
-
 	@Test
-	@DisplayName("디스크 여유 공간이 하한보다 적으면 503 STORAGE_FULL이고 저장·사용량 차감을 하지 않는다")
+	@DisplayName("디스크 여유 공간이 하한보다 적으면 503 STORAGE_FULL이고 저장하지 않는다")
 	void rejectsWhenDiskAlmostFull() throws IOException {
-		UploadService service = new UploadService(storage, redis, limiter, Clock.systemUTC(),
+		UploadService service = new UploadService(storage, redis, Clock.systemUTC(),
 				new StorageProperties("unused", DataSize.ofGigabytes(10)));
 		when(storage.usableSpace()).thenReturn(DataSize.ofGigabytes(10).toBytes() - 1);
 
@@ -48,8 +44,6 @@ class UploadServiceTest {
 			.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode())
 				.isEqualTo(ErrorCode.STORAGE_FULL));
 		verify(storage, never()).save(any(), any());
-		verify(limiter, never()).tryConsume(any(), anyLong(), anyLong(),
-				any());
 	}
 
 }

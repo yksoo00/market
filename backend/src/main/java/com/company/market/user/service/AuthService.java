@@ -4,7 +4,6 @@ import java.util.Optional;
 import java.util.UUID;
 
 import com.company.market.common.auth.JwtProvider;
-import com.company.market.common.auth.LoginAttemptGuard;
 import com.company.market.common.auth.RefreshSessionStore;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
@@ -43,12 +42,10 @@ public class AuthService {
 
 	private final RefreshSessionStore sessions;
 
-	private final LoginAttemptGuard attempts;
-
 	public LoginResult login(String loginId, String password, boolean remember, String ip) {
-		attempts.check(loginId, ip);
+		// TODO(rate limit 보류, decisions.md 2026-10-19): 로그인 실패 잠금·IP 한도를 지웠다. 운영 전에 다시 넣는다
 		Optional<User> user = users.findByLoginId(loginId).filter(u -> u.getKind() == UserKind.PERSONAL);
-		return authenticate(loginId, user, password, remember, ip);
+		return authenticate(user, password, remember, ip);
 	}
 
 	/**
@@ -56,22 +53,19 @@ public class AuthService {
 	 * 사업자번호 로그인 시절에 가입한 계정은 user_id 가 사업자번호라 그 번호를 아이디로 넣으면 된다.
 	 */
 	public LoginResult loginBusiness(String loginId, String password, boolean remember, String ip) {
-		attempts.check(loginId, ip);
 		Optional<User> user = users.findByLoginId(loginId).filter(u -> u.getKind() == UserKind.BUSINESS);
-		return authenticate(loginId, user, password, remember, ip);
+		return authenticate(user, password, remember, ip);
 	}
 
-	private LoginResult authenticate(String account, Optional<User> found, String password, boolean remember, String ip) {
+	private LoginResult authenticate(Optional<User> found, String password, boolean remember, String ip) {
 		String hash = found.map(User::getPasswordHash).orElse(DUMMY_HASH);
 		// 소셜 전용 계정은 password_hash 가 null → 아이디/비번 로그인 불가
 		boolean matches = hash != null && passwordEncoder.matches(password, hash);
 		if (found.isEmpty() || !matches) {
-			attempts.recordFailure(account, ip);
 			log.info("로그인 실패 userId={} ip={}", found.map(u -> u.getId().toString()).orElse("-"), ip);
 			throw new ApiException(ErrorCode.INVALID_CREDENTIALS);
 		}
 		User user = found.get();
-		attempts.recordSuccess(account);
 		user.recordLogin();
 		users.save(user);
 		log.info("로그인 userId={} ip={}", user.getId(), ip);
