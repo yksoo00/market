@@ -48,7 +48,9 @@ export function purchaseSchema(l: PurchaseLimits) {
       .string()
       .superRefine((s, ctx) => {
         if (s === "") {
+          // 비우면 서버가 매물 납기일을 쓴다 — 그 날짜도 같은 규칙(오늘 이후)으로 본다
           if (!l.provDate) ctx.addIssue({ code: "custom", message: v.deliRequired });
+          else if (l.provDate < l.today) ctx.addIssue({ code: "custom", message: v.deliProvPast });
           return;
         }
         if (!isValidDate(s)) ctx.addIssue({ code: "custom", message: v.date });

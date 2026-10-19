@@ -16,6 +16,11 @@ describe("purchaseSchema", () => {
     expect(r.success && r.data).toEqual({ orderQuantity: 6, reqDeliDate: undefined, remarks: undefined });
   });
 
+  it("납품희망일 빈칸인데 매물 납기일이 지났으면 입력 요구, 오늘이면 통과", () => {
+    expect(errorOf(parse({}, { ...limits, provDate: "2026-10-15" }), "reqDeliDate")).toBe(v.deliProvPast);
+    expect(parse({}, { ...limits, provDate: "2026-10-16" }).success).toBe(true);
+  });
+
   it("주문량: 비움·숫자 아님은 필수/형식 오류", () => {
     expect(errorOf(parse({ orderQuantity: "" }), "orderQuantity")).toBe(v.required);
     expect(errorOf(parse({ orderQuantity: "1.5" }), "orderQuantity")).toBe(v.quantityFormat);

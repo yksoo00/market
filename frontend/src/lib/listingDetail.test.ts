@@ -8,8 +8,16 @@ import {
   isOwner,
   isValidListingPath,
   mainPhoto,
+  ownerActions,
   purchaseBlockReason,
 } from "@/lib/listingDetail";
+
+describe("ownerActions", () => {
+  it("거래완료 매물은 수정·추가등록·삭제 모두 숨김", () => {
+    expect(ownerActions({ tradeStatus: "completed" })).toEqual({ edit: false, extra: false, remove: false });
+    expect(ownerActions({ tradeStatus: "available" })).toEqual({ edit: true, extra: true, remove: true });
+  });
+});
 
 const UUID = "3f2b6c1e-8a4d-4f7b-9c21-5d0e7a9b1c11";
 
