@@ -3,6 +3,7 @@ package com.company.market.trade.service;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Optional;
 import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
@@ -80,10 +81,21 @@ class TradeIdGeneratorTest {
 	}
 
 	@Test
-	@DisplayName("한 시간대 999건이 차면 TRADE_ID_EXHAUSTED")
+	@DisplayName("순번은 그 시간대 최댓값 다음 — 중간이 비어도, 다른 시간대 번호와 무관하게")
+	void nextAfterMaxInHour() {
+		TradeIdGenerator generator = new TradeIdGenerator(trades, jdbc, KST_17H);
+		trades.saveAndFlush(trade("26092917001"));
+		trades.saveAndFlush(trade("26092917005"));
+		trades.saveAndFlush(trade("26092918001"));
+
+		assertThat(generator.next()).isEqualTo("26092917006");
+	}
+
+	@Test
+	@DisplayName("한 시간대 999번까지 쓰면 TRADE_ID_EXHAUSTED")
 	void exhaustedAfter999() {
 		TradeInfoRepository full = mock(TradeInfoRepository.class);
-		when(full.countByTradeIdStartingWith("26092917")).thenReturn(999L);
+		when(full.findMaxTradeIdBetween("26092917000", "26092917999")).thenReturn(Optional.of("26092917999"));
 		TradeIdGenerator generator = new TradeIdGenerator(full, mock(JdbcTemplate.class), KST_17H);
 
 		assertThatThrownBy(generator::next).isInstanceOfSatisfying(ApiException.class,
