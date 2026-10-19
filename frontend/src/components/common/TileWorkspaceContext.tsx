@@ -10,6 +10,8 @@ import {
   applyOpen,
   closePane,
   decideOpen,
+  HOME_KEY,
+  isHome,
   paneNavigated,
   restorePanes,
   serializePanes,
@@ -20,12 +22,14 @@ import {
 import { screenOf } from "@/lib/tileScreens";
 import { randomUUID } from "@/lib/uuid";
 
-// 모든 화면 전환을 하나의 큐로 (스펙: docs/superpowers/specs/2026-10-01-tile-queue-design.md).
+// 모든 화면 전환을 [홈 | 주기능 | 보조] 칸 규칙 하나로 (lib/tileQueue, decisions.md 2026-10-19).
 // 화면 코드는 일반 Link·form을 쓰고, 여기서 문서 전체의 클릭·GET 폼 제출을 캡처 단계에서 받아 판단한다.
 
 type TileWorkspaceContextValue = {
-  /** 오래된 순. panes[0]이 주소창 칸. 첫 경로를 알기 전(서버 렌더 등)엔 빈 배열 */
+  /** [주기능, 보조?]. panes[0]이 주소창 칸, 홈 칸은 들어 있지 않다. 첫 경로를 알기 전(서버 렌더 등)엔 빈 배열 */
   panes: Pane[];
+  /** 왼쪽 홈 iframe 을 다시 열어야 할 때 오른다 (홈 칸이 코드로 다른 화면에 가 버렸을 때) */
+  homeVersion: number;
   /** 분할 가능한 폭(768 이상)인가 */
   wide: boolean;
   open: (fromKey: string, path: string, reset: boolean) => void;
@@ -42,6 +46,7 @@ export function TileWorkspaceProvider({ children }: { children: ReactNode }) {
   const framed = useIsFramed();
   const wide = useIsWide();
   const [panes, setPanes] = useState<Pane[]>([]);
+  const [homeVersion, setHomeVersion] = useState(0);
 
   // 문서 리스너는 한 번만 달고 최신 상태는 ref로 읽는다
   const panesRef = useRef(panes);
@@ -62,7 +67,7 @@ export function TileWorkspaceProvider({ children }: { children: ReactNode }) {
       if (action.kind === "none") return;
       const next = applyOpen(cur, action, newKey());
       setPanes(next);
-      // 주소창 칸이 바뀌었으면(제자리 이동, 가득 차서 밀림, 리셋) 라우터를 맞춘다
+      // 주소창 칸(주기능)이 바뀌었으면(제자리 이동, 새 주기능) 라우터를 맞춘다
       if (next[0].path !== cur[0].path || next[0].key !== cur[0].key) router.push(next[0].path);
     },
     [router],
@@ -71,7 +76,7 @@ export function TileWorkspaceProvider({ children }: { children: ReactNode }) {
   const close = useCallback(
     (key: string) => {
       const cur = panesRef.current;
-      const next = closePane(cur, key);
+      const next = closePane(cur, key, newKey());
       setPanes(next);
       // replace: 닫기를 기록에 쌓지 않아 뒤로가기가 닫기 전 배치를 거치지 않는다
       if (next[0] && next[0].key !== cur[0]?.key) router.replace(next[0].path, { scroll: false });
@@ -80,10 +85,12 @@ export function TileWorkspaceProvider({ children }: { children: ReactNode }) {
   );
 
   // iframe 칸이 보고한 현재 경로. 같은 화면이면 경로만 갱신, 코드로 다른 화면에 갔으면(?next= 로 온 로그인 성공 후 등)
-  // 그 칸을 닫고 큐 규칙으로 연다 (paneNavigated). TileFrame의 message 리스너 deps에 들어가므로 참조 고정
+  // 그 칸을 닫고 칸 규칙으로 연다 (paneNavigated). TileFrame의 message 리스너 deps에 들어가므로 참조 고정
   const updatePath = useCallback(
     (key: string, path: string) => {
       const cur = panesRef.current;
+      // 홈 칸이 홈 밖으로 갔으면 그 경로는 주기능으로 열고 홈 칸은 다시 홈으로
+      if (key === HOME_KEY && !isHome(path)) setHomeVersion((v) => v + 1);
       const next = paneNavigated(cur, key, path, wideRef.current, newKey());
       const same = next.length === cur.length && next.every((p, i) => p.key === cur[i].key && p.path === cur[i].path);
       if (same) return;
@@ -129,8 +136,10 @@ export function TileWorkspaceProvider({ children }: { children: ReactNode }) {
         return;
       }
       event.preventDefault();
+      // 헤더(앱 메뉴·사용자 메뉴 포함)에서 연 것은 홈에서 연 것 — 새 주기능
+      const fromHome = event.target instanceof Element && event.target.closest("[data-tile-from-home]") !== null;
       const main = panesRef.current[0];
-      open(main?.key ?? "", hit.path, hit.reset);
+      open(fromHome ? HOME_KEY : (main?.key ?? ""), hit.path, hit.reset);
     };
 
     const onClick = (e: MouseEvent) => {
@@ -177,7 +186,7 @@ export function TileWorkspaceProvider({ children }: { children: ReactNode }) {
   }, [framed, open]);
 
   return (
-    <TileWorkspaceContext.Provider value={{ panes, wide, open, close, updatePath }}>
+    <TileWorkspaceContext.Provider value={{ panes, homeVersion, wide, open, close, updatePath }}>
       {/* useSearchParams는 Suspense 밖에서 쓰면 정적 프리렌더가 깨지므로 잎 컴포넌트로 분리 */}
       {!framed && (
         <Suspense fallback={null}>

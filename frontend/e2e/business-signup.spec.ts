@@ -5,8 +5,8 @@ import { signup } from "@/messages/signup";
 import { my } from "@/messages/my";
 
 // 기업 가입(한 페이지) → 완료 팝업 → 기업 탭 아이디 로그인. 사업자번호 조회는 로컬 개발 환경에서만 통과한다(임시 조회).
-// 홈 | 로그인 칸에서 [회원가입]을 누르면 칸이 늘지 않고 그 칸이 가입으로 바뀐다 (로그인·가입은 같은 화면, 타일 큐).
-// 가입·완료·로그인이 모두 그 한 칸 안에서 이어진다. 실행마다 가입 1회 — IP 당 시간당 5회 한도를 flow.spec 과 같이 쓴다
+// 헤더 [로그인] → 홈 | 로그인(주기능 칸 = 주소창). [회원가입]을 누르면 칸이 늘지 않고 그 칸이 가입으로 바뀐다
+// (로그인·가입은 같은 화면). 가입·완료·로그인이 모두 그 한 칸 안에서 이어진다. 실행마다 가입 1회 — IP 당 시간당 5회 한도를 flow.spec 과 같이 쓴다
 test("기업 가입 → 기업 탭에서 아이디로 로그인", async ({ page }) => {
   const stamp = Date.now().toString().slice(-8);
   const loginId = `biz${stamp}`;
@@ -14,7 +14,8 @@ test("기업 가입 → 기업 탭에서 아이디로 로그인", async ({ page 
   // 10자리, 실행마다 다르게 (사업자번호당 계정 1개)
   const bizNo = `9${stamp}0`;
   const m = signup.business.form;
-  const f = page.frameLocator('iframe[src="/login"]');
+  // 로그인·가입은 주기능 칸(주소창 문서)에 그려진다. 왼쪽 홈은 iframe 1개
+  const f = page;
 
   await test.step("홈 | 로그인 칸의 기업 탭 [회원가입] → 같은 칸이 기업 가입으로", async () => {
     await page.goto("/");
@@ -22,6 +23,7 @@ test("기업 가입 → 기업 탭에서 아이디로 로그인", async ({ page 
     await f.getByRole("tab", { name: auth.tabs.business }).click();
     await f.getByRole("tabpanel", { name: auth.tabs.business }).getByRole("link", { name: auth.login.signup }).click();
     await expect(f.locator('input[name="contactName"]')).toBeVisible();
+    await expect(page.locator('iframe[src="/"]')).toHaveCount(1);
     await expect(page.locator("iframe")).toHaveCount(1);
   });
 

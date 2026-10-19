@@ -1,12 +1,12 @@
-// 타일 큐가 "같은 화면인가·연관 있는가"를 판단하는 화면 표. 새 화면을 만들면 여기에 한 줄만 추가한다.
-// 스펙: docs/superpowers/specs/2026-10-01-tile-queue-design.md "화면 표"
+// 화면 칸 규칙(lib/tileQueue)이 "같은 화면인가·연관 있는가"를 판단하는 화면 표. 연관 있으면 보조 칸, 없으면 새 주기능. 새 화면을 만들면 여기에 한 줄만 추가한다.
+// 규칙: decisions.md 2026-10-19 (화면 표 형식은 docs/superpowers/specs/2026-10-01-tile-queue-design.md "화면 표" 그대로)
 
 /** common은 어느 칸과도 연관 (홈·로그인·가입처럼 어디서든 옆에 열려도 되는 화면) */
 export type TileGroup = "common" | "buy" | "sell";
 
 export interface Screen {
   id: string;
-  /** 표에 없는 화면은 null — 자기 화면 말고는 아무것과도 연관 없음(열면 리셋) */
+  /** 표에 없는 화면은 null — 자기 화면 말고는 아무것과도 연관 없음(열면 새 주기능) */
   group: TileGroup | null;
 }
 
@@ -39,7 +39,7 @@ export function screenOf(path: string): Screen {
 
 /**
  * 새 화면이 열린 화면들과 연관 있는가.
- * 공통이면 항상 연관. 그룹 없는 화면은 공통 칸을 포함해 모든 칸이 자기 화면일 때만(= 사실상 리셋).
+ * 공통이면 항상 연관. 그룹 없는 화면은 공통 칸을 포함해 모든 칸이 자기 화면일 때만(= 사실상 새 주기능).
  * 그 외엔 열린 칸 중 공통이 아닌 칸이 전부 같은 그룹일 때.
  */
 export function isRelated(target: Screen, open: readonly Screen[]): boolean {

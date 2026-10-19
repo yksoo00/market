@@ -35,6 +35,9 @@ html[data-framed] [data-hide-in-tile] {
   display: none;
 }
 
+/* framed: — iframe 칸 안에서만. 하이드레이션 전에도 맞게 그려야 하는 분할 배치(TileWorkspace)가 쓴다 */
+@custom-variant framed (html[data-framed] &);
+
 html,
 body {
   height: 100%;
