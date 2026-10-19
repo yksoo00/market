@@ -172,15 +172,18 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
   await test.step("검색 필터 — 카테고리는 대분류만 골라도 그 아래 전부, [상세 필터]의 상품상태", async () => {
     await page.goto(`/search?q=${encodeURIComponent(prodName)}`);
     // 등록한 글은 인텔 CPU(P01-Q01-R001). 대분류 PC주요부품(P01)을 고르고 적용
-    await page.locator("#f-category").click();
-    await page.getByRole("button", { name: "PC주요부품" }).click();
-    await page.getByRole("button", { name: search.filter.apply, exact: true }).click();
+    // 필터는 칩 툴바 — 칩을 누르면 팝업
+    const toolbar = page.getByRole("toolbar", { name: search.filter.title });
+    await toolbar.getByRole("button", { name: search.filter.category, exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "PC주요부품" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: search.filter.apply, exact: true }).click();
     await expect(page).toHaveURL(/[?&]category=P01(&|$)/);
+    await expect(toolbar.getByRole("button", { name: search.filter.categoryChip("PC주요부품") })).toBeVisible();
     await expect(rowOf(page, prodName)).toBeVisible();
     // 등록 상태는 "신품대비 80~89%"로 고쳤다 → "신품"만이면 없음
-    await page.getByRole("button", { name: search.filter.detail }).click();
+    await toolbar.getByRole("button", { name: search.filter.detail, exact: true }).click();
     await page.locator("#f-state").selectOption("new");
-    await page.getByRole("button", { name: search.filter.apply, exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: search.filter.apply, exact: true }).click();
     await expect(page).toHaveURL(/[?&]state=new/);
     await expect(page.getByRole("table")).toHaveCount(0);
   });

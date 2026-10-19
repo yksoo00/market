@@ -22,6 +22,12 @@ export const search = {
     deliverySuffix: "까지",
     reset: "초기화",
     apply: "적용",
+    // 칩 툴바 (2026-10-19): 걸린 칩에 보이는 값, 칩 옆 × 의 이름
+    stockChip: (n: number) => `재고 ${n}개 이상`,
+    priceChip: (min: string, max: string) => `가격 ${min}~${max}원`,
+    categoryChip: (name: string) => `카테고리: ${name}`,
+    detailChip: (n: number) => `상세 필터 ${n}`,
+    clear: (what: string) => `${what} 조건 지우기`,
     // 카테고리 (대 → 중 → 소 패널, 어느 단계에서 멈춰도 그 아래 전부)
     category: "카테고리",
     categoryAll: "전체",
