@@ -6,6 +6,8 @@ export const search = {
     placeholder: "모델명 · 상품번호 · 제조사",
     button: "검색",
   },
+  // 검색 화면 맨 위 범위 전환 (SearchScopeTabs)
+  scope: { label: "검색 범위", all: "전체", mine: "내 판매" },
   filter: {
     title: "필터",
     status: "거래상태",
