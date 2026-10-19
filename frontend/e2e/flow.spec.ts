@@ -169,6 +169,12 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await expect(page.getByRole("table").getByRole("row")).toHaveCount(2);
   });
 
+  await test.step("내 판매글에서 상세 — 다른 화면처럼 보조 칸 (홈 | 내 판매글 | 상세)", async () => {
+    await rowOf(page, prodName).getByRole("link", { name: prodName }).click();
+    await expect(page.locator('iframe[src^="/listings/"]')).toBeVisible();
+    await expect(page).toHaveURL(/\/my\/listings$/);
+  });
+
   await test.step("로그아웃 후 주소창 칸(/login 전체 화면)에서 로그인해도 홈 전체 화면", async () => {
     await page.getByRole("button", { name: my.menu.label }).click();
     await page.getByRole("menuitem", { name: my.menu.logout }).click();

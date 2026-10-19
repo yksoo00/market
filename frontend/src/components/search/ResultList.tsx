@@ -123,8 +123,9 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
     if (chosen.length === 1) setBuying(chosen[0]);
     else showNotice(p.oneAtATime);
   };
-  // router.push 는 타일 큐를 안 거쳐, iframe 칸에서 누르면 그 칸이 닫히고 2분할이 된다. 이름 링크(data-tile)와 같은 규칙으로 연다
-  const go = (item: ListingSearchItem) => openTile(listingHref(item), mine);
+  // router.push 는 타일 큐를 안 거쳐, iframe 칸에서 누르면 그 칸이 닫히고 2분할이 된다. 이름 링크와 같은 규칙(칸 규칙)으로 연다.
+  // 내 판매글도 검색처럼 상세를 보조 칸에 연다 — 전체 화면(reset)으로 열던 예외는 이 화면만 2분할이 돼 뺐다 (decisions.md 2026-10-19)
+  const go = (item: ListingSearchItem) => openTile(listingHref(item), false);
 
   if (items.length === 0) return <Empty query={query} scope={scope} />;
 
@@ -256,7 +257,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
                     </td>
                   )}
                   <td className={`sticky ${mine ? "left-0 pl-3" : "left-10"} z-10 bg-surface group-hover:bg-bg px-2 truncate font-medium border-r border-line-2`} title={item.prodName}>
-                    <Link href={listingHref(item)} onClick={stop} data-tile={mine ? "reset" : undefined} className="hover:text-primary">
+                    <Link href={listingHref(item)} onClick={stop} className="hover:text-primary">
                       {item.prodName}
                     </Link>
                   </td>
@@ -303,7 +304,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
                 </div>
               )}
               <div className="min-w-0 grow flex flex-col gap-1">
-                <Link href={listingHref(item)} onClick={stop} data-tile={mine ? "reset" : undefined} className="truncate text-sm font-medium">
+                <Link href={listingHref(item)} onClick={stop} className="truncate text-sm font-medium">
                   {item.prodName}
                 </Link>
                 <p className="truncate text-xs text-ink-2">

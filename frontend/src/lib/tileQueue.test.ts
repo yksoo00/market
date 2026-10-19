@@ -46,6 +46,10 @@ describe("decideOpen — 주기능·보조 칸에서 열기", () => {
     expect(decideOpen([P("a", "/search")], "a", DETAIL, wide)).toEqual({ kind: "sub", path: DETAIL });
   });
 
+  it("내 판매글에서 상세도 보조 자리 → 홈 | 내 판매글 | 상세", () => {
+    expect(decideOpen([P("a", "/my/listings")], "a", DETAIL, wide)).toEqual({ kind: "sub", path: DETAIL });
+  });
+
   it("보조가 있어도 연관 화면이면 보조만 바뀐다", () => {
     expect(decideOpen([P("a", "/search"), P("b", DETAIL)], "a", "/login", wide)).toEqual({ kind: "sub", path: "/login" });
   });
