@@ -41,7 +41,8 @@ interface Props {
 export function PurchaseDialog({ sellerId, regDate, open, onOpenChange, onPurchased }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md flex flex-col gap-4">
+      {/* 3분할 아래 칸(iframe)은 창 높이의 절반도 안 된다 — 낮은 칸에선 여백을 줄이고, 그래도 넘치면 모달 안에서 스크롤 (dialog.tsx max-h) */}
+      <DialogContent className="max-w-md flex flex-col gap-4 [@media(max-height:640px)]:gap-3 [@media(max-height:640px)]:p-4">
         <div className="flex flex-col gap-1">
           <DialogTitle>{t.title}</DialogTitle>
           <DialogDescription className="text-[13px]">{t.desc}</DialogDescription>
@@ -225,7 +226,7 @@ function PurchaseForm({ detail, notice, onStockChanged, onClose, onPurchased }: 
 
   return (
     <FormProvider {...form}>
-      <form onSubmit={(e) => void submit(e)} noValidate className="flex flex-col gap-4">
+      <form onSubmit={(e) => void submit(e)} noValidate className="flex flex-col gap-4 [@media(max-height:640px)]:gap-3">
         {notice && (
           <p role="status" className="text-[13px] text-ink-2">
             {notice}
@@ -234,7 +235,8 @@ function PurchaseForm({ detail, notice, onStockChanged, onClose, onPurchased }: 
         <FormError message={formError} onRetry={unreachable && !isSubmitting ? () => void submit() : undefined} />
         <div className="flex flex-col gap-0.5">
           <p className="text-[15px] font-bold text-ink wrap-break-word">{detail.prodName}</p>
-          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5 text-[13px]">
+          {/* 폭이 되면 2열(라벨·값 ×2) — 세로 5줄을 3줄로 줄여 낮은 칸에서도 입력 칸이 보이게 */}
+          <dl className="grid grid-cols-[auto_1fr] sm:grid-cols-[auto_1fr_auto_1fr] gap-x-3 gap-y-0.5 text-[13px]">
             {info.map(([label, value]) => (
               <div key={label} className="contents">
                 <dt className="text-ink-3">{label}</dt>
@@ -243,14 +245,16 @@ function PurchaseForm({ detail, notice, onStockChanged, onClose, onPurchased }: 
             ))}
           </dl>
         </div>
-        <FormField<PurchaseFormInput> name="orderQuantity" label={t.orderQuantity} inputMode="numeric" maxLength={6} className="font-mono tabular-nums" />
-        <FormField<PurchaseFormInput>
-          name="reqDeliDate"
-          label={t.reqDeliDate}
-          hint={detail.deliveryDate ? t.reqDeliDateHint : undefined}
-          type="date"
-          min={today}
-        />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 [@media(max-height:640px)]:gap-3">
+          <FormField<PurchaseFormInput> name="orderQuantity" label={t.orderQuantity} inputMode="numeric" maxLength={6} className="font-mono tabular-nums" />
+          <FormField<PurchaseFormInput>
+            name="reqDeliDate"
+            label={t.reqDeliDate}
+            hint={detail.deliveryDate ? t.reqDeliDateHint : undefined}
+            type="date"
+            min={today}
+          />
+        </div>
         <FormField<PurchaseFormInput> name="remarks" label={t.remarks} placeholder={t.remarksPlaceholder} />
         <p className="flex items-baseline justify-between text-[14px]">
           <span className="text-ink-2">{t.amount}</span>
