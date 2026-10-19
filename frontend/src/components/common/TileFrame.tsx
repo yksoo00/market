@@ -21,11 +21,12 @@ export function TileCloseButton({ onClick }: { onClick: () => void }) {
   );
 }
 
-export function TileFrame({ pane }: { pane: Pane }) {
+/** closable=false: 왼쪽 홈 칸 (늘 고정, 닫기 없음) */
+export function TileFrame({ pane, closable = true }: { pane: Pane; closable?: boolean }) {
   const { close, open, updatePath } = useTileWorkspace();
   // pane.path는 iframe 내부 이동을 따라 계속 갱신된다. 그걸 src에 그대로 걸면 이동할 때마다
   // src가 바뀌어 iframe이 같은 페이지를 한 번 더 로드하므로, 마운트 시점 경로로 고정한다.
-  // 다른 경로로 바꿔야 할 때(같은 화면 교체)는 큐가 key를 바꿔 다시 마운트한다.
+  // 다른 경로로 바꿔야 할 때(보조 교체)는 key를 바꿔 다시 마운트한다.
   const [src] = useState(pane.path);
   const [loadError, setLoadError] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -51,7 +52,7 @@ export function TileFrame({ pane }: { pane: Pane }) {
     return (
       <div className="relative h-full w-full flex flex-col items-center justify-center gap-2 p-4 text-center text-sm">
         <p>{t.unreachable}</p>
-        <TileCloseButton onClick={() => close(pane.key)} />
+        {closable && <TileCloseButton onClick={() => close(pane.key)} />}
       </div>
     );
   }
@@ -62,10 +63,12 @@ export function TileFrame({ pane }: { pane: Pane }) {
         ref={iframeRef}
         src={src}
         title={t.tileFrameTitle}
+        // lazy: 좁은 화면에서 숨겨 둔(display:none) 홈 칸은 불러오지 않는다
+        loading="lazy"
         onError={() => setLoadError(true)}
         className="h-full w-full border-0"
       />
-      <TileCloseButton onClick={() => close(pane.key)} />
+      {closable && <TileCloseButton onClick={() => close(pane.key)} />}
     </div>
   );
 }

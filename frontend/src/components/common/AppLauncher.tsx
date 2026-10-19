@@ -94,7 +94,7 @@ export function AppLauncher() {
         <DropdownMenuTrigger aria-label={t.apps} title={t.apps} className="w-11 h-11 flex items-center justify-center rounded-full text-on-primary hover:text-white hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-white/60">
           <Icon name="apps" size={22} />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" sideOffset={6} className="w-[19rem] p-3 shadow-none ring-0 border border-line bg-surface text-ink rounded-[10px]">
+        <DropdownMenuContent data-tile-from-home align="end" sideOffset={6} className="w-[19rem] p-3 shadow-none ring-0 border border-line bg-surface text-ink rounded-[10px]">
           <Section
             tone="sell"
             label={t.sell}

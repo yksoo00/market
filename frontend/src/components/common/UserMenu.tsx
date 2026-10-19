@@ -66,7 +66,7 @@ export function UserMenu({ nickname, kind, onLoggedOut }: Props) {
         </span>
       </DropdownMenuTrigger>
       {/* 링크 항목은 모두 onClick 으로 직접 닫는다 — 타일 엔진이 링크 클릭을 캡처 단계에서 preventDefault 해서 Radix 의 선택 후 닫기가 건너뛰어진다 */}
-      <DropdownMenuContent align="end" className="w-56 min-w-56 shadow-none ring-0 border border-line bg-surface text-ink">
+      <DropdownMenuContent data-tile-from-home align="end" className="w-56 min-w-56 shadow-none ring-0 border border-line bg-surface text-ink">
         <DropdownMenuLabel className="px-2 py-2 flex items-center gap-2 font-normal">
           <span className="min-w-0 truncate text-sm font-bold" title={nickname}>
             {nickname}

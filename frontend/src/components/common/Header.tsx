@@ -44,8 +44,9 @@ export function Header() {
   if (framed) return null;
 
   return (
-    <header data-hide-in-tile className="h-13 md:h-14 shrink-0 px-4 md:px-6 flex items-center gap-3 md:gap-7 bg-primary text-white">
-      {/* 로고는 타일 큐를 항상 리셋(홈 전체화면). 나머지 헤더 링크는 일반 규칙 */}
+    // data-tile-from-home: 헤더 링크는 홈 칸에서 연 것처럼 새 주기능으로 연다 (메뉴는 포털이라 메뉴 내용에도 따로 붙인다)
+    <header data-hide-in-tile data-tile-from-home className="h-13 md:h-14 shrink-0 px-4 md:px-6 flex items-center gap-3 md:gap-7 bg-primary text-white">
+      {/* 로고는 항상 홈 한 칸. 나머지 헤더 링크는 새 주기능 */}
       <Link href="/" data-tile="reset" className="flex items-center gap-2">
         <span className="w-7 h-7 rounded-md bg-green flex items-center justify-center">
           <Icon name="logo" size={17} strokeWidth={2.2} />
