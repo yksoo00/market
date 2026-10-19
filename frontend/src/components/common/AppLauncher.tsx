@@ -41,7 +41,7 @@ const toneClass: Record<Tone, string> = {
 const cellClass = "h-auto flex-col justify-start gap-1.5 rounded-lg px-1 py-2.5 text-center cursor-pointer [&_svg:not([class*='size-'])]:size-auto not-data-[variant=destructive]:focus:**:text-inherit";
 
 /**
- * 헤더 오른쪽 앱 메뉴(∷). 홈 가운데에 있던 판매·구매 아이콘을 여기로 옮겼다 (decisions.md 2026-10-13 홈 정리).
+ * 헤더 오른쪽 앱 메뉴(∷). 홈 가운데 판매·구매 아이콘 줄(QuickMenu)과 같은 항목 — 어느 화면에서나 가게 (decisions.md 2026-10-19 홈 아이콘 줄 복원).
  * 링크는 일반 Link 라 타일 큐 엔진이 가로챈다. 파일 고르기는 메뉴를 닫지 않고 결과를 메뉴 아래에 알린다.
  */
 export function AppLauncher() {

@@ -11,7 +11,7 @@ export const home = {
     button: "검색",
     popularLabel: "인기 검색",
   },
-  // 헤더 앱 메뉴(∷)의 판매·구매 아이콘 이름 (AppLauncher)
+  // 판매·구매 아이콘 이름 — 홈 아이콘 줄(QuickMenu)과 헤더 앱 메뉴(∷, AppLauncher)가 같이 쓴다
   quick: {
     apps: "판매·구매 메뉴",
     sell: "판매",
