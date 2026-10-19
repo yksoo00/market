@@ -80,8 +80,10 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     await page.goto("/listings/new");
     await page.locator("#productPicker").click();
     await page.getByRole("option", { name: listing.form.master.manualOption }).click();
-    await page.locator("#categoryPicker").fill("인텔");
-    await page.getByRole("option", { name: /인텔 CPU/ }).click();
+    await page.locator("#categoryPicker").click();
+    await page.getByRole("button", { name: "PC주요부품" }).click();
+    await page.getByRole("button", { name: "CPU/프로세서" }).click();
+    await page.getByRole("button", { name: "인텔 CPU" }).click();
     await page.locator('input[name="prodBrand"]').fill("Dell");
     await page.locator('input[name="prodName"]').fill(prodName);
     await page.locator("#prodState").selectOption("신품");

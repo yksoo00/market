@@ -23,10 +23,14 @@ export const listing = {
     sectionSale: "판매 조건",
     sectionDetail: "설명·파일",
     categoryCode: "카테고리",
-    categoryPlaceholder: "분류 이름으로 검색 (예: 서버, CPU)",
+    categoryPlaceholder: "눌러서 대분류부터 고르세요",
     categoryLoading: "분류 목록을 불러오는 중이에요",
     categoryLoadFailed: "분류 목록을 불러오지 못했어요. 페이지를 새로 고쳐 주세요",
-    categoryNoResult: "맞는 분류가 없어요",
+    categoryLarge: "대분류",
+    categoryMid: "중분류",
+    categorySmall: "소분류",
+    categoryPickLarge: "대분류를 먼저 고르세요",
+    categoryPickMid: "중분류를 고르세요",
     // 상품마스터에서 찾기 (등록 폼 상단). 고르면 상품 칸이 마스터 값으로 채워져 잠긴다
     master: {
       label: "상품 찾기",
