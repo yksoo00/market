@@ -151,7 +151,7 @@ export function ListingEditForm({ detail }: { detail: ListingDetail }) {
 function ReadonlyProduct({ detail }: { detail: ListingDetail }) {
   const r = e.rows;
   const rows: [string, string | null][] = [
-    [r.category, detail.category],
+    [r.category, detail.categoryPath ?? detail.category],
     [r.name, detail.prodName],
     [r.brand, detail.prodBrand],
     [r.prodNo, detail.prodNo],

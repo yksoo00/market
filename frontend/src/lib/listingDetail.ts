@@ -72,7 +72,7 @@ export function infoRows(d: ListingDetail): InfoRow[] {
     { label: r.state, value: d.prodState },
     { label: r.unitPrice, value: t.won(formatPrice(d.salesUnitPrice)) },
     { label: r.stock, value: count(d.stockQuantity) },
-    { label: r.category, value: d.category },
+    { label: r.category, value: d.categoryPath ?? d.category },
     { label: r.tradeType, value: d.tradeType },
     { label: r.mufcDate, value: orEmpty(d.mufcDate) },
     { label: r.minOrder, value: count(d.minOrderQuantity) },

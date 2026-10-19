@@ -9,6 +9,7 @@ import java.time.format.DateTimeParseException;
 import java.time.format.ResolverStyle;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -17,6 +18,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import com.company.market.common.exception.ApiException;
@@ -25,6 +27,7 @@ import com.company.market.common.exception.ValidationException;
 import com.company.market.common.storage.UploadKind;
 import com.company.market.common.storage.UploadRef;
 import com.company.market.common.storage.UploadService;
+import com.company.market.listing.domain.Category;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.ListingId;
 import com.company.market.listing.domain.Product;
@@ -512,7 +515,7 @@ public class ListingService {
 		return index < photos.size() ? photos.get(index) : null;
 	}
 
-	private static ListingResponse toResponse(Listing listing, Product product) {
+	private ListingResponse toResponse(Listing listing, Product product) {
 		List<String> photos = Stream
 			.of(listing.getProdPhoto1(), listing.getProdPhoto2(), listing.getProdPhoto3(), listing.getProdImage4())
 			.filter(Objects::nonNull)
@@ -523,9 +526,25 @@ public class ListingService {
 				listing.getDeliveryDate(), listing.getStockQuantity(), listing.getProdDescription(), listing.getProdDataSheet(), photos,
 				listing.getWarrantyPeriod(), listing.getWarrantyCoverage(), listing.getReplaceProd(), listing.getTestReport(),
 				listing.getCertificateOfAuthen(), listing.getDtUpdate(), listing.getDtExpire(), product.getCategoryCode(),
+				categoryPath(product.getCategoryCode()),
 				product.mufcDateIso(),
 				listing.tradeStatus(),
 				listing.warrantyUntil());
+	}
+
+	/**
+	 * 카테고리 코드의 "대 > 중 > 소" 이름. 소분류 이름만으론 "가전 기타"처럼 겹쳐서 경로를 다 보여 준다 (사용자 지시 2026-10-19).
+	 * 부모는 코드 앞부분으로 찾는다(parent_code 는 조각). 목록에 없는 옛 코드면 null — 화면은 코드를 그대로 보여 준다
+	 */
+	private String categoryPath(String code) {
+		String[] parts = code.split("-");
+		List<String> codes = IntStream.rangeClosed(1, parts.length)
+			.mapToObj(i -> String.join("-", Arrays.copyOf(parts, i)))
+			.toList();
+		Map<String, String> names = categories.findAllById(codes).stream()
+			.collect(Collectors.toMap(Category::getCategoryCode, Category::getCategoryName));
+		String path = codes.stream().map(names::get).filter(Objects::nonNull).collect(Collectors.joining(" > "));
+		return path.isEmpty() ? null : path;
 	}
 
 }

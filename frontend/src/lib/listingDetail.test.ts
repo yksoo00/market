@@ -40,6 +40,7 @@ const base: ListingDetail = {
   dtUpdate: null,
   dtExpire: null,
   category: "ELEC0001",
+  categoryPath: null,
   mufcDate: "2026-09-10",
   tradeStatus: "available",
   warrantyUntil: null,
@@ -150,5 +151,16 @@ describe("infoRows", () => {
     expect(rows.find((r) => r.label === "리드 타임")?.value).toBe("–");
     expect(rows.find((r) => r.label === "수량")?.value).toBe("–");
     expect(rows.find((r) => r.label === "상품코드")?.mono).toBe(true);
+  });
+});
+
+describe("infoRows 카테고리", () => {
+  const categoryValue = (d: ListingDetail) => infoRows(d).find((r) => r.label === "카테고리")?.value;
+
+  it("경로가 있으면 대 > 중 > 소, 목록에 없는 옛 코드면 코드 그대로", () => {
+    expect(categoryValue({ ...base, category: "U01-V02-W004", categoryPath: "가전 > 가전 기타 > 가전 기타" })).toBe(
+      "가전 > 가전 기타 > 가전 기타",
+    );
+    expect(categoryValue({ ...base, categoryPath: null })).toBe("ELEC0001");
   });
 });
