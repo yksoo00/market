@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+> 보관용. 2026-10-19 `.claude/rules/` 에서 옮겨 자동 로드에서 뺐다 — CLAUDE.md "작업 방식"과 겹쳤고, 겹치지 않는 내용은 그쪽에 몇 줄로 옮겼다.
+
 Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
 
 **Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
