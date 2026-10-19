@@ -392,7 +392,10 @@ public class ListingService {
 		return new ListingPageResponse(items, nextCursor, searchRepository.count(condition, ownerId));
 	}
 
-	/** 내 매물만 최신순 20개씩. 커서는 regDate 하나 — 같은 사용자의 regDate 는 유일하다. 깨진 커서는 첫 페이지 */
+	/**
+	 * 내 매물만 최신순 20개씩 (추가등록 대상 고르기). 거래완료 매물은 수정할 수 없어 뺀다.
+	 * 커서는 regDate 하나 — 같은 사용자의 regDate 는 유일하다. 깨진 커서는 첫 페이지
+	 */
 	public ListingMinePageResponse mine(UUID userId, String cursor) {
 		String after = cursor != null && cursor.matches("\\d{14}") ? cursor : null;
 		List<Object[]> rows = searchRepository.findMinePage(userId, after, PAGE_SIZE + 1);

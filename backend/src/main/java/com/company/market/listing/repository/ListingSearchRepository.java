@@ -40,7 +40,7 @@ public class ListingSearchRepository {
 	/** 내 매물 한 페이지(각 행 [Listing, Product]). 같은 사용자의 regDate 는 유일해 regDate 만으로 커서가 된다 */
 	public List<Object[]> findMinePage(UUID userId, String afterRegDate, int limit) {
 		StringBuilder jpql = new StringBuilder(
-				"select l, p from Listing l join Product p on p.prodId = l.prodId where l.userId = :u");
+				"select l, p from Listing l join Product p on p.prodId = l.prodId where l.userId = :u and l.dtExpire is null");
 		if (afterRegDate != null) {
 			jpql.append(" and l.regDate < :cr");
 		}
