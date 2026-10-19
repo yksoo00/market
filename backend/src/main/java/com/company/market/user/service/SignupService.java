@@ -4,7 +4,6 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -16,6 +15,7 @@ import com.company.market.common.config.AppProperties;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.exception.ValidationException;
+import com.company.market.common.time.KoreanDates;
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;
 import com.company.market.user.dto.SignupPersonalRequest;
@@ -46,8 +46,6 @@ public class SignupService {
 
 	/** 약관 문안의 판. 프론트 messages/terms.ts 의 문안을 바꾸면 그날 날짜로 올린다 (화면엔 판을 보내지 않고 서버 값만 기록) */
 	static final String TERMS_VERSION = "20261014";
-
-	private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
 	private static final DateTimeFormatter TERMS_AT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
@@ -200,7 +198,7 @@ public class SignupService {
 	private void checkOpenDate(String yyyymmdd) {
 		try {
 			LocalDate date = LocalDate.parse(yyyymmdd, DateTimeFormatter.BASIC_ISO_DATE);
-			if (!date.isBefore(LocalDate.now(clock.withZone(SEOUL)))) {
+			if (!date.isBefore(KoreanDates.today(clock))) {
 				throw new ValidationException(Map.of("startDate", "개업년월일은 오늘 이전 날짜여야 합니다."));
 			}
 		}

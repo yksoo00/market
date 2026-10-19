@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -171,13 +172,20 @@ public class TradeService {
 
 		Map<ListingId, ListingTradeSnapshot> listingsById = listings.snapshotsForTrades(
 				pageRows.stream().map(t -> new ListingId(t.getSellerId(), t.getRegDate())).collect(Collectors.toSet()));
-		Map<String, String> names = listings.productNames(pageRows.stream().map(TradeInfo::getProdId).collect(Collectors.toSet()));
+		Set<String> renamed = pageRows.stream()
+			.filter(t -> !sameProduct(t, listingsById.get(new ListingId(t.getSellerId(), t.getRegDate()))))
+			.map(TradeInfo::getProdId)
+			.collect(Collectors.toSet());
+		Map<String, String> oldNames = renamed.isEmpty() ? Map.of() : listings.productNames(renamed);
 		Map<UUID, String> nicknames = userDirectory.nicknamesOf(
 				pageRows.stream().map(t -> asBuyer ? t.getSellerId() : t.getUserId()).collect(Collectors.toSet()));
 		List<TradeResponse> items = pageRows.stream()
-			.map(t -> toResponse(t, t.getTradeStats(), names.get(t.getProdId()),
-					listingsById.get(new ListingId(t.getSellerId(), t.getRegDate())).photo(),
-					nicknames.get(asBuyer ? t.getSellerId() : t.getUserId())))
+			.map(t -> {
+				ListingTradeSnapshot listing = listingsById.get(new ListingId(t.getSellerId(), t.getRegDate()));
+				String prodName = sameProduct(t, listing) ? listing.prodName() : oldNames.get(t.getProdId());
+				return toResponse(t, t.getTradeStats(), prodName, listing.photo(),
+						nicknames.get(asBuyer ? t.getSellerId() : t.getUserId()));
+			})
 			.toList();
 		return new TradePageResponse(items, hasMore ? pageRows.get(pageRows.size() - 1).getTradeId() : null);
 	}
@@ -230,10 +238,16 @@ public class TradeService {
 	 * 상품명은 거래에 복사된 상품ID 의 마스터에서(구매 때 이름), 사진은 지금 매물에서 (거래에 사진 칸이 없다)
 	 */
 	private TradeResponse respond(UUID viewerId, TradeInfo trade, TradeStats status) {
-		String photo = listings.snapshotForTrade(trade.getSellerId(), trade.getRegDate()).photo();
-		String prodName = listings.productNames(List.of(trade.getProdId())).get(trade.getProdId());
+		ListingTradeSnapshot listing = listings.snapshotForTrade(trade.getSellerId(), trade.getRegDate());
+		String prodName = sameProduct(trade, listing) ? listing.prodName()
+				: listings.productNames(List.of(trade.getProdId())).get(trade.getProdId());
 		UUID counterpart = viewerId.equals(trade.getUserId()) ? trade.getSellerId() : trade.getUserId();
-		return toResponse(trade, status, prodName, photo, nicknameOf(counterpart));
+		return toResponse(trade, status, prodName, listing.photo(), nicknameOf(counterpart));
+	}
+
+	/** 매물이 아직 구매 때 상품을 가리키면 스냅샷의 이름이 곧 구매 때 이름 — 마스터를 다시 읽지 않는다 */
+	private static boolean sameProduct(TradeInfo trade, ListingTradeSnapshot listing) {
+		return trade.getProdId().equals(listing.prodId());
 	}
 
 	static TradeResponse toResponse(TradeInfo trade, TradeStats status, String prodName, String photo,
