@@ -64,7 +64,6 @@ export const listing = {
     salesUnitPrice: "단가(원)",
     salesQuantity: "판매수량",
     stockQuantity: "재고수량",
-    stockQuantityPlaceholder: "비우면 판매수량과 같아요",
     minOrderQuantity: "최소주문량",
     orderUnit: "주문단위",
     defaultOne: "비우면 1",

@@ -33,7 +33,6 @@ public record ListingCreateRequest(
 		@Min(1) @Max(100_000) Integer minOrderQuantity,
 		@Min(1) @Max(100_000) Integer orderUnit,
 		@Pattern(regexp = DELIVERY_DATE_PATTERN, message = DELIVERY_DATE_MESSAGE) String deliveryDate,
-		@Min(0) @Max(100_000) Integer stockQuantity,
 		@Size(max = 200) String description,
 		@Size(max = 100) String listingDataSheet,
 		// 대표 사진(첫 장) 필수 — 등록 화면의 규칙과 같다. 단 마스터를 골랐고 그 마스터에 사진이 있으면 비워도 된다(서비스가 검사).
