@@ -89,9 +89,11 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     // 직접 입력은 칸에 글자로 남지 않고, 고르자마자 빨간 오류가 뜨지 않는다 (검증은 칸을 건드린 뒤)
     await expect(page.locator("#productPicker")).toHaveValue("");
     await expect(page.locator("form").getByRole("alert")).toHaveCount(0);
-    // 카테고리는 검색 목록에서 고른다 (P01-Q01-R001 = 인텔 CPU)
-    await page.locator("#categoryPicker").fill("인텔");
-    await page.getByRole("option", { name: /인텔 CPU/ }).click();
+    // 카테고리는 패널에서 대 → 중 → 소 순서로 누른다 (P01-Q01-R001 = 인텔 CPU)
+    await page.locator("#categoryPicker").click();
+    await page.getByRole("button", { name: "PC주요부품" }).click();
+    await page.getByRole("button", { name: "CPU/프로세서" }).click();
+    await page.getByRole("button", { name: "인텔 CPU" }).click();
     await page.locator('input[name="prodBrand"]').fill("Dell");
     await page.locator('input[name="prodName"]').fill(prodName);
     await page.locator("#prodState").selectOption("신품");
