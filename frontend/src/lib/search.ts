@@ -11,6 +11,8 @@ export interface SearchQuery {
   field: SearchField;
   category: string;
   status: StatusFilter;
+  /** 검색 화면의 [전체 / 내 판매]. 필터가 아니라 범위 — 필터 개수에 안 세고 초기화해도 남는다. 내 판매글 화면(scope mine)은 늘 내 글이라 false */
+  mine: boolean;
   minStock?: number;
   minPrice?: number;
   maxPrice?: number;
@@ -63,6 +65,7 @@ export function parseSearchParams(raw: RawSearchParams, scope: SearchScope = "se
     field: FIELDS.includes(field) ? field : "all",
     category: first(raw.category).trim(),
     status: STATUSES.includes(status) ? status : defaultStatus(scope),
+    mine: scope === "search" && first(raw.mine) === "1",
   };
   const minStock = intInRange(first(raw.minStock), MAX_STOCK);
   const minPrice = intInRange(first(raw.minPrice), MAX_PRICE);
@@ -90,6 +93,7 @@ export function buildSearchHref(query: SearchQuery, scope: SearchScope = "search
   if (query.minPrice !== undefined) p.set("minPrice", String(query.minPrice));
   if (query.maxPrice !== undefined) p.set("maxPrice", String(query.maxPrice));
   if (query.deliveryBy !== undefined) p.set("deliveryBy", query.deliveryBy);
+  if (scope === "search" && query.mine) p.set("mine", "1");
   const s = p.toString();
   const path = scope === "mine" ? "/my/listings" : "/search";
   return s ? `${path}?${s}` : path;
@@ -103,7 +107,7 @@ export function buildSearchHref(query: SearchQuery, scope: SearchScope = "search
 export function searchApiParams(query: SearchQuery, cursor?: string, scope: SearchScope = "search"): string {
   const p = new URLSearchParams();
   // 서버가 인증 정보로 본인 글만 거른다 (본인 id 를 보내지 않는다)
-  if (scope === "mine") p.set("mine", "true");
+  if (scope === "mine" || query.mine) p.set("mine", "true");
   if (query.q) p.set("q", query.q);
   if (query.field !== "all") p.set("field", query.field);
   p.set("status", query.status);
@@ -127,7 +131,7 @@ export function activeFilterCount(query: SearchQuery, scope: SearchScope = "sear
 }
 
 export function clearFilters(query: SearchQuery, scope: SearchScope = "search"): SearchQuery {
-  return { q: query.q, field: query.field, category: "", status: defaultStatus(scope) };
+  return { q: query.q, field: query.field, category: "", status: defaultStatus(scope), mine: query.mine };
 }
 
 export function listingHref(item: Pick<ListingSearchItem, "userId" | "regDate">): string {

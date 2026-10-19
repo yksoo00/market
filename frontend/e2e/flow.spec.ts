@@ -169,6 +169,14 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await expect(page.getByRole("table").getByRole("row")).toHaveCount(2);
   });
 
+  await test.step("검색 [내 판매] — 검색어는 그대로, 내 글만 (헤더 줄 + 한 줄)", async () => {
+    await page.goto(`/search?q=${encodeURIComponent(prodName)}`);
+    await page.getByRole("navigation", { name: search.scope.label }).getByRole("link", { name: search.scope.mine }).click();
+    await expect(page).toHaveURL(/[?&]mine=1/);
+    await expect(rowOf(page, prodName)).toBeVisible();
+    await expect(page.getByRole("table").getByRole("row")).toHaveCount(2);
+  });
+
   await test.step("내 판매글에서 상세 — 다른 화면처럼 보조 칸 (홈 | 내 판매글 | 상세)", async () => {
     await rowOf(page, prodName).getByRole("link", { name: prodName }).click();
     await expect(page.locator('iframe[src^="/listings/"]')).toBeVisible();

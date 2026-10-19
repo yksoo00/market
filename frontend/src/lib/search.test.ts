@@ -13,7 +13,7 @@ const q = (over: Partial<SearchQuery> = {}): SearchQuery => ({ ...parseSearchPar
 
 describe("parseSearchParams", () => {
   it("빈 파라미터면 기본값", () => {
-    expect(parseSearchParams({})).toEqual({ q: "", field: "all", category: "", status: "available" });
+    expect(parseSearchParams({})).toEqual({ q: "", field: "all", category: "", status: "available", mine: false });
   });
 
   it("검색어 앞뒤 공백을 지우고, 공백뿐이면 빈 검색어", () => {
@@ -164,5 +164,33 @@ describe("내 판매글 범위(mine)", () => {
     expect(activeFilterCount({ ...base, status: "available" }, "mine")).toBe(1);
     expect(clearFilters({ ...base, status: "available", minStock: 3 }, "mine").status).toBe("all");
     expect(clearFilters({ ...q(), status: "completed" }).status).toBe("available");
+  });
+});
+
+describe("검색 화면의 [전체 / 내 판매] (mine=1)", () => {
+  it("mine=1 만 내 판매, 그 외 값·내 판매글 화면에선 무시", () => {
+    expect(parseSearchParams({ mine: "1" }).mine).toBe(true);
+    expect(parseSearchParams({}).mine).toBe(false);
+    expect(parseSearchParams({ mine: "true" }).mine).toBe(false);
+    expect(parseSearchParams({ mine: "1" }, "mine").mine).toBe(false);
+  });
+
+  it("URL 왕복 — 거래상태 기본값은 검색 그대로(거래 가능)", () => {
+    const query = parseSearchParams({ mine: "1", q: "R740" });
+    expect(query.status).toBe("available");
+    expect(buildSearchHref(query)).toBe("/search?q=R740&mine=1");
+    expect(buildSearchHref({ ...query, mine: false })).toBe("/search?q=R740");
+  });
+
+  it("API 에 mine=true — 본인 id 는 보내지 않는다", () => {
+    const p = new URLSearchParams(searchApiParams(parseSearchParams({ mine: "1" })));
+    expect(p.get("mine")).toBe("true");
+    expect(p.get("status")).toBe("available");
+  });
+
+  it("필터가 아니라 개수에 안 세고, 초기화해도 남는다", () => {
+    const query = parseSearchParams({ mine: "1", minStock: "3" });
+    expect(activeFilterCount(query)).toBe(1);
+    expect(clearFilters(query).mine).toBe(true);
   });
 });
