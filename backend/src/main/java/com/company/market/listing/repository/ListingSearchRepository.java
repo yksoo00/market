@@ -104,6 +104,55 @@ public class ListingSearchRepository {
 			jpql.append(" and l.deliveryDate is not null and l.deliveryDate <= :deliveryBy");
 			params.put("deliveryBy", c.deliveryBy().toString());
 		}
+		appendDetailConditions(jpql, params, c);
+	}
+
+	/** 상품상태 "이 구간 이상" — 좋은 상태부터. 등록 폼 목록(ListingCreateRequest.PROD_STATE_PATTERN)과 같은 값 */
+	private static final List<String> STATES = List.of("신품", "신품대비 90~99%", "신품대비 80~89%", "신품대비 70~79%",
+			"신품대비 60~69%", "신품대비 50~59%");
+
+	private static final Map<String, Integer> STATE_RANK = Map.of("new", 1, "90", 2, "80", 3, "70", 4, "60", 5, "50", 6);
+
+	// has 키 → 매물 컬럼. 검색 결과 표시(ListingService.toSearchItem)와 같게 매물 값만 본다
+	private static final Map<String, String> HAS_COLUMNS = Map.of(
+			"datasheet", "l.prodDataSheet is not null",
+			"photo", "(l.prodPhoto1 is not null or l.prodPhoto2 is not null or l.prodPhoto3 is not null or l.prodImage4 is not null)",
+			"testReport", "l.testReport is not null",
+			"certificate", "l.certificateOfAuthen is not null",
+			"replaceProd", "l.replaceProd is not null");
+
+	/** 상세 필터 (2026-10-19). 값은 검증된 키뿐이고 조각은 위 상수에서만 고른다 — 사용자 입력은 바인딩으로만 */
+	private static void appendDetailConditions(StringBuilder jpql, Map<String, Object> params, ListingSearchCondition c) {
+		if (c.category() != null) {
+			// 'P01' 은 P01 자신과 'P01-…' 만 (P011 같은 다른 코드는 아님). 코드는 글자 제한이라 like 이스케이프 불필요
+			jpql.append(" and (p.categoryCode = :cat or p.categoryCode like :catPrefix)");
+			params.put("cat", c.category());
+			params.put("catPrefix", c.category() + "-%");
+		}
+		if (c.state() != null) {
+			jpql.append(" and l.prodState in :states");
+			params.put("states", STATES.subList(0, STATE_RANK.get(c.state())));
+		}
+		if (c.brand() != null) {
+			jpql.append(" and lower(p.prodBrand) like lower(:brand) escape '\\'");
+			params.put("brand", "%" + escapeLike(c.brand()) + "%");
+		}
+		// 0 은 "상관없음" — 보증 없는(null) 매물도 남긴다
+		if (c.minWarranty() != null && c.minWarranty() > 0) {
+			jpql.append(" and l.warrantyPeriod >= :minWarranty");
+			params.put("minWarranty", c.minWarranty());
+		}
+		if (c.coverage() != null) {
+			jpql.append(" and l.warrantyCoverage = :coverage");
+			params.put("coverage", "replace".equals(c.coverage()) ? "대체" : "환불");
+		}
+		for (String item : c.hasItems().stream().sorted().toList()) {
+			jpql.append(" and ").append(HAS_COLUMNS.get(item));
+		}
+		if (c.maxMinOrder() != null) {
+			jpql.append(" and l.minOrderQuantity <= :maxMinOrder");
+			params.put("maxMinOrder", c.maxMinOrder());
+		}
 	}
 
 	/** 사용자가 친 % _ \ 를 와일드카드가 아니라 글자로 */

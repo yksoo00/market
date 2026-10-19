@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 등록 폼의 카테고리 목록. 로그인 필요(SecurityConfig 기본). 읽기라 rate limit 은 두지 않는다 */
+/** 등록 폼·검색 필터의 카테고리 목록. 공개(SecurityConfig — 검색이 비로그인 공개라). 읽기라 rate limit 은 두지 않는다 */
 @RestController
 @RequestMapping("/api/v1/categories")
 @RequiredArgsConstructor

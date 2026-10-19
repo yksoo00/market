@@ -3,7 +3,20 @@ import { parseSearchParams } from "@/lib/search";
 import { search as t } from "@/messages/search";
 import { filterDefaults, searchFilterSchema, type SearchFilterInput } from "./searchFilter";
 
-const empty: SearchFilterInput = { category: "", status: "available", minStock: "", minPrice: "", maxPrice: "", deliveryBy: "" };
+const empty: SearchFilterInput = {
+  category: "",
+  status: "available",
+  minStock: "",
+  minPrice: "",
+  maxPrice: "",
+  deliveryBy: "",
+  state: "",
+  brand: "",
+  minWarranty: "",
+  coverage: "",
+  has: [],
+  maxMinOrder: "",
+};
 const parse = (over: Partial<SearchFilterInput>) => searchFilterSchema.safeParse({ ...empty, ...over });
 
 /** 경로별 첫 오류 문구 */
@@ -16,7 +29,20 @@ describe("searchFilterSchema", () => {
   it("전부 빈 칸이면 성공, 숫자·날짜는 undefined", () => {
     const r = parse({});
     expect(r.success).toBe(true);
-    expect(r.data).toEqual({ category: "", status: "available", minStock: undefined, minPrice: undefined, maxPrice: undefined, deliveryBy: undefined });
+    expect(r.data).toEqual({
+      category: "",
+      status: "available",
+      minStock: undefined,
+      minPrice: undefined,
+      maxPrice: undefined,
+      deliveryBy: undefined,
+      state: undefined,
+      brand: undefined,
+      minWarranty: undefined,
+      coverage: undefined,
+      has: [],
+      maxMinOrder: undefined,
+    });
   });
 
   it("재고 0 ~ 100,000 정수", () => {
@@ -53,11 +79,44 @@ describe("searchFilterSchema", () => {
 describe("filterDefaults", () => {
   it("URL 조건을 폼 값(문자열)으로", () => {
     expect(filterDefaults(parseSearchParams({ minPrice: "100" }))).toEqual({ ...empty, minPrice: "100" });
-    expect(filterDefaults(parseSearchParams({ status: "all", category: "서버", deliveryBy: "2026-10-31" }))).toEqual({
+    expect(filterDefaults(parseSearchParams({ status: "all", category: "E01-F01", deliveryBy: "2026-10-31" }))).toEqual({
       ...empty,
       status: "all",
-      category: "서버",
+      category: "E01-F01",
       deliveryBy: "2026-10-31",
     });
+    expect(filterDefaults(parseSearchParams({ state: "80", minWarranty: "360", has: "photo", maxMinOrder: "3" }))).toEqual({
+      ...empty,
+      state: "80",
+      minWarranty: "360",
+      has: ["photo"],
+      maxMinOrder: "3",
+    });
+  });
+});
+
+describe("상세 필터 검증 (2026-10-19)", () => {
+  it("제조사는 앞뒤 공백을 뺀 50자까지, 공백뿐이면 조건 없음", () => {
+    expect(parse({ brand: `  ${"a".repeat(50)}  ` }).data?.brand).toBe("a".repeat(50));
+    expect(errors({ brand: "a".repeat(51) })).toEqual({ brand: t.validation.brand });
+    expect(parse({ brand: "   " }).data?.brand).toBeUndefined();
+  });
+
+  it("최소주문 1 ~ 100,000 정수", () => {
+    expect(parse({ maxMinOrder: "1" }).data?.maxMinOrder).toBe(1);
+    for (const bad of ["0", "100001", "1.5"]) {
+      expect(errors({ maxMinOrder: bad })).toEqual({ maxMinOrder: t.validation.minOrder });
+    }
+  });
+
+  it("고르는 칸은 목록 값만 — 상태·보증(일)·불량지원", () => {
+    expect(parse({ state: "new", minWarranty: "1080", coverage: "replace" }).data).toMatchObject({ state: "new", minWarranty: 1080, coverage: "replace" });
+    expect(parse({ state: "95" }).success).toBe(false);
+    expect(parse({ minWarranty: "100" }).success).toBe(false);
+    expect(parse({ coverage: "대체" }).success).toBe(false);
+  });
+
+  it("자료는 아는 키만, 정해진 순서로", () => {
+    expect(parse({ has: ["photo", "foo", "datasheet"] }).data?.has).toEqual(["datasheet", "photo"]);
   });
 });

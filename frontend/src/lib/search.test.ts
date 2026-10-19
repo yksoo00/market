@@ -3,6 +3,7 @@ import {
   activeFilterCount,
   buildSearchHref,
   clearFilters,
+  detailFilterCount,
   listingHref,
   parseSearchParams,
   searchApiParams,
@@ -13,7 +14,7 @@ const q = (over: Partial<SearchQuery> = {}): SearchQuery => ({ ...parseSearchPar
 
 describe("parseSearchParams", () => {
   it("빈 파라미터면 기본값", () => {
-    expect(parseSearchParams({})).toEqual({ q: "", field: "all", category: "", status: "available" });
+    expect(parseSearchParams({})).toEqual({ q: "", field: "all", category: "", status: "available", mine: false, has: [] });
   });
 
   it("검색어 앞뒤 공백을 지우고, 공백뿐이면 빈 검색어", () => {
@@ -73,7 +74,7 @@ describe("buildSearchHref", () => {
   });
 
   it("URL로 만들었다 다시 읽으면 같은 조건", () => {
-    const query = q({ q: "R740 2U", field: "brand", category: "서버", status: "all", minStock: 0, minPrice: 100, maxPrice: 5_000_000, deliveryBy: "2026-11-01" });
+    const query = q({ q: "R740 2U", field: "brand", category: "E01-F01", status: "all", minStock: 0, minPrice: 100, maxPrice: 5_000_000, deliveryBy: "2026-11-01" });
     const href = buildSearchHref(query);
     expect(parseSearchParams(Object.fromEntries(new URLSearchParams(href.split("?")[1])))).toEqual(query);
   });
@@ -85,8 +86,9 @@ describe("activeFilterCount · clearFilters", () => {
     expect(activeFilterCount(q({ status: "all", minPrice: 100 }))).toBe(2);
   });
 
-  it("카테고리는 보류 중이라 세지 않는다 (예전 URL 의 category)", () => {
-    expect(activeFilterCount(q({ category: "서버" }))).toBe(0);
+  it("카테고리 코드도 센다. 보류 시절 URL 의 한글 카테고리는 읽을 때 버려져 세지 않는다", () => {
+    expect(activeFilterCount(q({ category: "E01" }))).toBe(1);
+    expect(activeFilterCount(parseSearchParams({ category: "서버" }))).toBe(0);
   });
 
   it("초기화는 검색어·구분만 남김", () => {
@@ -109,8 +111,9 @@ describe("searchApiParams", () => {
     expect(searchApiParams(q())).toBe("status=available");
   });
 
-  it("카테고리는 보내지 않는다 (카테고리 마스터 미정, decisions.md 2026-10-02)", () => {
-    expect(read(searchApiParams(q({ category: "서버" }))).has("category")).toBe(false);
+  it("카테고리는 코드로 보낸다 (2026-10-19 필터 복원), 옛 한글 값은 읽을 때 버려 안 보낸다", () => {
+    expect(read(searchApiParams(q({ category: "E01-F01" }))).get("category")).toBe("E01-F01");
+    expect(read(searchApiParams(parseSearchParams({ category: "서버" }))).has("category")).toBe(false);
   });
 
   it("field 는 all 이면 생략, 아니면 포함", () => {
@@ -164,5 +167,92 @@ describe("내 판매글 범위(mine)", () => {
     expect(activeFilterCount({ ...base, status: "available" }, "mine")).toBe(1);
     expect(clearFilters({ ...base, status: "available", minStock: 3 }, "mine").status).toBe("all");
     expect(clearFilters({ ...q(), status: "completed" }).status).toBe("available");
+  });
+});
+
+describe("검색 화면의 [전체 / 내 판매] (mine=1)", () => {
+  it("mine=1 만 내 판매, 그 외 값·내 판매글 화면에선 무시", () => {
+    expect(parseSearchParams({ mine: "1" }).mine).toBe(true);
+    expect(parseSearchParams({}).mine).toBe(false);
+    expect(parseSearchParams({ mine: "true" }).mine).toBe(false);
+    expect(parseSearchParams({ mine: "1" }, "mine").mine).toBe(false);
+  });
+
+  it("URL 왕복 — 거래상태 기본값은 검색 그대로(거래 가능)", () => {
+    const query = parseSearchParams({ mine: "1", q: "R740" });
+    expect(query.status).toBe("available");
+    expect(buildSearchHref(query)).toBe("/search?q=R740&mine=1");
+    expect(buildSearchHref({ ...query, mine: false })).toBe("/search?q=R740");
+  });
+
+  it("API 에 mine=true — 본인 id 는 보내지 않는다", () => {
+    const p = new URLSearchParams(searchApiParams(parseSearchParams({ mine: "1" })));
+    expect(p.get("mine")).toBe("true");
+    expect(p.get("status")).toBe("available");
+  });
+
+  it("필터가 아니라 개수에 안 세고, 초기화해도 남는다", () => {
+    const query = parseSearchParams({ mine: "1", minStock: "3" });
+    expect(activeFilterCount(query)).toBe(1);
+    expect(clearFilters(query).mine).toBe(true);
+  });
+});
+
+describe("상세 필터 (2026-10-19)", () => {
+  it("URL 왕복 — 카테고리·상태·제조사·보증·불량지원·자료·최소주문", () => {
+    const raw = {
+      category: "P01-Q01",
+      state: "80",
+      brand: " Dell ",
+      minWarranty: "360",
+      coverage: "refund",
+      has: "photo,datasheet",
+      maxMinOrder: "5",
+    };
+    const query = parseSearchParams(raw);
+    expect(query).toMatchObject({ category: "P01-Q01", state: "80", brand: "Dell", minWarranty: 360, coverage: "refund", maxMinOrder: 5 });
+    // 자료는 정해진 순서로 — 같은 조건이 다른 URL 이 되지 않게
+    expect(query.has).toEqual(["datasheet", "photo"]);
+    expect(buildSearchHref(query)).toBe(
+      "/search?category=P01-Q01&state=80&brand=Dell&minWarranty=360&coverage=refund&has=datasheet%2Cphoto&maxMinOrder=5",
+    );
+    expect(parseSearchParams(Object.fromEntries(new URLSearchParams(buildSearchHref(query).split("?")[1])))).toEqual(query);
+  });
+
+  it("잘못된 값은 버린다", () => {
+    const query = parseSearchParams({
+      category: "P01%",
+      state: "95",
+      brand: "   ",
+      minWarranty: "100",
+      coverage: "대체",
+      has: "foo,photo",
+      maxMinOrder: "0",
+    });
+    expect(query.category).toBe("");
+    expect(query).not.toHaveProperty("state");
+    expect(query).not.toHaveProperty("brand");
+    expect(query).not.toHaveProperty("minWarranty");
+    expect(query).not.toHaveProperty("coverage");
+    expect(query).not.toHaveProperty("maxMinOrder");
+    expect(query.has).toEqual(["photo"]);
+    expect(parseSearchParams({ category: "P01-Q01-R001-S01" }).category).toBe("");
+    expect(parseSearchParams({ maxMinOrder: "100001" })).not.toHaveProperty("maxMinOrder");
+  });
+
+  it("API 에 카테고리·상세 필터를 그대로 보낸다", () => {
+    const p = new URLSearchParams(searchApiParams(parseSearchParams({ category: "E01", has: "certificate", state: "new" })));
+    expect(p.get("category")).toBe("E01");
+    expect(p.get("has")).toBe("certificate");
+    expect(p.get("state")).toBe("new");
+  });
+
+  it("개수: 카테고리도 세고, 상세 필터는 따로도 센다 / 초기화는 전부 지운다", () => {
+    const query = parseSearchParams({ category: "E01", brand: "Dell", has: "photo,datasheet", deliveryBy: "2026-12-01" });
+    expect(activeFilterCount(query)).toBe(4);
+    expect(detailFilterCount(query)).toBe(3);
+    const cleared = clearFilters(query);
+    expect(activeFilterCount(cleared)).toBe(0);
+    expect(cleared.has).toEqual([]);
   });
 });
