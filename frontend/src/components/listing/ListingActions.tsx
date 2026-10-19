@@ -8,7 +8,7 @@ import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { listingsApi } from "@/lib/api/listings";
-import { buyerActionsDisabled, purchaseBlockReason } from "@/lib/listingDetail";
+import { buyerActionsDisabled, ownerActions, purchaseBlockReason } from "@/lib/listingDetail";
 import { listing } from "@/messages/listing";
 import { trade } from "@/messages/trade";
 import type { ListingDetail } from "@/types/listing";
@@ -47,6 +47,9 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
   const pending = (text: string) => setNotice((prev) => ({ seq: (prev?.seq ?? 0) + 1, text }));
 
   const block = purchaseBlockReason(detail, meId);
+  const mine = ownerActions(detail);
+  // 거래완료된 내 매물은 버튼이 하나도 없다 — 빈 줄을 남기지 않는다
+  const showButtons = !owner || mine.edit || mine.extra || mine.remove;
   const buy = () => {
     // 확인 중·확인 실패(meId null 이지만 anonymous 아님)면 모달을 연다 — 실제로 로그인이 풀렸으면 서버 401
     if (block === "login" && anonymous) {
@@ -79,39 +82,44 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
           </button>
         </div>
       )}
-      <div className="flex flex-wrap items-center gap-2">
-        {owner ? (
-          <>
-            {/* 거래완료(재고 소진)된 매물은 서버가 수정을 막는다 (409 LISTING_COMPLETED) */}
-            {detail.tradeStatus !== "completed" && (
-              <Link href={`/listings/${detail.userId}/${detail.regDate}/edit`} className={`${outline} inline-flex items-center`}>
-                {t.edit}
-              </Link>
-            )}
-            <Link href={`/listings/${detail.userId}/${detail.regDate}/extra`} className={`${outline} inline-flex items-center`}>
-              {t.addExtra}
-            </Link>
-            <button type="button" onClick={remove} disabled={deleting} className={filled}>
-              {t.remove}
-            </button>
-            {error && (
-              <span role="alert" className="text-[13px] text-down">
-                {error}
-              </span>
-            )}
-          </>
-        ) : (
-          <>
-            <button type="button" onClick={() => pending(t.pendingTrade)} disabled={buyerActionsDisabled(detail)} className={outline}>
-              {t.quote}
-            </button>
-            <button type="button" onClick={buy} disabled={block !== null && block !== "login"} className={filled}>
-              {t.buy}
-            </button>
-            {block !== null && block !== "login" && <span className="text-[13px] text-ink-2">{p.blocked[block]}</span>}
-          </>
-        )}
-      </div>
+      {showButtons && (
+        <div className="flex flex-wrap items-center gap-2">
+          {owner ? (
+            <>
+              {mine.edit && (
+                <Link href={`/listings/${detail.userId}/${detail.regDate}/edit`} className={`${outline} inline-flex items-center`}>
+                  {t.edit}
+                </Link>
+              )}
+              {mine.extra && (
+                <Link href={`/listings/${detail.userId}/${detail.regDate}/extra`} className={`${outline} inline-flex items-center`}>
+                  {t.addExtra}
+                </Link>
+              )}
+              {mine.remove && (
+                <button type="button" onClick={remove} disabled={deleting} className={filled}>
+                  {t.remove}
+                </button>
+              )}
+              {error && (
+                <span role="alert" className="text-[13px] text-down">
+                  {error}
+                </span>
+              )}
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={() => pending(t.pendingTrade)} disabled={buyerActionsDisabled(detail)} className={outline}>
+                {t.quote}
+              </button>
+              <button type="button" onClick={buy} disabled={block !== null && block !== "login"} className={filled}>
+                {t.buy}
+              </button>
+              {block !== null && block !== "login" && <span className="text-[13px] text-ink-2">{p.blocked[block]}</span>}
+            </>
+          )}
+        </div>
+      )}
       {!owner && (
         <PurchaseDialog
           sellerId={detail.userId}

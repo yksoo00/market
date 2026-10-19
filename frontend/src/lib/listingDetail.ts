@@ -41,6 +41,15 @@ export function buyerActionsDisabled(d: ListingDetail): boolean {
   return d.tradeStatus === "completed";
 }
 
+/**
+ * 내 매물 버튼. 거래완료 = 거래가 있으니 서버가 수정·추가등록(409 LISTING_COMPLETED)·삭제(409 LISTING_HAS_TRADES)를
+ * 막는다. 누를 수 없는 버튼은 숨긴다
+ */
+export function ownerActions(d: Pick<ListingDetail, "tradeStatus">): { edit: boolean; extra: boolean; remove: boolean } {
+  const open = d.tradeStatus !== "completed";
+  return { edit: open, extra: open, remove: open };
+}
+
 /** [구매]를 못 누르는 이유. login 만 버튼을 켜 두고 누르면 로그인으로 보낸다. 표시용 — 서버가 403·409 로 다시 막는다 */
 export type PurchaseBlock = "completed" | "own" | "lowStock" | "login";
 

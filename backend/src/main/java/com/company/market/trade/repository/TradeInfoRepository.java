@@ -19,8 +19,12 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	/** trade_id 는 unique 라 구매자 없이 하나로 찾는다 */
 	Optional<TradeInfo> findByTradeId(String tradeId);
 
-	/** 같은 시간대(yyMMddHH) 거래 수 — 거래ID 순번 */
-	long countByTradeIdStartingWith(String prefix);
+	/**
+	 * 같은 시간대의 가장 큰 거래ID — 거래ID 순번. LIKE 'prefix%' 는 기본 collation 의 unique 인덱스를 못 타지만
+	 * 범위(between)는 탄다 (11자 고정 길이 숫자라 문자열 순서 = 숫자 순서)
+	 */
+	@Query("select max(t.tradeId) from TradeInfo t where t.tradeId between :from and :to")
+	Optional<String> findMaxTradeIdBetween(@Param("from") String from, @Param("to") String to);
 
 	/**
 	 * from 상태일 때만 바꾼다. 확정·취소가 동시에 와도 행 잠금 뒤 조건을 다시 보므로 한쪽만 1행, 다른 쪽은 0행.

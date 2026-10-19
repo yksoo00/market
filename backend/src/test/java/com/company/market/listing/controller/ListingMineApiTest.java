@@ -102,6 +102,19 @@ class ListingMineApiTest {
 	}
 
 	@Test
+	@DisplayName("거래완료(재고 소진) 매물은 내 매물 고르기 목록에 없다 — 추가등록 대상이 아니다")
+	void mineExcludesCompletedListings() throws Exception {
+		save(userId, "ELEC00010001", "20261001090001", "판매 중");
+		save(userId, "ELEC00010002", "20261001090002", "거래완료");
+		jdbc.update("update trd_prod_reg set stock_quantity = 0, dt_expire = '20261002090000' where reg_date = '20261001090002'");
+
+		mvc.perform(get("/api/v1/listings/mine").cookie(auth))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items", hasSize(1)))
+			.andExpect(jsonPath("$.data.items[0].prodName").value("판매 중"));
+	}
+
+	@Test
 	@DisplayName("extraFilled 는 보증기간·불량지원·대체품·테스트리포트·인증서 중 채운 개수")
 	void mineExtraFilledCountsFiveFields() throws Exception {
 		save(userId, "ELEC00010001", "20261001090002", "채움");

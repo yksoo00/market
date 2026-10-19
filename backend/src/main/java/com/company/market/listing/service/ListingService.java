@@ -3,10 +3,7 @@ package com.company.market.listing.service;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.time.format.ResolverStyle;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,6 +24,7 @@ import com.company.market.common.exception.ValidationException;
 import com.company.market.common.storage.UploadKind;
 import com.company.market.common.storage.UploadRef;
 import com.company.market.common.storage.UploadService;
+import com.company.market.common.time.KoreanDates;
 import com.company.market.listing.domain.Category;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.ListingId;
@@ -55,14 +53,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class ListingService {
 
 	private static final DateTimeFormatter REG_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-
-	/** STRICT 는 uuuu(연도) 와 함께 써야 2026-02-30 같은 날짜를 거부한다 (yyyy 는 연대 필드가 필요) */
-	private static final DateTimeFormatter MUFC_DATE_FORMAT = DateTimeFormatter.ofPattern("uuuuMMdd")
-		.withResolverStyle(ResolverStyle.STRICT);
-
-	private static final DateTimeFormatter DELIVERY_DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE.withResolverStyle(ResolverStyle.STRICT);
-
-	private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
 	private static final int PAGE_SIZE = 20;
 
@@ -358,6 +348,14 @@ public class ListingService {
 		return found.stream().collect(Collectors.toMap(Listing::getId, l -> toSnapshot(l, productsById.get(l.getProdId()))));
 	}
 
+	/**
+	 * 상품ID → 상품명. 거래는 구매 때 상품ID 를 복사해 두므로, 판매자가 나중에 매물의 상품명을 바꿔도(= 다른 마스터를
+	 * 가리킴) 거래 내역은 구매 때 이름을 보여 준다
+	 */
+	public Map<String, String> productNames(Collection<String> prodIds) {
+		return products.getAll(prodIds).values().stream().collect(Collectors.toMap(Product::getProdId, Product::getProdName));
+	}
+
 	/** 구매요청의 재고 차감. 재고 부족·거래완료면 TRADE_OUT_OF_STOCK (호출자 트랜잭션에 합류해 같이 롤백) */
 	@Transactional
 	public void reserveStock(UUID sellerId, String regDate, int quantity) {
@@ -394,7 +392,10 @@ public class ListingService {
 		return new ListingPageResponse(items, nextCursor, searchRepository.count(condition, ownerId));
 	}
 
-	/** 내 매물만 최신순 20개씩. 커서는 regDate 하나 — 같은 사용자의 regDate 는 유일하다. 깨진 커서는 첫 페이지 */
+	/**
+	 * 내 매물만 최신순 20개씩 (추가등록 대상 고르기). 거래완료 매물은 수정할 수 없어 뺀다.
+	 * 커서는 regDate 하나 — 같은 사용자의 regDate 는 유일하다. 깨진 커서는 첫 페이지
+	 */
 	public ListingMinePageResponse mine(UUID userId, String cursor) {
 		String after = cursor != null && cursor.matches("\\d{14}") ? cursor : null;
 		List<Object[]> rows = searchRepository.findMinePage(userId, after, PAGE_SIZE + 1);
@@ -450,14 +451,13 @@ public class ListingService {
 	}
 
 	/**
-	 * 형식(@Pattern)은 DTO가 보고, 여기서는 실제 날짜인지와 범위를 본다: 제조일은 오늘까지, 납기일은 오늘부터.
-	 * "오늘"은 한국 날짜 — 서버 Clock 은 UTC 라 그대로 쓰면 한국 오전 9시 전엔 하루 전 날짜가 된다.
+	 * 형식(@Pattern)은 DTO가 보고, 여기서는 실제 날짜인지와 범위를 본다: 제조일은 오늘까지, 납기일은 오늘부터 (한국 날짜).
 	 */
 	private void validateDates(String prodMufcDate, String deliveryDate) {
-		LocalDate today = LocalDate.now(clock.withZone(SEOUL));
+		LocalDate today = KoreanDates.today(clock);
 		Map<String, String> failures = new LinkedHashMap<>();
 		if (prodMufcDate != null) {
-			LocalDate date = parseStrict(prodMufcDate, MUFC_DATE_FORMAT);
+			LocalDate date = KoreanDates.parseCompact(prodMufcDate);
 			if (date == null) {
 				failures.put("prodMufcDate", "제조일이 올바른 날짜가 아닙니다.");
 			}
@@ -466,7 +466,7 @@ public class ListingService {
 			}
 		}
 		if (deliveryDate != null && !deliveryDate.isEmpty()) {
-			LocalDate date = parseStrict(deliveryDate, DELIVERY_DATE_FORMAT);
+			LocalDate date = KoreanDates.parseIso(deliveryDate);
 			if (date == null) {
 				failures.put("deliveryDate", "납기일이 올바른 날짜가 아닙니다.");
 			}
@@ -476,15 +476,6 @@ public class ListingService {
 		}
 		if (!failures.isEmpty()) {
 			throw new ValidationException(failures);
-		}
-	}
-
-	private static LocalDate parseStrict(String value, DateTimeFormatter format) {
-		try {
-			return LocalDate.parse(value, format);
-		}
-		catch (DateTimeParseException e) {
-			return null;
 		}
 	}
 

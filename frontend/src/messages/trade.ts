@@ -25,6 +25,7 @@ export const trade = {
     quantityStock: (n: number) => `현재 재고(${n.toLocaleString("ko-KR")}개)보다 많이 주문할 수 없어요.`,
     amountMax: "한 번에 주문할 수 있는 금액을 넘었어요. 주문량을 줄여 주세요.",
     deliRequired: "이 매물은 납기일이 없어요. 납품희망일을 입력해 주세요.",
+    deliProvPast: "매물 납기일이 지났어요. 납품희망일을 입력해 주세요.",
     date: "있는 날짜를 YYYY-MM-DD 형식으로 입력해 주세요.",
     deliPast: "납품희망일은 오늘 이후 날짜로 입력해 주세요.",
     remarksMax: "요청사항은 100자까지 쓸 수 있어요.",

@@ -262,6 +262,18 @@ class TradeApiTest {
 	}
 
 	@Test
+	@DisplayName("납품희망일을 비웠는데 매물 납기일이 지났으면 400 '매물 납기일이 지났습니다', 오늘이면 통과")
+	void emptyReqDeliDateWithPastListingDate() throws Exception {
+		listing(1000, 10, 1, 1, "2020-01-01");
+		request(buyer, body(1, null)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.reqDeliDate").value("매물 납기일이 지났습니다. 납품희망일을 입력해 주세요."));
+
+		String today = LocalDate.now(ZoneId.of("Asia/Seoul")).toString();
+		jdbc.update("update trd_prod_reg set prov_date = ? where user_id = ?", today, sellerId);
+		request(buyer, body(1, null)).andExpect(status().isCreated());
+	}
+
+	@Test
 	@DisplayName("납품희망일을 비우면 매물 납기일이 들어간다")
 	void reqDeliDateDefaultsToListingDate() throws Exception {
 		listing(1000, 10, 1, 1, "2099-12-31");
@@ -310,6 +322,60 @@ class TradeApiTest {
 		assertThat(succeeded).isEqualTo(1);
 		assertThat(stock()).isEqualTo(2);
 		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class)).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("매물 삭제와 첫 구매요청이 동시에 와도 500 은 없다 — 삭제가 이기면 구매 404, 구매가 이기면 삭제 409")
+	void deleteAndFirstRequestRace() throws Exception {
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+		try {
+			for (int i = 0; i < 20; i++) {
+				jdbc.update("delete from trd_trade_info");
+				jdbc.update("delete from trd_prod_reg");
+				jdbc.update("delete from trd_prod_master");
+				listing(1000, 10, 1, 1, null);
+				CountDownLatch start = new CountDownLatch(1);
+				Future<String> delete = pool.submit(() -> outcome(start,
+						() -> listingService.delete(sellerId, REG_DATE, sellerId)));
+				Future<String> request = pool.submit(() -> outcome(start,
+						() -> tradeService.request(buyerId, new TradeCreateRequest(sellerId, REG_DATE, 1, future(), null))));
+				start.countDown();
+				String deleted = delete.get();
+				String requested = request.get();
+
+				int listings = jdbc.queryForObject("select count(*) from trd_prod_reg", Integer.class);
+				int tradeRows = jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class);
+				if ("ok".equals(deleted)) {
+					assertThat(requested).isEqualTo(ErrorCode.LISTING_NOT_FOUND.name());
+					assertThat(listings).isZero();
+					assertThat(tradeRows).isZero();
+				}
+				else {
+					assertThat(deleted).isEqualTo(ErrorCode.LISTING_HAS_TRADES.name());
+					assertThat(requested).isEqualTo("ok");
+					assertThat(listings).isEqualTo(1);
+					assertThat(tradeRows).isEqualTo(1);
+				}
+			}
+		}
+		finally {
+			pool.shutdown();
+		}
+	}
+
+	/** "ok" | ApiException 코드 | 그 밖의 예외(= 500) 클래스 이름 */
+	private static String outcome(CountDownLatch start, Runnable action) throws InterruptedException {
+		start.await();
+		try {
+			action.run();
+			return "ok";
+		}
+		catch (ApiException e) {
+			return e.getCode().name();
+		}
+		catch (RuntimeException e) {
+			return e.getClass().getName() + ": " + e.getMessage();
+		}
 	}
 
 	@Test
@@ -589,6 +655,29 @@ class TradeApiTest {
 		mvc.perform(get("/api/v1/trades?role=buyer&cursor=" + cursor).cookie(buyer))
 			.andExpect(jsonPath("$.data.items", hasSize(1)))
 			.andExpect(jsonPath("$.data.nextCursor").value(nullValue()));
+	}
+
+	@Test
+	@DisplayName("거래 목록 커서 형식이 틀리면 400 fields.cursor, 비우면 첫 페이지")
+	void malformedCursor() throws Exception {
+		mvc.perform(get("/api/v1/trades?role=buyer&cursor=abc").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.code").value("VALIDATION"))
+			.andExpect(jsonPath("$.fields.cursor").exists());
+		mvc.perform(get("/api/v1/trades?role=buyer&cursor=").cookie(buyer)).andExpect(status().isOk());
+	}
+
+	@Test
+	@DisplayName("판매자가 매물 상품명을 바꿔도 거래 내역의 상품명은 구매 때 이름")
+	void tradeKeepsProductNameAtPurchase() throws Exception {
+		listing(1000, 10, 1, 1, null);
+		String tradeId = requested(1);
+		mvc.perform(patch("/api/v1/listings/" + sellerId + "/" + REG_DATE).cookie(seller)
+				.contentType(MediaType.APPLICATION_JSON).content("{\"prodName\":\"새 이름 서버\"}"))
+			.andExpect(status().isOk());
+
+		mvc.perform(get("/api/v1/trades?role=buyer").cookie(buyer))
+			.andExpect(jsonPath("$.data.items[0].prodName").value("서버 R740"));
+		action(buyer, tradeId, "complete").andExpect(jsonPath("$.data.prodName").value("서버 R740"));
 	}
 
 	@Test

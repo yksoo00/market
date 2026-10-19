@@ -147,4 +147,22 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     await expect(page.getByRole("table").getByText(t.stats.canceled)).toBeVisible();
     await expect(page.getByRole("table").getByText(t.stats.confirmed)).toBeVisible();
   });
+
+  // 넓은 화면 표에는 재고 열이 없다 — 재고가 0이 되는 구매로 행이 바로 "거래완료"가 되는지 본다
+  await test.step("검색 결과에서 남은 재고(3)를 다 사면 그 행이 바로 거래완료로 바뀐다", async () => {
+    await logOut(page);
+    await logIn(page, buyer);
+    await page.goto(`/search?q=${encodeURIComponent(prodName)}`);
+    const row = page.getByRole("table").getByRole("row").filter({ hasText: prodName });
+    await expect(row.getByText(search.result.completedBadge)).toHaveCount(0);
+    await row.getByRole("checkbox", { name: search.result.selectRow(prodName) }).check();
+    await page.getByRole("button", { name: search.result.buy, exact: true }).first().click();
+    const dialog = page.getByRole("dialog", { name: trade.purchase.title });
+    await dialog.locator('input[name="orderQuantity"]').fill("3");
+    await dialog.locator('input[name="reqDeliDate"]').fill(daysLater(7));
+    await dialog.getByRole("button", { name: trade.purchase.submit, exact: true }).click();
+    await expect(page.getByRole("dialog", { name: trade.purchase.doneTitle })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(row.getByText(search.result.completedBadge)).toBeVisible();
+  });
 });

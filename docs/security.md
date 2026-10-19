@@ -101,6 +101,7 @@
 - 상품마스터 검색 `GET /api/v1/products?q=` (2026-10-14): 로그인 필요(없으면 401). `q` 공백 제거 후 50자 이하(넘으면 400 `fields.q`, 비우면 이름순 앞 10건 — 드롭다운이 열릴 때), 상품명·제조사·상품번호 부분 일치(대소문자 무시, `%`·`_`·`\` 는 문자 그대로), 최대 10건. 응답은 `prodId·categoryCode·categoryName·prodName·prodNo·prodBrand·prodMufcDate·prodSpecInfo·prodDataSheet·prodPhoto1` — 개인정보 없음. 읽기라 별도 rate limit 없음. 등록 폼의 상품 찾기가 쓴다.
 - 카테고리 목록 `GET /api/v1/categories` (2026-10-14): 공개(2026-10-19 — 비로그인 검색 필터가 쓴다. 분류 이름뿐, 개인정보 없음). `is_display='Y'` 전부(239건)를 코드순으로 `categoryCode·categoryName·categoryDepth·categoryClass·parentCode`. 읽기라 별도 rate limit 없음. 등록 폼의 카테고리 패널과 검색 필터가 쓴다.
 - 내 매물 `GET /api/v1/listings/mine` (2026-10-06): 로그인 필요(없으면 401), 요청자 본인의 매물만(id 는 인증 정보에서, 파라미터 없음), 최신순 20개 + 커서(`regDate`, 같은 사용자 안에서 유일). 응답은 `userId·regDate·prodNo·prodName·prodBrand·extraFilled·salesUnitPrice·salesQuantity·tradeStatus·photo`뿐 — 개인정보 없음. `photo` 는 대표 사진 키로 공개 경로(`public/…`)만 담고 비공개 파일(데이터시트·테스트리포트 등) 키는 담지 않는다. 읽기라 별도 rate limit 없음. 판매정보 추가등록 화면의 대상 고르기와 마이페이지(`/my`) 내 판매글 목록이 쓴다.
+  - 고침 (2026-10-19): 거래완료(`dt_expire` 있음) 매물은 뺀다 — 수정할 수 없어서. 지금 응답은 `userId·regDate·prodNo·prodName·prodBrand·extraFilled` 뿐(개인정보·파일 키 없음)이고, 쓰는 곳은 추가등록 대상 고르기 하나다(내 판매글은 검색 `mine=true`). 위 줄의 응답 칸·쓰는 화면은 옛 설명.
 - 매물 검색 `GET /api/v1/listings` (2026-10-02):
   | 항목 | 규칙 |
   |---|---|
@@ -121,11 +122,11 @@
   |---|---|
   | 매물 `sellerId`·`regDate` | 필수, UUID·14자 이하. 없는 매물 404, 내 매물 403 `TRADE_OWN_LISTING`, 거래완료 409 `LISTING_COMPLETED` |
   | 주문량 `orderQuantity` | 1 ~ 100,000, 최소주문량 이상, 주문단위 배수, 단가 × 수량 ≤ 2,147,483,647(거래이력 금액이 int) → 400 `fields.orderQuantity`. 재고 초과는 409 `TRADE_OUT_OF_STOCK` (조건부 UPDATE 가 최종 판정) |
-  | 납품희망일 `reqDeliDate` | YYYY-MM-DD 실제 날짜, 오늘(한국) 이후. 비우면 매물 납기일, 매물에도 없으면 필수 → 400 `fields.reqDeliDate` |
+  | 납품희망일 `reqDeliDate` | YYYY-MM-DD 실제 날짜, 오늘(한국) 이후. 비우면 매물 납기일, 매물에도 없으면 필수, 매물 납기일이 오늘(한국) 전이면 입력 요구("매물 납기일이 지났습니다") → 400 `fields.reqDeliDate` |
   | 요청사항 `remarks` | 100자 이하 |
   | 단가 | 받지 않는다 — 서버가 등록단가로 고정. 매물 값 복사도 서버가(클라이언트 값 불신) |
   - 거래완료 `POST /trades/{id}/complete`: 구매자만(아니면 403). 취소 `/cancel`: 구매자·그 매물의 판매자만. 둘 다 `구매요청` 상태에서만(아니면 409 `TRADE_NOT_PENDING`), 상태 조건부 UPDATE 라 동시 확정·취소 중 하나만 성공.
-  - 목록 `GET /trades?role=buyer|seller` 는 본인 거래만(id 는 인증 정보에서). 응답의 상대방은 닉네임만 — 이메일·전화 없음. 사진은 공개 키만.
+  - 목록 `GET /trades?role=buyer|seller` 는 본인 거래만(id 는 인증 정보에서). 응답의 상대방은 닉네임만 — 이메일·전화 없음. 사진은 공개 키만. 커서는 거래ID 11자리 숫자, 형식이 틀리면 400 `fields.cursor`(비우면 첫 페이지).
   - 거래ID(`yyMMddHH`+순번)는 UUID 가 아니라 추측할 수 있다. 그래서 모든 거래 API 가 구매자·판매자 확인을 먼저 한다(조회 `get` 은 남의 거래면 404). 확정·취소는 남의 거래에 403 이라 존재 여부는 드러난다 — 내용은 안 보이므로 감수.
 - 숫자: 가격 0 ~ 10억, 수량 1 ~ 100,000.
 - ID는 UUID 형식 검사. 정수 ID 없음 (열거 공격 방지). 예외: 거래ID (위 "구매", 사용자 지정 형식).
