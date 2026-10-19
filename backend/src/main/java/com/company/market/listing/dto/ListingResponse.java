@@ -30,6 +30,8 @@ public record ListingResponse(
 		String dtUpdate,
 		String dtExpire,
 		String category,
+		/** "대 > 중 > 소" 이름. 목록에 없는 코드면 null */
+		String categoryPath,
 		String mufcDate,
 		String tradeStatus,
 		String warrantyUntil) {

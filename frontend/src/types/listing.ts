@@ -114,6 +114,8 @@ export interface ListingDetail {
   dtUpdate: string | null;
   dtExpire: string | null;
   category: string;
+  /** "대 > 중 > 소" 이름. 카테고리 목록에 없는 옛 코드면 null (그땐 category 코드를 보여 준다) */
+  categoryPath: string | null;
   /** YYYY-MM-DD. 날짜로 읽히지 않는 레거시 값은 원문 그대로 */
   mufcDate: string | null;
   tradeStatus: TradeStatus;

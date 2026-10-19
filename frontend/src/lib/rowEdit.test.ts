@@ -35,6 +35,7 @@ const detail: ListingDetail = {
   dtUpdate: null,
   dtExpire: null,
   category: "임시",
+  categoryPath: null,
   mufcDate: "2020-05-01",
   tradeStatus: "available",
   warrantyUntil: null,

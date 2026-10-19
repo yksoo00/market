@@ -268,7 +268,9 @@ class ListingApiTest {
 
 		mvc.perform(get("/api/v1/listings/" + userId + "/" + regDate))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.prodName").value("노트북 G"));
+			.andExpect(jsonPath("$.data.prodName").value("노트북 G"))
+			.andExpect(jsonPath("$.data.category").value("P01-Q01-R001"))
+			.andExpect(jsonPath("$.data.categoryPath").value("PC주요부품 > CPU/프로세서 > 인텔 CPU"));
 	}
 
 	@Test
