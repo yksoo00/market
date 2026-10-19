@@ -348,6 +348,14 @@ public class ListingService {
 		return found.stream().collect(Collectors.toMap(Listing::getId, l -> toSnapshot(l, productsById.get(l.getProdId()))));
 	}
 
+	/**
+	 * 상품ID → 상품명. 거래는 구매 때 상품ID 를 복사해 두므로, 판매자가 나중에 매물의 상품명을 바꿔도(= 다른 마스터를
+	 * 가리킴) 거래 내역은 구매 때 이름을 보여 준다
+	 */
+	public Map<String, String> productNames(Collection<String> prodIds) {
+		return products.getAll(prodIds).values().stream().collect(Collectors.toMap(Product::getProdId, Product::getProdName));
+	}
+
 	/** 구매요청의 재고 차감. 재고 부족·거래완료면 TRADE_OUT_OF_STOCK (호출자 트랜잭션에 합류해 같이 롤백) */
 	@Transactional
 	public void reserveStock(UUID sellerId, String regDate, int quantity) {
