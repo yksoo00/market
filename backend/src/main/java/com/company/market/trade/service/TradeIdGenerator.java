@@ -1,12 +1,11 @@
 package com.company.market.trade.service;
 
 import java.time.Clock;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
+import com.company.market.common.time.KoreanDates;
 import com.company.market.trade.repository.TradeInfoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -24,8 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class TradeIdGenerator {
 
-	private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
-
 	private static final DateTimeFormatter PREFIX_FORMAT = DateTimeFormatter.ofPattern("yyMMddHH");
 
 	private static final int MAX_SEQUENCE = 999;
@@ -38,8 +35,7 @@ public class TradeIdGenerator {
 
 	@Transactional(propagation = Propagation.MANDATORY)
 	public String next() {
-		// 시간은 한국 기준 — 서버 Clock 은 UTC
-		String prefix = LocalDateTime.now(clock.withZone(SEOUL)).format(PREFIX_FORMAT);
+		String prefix = KoreanDates.now(clock).format(PREFIX_FORMAT);
 		jdbc.queryForList("select pg_advisory_xact_lock(hashtext('trade_id:' || ?))", prefix);
 		long sequence = trades.countByTradeIdStartingWith(prefix) + 1;
 		if (sequence > MAX_SEQUENCE) {

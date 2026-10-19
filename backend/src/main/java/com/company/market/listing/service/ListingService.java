@@ -3,10 +3,7 @@ package com.company.market.listing.service;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.time.format.ResolverStyle;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -27,6 +24,7 @@ import com.company.market.common.exception.ValidationException;
 import com.company.market.common.storage.UploadKind;
 import com.company.market.common.storage.UploadRef;
 import com.company.market.common.storage.UploadService;
+import com.company.market.common.time.KoreanDates;
 import com.company.market.listing.domain.Category;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.ListingId;
@@ -55,14 +53,6 @@ import org.springframework.transaction.annotation.Transactional;
 public class ListingService {
 
 	private static final DateTimeFormatter REG_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
-
-	/** STRICT 는 uuuu(연도) 와 함께 써야 2026-02-30 같은 날짜를 거부한다 (yyyy 는 연대 필드가 필요) */
-	private static final DateTimeFormatter MUFC_DATE_FORMAT = DateTimeFormatter.ofPattern("uuuuMMdd")
-		.withResolverStyle(ResolverStyle.STRICT);
-
-	private static final DateTimeFormatter DELIVERY_DATE_FORMAT = DateTimeFormatter.ISO_LOCAL_DATE.withResolverStyle(ResolverStyle.STRICT);
-
-	private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
 	private static final int PAGE_SIZE = 20;
 
@@ -450,14 +440,13 @@ public class ListingService {
 	}
 
 	/**
-	 * 형식(@Pattern)은 DTO가 보고, 여기서는 실제 날짜인지와 범위를 본다: 제조일은 오늘까지, 납기일은 오늘부터.
-	 * "오늘"은 한국 날짜 — 서버 Clock 은 UTC 라 그대로 쓰면 한국 오전 9시 전엔 하루 전 날짜가 된다.
+	 * 형식(@Pattern)은 DTO가 보고, 여기서는 실제 날짜인지와 범위를 본다: 제조일은 오늘까지, 납기일은 오늘부터 (한국 날짜).
 	 */
 	private void validateDates(String prodMufcDate, String deliveryDate) {
-		LocalDate today = LocalDate.now(clock.withZone(SEOUL));
+		LocalDate today = KoreanDates.today(clock);
 		Map<String, String> failures = new LinkedHashMap<>();
 		if (prodMufcDate != null) {
-			LocalDate date = parseStrict(prodMufcDate, MUFC_DATE_FORMAT);
+			LocalDate date = KoreanDates.parseCompact(prodMufcDate);
 			if (date == null) {
 				failures.put("prodMufcDate", "제조일이 올바른 날짜가 아닙니다.");
 			}
@@ -466,7 +455,7 @@ public class ListingService {
 			}
 		}
 		if (deliveryDate != null && !deliveryDate.isEmpty()) {
-			LocalDate date = parseStrict(deliveryDate, DELIVERY_DATE_FORMAT);
+			LocalDate date = KoreanDates.parseIso(deliveryDate);
 			if (date == null) {
 				failures.put("deliveryDate", "납기일이 올바른 날짜가 아닙니다.");
 			}
@@ -476,15 +465,6 @@ public class ListingService {
 		}
 		if (!failures.isEmpty()) {
 			throw new ValidationException(failures);
-		}
-	}
-
-	private static LocalDate parseStrict(String value, DateTimeFormatter format) {
-		try {
-			return LocalDate.parse(value, format);
-		}
-		catch (DateTimeParseException e) {
-			return null;
 		}
 	}
 

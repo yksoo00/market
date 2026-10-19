@@ -3,10 +3,7 @@ package com.company.market.trade.service;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-import java.time.format.ResolverStyle;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -17,6 +14,7 @@ import java.util.stream.Collectors;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.exception.ValidationException;
+import com.company.market.common.time.KoreanDates;
 import com.company.market.listing.domain.ListingId;
 import com.company.market.listing.dto.ListingTradeSnapshot;
 import com.company.market.listing.service.ListingService;
@@ -45,12 +43,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional(readOnly = true)
 public class TradeService {
 
-	private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
-
 	private static final int PAGE_SIZE = 20;
-
-	private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM-dd")
-		.withResolverStyle(ResolverStyle.STRICT);
 
 	private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
@@ -209,26 +202,16 @@ public class TradeService {
 			failures.put("reqDeliDate", "납품희망일을 입력해 주세요.");
 		}
 		else {
-			LocalDate date = parse(reqDeliDate);
+			LocalDate date = KoreanDates.parseIso(reqDeliDate);
 			if (date == null) {
 				failures.put("reqDeliDate", "납품희망일이 올바른 날짜가 아닙니다.");
 			}
-			// "오늘"은 한국 날짜 — 서버 Clock 은 UTC
-			else if (date.isBefore(LocalDate.now(clock.withZone(SEOUL)))) {
+			else if (date.isBefore(KoreanDates.today(clock))) {
 				failures.put("reqDeliDate", "납품희망일은 오늘 이후 날짜로 입력하세요.");
 			}
 		}
 		if (!failures.isEmpty()) {
 			throw new ValidationException(failures);
-		}
-	}
-
-	private static LocalDate parse(String value) {
-		try {
-			return LocalDate.parse(value, DATE_FORMAT);
-		}
-		catch (DateTimeParseException e) {
-			return null;
 		}
 	}
 

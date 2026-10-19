@@ -1,9 +1,7 @@
 package com.company.market.listing.service;
 
 import java.time.Clock;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 import java.util.Collection;
@@ -12,6 +10,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import com.company.market.common.time.KoreanDates;
 import com.company.market.listing.domain.Category;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.dto.ProductSearchItemResponse;
@@ -31,8 +30,6 @@ public class ProductService {
 
 	/** 상품 ID = KP-연도-일련번호(6자리), 일련번호는 해마다 1부터 (사용자 지시, 2026-10-08) */
 	private static final String PROD_ID_PREFIX = "KP-";
-
-	private static final ZoneId SEOUL = ZoneId.of("Asia/Seoul");
 
 	private static final DateTimeFormatter REG_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
@@ -93,8 +90,8 @@ public class ProductService {
 	}
 
 	private Product create(ProductDraft draft) {
-		// 연도는 한국 날짜 — 서버 Clock 은 UTC 라 그대로 쓰면 1월 1일 오전 9시 전엔 전년도 번호가 된다
-		String prefix = PROD_ID_PREFIX + LocalDate.now(clock.withZone(SEOUL)).getYear() + "-";
+		// 연도는 한국 날짜 — UTC 그대로면 1월 1일 오전 9시 전엔 전년도 번호가 된다
+		String prefix = PROD_ID_PREFIX + KoreanDates.today(clock).getYear() + "-";
 		long sequence = products.countByProdIdStartingWith(prefix) + 1;
 		String prodId = prefix + String.format("%06d", sequence);
 
