@@ -28,7 +28,8 @@ export type OpenAction =
   /** 새 주기능. 보조는 닫힌다. 홈("/")이면 홈 한 칸 */
   | { kind: "main"; path: string };
 
-const isHome = (path: string) => screenOf(path).id === "home";
+/** 홈 화면 경로인가 (쿼리가 붙어도) */
+export const isHome = (path: string) => screenOf(path).id === "home";
 
 export function decideOpen(
   panes: readonly Pane[],
@@ -38,32 +39,24 @@ export function decideOpen(
 ): OpenAction {
   if (opts.reset || panes.length === 0) return { kind: "main", path };
   const [main, sub] = panes;
-  const target = screenOf(path);
-  // 홈 한 칸일 때 그 화면에서 연 것도 홈에서 연 것
-  const fromHome = fromKey === HOME_KEY || isHome(main.path);
-  const from = fromHome ? null : sub && sub.key === fromKey ? sub : main;
-
-  if (!opts.wide) {
-    // 모바일 폭에선 분할하지 않는다 (사용자 지시). 주기능 한 칸만 보인다
-    if (main.path === path) return { kind: "none" };
-    return screenOf(main.path).id === target.id ? { kind: "inPlace", paneKey: main.key, path } : { kind: "main", path };
-  }
-
-  if (from === null) {
-    if (target.id === "home") return { kind: "none" };
-    if (main.path === path) return { kind: "none" };
-    // 같은 기능을 다시 열면(홈에서 다시 검색 등) 주기능 자리에서 바뀌고 보조는 그대로
-    if (screenOf(main.path).id === target.id) return { kind: "inPlace", paneKey: main.key, path };
-    return { kind: "main", path };
-  }
-
-  if (target.id === "home") return { kind: "main", path };
-  if (from.path === path) return { kind: "none" };
-  if (screenOf(from.path).id === target.id) return { kind: "inPlace", paneKey: from.key, path };
+  const target = screenOf(path).id;
+  const mainScreen = screenOf(main.path).id;
   // 이미 그 주소로 열려 있으면 다시 불러오지 않는다 (입력하던 값이 지워지지 않게)
-  if (sub?.path === path || main.path === path) return { kind: "none" };
-  if (screenOf(main.path).id === target.id) return { kind: "inPlace", paneKey: main.key, path };
-  return isRelated(target, [screenOf(main.path)]) ? { kind: "sub", path } : { kind: "main", path };
+  if (main.path === path || (opts.wide && sub?.path === path)) return { kind: "none" };
+
+  // 모바일 폭에선 분할하지 않는다 (사용자 지시). 주기능 한 칸만 보인다
+  if (!opts.wide) return mainScreen === target ? { kind: "inPlace", paneKey: main.key, path } : { kind: "main", path };
+
+  // 홈은 이미 왼쪽에 보인다 — 홈 링크는 아무것도 안 함 (로고만 reset 으로 홈 한 칸)
+  if (target === "home") return isHome(main.path) ? { kind: "main", path } : { kind: "none" };
+
+  // 홈 칸·헤더에서 열면(홈 한 칸일 때 그 화면에서 연 것 포함) 항상 새 주기능. 같은 기능을 다시 열어도(다시 검색) 보조는 닫힌다
+  if (fromKey === HOME_KEY || isHome(main.path)) return { kind: "main", path };
+
+  const from = sub && sub.key === fromKey ? sub : main;
+  if (screenOf(from.path).id === target) return { kind: "inPlace", paneKey: from.key, path };
+  if (mainScreen === target) return { kind: "inPlace", paneKey: main.key, path };
+  return isRelated(screenOf(path), [screenOf(main.path)]) ? { kind: "sub", path } : { kind: "main", path };
 }
 
 /** newKey 는 sub·main 의 새 칸 key (iframe 을 새 경로로 다시 마운트하려고) */

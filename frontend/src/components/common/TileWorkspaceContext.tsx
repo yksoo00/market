@@ -11,6 +11,7 @@ import {
   closePane,
   decideOpen,
   HOME_KEY,
+  isHome,
   paneNavigated,
   restorePanes,
   serializePanes,
@@ -89,7 +90,7 @@ export function TileWorkspaceProvider({ children }: { children: ReactNode }) {
     (key: string, path: string) => {
       const cur = panesRef.current;
       // 홈 칸이 홈 밖으로 갔으면 그 경로는 주기능으로 열고 홈 칸은 다시 홈으로
-      if (key === HOME_KEY && screenOf(path).id !== "home") setHomeVersion((v) => v + 1);
+      if (key === HOME_KEY && !isHome(path)) setHomeVersion((v) => v + 1);
       const next = paneNavigated(cur, key, path, wideRef.current, newKey());
       const same = next.length === cur.length && next.every((p, i) => p.key === cur[i].key && p.path === cur[i].path);
       if (same) return;

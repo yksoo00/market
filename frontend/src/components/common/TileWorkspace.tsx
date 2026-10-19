@@ -6,8 +6,7 @@ import { useIsFramed } from "@/hooks/useIsFramed";
 import { useReportTilePathname } from "@/hooks/useReportTilePathname";
 import { TileWorkspaceProvider, useTileWorkspace } from "@/components/common/TileWorkspaceContext";
 import { TileCloseButton, TileFrame } from "@/components/common/TileFrame";
-import { HOME_KEY } from "@/lib/tileQueue";
-import { screenOf } from "@/lib/tileScreens";
+import { HOME_KEY, isHome } from "@/lib/tileQueue";
 
 // Provider는 framed 여부와 무관하게 항상 감싼다. useIsFramed는 첫 렌더 false → iframe 안이면 true로
 // 바뀌는데, 이때 루트 타입(Provider ↔ Fragment)이 바뀌면 페이지 전체가 다시 마운트되기 때문.
@@ -39,9 +38,14 @@ function TileGrid({ main }: { main: ReactNode }) {
   // 주기능이 홈이면 홈 한 칸. iframe 안(서브 칸)과 모바일 폭(md 미만)에서는 분할하지 않는다.
   // 분할 여부는 주소(주기능 경로)만으로 정하고 폭·iframe 여부는 CSS(md:·framed:)로 가린다 — 하이드레이션 전 첫 화면부터
   // 분할로 그려, 한 칸으로 떴다가 분할로 바뀌며 화면이 튀고 그 사이 클릭이 엉뚱한 칸에 가는 일이 없게 (E2E 에서 발견).
-  const split = screenOf(usePathname()).id !== "home";
+  // 칸 목록을 알면 그걸(주기능 칸 = 주소창) 따른다 — 닫기·새 주기능 직후 라우터가 주소를 바꾸기 전에도 배치와 칸이 어긋나지 않게
+  const pathname = usePathname();
+  const split = !isHome(panes[0]?.path ?? pathname);
+  // 홈 iframe·보조는 넓은 화면의 바깥 문서에서만 그린다. 숨긴(display:none) iframe 도 Chromium 은 바로 불러온다(lazy 무시).
+  // 하이드레이션 전엔 빈 홈 칸 자리만 CSS 로 잡아 둔다 (첫 화면이 튀지 않게)
+  const live = !framed && wide;
   // 보조는 넓은 화면에서 열었을 때만 생긴다. 좁아지면 칸 목록은 두고 화면에서만 뺀다
-  const sub = split && !framed && wide ? panes[1] : undefined;
+  const sub = split && live ? panes[1] : undefined;
 
   // 페이지들은 body(flex-col)의 직계 자식처럼 <main className="flex-1 min-h-0">…<MobileTabBar/>를 두므로
   // 래퍼도 flex-col이어야 main의 flex-1·min-h-0이 전처럼 동작한다.
@@ -77,9 +81,9 @@ function TileGrid({ main }: { main: ReactNode }) {
     >
       {mainCell}
       {split && (
-        // 좁은 화면·iframe 안에선 display:none — iframe 이 lazy 라 불러오지도 않는다
+        // 좁은 화면·iframe 안에선 display:none
         <div className="hidden md:block md:col-start-1 md:row-start-1 md:row-span-2 min-h-0 framed:hidden">
-          <TileFrame key={`${HOME_KEY}-${homeVersion}`} pane={{ key: HOME_KEY, path: "/" }} closable={false} />
+          {live && <TileFrame key={`${HOME_KEY}-${homeVersion}`} pane={{ key: HOME_KEY, path: "/" }} closable={false} />}
         </div>
       )}
       {sub && (

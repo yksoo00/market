@@ -28,12 +28,8 @@ describe("decideOpen — 홈 칸·헤더에서 열기 (새 주기능)", () => {
     });
   });
 
-  it("홈 칸에서 같은 기능을 다시 열면(다시 검색) 주기능 자리에서 바뀌고 보조는 그대로", () => {
-    expect(decideOpen([P("a", "/search?q=1"), P("b", DETAIL)], HOME_KEY, "/search?q=2", wide)).toEqual({
-      kind: "inPlace",
-      paneKey: "a",
-      path: "/search?q=2",
-    });
+  it("홈 칸에서 같은 기능을 다시 열어도(다시 검색) 새 주기능 — 옛 결과의 보조는 닫힌다", () => {
+    expect(decideOpen([P("a", "/search?q=1"), P("b", DETAIL)], HOME_KEY, "/search?q=2", wide)).toEqual({ kind: "main", path: "/search?q=2" });
   });
 
   it("관련 없는 화면이어도 헤더에서 열면 새 주기능 (예: 판매 등록 중 내 구매목록)", () => {
@@ -93,8 +89,8 @@ describe("decideOpen — 주기능·보조 칸에서 열기", () => {
     expect(decideOpen([P("a", "/search?q=1")], "a", "/search?q=1", wide)).toEqual({ kind: "none" });
   });
 
-  it("홈 링크는 홈 한 칸", () => {
-    expect(decideOpen([P("a", "/search"), P("b", DETAIL)], "b", "/", wide)).toEqual({ kind: "main", path: "/" });
+  it("홈 링크는 아무것도 안 함 — 홈은 이미 왼쪽에 보인다 (입력하던 칸이 닫히지 않게)", () => {
+    expect(decideOpen([P("a", "/search"), P("b", DETAIL)], "b", "/", wide)).toEqual({ kind: "none" });
   });
 
   it("로고(reset)는 항상 새 주기능 — 홈이면 홈 한 칸", () => {

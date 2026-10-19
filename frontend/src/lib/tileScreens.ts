@@ -1,5 +1,5 @@
 // 화면 칸 규칙(lib/tileQueue)이 "같은 화면인가·연관 있는가"를 판단하는 화면 표. 연관 있으면 보조 칸, 없으면 새 주기능. 새 화면을 만들면 여기에 한 줄만 추가한다.
-// 스펙: docs/superpowers/specs/2026-10-01-tile-queue-design.md "화면 표"
+// 규칙: decisions.md 2026-10-19 (화면 표 형식은 docs/superpowers/specs/2026-10-01-tile-queue-design.md "화면 표" 그대로)
 
 /** common은 어느 칸과도 연관 (홈·로그인·가입처럼 어디서든 옆에 열려도 되는 화면) */
 export type TileGroup = "common" | "buy" | "sell";

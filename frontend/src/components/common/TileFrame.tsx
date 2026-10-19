@@ -52,6 +52,10 @@ export function TileFrame({ pane, closable = true }: { pane: Pane; closable?: bo
     return (
       <div className="relative h-full w-full flex flex-col items-center justify-center gap-2 p-4 text-center text-sm">
         <p>{t.unreachable}</p>
+        {/* 닫을 수 없는 칸(홈)은 다시 불러오기로 벗어난다 */}
+        <button type="button" onClick={() => setLoadError(false)} className="h-8.5 px-4 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft">
+          {t.retry}
+        </button>
         {closable && <TileCloseButton onClick={() => close(pane.key)} />}
       </div>
     );
@@ -63,8 +67,6 @@ export function TileFrame({ pane, closable = true }: { pane: Pane; closable?: bo
         ref={iframeRef}
         src={src}
         title={t.tileFrameTitle}
-        // lazy: 좁은 화면에서 숨겨 둔(display:none) 홈 칸은 불러오지 않는다
-        loading="lazy"
         onError={() => setLoadError(true)}
         className="h-full w-full border-0"
       />
