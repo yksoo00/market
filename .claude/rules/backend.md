@@ -27,7 +27,7 @@ com.company.market
 ## 코드 컨벤션
 - Java 21 문법 사용 (record, sealed, switch pattern). 필드 주입 금지, 생성자 주입 (`@RequiredArgsConstructor` 또는 명시 생성자).
 - DTO는 record. 엔티티를 API 응답으로 직접 반환하지 않는다.
-- 엔티티: `@Id` UUID, `createdAt`/`updatedAt` 공통 base 클래스, soft delete는 `deletedAt`.
+- 엔티티: 정의서 테이블(`trd_*`)은 정의서 PK 그대로 — 복합 PK 는 `@IdClass`(예: `Listing` = `user_id` + `reg_date`). 정의서 밖 보조 테이블만 `BaseEntity`(UUID `@Id`, `createdAt`/`updatedAt`).
 - 예외: `common/exception`의 도메인 예외(`ApiException(ErrorCode)`) → 전역 핸들러가 `{ ok: false, code, message }`로 변환. 컨트롤러에서 try-catch 금지. 오류 코드는 `ErrorCode` enum 하나에 모은다 — 기능별 enum 으로 쪼개지 않고 `// 공통 / 인증 / 가입` 주석으로 묶음. 코드 이름은 프론트 `messages/*.ts` 의 errors 키와 같다. 새 코드 추가 시 프론트 문구도 같은 PR.
 - 트랜잭션 경계는 service. `@Transactional(readOnly = true)`를 조회 기본값으로.
 - N+1 주의: 목록 조회는 fetch join 또는 별도 쿼리. `open-in-view=false`.
@@ -47,7 +47,7 @@ com.company.market
 ## 인증
 - JWT access 15분(stateless) + refresh 30일(Redis `session:{userId}:{deviceId}`).
 - 소셜 로그인은 구현 후 일시 주석 처리 상태다. 사용자 지시 전까지 OAuth 경로를 노출하지 않는다.
-- 권한 검사는 `common/auth/Permission` 한 곳. 컨트롤러·서비스에 role 문자열 비교 흩뿌리지 않는다.
+- 역할(role)은 없다. 권한은 소유자 검사뿐 — 서비스에서 인증 정보의 uid 와 행의 소유자를 비교해 `ErrorCode.FORBIDDEN`. 역할이 생기면 검사 위치를 다시 정한다.
 
 ## 테스트
 - 서비스: 단위 테스트 (Mockito). 리포지토리·API: Testcontainers Postgres로 통합 테스트.
