@@ -25,6 +25,9 @@ spring:
   flyway:
     # 기본은 스키마만. 로컬 .env 는 classpath:db/seed(개발용 샘플 데이터)를 더한다 — 운영 .env 에는 넣지 않는다
     locations: ${FLYWAY_LOCATIONS:classpath:db/migration}
+    # 시드를 넣었던 로컬 DB 에서 db/seed 를 빼고 띄워도 "applied migration not resolved locally" 로 멈추지 않게.
+    # 반복(R__)만 허용 — 버전 마이그레이션 파일이 사라지면 여전히 실패해야 한다
+    ignore-migration-patterns: "*:future,repeatable:missing"
 
   data:
     redis:
