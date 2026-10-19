@@ -55,6 +55,8 @@ export function decideOpen(
 
   const from = sub && sub.key === fromKey ? sub : main;
   if (screenOf(from.path).id === target) return { kind: "inPlace", paneKey: from.key, path };
+  // 마이페이지는 바로가기 허브 — 고른 화면이 그 칸을 바꾼다. 옆에 쌓으면 허브만 남은 칸이 하나 더 생긴다 (사용자 지시 2026-10-19)
+  if (screenOf(from.path).id === "my") return { kind: "inPlace", paneKey: from.key, path };
   if (mainScreen === target) return { kind: "inPlace", paneKey: main.key, path };
   return isRelated(screenOf(path), [screenOf(main.path)]) ? { kind: "sub", path } : { kind: "main", path };
 }
