@@ -6,25 +6,27 @@
 
 ```text
 브라우저 → Next.js (localhost:3000) → Spring Boot (localhost:8080)
-                                         ├─ PostgreSQL: trd_user_info 한 테이블
-                                         ├─ Redis: refresh 세션·rate limit·업로드 기록
+                                         ├─ PostgreSQL: 정의서 테이블 trd_* (계정·카테고리·상품마스터·매물·거래)
+                                         ├─ Redis: refresh 세션·업로드 기록·멱등 키·가입 임시값
                                          └─ 디스크: 업로드 파일 (Compose volume uploads_data)
 ```
 
 - 로컬은 Docker Compose로 PostgreSQL·Redis를 실행하고, Spring은 `bootRun`, 프론트는 `pnpm dev`로 실행한다.
 - Spring을 컨테이너로 띄우려면 `docker compose up --watch api-dev`(`dev` 프로필, `backend/Dockerfile.dev`). compose watch가 `src/`를 컨테이너로 복사 → 컨테이너 안 `gradlew classes --continuous`가 컴파일 → devtools가 앱만 재시작한다. `build.gradle`이 바뀌면 이미지를 다시 빌드한다. 포트는 호스트 `bootRun`과 같은 `127.0.0.1:8080`이라 둘 중 하나만 띄운다 (decisions.md 2026-10-07).
 - Compose `prod` 프로필에는 Spring 복제본 2개가 있지만, 현재 외부 프록시·TLS는 실행하지 않는다.
-- 구현은 인증 중심이다. 상품·매물·거래 도메인은 아직 구현되지 않았다. AI 기능은 보류(서비스 제거).
+- 구현된 도메인: 계정(가입·로그인), 매물(등록·수정·추가등록·검색·상세, 상품마스터에서 고르기), 거래(직접 구매 — 요청·거래완료·취소). 견적·장바구니·결제·채팅은 없다. AI 기능은 보류(서비스 제거).
+- rate limit 은 2026-10-19 에 전부 지웠다. 운영 전에 다시 넣는다 (decisions.md 같은 날).
+- `organization` 패키지는 조직 테이블을 없앤 뒤 남은 코드다 (`@Entity` 주석 처리). 쓰는 곳이 없다.
 - 소셜 로그인은 구현했으나 단일 `trd_user_info` 전환으로 일시 주석 처리했다 (`OAuthController` 등).
 
 ## 기술 구성
 
 | 구성 요소 | 역할 | 현재 상태 |
 |---|---|---|
-| Next.js 16 | 로그인·가입 등 화면 | 인증 화면 중심. 홈 매물은 mock |
-| Spring Boot 4.1, Java 21 | REST API, 인증·회원 처리 | 로그인, refresh/logout, 내 정보, 개인 가입 |
-| PostgreSQL 16 | 영속 데이터 | 계정은 단일 `trd_user_info` 테이블 |
-| Redis 7 | refresh 세션, rate limit, 임시 인증, 업로드 기록(24시간) | 인증·업로드 흐름에 사용 |
+| Next.js 16 | 화면. 넓은 화면은 칸 엔진 [홈 \| 주기능 \| 보조] | 홈·로그인·가입·매물 등록/검색/상세·마이페이지·내 판매글·받은 구매요청·내 구매목록 |
+| Spring Boot 4.1, Java 21 | REST API | 패키지 user·listing·trade·common |
+| PostgreSQL 16 | 영속 데이터 | 정의서 테이블 `trd_*` 6개 + 보조 테이블. 목록은 `data-model.md` |
+| Redis 7 | refresh 세션, 업로드 기록(24시간), 멱등 키, 가입 임시값(약관·본인인증 스텁) | 인증·업로드·매물 등록·구매요청 흐름에 사용 |
 | 파일 저장소 | 업로드 파일 (`common/storage`, `STORAGE_ROOT`) | 서버 로컬 디스크. Compose는 volume `uploads_data`를 api-1·api-2가 공유. DB와 함께 백업 (decisions.md 2026-10-02) |
 
 ## 백엔드 구조
@@ -47,4 +49,4 @@
 - 프론트는 Vercel, Spring·PostgreSQL·Redis는 자체 서버에서 운영할 계획이다.
 - 공개 전 역방향 프록시, TLS, 접근 제어, 백업·복구 절차를 구성한다.
 - AI 재개 시: 별도 FastAPI 1개를 Spring만 내부 네트워크로 호출하고, AI는 사용자 권한을 다루지 않는다 (decisions.md 2026-09-18).
-- 상품·거래 등 신규 도메인은 기능·권한·데이터 모델을 정의한 후 구현한다.
+- 견적 등 새 기능은 기능·권한·데이터 모델을 정의한 후 구현한다.
