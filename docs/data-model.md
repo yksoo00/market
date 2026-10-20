@@ -123,13 +123,23 @@
 
 ### trd_trade_info (TRD_TRADE_INFO — 거래정보)
 
-구매요청 1건 = 1행. 매물에서 가져올 수 있는 칸은 요청 때 서버가 복사한다(스냅샷 — 나중에 매물이 바뀌어도 그대로).
+견적 요청 1건 또는 구매요청 1건 = 1행. 매물에서 가져올 수 있는 칸은 요청 때 서버가 복사한다(스냅샷 — 나중에 매물이 바뀌어도 그대로).
+
+코드 값 (2026-10-20, `V202610201010` — 정의서 값으로 맞춤). TYPE 은 만들 때 정해지고 안 바뀐다, STATS 는 진행에 따라 앞으로만:
+
+| trade_type | trade_stats 흐름 |
+|---|---|
+| `구매검토` | `장바구니` / `비교용` (아직 안 씀) |
+| `견적조정` | `견적요청` → `견적회신` (판매자 수락·거절 둘 다. 결과는 메일로만) |
+| `거래` | `구매요청` → `구매확정` |
+
+취소는 값 없이 행을 지운다(견적 취소·거래 취소). 정의서 TYPE `요청중`은 쓰지 않는다. `견적회신`은 정의서 밖 값 (사용자 결정).
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | user_id | uuid | PK(복합), FK→trd_user_info(uid) `fk_trd_trade_info_buyer` | 구매자. 정의서 varchar(20) → uuid |
 | trade_id | varchar(20) | PK(복합), **unique** `ux_trd_trade_info_trade_id` | `yyMMddHH`(한국 시간) + 순번 3자리, 11자 (예 `26092917001`). 순번은 그 시간대 전체에서 001부터. unique 는 거래이력 FK 용 (정의서 밖) |
-| trade_type | varchar(20) | not null | 거래종류: `구매요청` / `구매확정` / `구매취소` |
+| trade_type | varchar(20) | not null | 거래종류: 위 표 |
 | seller_id | uuid | FK(seller_id, reg_date)→trd_prod_reg(user_id, reg_date) `fk_trd_trade_info_listing` | 판매자. 정의서 물리명 `USER_ID`가 구매자와 겹쳐 이름 변경 |
 | reg_date | varchar(14) | 위 FK | 매물 등록일시 |
 | prod_id | varchar(20) | | 복사. 정의서 50 → 마스터에 맞춰 20 |
@@ -139,25 +149,25 @@
 | min_order_quantity | integer | | 복사 |
 | order_unit | integer | | 복사 |
 | prov_date | varchar(10) | **nullable** | 복사 (제공가능일). 정의서 NOT NULL — 매물 납기일이 선택이라 |
-| order_unit_price | integer | not null | = 등록단가 (구매자가 못 바꿈) |
+| order_unit_price | integer | not null | 거래: = 등록단가 (구매자가 못 바꿈). 견적조정: 희망단가 (1 ~ 등록단가) |
 | order_quantity | integer | not null | 구매자 입력, 기본 최소주문량 |
-| req_deli_date | varchar(10) | not null | 납품희망일 yyyy-MM-dd. 구매자 입력, 기본 제공가능일 (매물 납기일이 없으면 필수 입력) |
-| remarks | varchar(100) | | 요청사항 |
-| trade_stats | varchar(10) | not null | 거래상태: `구매요청` / `구매확정` / `취소` |
+| req_deli_date | varchar(10) | **nullable** (2026-10-20) | 납품희망일 yyyy-MM-dd. 거래: 구매자 입력, 기본 제공가능일 (매물 납기일이 없으면 필수 입력). 견적조정: null (받지 않음). 정의서 NOT NULL |
+| remarks | varchar(100) | | 요청사항 (견적은 비고) |
+| trade_stats | varchar(10) | not null | 거래상태: 위 표 |
 | spare_col | varchar(100) | | |
 
 인덱스: `ix_trd_trade_info_listing (seller_id, reg_date)` (FK·판매자 목록·매물별 요청 건수). 구매자 목록은 PK 앞부분 `user_id`.
 
 ### trd_trade_history (TRD_TRADE_HISTORY — 거래이력)
 
-거래가 완료된(구매확정) 거래만 1줄. 취소는 쌓지 않는다 (거래정보 상태로만 남음).
+거래가 완료된(구매확정) 거래만 1줄. 취소는 쌓지 않는다 (거래정보 행도 지워진다, 2026-10-20).
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | trade_id | varchar(20) | PK(복합), FK→trd_trade_info(trade_id) `fk_trd_trade_history_trade` | |
 | trade_date | varchar(14) | PK(복합) | 확정일시 yyyyMMddHHmmss |
 | prod_id | varchar(20) | PK(복합) | |
-| trade_type | varchar(10) | not null | `구매확정` |
+| trade_type | varchar(10) | not null | `거래` (2026-10-20 전엔 `구매확정`) |
 | seller_id | uuid | not null, FK→trd_user_info(uid) | 정의서 물리명이 논리명과 뒤바뀜(판매자=BUYER_ID) → 바로잡음 |
 | buyer_id | uuid | not null, FK→trd_user_info(uid) | |
 | trade_unit_price | integer | | |

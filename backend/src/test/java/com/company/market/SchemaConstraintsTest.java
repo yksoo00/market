@@ -141,6 +141,19 @@ class SchemaConstraintsTest {
 	}
 
 	@Test
+	@DisplayName("견적조정 행은 납품희망일 없이 저장된다 (req_deli_date nullable, 2026-10-20)")
+	void quoteRowWithoutReqDeliDate() {
+		UUID[] ids = insertListingAndBuyer();
+		jdbc.update("""
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
+					order_unit_price, order_quantity, req_deli_date, trade_stats)
+				values (?, '26102010001', '견적조정', ?, '20261015100000', 'TRADETEST1', 900, 1, null, '견적요청')
+				""", ids[0], ids[1]);
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info where req_deli_date is null", Integer.class))
+			.isEqualTo(1);
+	}
+
+	@Test
 	@DisplayName("거래 매물 FK: 거래가 있는 매물은 지울 수 없다")
 	void listingWithTradeCannotBeDeleted() {
 		UUID[] ids = insertListingAndBuyer();
