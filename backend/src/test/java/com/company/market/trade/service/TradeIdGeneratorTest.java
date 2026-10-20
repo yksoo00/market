@@ -64,7 +64,7 @@ class TradeIdGeneratorTest {
 	}
 
 	private TradeInfo trade(String tradeId) {
-		return TradeInfo.builder().userId(buyerId).tradeId(tradeId).tradeType(TradeType.PURCHASE_REQUEST)
+		return TradeInfo.builder().userId(buyerId).tradeId(tradeId).tradeType(TradeType.PURCHASE)
 			.orderUnitPrice(1000).orderQuantity(1).reqDeliDate("2026-10-20").tradeStats(TradeStats.REQUESTED).build();
 	}
 
@@ -110,7 +110,7 @@ class TradeIdGeneratorTest {
 		assertThat(jdbc.queryForObject("select trade_stats from trd_trade_info where trade_id = '26092917001'", String.class))
 			.isEqualTo("구매요청");
 		assertThat(jdbc.queryForObject("select trade_type from trd_trade_info where trade_id = '26092917001'", String.class))
-			.isEqualTo("구매요청");
+			.isEqualTo("거래");
 		assertThat(trades.findByTradeId("26092917001")).get().extracting(TradeInfo::getTradeStats)
 			.isEqualTo(TradeStats.REQUESTED);
 	}

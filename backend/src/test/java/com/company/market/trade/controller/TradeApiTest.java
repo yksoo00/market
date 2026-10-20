@@ -172,6 +172,8 @@ class TradeApiTest {
 		request(buyer, body(4, future()))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.tradeStats").value("requested"))
+			.andExpect(jsonPath("$.data.tradeType").value("purchase"))
+			.andExpect(jsonPath("$.data.salesUnitPrice").value(1000))
 			.andExpect(jsonPath("$.data.amount").value(4000))
 			.andExpect(jsonPath("$.data.orderUnitPrice").value(1000))
 			.andExpect(jsonPath("$.data.prodName").value("서버 R740"))
@@ -187,7 +189,7 @@ class TradeApiTest {
 		assertThat(row.get("stock_quantity")).isEqualTo(10);
 		assertThat(row.get("prov_date")).isEqualTo("2099-12-31");
 		assertThat(row.get("order_unit_price")).isEqualTo(1000);
-		assertThat(row.get("trade_type")).isEqualTo("구매요청");
+		assertThat(row.get("trade_type")).isEqualTo("거래");
 		assertThat(row.get("trade_stats")).isEqualTo("구매요청");
 		assertThat(row.get("remarks")).isEqualTo("빠른 납품 부탁");
 	}
@@ -453,9 +455,9 @@ class TradeApiTest {
 
 		assertThat(statsOf(tradeId)).isEqualTo("구매확정");
 		assertThat(jdbc.queryForObject("select trade_type from trd_trade_info where trade_id = ?", String.class, tradeId))
-			.isEqualTo("구매확정");
+			.isEqualTo("거래");
 		var row = jdbc.queryForMap("select * from trd_trade_history where trade_id = ?", tradeId);
-		assertThat(row.get("trade_type")).isEqualTo("구매확정");
+		assertThat(row.get("trade_type")).isEqualTo("거래");
 		assertThat(row.get("prod_id")).isEqualTo("TRADEAPI01");
 		assertThat(row.get("seller_id")).isEqualTo(sellerId);
 		assertThat(row.get("buyer_id")).isEqualTo(buyerId);
@@ -496,18 +498,15 @@ class TradeApiTest {
 	}
 
 	@Test
-	@DisplayName("판매자가 취소하면 취소·재고 복원, 재고 0이던 매물은 다시 판매 중이고 수정된다")
+	@DisplayName("판매자가 취소하면 거래 행이 지워지고 재고 복원, 재고 0이던 매물은 다시 판매 중이고 수정된다")
 	void sellerCancelsRestoresStock() throws Exception {
 		listing(1000, 4, 1, 1, null);
 		String tradeId = requested(4);
 		assertThat(jdbc.queryForObject("select dt_expire from trd_prod_reg where user_id = ?", String.class, sellerId)).isNotNull();
 
-		action(seller, tradeId, "cancel").andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.tradeStats").value("canceled"));
+		action(seller, tradeId, "cancel").andExpect(status().isNoContent());
 
-		assertThat(statsOf(tradeId)).isEqualTo("취소");
-		assertThat(jdbc.queryForObject("select trade_type from trd_trade_info where trade_id = ?", String.class, tradeId))
-			.isEqualTo("구매취소");
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info where trade_id = ?", Integer.class, tradeId)).isZero();
 		assertThat(stock()).isEqualTo(4);
 		assertThat(jdbc.queryForObject("select dt_expire from trd_prod_reg where user_id = ?", String.class, sellerId)).isNull();
 		assertThat(historyCount()).isZero();
@@ -522,12 +521,12 @@ class TradeApiTest {
 		listing(1000, 10, 1, 1, null);
 		String tradeId = requested(2);
 
-		action(buyer, tradeId, "cancel").andExpect(status().isOk());
+		action(buyer, tradeId, "cancel").andExpect(status().isNoContent());
 		assertThat(stock()).isEqualTo(10);
 	}
 
 	@Test
-	@DisplayName("확정 뒤 취소·취소 뒤 확정·두 번 확정은 409 TRADE_NOT_PENDING, 이력은 1줄")
+	@DisplayName("확정 뒤 취소·두 번 확정은 409 TRADE_NOT_PENDING, 취소한(지워진) 거래는 404, 이력은 1줄")
 	void onlyPendingTradesChange() throws Exception {
 		listing(1000, 10, 1, 1, null);
 		String confirmed = requested(1);
@@ -537,9 +536,9 @@ class TradeApiTest {
 		action(seller, confirmed, "cancel").andExpect(status().isConflict());
 
 		String canceled = requested(1);
-		action(buyer, canceled, "cancel").andExpect(status().isOk());
-		action(buyer, canceled, "complete").andExpect(status().isConflict());
-		action(buyer, canceled, "cancel").andExpect(status().isConflict());
+		action(buyer, canceled, "cancel").andExpect(status().isNoContent());
+		action(buyer, canceled, "complete").andExpect(status().isNotFound());
+		action(buyer, canceled, "cancel").andExpect(status().isNotFound());
 
 		assertThat(historyCount()).isEqualTo(1);
 		assertThat(stock()).isEqualTo(9);
@@ -576,7 +575,8 @@ class TradeApiTest {
 			return true;
 		}
 		catch (ApiException e) {
-			assertThat(e.getCode()).isEqualTo(ErrorCode.TRADE_NOT_PENDING);
+			// 취소가 이기면 행이 지워져 나중에 읽는 쪽은 404
+			assertThat(e.getCode()).isIn(ErrorCode.TRADE_NOT_PENDING, ErrorCode.TRADE_NOT_FOUND);
 			return false;
 		}
 	}

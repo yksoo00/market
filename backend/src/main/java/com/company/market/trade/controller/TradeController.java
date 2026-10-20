@@ -49,10 +49,11 @@ public class TradeController {
 		return ApiResponse.of(trades.complete(me.id(), tradeId));
 	}
 
-	/** 확정 전 취소 (구매자·판매자) */
+	/** 확정 전 취소 (구매자·판매자). 행이 지워지므로 돌려줄 거래가 없다 → 204 */
 	@PostMapping("/{tradeId}/cancel")
-	public ApiResponse<TradeResponse> cancel(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable String tradeId) {
-		return ApiResponse.of(trades.cancel(me.id(), tradeId));
+	public ResponseEntity<Void> cancel(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable String tradeId) {
+		trades.cancel(me.id(), tradeId);
+		return ResponseEntity.noContent().build();
 	}
 
 	/** 내 구매(role=buyer)·받은 구매요청(role=seller, reg 로 한 매물). 본인 id 는 인증 정보에서만. 읽기라 한도 없음 */

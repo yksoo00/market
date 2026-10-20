@@ -20,6 +20,6 @@ vars:pre-request {
 
 docs {
   로그인(login.bru) 먼저. tradeId 는 create.bru 응답의 tradeId (예시 값은 자리표시).
-  구매자 또는 그 매물의 판매자(제3자 403). 구매요청 상태에서만 — 아니면 409 TRADE_NOT_PENDING. 성공하면 tradeStats "canceled", 재고 복원(재고 0이던 매물은 다시 판매 중). 취소는 이력에 쌓지 않는다.
+  구매자 또는 그 매물의 판매자(제3자 403). 구매요청 상태에서만 — 아니면 409 TRADE_NOT_PENDING. 성공하면 204 — 거래 행을 지우고(2026-10-20) 재고 복원(재고 0이던 매물은 다시 판매 중). 취소는 이력에 쌓지 않는다.
   200 { ok, data: TradeResponse }. 404 TRADE_NOT_FOUND.
 }

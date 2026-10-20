@@ -7,7 +7,6 @@ import java.util.UUID;
 import com.company.market.trade.domain.TradeInfo;
 import com.company.market.trade.domain.TradeInfoId;
 import com.company.market.trade.domain.TradeStats;
-import com.company.market.trade.domain.TradeType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -32,11 +31,15 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	 */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""
-			update TradeInfo t set t.tradeStats = :to, t.tradeType = :type
+			update TradeInfo t set t.tradeStats = :to
 			 where t.tradeId = :tradeId and t.tradeStats = :from
 			""")
-	int updateStatus(@Param("tradeId") String tradeId, @Param("from") TradeStats from, @Param("to") TradeStats to,
-			@Param("type") TradeType type);
+	int updateStatus(@Param("tradeId") String tradeId, @Param("from") TradeStats from, @Param("to") TradeStats to);
+
+	/** 취소 = 행 삭제. updateStatus 와 같은 이유로 그 상태일 때만 지운다 — 0 이면 이미 다른 상태 (호출자가 409) */
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("delete from TradeInfo t where t.tradeId = :tradeId and t.tradeStats = :stats")
+	int deleteIfStatus(@Param("tradeId") String tradeId, @Param("stats") TradeStats stats);
 
 	/** 내가 구매자인 거래, trade_id 내림차순(= 최신순, 11자 고정 길이라 문자열 순서가 시간 순서). cursor 보다 앞만 */
 	@Query("""

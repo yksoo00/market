@@ -946,7 +946,7 @@ class ListingApiTest {
 		jdbc.update("""
 				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, order_unit_price,
 					order_quantity, req_deli_date, trade_stats)
-				values (?, '26101510001', '구매취소', ?, ?, 500000, 1, '2026-10-20', '취소')
+				values (?, '26101510001', '견적조정', ?, ?, 500000, 1, null, '견적요청')
 				""", buyer, userId, regDate);
 
 		mvc.perform(delete("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie))

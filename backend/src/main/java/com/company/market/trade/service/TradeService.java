@@ -6,7 +6,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -80,7 +79,7 @@ public class TradeService {
 		TradeInfo trade = trades.saveAndFlush(TradeInfo.builder()
 			.userId(buyerId)
 			.tradeId(tradeIds.next())
-			.tradeType(TradeType.PURCHASE_REQUEST)
+			.tradeType(TradeType.PURCHASE)
 			.sellerId(listing.sellerId())
 			.regDate(listing.regDate())
 			.prodId(listing.prodId())
@@ -107,14 +106,14 @@ public class TradeService {
 		if (!me.equals(trade.getUserId())) {
 			throw new ApiException(ErrorCode.FORBIDDEN);
 		}
-		if (trades.updateStatus(tradeId, TradeStats.REQUESTED, TradeStats.CONFIRMED, TradeType.PURCHASE_CONFIRM) == 0) {
+		if (trades.updateStatus(tradeId, TradeStats.REQUESTED, TradeStats.CONFIRMED) == 0) {
 			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 		}
 		histories.save(TradeHistory.builder()
 			.tradeId(tradeId)
 			.tradeDate(LocalDateTime.now(clock).format(TIMESTAMP_FORMAT))
 			.prodId(trade.getProdId())
-			.tradeType(TradeType.PURCHASE_CONFIRM)
+			.tradeType(TradeType.PURCHASE)
 			.sellerId(trade.getSellerId())
 			.buyerId(trade.getUserId())
 			.tradeUnitPrice(trade.getOrderUnitPrice())
@@ -125,18 +124,20 @@ public class TradeService {
 		return respond(me, trade, TradeStats.CONFIRMED);
 	}
 
-	/** 확정 전이면 구매자·판매자 누구나 취소. 재고를 돌려준다. 취소는 이력에 쌓지 않는다 */
+	/**
+	 * 확정 전이면 구매자·판매자 누구나 취소. 취소는 값 없이 행을 지우고(사용자 결정 2026-10-20) 재고를 돌려준다.
+	 * 이력에도 쌓지 않는다
+	 */
 	@Transactional
-	public TradeResponse cancel(UUID me, String tradeId) {
+	public void cancel(UUID me, String tradeId) {
 		TradeInfo trade = trades.findByTradeId(tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
 		if (!me.equals(trade.getUserId()) && !me.equals(trade.getSellerId())) {
 			throw new ApiException(ErrorCode.FORBIDDEN);
 		}
-		if (trades.updateStatus(tradeId, TradeStats.REQUESTED, TradeStats.CANCELED, TradeType.PURCHASE_CANCEL) == 0) {
+		if (trades.deleteIfStatus(tradeId, TradeStats.REQUESTED) == 0) {
 			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 		}
 		listings.releaseStock(trade.getSellerId(), trade.getRegDate(), trade.getOrderQuantity());
-		return respond(me, trade, TradeStats.CANCELED);
 	}
 
 	/** 구매자·판매자만 본다. 남이면 없는 것과 같게 404 (거래ID 존재 여부를 흘리지 않게) */
@@ -252,9 +253,9 @@ public class TradeService {
 
 	static TradeResponse toResponse(TradeInfo trade, TradeStats status, String prodName, String photo,
 			String counterpartNickname) {
-		return new TradeResponse(trade.getTradeId(), status.name().toLowerCase(Locale.ROOT),
+		return new TradeResponse(trade.getTradeId(), trade.getTradeType().code(), status.code(),
 				trade.getSellerId(), trade.getRegDate(), prodName, trade.getOrderQuantity(),
-				trade.getOrderUnitPrice(), (long) trade.getOrderUnitPrice() * trade.getOrderQuantity(),
+				trade.getSalesUnitPrice(), trade.getOrderUnitPrice(), (long) trade.getOrderUnitPrice() * trade.getOrderQuantity(),
 				trade.getReqDeliDate(), trade.getRemarks(), counterpartNickname, photo);
 	}
 
