@@ -2,8 +2,7 @@ package com.company.market.common.mail;
 
 import java.util.Properties;
 import java.util.concurrent.Executor;
-import java.util.concurrent.ThreadPoolExecutor;
-
+import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.task.SyncTaskExecutor;
@@ -31,7 +30,9 @@ public class MailConfig {
 		executor.setCorePoolSize(2);
 		executor.setMaxPoolSize(4);
 		executor.setQueueCapacity(100);
-		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
+		// 버리되 흔적은 남긴다 — 로그가 없으면 사라진 알림을 알 수 없다
+		executor.setRejectedExecutionHandler((task, pool) -> LoggerFactory.getLogger(MailConfig.class)
+			.warn("메일 큐가 가득 차 발송을 건너뜀 (대기 {}건)", pool.getQueue().size()));
 		return executor;
 	}
 

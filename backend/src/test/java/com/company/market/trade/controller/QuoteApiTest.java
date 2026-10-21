@@ -193,6 +193,13 @@ class QuoteApiTest {
 	}
 
 	@Test
+	@DisplayName("앞 칸이 틀려도 한 요청의 같은 매물 중복은 먼저 409")
+	void duplicateIsReportedEvenIfEarlierItemIsInvalid() throws Exception {
+		quotes(buyer, item(sellerId, REG_A, 9999, 1), item(sellerId, REG_A, 800, 1)).andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("QUOTE_ALREADY_REQUESTED"));
+	}
+
+	@Test
 	@DisplayName("같은 매물에 다시 견적 요청 — 새 행 없이 기존 행을 덮어쓴다 (단가·수량·비고, 상태 견적요청)")
 	void requoteOverwritesPending() throws Exception {
 		String tradeId = quoted(REG_A, 900);

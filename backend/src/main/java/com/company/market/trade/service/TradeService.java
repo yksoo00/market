@@ -121,7 +121,13 @@ public class TradeService {
 		Map<String, String> failures = new LinkedHashMap<>();
 		List<TradeInfo> saved = new ArrayList<>();
 		List<ListingTradeSnapshot> snapshots = new ArrayList<>();
+		// 다른 칸 오류와 함께 한 번에 알리려고 첫 매물 조회 전에 본다
 		Set<String> seen = new HashSet<>();
+		for (QuoteCreateRequest.Item item : req.items()) {
+			if (!seen.add(item.sellerId() + "/" + item.regDate())) {
+				throw new ApiException(ErrorCode.QUOTE_ALREADY_REQUESTED);
+			}
+		}
 		for (int i = 0; i < req.items().size(); i++) {
 			QuoteCreateRequest.Item item = req.items().get(i);
 			ListingTradeSnapshot listing = listings.snapshotForTrade(item.sellerId(), item.regDate());
@@ -144,9 +150,6 @@ public class TradeService {
 			}
 			if (!failures.isEmpty()) {
 				continue;
-			}
-			if (!seen.add(listing.sellerId() + "/" + listing.regDate())) {
-				throw new ApiException(ErrorCode.QUOTE_ALREADY_REQUESTED);
 			}
 			String remarks = item.remarks() == null || item.remarks().isBlank() ? null : item.remarks().trim();
 			TradeInfo existing = trades.findByUserIdAndSellerIdAndRegDateAndTradeType(buyerId, listing.sellerId(),
