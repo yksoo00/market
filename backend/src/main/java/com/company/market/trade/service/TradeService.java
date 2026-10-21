@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +23,7 @@ import com.company.market.trade.domain.TradeHistory;
 import com.company.market.trade.domain.TradeInfo;
 import com.company.market.trade.domain.TradeStats;
 import com.company.market.trade.domain.TradeType;
+import com.company.market.trade.dto.QuoteCreateRequest;
 import com.company.market.trade.dto.TradeCreateRequest;
 import com.company.market.trade.dto.TradePageResponse;
 import com.company.market.trade.dto.TradeResponse;
@@ -97,6 +99,77 @@ public class TradeService {
 			.build());
 		listings.reserveStock(listing.sellerId(), listing.regDate(), req.orderQuantity());
 		return toResponse(trade, TradeStats.REQUESTED, listing.prodName(), listing.photo(), nicknameOf(listing.sellerId()));
+	}
+
+	/**
+	 * 견적 요청 N건 (스펙 2026-10-20). 매물마다 견적조정/견적요청 1행, 재고는 건드리지 않는다.
+	 * 하나라도 틀리면 아무것도 저장하지 않는다(트랜잭션). 재고를 바꾸지 않으니 매물을 잠그지 않는다 — 여러 매물을
+	 * 잠그면 다른 요청과 순서가 엇갈려 교착될 수 있다. 같은 매물이 두 번 오면 두 번째가 409 (먼저 저장한 행을 본다)
+	 */
+	@Transactional
+	public List<TradeResponse> requestQuotes(UUID buyerId, QuoteCreateRequest req) {
+		Map<String, String> failures = new LinkedHashMap<>();
+		List<TradeInfo> saved = new ArrayList<>();
+		List<ListingTradeSnapshot> snapshots = new ArrayList<>();
+		for (int i = 0; i < req.items().size(); i++) {
+			QuoteCreateRequest.Item item = req.items().get(i);
+			ListingTradeSnapshot listing = listings.snapshotForTrade(item.sellerId(), item.regDate());
+			if (buyerId.equals(listing.sellerId())) {
+				throw new ApiException(ErrorCode.TRADE_OWN_LISTING);
+			}
+			if (listing.completed()) {
+				throw new ApiException(ErrorCode.LISTING_COMPLETED);
+			}
+			String prefix = "items[" + i + "].";
+			if (item.orderUnitPrice() > listing.salesUnitPrice()) {
+				failures.put(prefix + "orderUnitPrice", "희망단가는 등록단가(%d원) 이하로 입력해 주세요.".formatted(listing.salesUnitPrice()));
+			}
+			String quantityFailure = quantityFailure(listing, item.orderQuantity(), item.orderUnitPrice());
+			if (quantityFailure == null && (listing.stockQuantity() == null || item.orderQuantity() > listing.stockQuantity())) {
+				quantityFailure = "현재 재고(%d)보다 많이 요청할 수 없습니다.".formatted(listing.stockQuantity() == null ? 0 : listing.stockQuantity());
+			}
+			if (quantityFailure != null) {
+				failures.put(prefix + "orderQuantity", quantityFailure);
+			}
+			if (!failures.isEmpty()) {
+				continue;
+			}
+			if (trades.existsByUserIdAndSellerIdAndRegDateAndTradeStats(buyerId, listing.sellerId(), listing.regDate(),
+					TradeStats.QUOTE_REQUESTED)) {
+				throw new ApiException(ErrorCode.QUOTE_ALREADY_REQUESTED);
+			}
+			saved.add(trades.saveAndFlush(TradeInfo.builder()
+				.userId(buyerId)
+				.tradeId(tradeIds.next())
+				.tradeType(TradeType.QUOTE)
+				.sellerId(listing.sellerId())
+				.regDate(listing.regDate())
+				.prodId(listing.prodId())
+				.prodState(listing.prodState())
+				.salesUnitPrice(listing.salesUnitPrice())
+				.stockQuantity(listing.stockQuantity())
+				.minOrderQuantity(listing.minOrderQuantity())
+				.orderUnit(listing.orderUnit())
+				.provDate(listing.provDate())
+				.orderUnitPrice(item.orderUnitPrice())
+				.orderQuantity(item.orderQuantity())
+				.remarks(item.remarks() == null || item.remarks().isBlank() ? null : item.remarks().trim())
+				.tradeStats(TradeStats.QUOTE_REQUESTED)
+				.build()));
+			snapshots.add(listing);
+		}
+		if (!failures.isEmpty()) {
+			throw new ValidationException(failures);
+		}
+		Map<UUID, String> nicknames = userDirectory.nicknamesOf(saved.stream().map(TradeInfo::getSellerId).collect(Collectors.toSet()));
+		List<TradeResponse> responses = new ArrayList<>();
+		for (int i = 0; i < saved.size(); i++) {
+			TradeInfo trade = saved.get(i);
+			ListingTradeSnapshot listing = snapshots.get(i);
+			responses.add(toResponse(trade, TradeStats.QUOTE_REQUESTED, listing.prodName(), listing.photo(),
+					nicknames.get(trade.getSellerId())));
+		}
+		return responses;
 	}
 
 	/** 구매자 [거래완료] → 구매확정 + 거래이력 1줄. 판매자는 못 한다 (사용자 결정 2026-10-15) */
@@ -200,17 +273,9 @@ public class TradeService {
 	/** deliDateFromListing: 구매자가 비워서 매물 납기일을 쓴 경우 — 그 납기일이 지났으면 그렇다고 알려야 고칠 수 있다 */
 	private void validate(ListingTradeSnapshot listing, int quantity, String reqDeliDate, boolean deliDateFromListing) {
 		Map<String, String> failures = new LinkedHashMap<>();
-		int minOrder = listing.minOrderQuantity() == null ? 1 : listing.minOrderQuantity();
-		int unit = listing.orderUnit() == null ? 1 : listing.orderUnit();
-		if (quantity < minOrder) {
-			failures.put("orderQuantity", "최소주문량(%d) 이상 주문해 주세요.".formatted(minOrder));
-		}
-		else if (quantity % unit != 0) {
-			failures.put("orderQuantity", "주문단위(%d)의 배수로 주문해 주세요.".formatted(unit));
-		}
-		// 거래이력 금액(trade_amount)이 int 라 넘는 주문은 받지 않는다 (정의서 타입 유지, 사용자 결정)
-		else if ((long) listing.salesUnitPrice() * quantity > Integer.MAX_VALUE) {
-			failures.put("orderQuantity", "한 번에 주문할 수 있는 금액을 넘었습니다.");
+		String quantityFailure = quantityFailure(listing, quantity, listing.salesUnitPrice());
+		if (quantityFailure != null) {
+			failures.put("orderQuantity", quantityFailure);
 		}
 		if (reqDeliDate == null) {
 			failures.put("reqDeliDate", "납품희망일을 입력해 주세요.");
@@ -228,6 +293,23 @@ public class TradeService {
 		if (!failures.isEmpty()) {
 			throw new ValidationException(failures);
 		}
+	}
+
+	/** 주문량 규칙(구매·견적 같음). 금액은 그 거래의 단가(구매 = 등록단가, 견적 = 희망단가)로 본다. 맞으면 null */
+	private static String quantityFailure(ListingTradeSnapshot listing, int quantity, long unitPrice) {
+		int minOrder = listing.minOrderQuantity() == null ? 1 : listing.minOrderQuantity();
+		int unit = listing.orderUnit() == null ? 1 : listing.orderUnit();
+		if (quantity < minOrder) {
+			return "최소주문량(%d) 이상 주문해 주세요.".formatted(minOrder);
+		}
+		if (quantity % unit != 0) {
+			return "주문단위(%d)의 배수로 주문해 주세요.".formatted(unit);
+		}
+		// 거래이력 금액(trade_amount)이 int 라 넘는 주문은 받지 않는다 (정의서 타입 유지, 사용자 결정)
+		if (unitPrice * quantity > Integer.MAX_VALUE) {
+			return "한 번에 주문할 수 있는 금액을 넘었습니다.";
+		}
+		return null;
 	}
 
 	private String nicknameOf(UUID userId) {

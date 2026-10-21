@@ -18,6 +18,9 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	/** trade_id 는 unique 라 구매자 없이 하나로 찾는다 */
 	Optional<TradeInfo> findByTradeId(String tradeId);
 
+	/** 같은 구매자가 같은 매물에 그 상태의 거래가 있는지 — 판매자 답을 기다리는 견적은 매물당 하나 */
+	boolean existsByUserIdAndSellerIdAndRegDateAndTradeStats(UUID userId, UUID sellerId, String regDate, TradeStats stats);
+
 	/**
 	 * 같은 시간대의 가장 큰 거래ID — 거래ID 순번. LIKE 'prefix%' 는 기본 collation 의 unique 인덱스를 못 타지만
 	 * 범위(between)는 탄다 (11자 고정 길이 숫자라 문자열 순서 = 숫자 순서)

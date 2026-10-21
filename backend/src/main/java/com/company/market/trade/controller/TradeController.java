@@ -1,10 +1,14 @@
 package com.company.market.trade.controller;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 import com.company.market.common.api.ApiResponse;
 import com.company.market.common.auth.AuthenticatedUser;
 import com.company.market.common.idempotency.IdempotencyGuard;
+import com.company.market.trade.dto.QuoteCreateRequest;
 import com.company.market.trade.dto.TradeCreateRequest;
 import com.company.market.trade.dto.TradePageResponse;
 import com.company.market.trade.dto.TradeResponse;
@@ -40,6 +44,18 @@ public class TradeController {
 		TradeResponse created = idempotency.run("trade-create", me.id(), idempotencyKey,
 				() -> trades.request(me.id(), req),
 				TradeResponse::tradeId, tradeId -> trades.get(me.id(), tradeId));
+		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(created));
+	}
+
+	/** 견적 요청 N건. 재전송은 멱등 키로 처음 결과(거래ID 목록)를 돌려준다 */
+	@PostMapping("/quotes")
+	public ResponseEntity<ApiResponse<List<TradeResponse>>> quotes(@AuthenticationPrincipal AuthenticatedUser me,
+			@Valid @RequestBody QuoteCreateRequest req,
+			@RequestHeader(name = "Idempotency-Key", required = false) String idempotencyKey) {
+		List<TradeResponse> created = idempotency.run("quote-create", me.id(), idempotencyKey,
+				() -> trades.requestQuotes(me.id(), req),
+				list -> list.stream().map(TradeResponse::tradeId).collect(Collectors.joining(",")),
+				ids -> Arrays.stream(ids.split(",")).map(id -> trades.get(me.id(), id)).toList());
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(created));
 	}
 
