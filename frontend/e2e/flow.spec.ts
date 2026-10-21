@@ -204,6 +204,8 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
   });
 
   await test.step("내 판매글에서 상세 — 다른 화면처럼 보조 칸 (홈 | 내 판매글 | 상세)", async () => {
+    // 앞 단계가 검색 [내 판매](/search?mine=1)에 머문 채라 내 판매글 화면(/my/listings)으로 다시 간다 — 그 화면의 주소가 기대값이다
+    await page.goto("/my/listings");
     await rowOf(page, prodName).getByRole("link", { name: prodName }).click();
     await expect(page.locator('iframe[src^="/listings/"]')).toBeVisible();
     await expect(page).toHaveURL(/\/my\/listings$/);
