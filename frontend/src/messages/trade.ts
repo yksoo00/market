@@ -7,6 +7,7 @@ export const trade = {
     TRADE_OUT_OF_STOCK: "재고가 부족해요. 남은 재고를 확인하고 주문량을 줄여 주세요.",
     TRADE_NOT_PENDING: "이미 처리된 요청이에요. 목록을 새로 불러왔어요.",
     QUOTE_ALREADY_REQUESTED: "같은 매물의 견적 요청이 겹쳤어요. 다시 한 번 보내 주세요.",
+    CART_FULL: "장바구니는 100개까지 담을 수 있어요. 안 쓰는 상품을 빼 주세요.",
     TRADE_ID_EXHAUSTED: "주문이 몰려 있어요. 잠시 후 다시 시도해 주세요.",
     LISTING_COMPLETED: "거래가 끝난 매물이에요.",
     LISTING_NOT_FOUND: "매물을 찾을 수 없어요.",

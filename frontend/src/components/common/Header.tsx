@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AppLauncher } from "@/components/common/AppLauncher";
+import { CartButton } from "@/components/common/CartButton";
 import { Icon } from "@/components/common/Icon";
 import { useTileOpen, useTileWorkspace } from "@/components/common/TileWorkspaceContext";
 import { UserMenu } from "@/components/common/UserMenu";
@@ -69,6 +70,7 @@ export function Header() {
       </Link>
       {/* 앱 메뉴(∷) + 로그인/사용자 메뉴. 회원가입은 로그인 화면의 개인·기업 탭에서만 (사용자 지시, 2026-10-13) */}
       <div className="flex items-center gap-2">
+        {profile && <CartButton />}
         <AppLauncher />
         {profile ? (
           <UserMenu
