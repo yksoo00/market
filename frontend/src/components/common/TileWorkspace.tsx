@@ -46,6 +46,10 @@ function TileGrid({ main }: { main: ReactNode }) {
   const live = !framed && wide;
   // 보조는 넓은 화면에서 열었을 때만 생긴다. 좁아지면 칸 목록은 두고 화면에서만 뺀다
   const sub = split && live ? panes[1] : undefined;
+  // 칸 사이 구분 (사용자 결정 2026-10-21): 칸마다 서로 꽉 차 있어 위아래·양옆 경계가 안 보인다 — 칸 사이에 간격(`line-2` 바탕이 비침)과
+  // 칸마다 테두리·둥근 모서리(타일 radius 10)를 둔다. 분할은 바깥 문서에서만 — iframe 안(framed)은 한 칸 안이라 구분이 필요 없다.
+  const gutter = split && !framed;
+  const box = gutter ? "md:rounded-[10px] md:border md:border-line md:overflow-hidden" : "";
 
   // 페이지들은 body(flex-col)의 직계 자식처럼 <main className="flex-1 min-h-0">…<MobileTabBar/>를 두므로
   // 래퍼도 flex-col이어야 main의 flex-1·min-h-0이 전처럼 동작한다.
@@ -61,7 +65,7 @@ function TileGrid({ main }: { main: ReactNode }) {
     <div
       className={`@container relative flex flex-1 flex-col min-h-0 min-w-0 ${
         framed ? "overflow-y-auto *:flex-auto *:min-h-fit" : "overflow-hidden"
-      } ${split ? `md:col-start-2 md:row-start-1 ${sub ? "md:row-span-1" : "md:row-span-2"}` : ""}`}
+      } ${split ? `md:col-start-2 md:row-start-1 ${sub ? "md:row-span-1" : "md:row-span-2"}` : ""} ${box}`}
     >
       {main}
       {/* 분할일 때 주기능 칸에도 닫기. 닫으면 홈 한 칸 */}
@@ -77,17 +81,19 @@ function TileGrid({ main }: { main: ReactNode }) {
   // iframe 이 새로 로드되고 입력하던 값이 사라진다 (코드리뷰). 보조가 바뀌어도 홈 칸(key 고정)은 그대로다.
   return (
     <div
-      className={`flex flex-1 flex-col min-h-0 w-full ${split ? "md:grid md:grid-cols-2 md:grid-rows-2 md:h-full framed:flex" : ""}`}
+      className={`flex flex-1 flex-col min-h-0 w-full ${split ? "md:grid md:grid-cols-2 md:grid-rows-2 md:h-full framed:flex" : ""} ${
+        gutter ? "md:gap-2 md:p-2 md:bg-line-2" : ""
+      }`}
     >
       {mainCell}
       {split && (
         // 좁은 화면·iframe 안에선 display:none
-        <div className="hidden md:block md:col-start-1 md:row-start-1 md:row-span-2 min-h-0 framed:hidden">
+        <div className={`hidden md:block md:col-start-1 md:row-start-1 md:row-span-2 min-h-0 framed:hidden ${box}`}>
           {live && <TileFrame key={`${HOME_KEY}-${homeVersion}`} pane={{ key: HOME_KEY, path: "/" }} closable={false} />}
         </div>
       )}
       {sub && (
-        <div className="md:col-start-2 md:row-start-2 min-h-0">
+        <div className={`md:col-start-2 md:row-start-2 min-h-0 ${box}`}>
           <TileFrame key={sub.key} pane={sub} />
         </div>
       )}
