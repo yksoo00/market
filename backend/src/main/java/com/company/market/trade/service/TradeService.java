@@ -26,6 +26,7 @@ import com.company.market.trade.domain.TradeInfo;
 import com.company.market.trade.domain.TradeStats;
 import com.company.market.trade.domain.TradeType;
 import com.company.market.trade.dto.QuoteCreateRequest;
+import com.company.market.trade.dto.QuotePurchaseRequest;
 import com.company.market.trade.service.TradeMailEvent.Kind;
 import com.company.market.trade.dto.TradeCreateRequest;
 import com.company.market.trade.dto.TradePageResponse;
@@ -152,8 +153,8 @@ public class TradeService {
 				continue;
 			}
 			String remarks = item.remarks() == null || item.remarks().isBlank() ? null : item.remarks().trim();
-			TradeInfo existing = trades.findByUserIdAndSellerIdAndRegDateAndTradeType(buyerId, listing.sellerId(),
-					listing.regDate(), TradeType.QUOTE).orElse(null);
+			TradeInfo existing = trades.findByUserIdAndSellerIdAndRegDateAndTradeTypeAndTradeStatsIn(buyerId,
+					listing.sellerId(), listing.regDate(), TradeType.QUOTE, TradeStats.QUOTE_STAGES).orElse(null);
 			if (existing != null) {
 				existing.requote(listing.prodId(), listing.prodState(), listing.salesUnitPrice(), listing.stockQuantity(),
 						listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), item.orderUnitPrice(),
@@ -238,21 +239,25 @@ public class TradeService {
 	@Transactional
 	public void cancel(UUID me, String tradeId) {
 		TradeInfo trade = trades.findByTradeId(tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
-		// 견적은 보낸 구매자만 거둔다(판매자는 거절). 판매자 답이 오기 전(견적요청)에만, 재고는 잡지 않았으니 그대로
-		if (trade.getTradeType() == TradeType.QUOTE) {
+		TradeStats stats = trade.getTradeStats();
+		// 견적 단계: 보낸 구매자만 거둔다(판매자는 거절). 답 오기 전(견적요청)이나 거절 뒤(견적거절)에만, 재고는 잡지 않았으니 그대로.
+		// 수락된 견적은 [구매]로 가야 하므로 지울 수 없다
+		if (stats == TradeStats.QUOTE_REQUESTED || stats == TradeStats.QUOTE_REJECTED) {
 			if (!me.equals(trade.getUserId())) {
 				throw new ApiException(ErrorCode.FORBIDDEN);
 			}
-			// 답 오기 전(견적요청)이나 거절 뒤에만. 수락된 견적은 [구매]로 가야 하므로 지울 수 없다
-			if (trades.deleteIfStatus(tradeId, TradeStats.QUOTE_REQUESTED) == 1) {
-				mail(Kind.QUOTE_CANCELED, trade, me, productNameOf(trade));
-				return;
-			}
-			// 거절 뒤 취소는 판매자가 이미 답한 건이라 메일을 보내지 않는다
-			if (trades.deleteIfStatus(tradeId, TradeStats.QUOTE_REJECTED) == 0) {
+			if (trades.deleteIfStatus(tradeId, stats) == 0) {
 				throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 			}
+			// 거절 뒤 취소는 판매자가 이미 답한 건이라 메일을 보내지 않는다
+			if (stats == TradeStats.QUOTE_REQUESTED) {
+				mail(Kind.QUOTE_CANCELED, trade, me, productNameOf(trade));
+			}
 			return;
+		}
+		// 구매 단계: 구매자·판매자 누구나 (견적에서 이어진 행도 같다). 견적수락·구매확정은 취소할 수 없다
+		if (stats != TradeStats.REQUESTED) {
+			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 		}
 		if (!me.equals(trade.getUserId()) && !me.equals(trade.getSellerId())) {
 			throw new ApiException(ErrorCode.FORBIDDEN);
@@ -262,6 +267,43 @@ public class TradeService {
 		}
 		listings.releaseStock(trade.getSellerId(), trade.getRegDate(), trade.getOrderQuantity());
 		mail(Kind.PURCHASE_CANCELED, trade, me, productNameOf(trade));
+	}
+
+	/**
+	 * 수락된 견적에서 구매자 [구매] — 새 행을 만들지 않고 그 행이 구매요청이 된다 (견적서 한 건 = 한 행, 사용자 결정 2026-10-21).
+	 * 단가는 지금 매물 단가(수락으로 내려간 값), 재고는 이때 예약한다. 두 번 눌러도 하나만 — 상태 조건부 UPDATE
+	 */
+	@Transactional
+	public TradeResponse purchaseFromQuote(UUID buyerId, String tradeId, QuotePurchaseRequest req) {
+		TradeInfo trade = trades.findByTradeId(tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
+		if (!buyerId.equals(trade.getUserId())) {
+			throw new ApiException(ErrorCode.FORBIDDEN);
+		}
+		if (trade.getTradeType() != TradeType.QUOTE || trade.getTradeStats() != TradeStats.QUOTE_ACCEPTED) {
+			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
+		}
+		ListingTradeSnapshot listing = listings.lockForTrade(trade.getSellerId(), trade.getRegDate());
+		if (listing.completed()) {
+			throw new ApiException(ErrorCode.LISTING_COMPLETED);
+		}
+		boolean deliDateFromListing = req.reqDeliDate() == null || req.reqDeliDate().isEmpty();
+		String reqDeliDate = deliDateFromListing ? listing.provDate() : req.reqDeliDate();
+		validate(listing, req.orderQuantity(), reqDeliDate, deliDateFromListing);
+		if (listing.stockQuantity() == null || req.orderQuantity() > listing.stockQuantity()) {
+			throw new ApiException(ErrorCode.TRADE_OUT_OF_STOCK);
+		}
+		// 같이 눌린 [구매]·재요청 덮어쓰기 중 하나만 — 지면 0행. 재고 예약이 실패하면 이 상태 변경도 같이 롤백된다
+		if (trades.updateStatus(tradeId, TradeStats.QUOTE_ACCEPTED, TradeStats.REQUESTED) == 0) {
+			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
+		}
+		TradeInfo continued = trades.findByTradeId(tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
+		continued.continueAsPurchase(listing.prodId(), listing.prodState(), listing.salesUnitPrice(), listing.stockQuantity(),
+				listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), req.orderQuantity(), reqDeliDate,
+				req.remarks() == null || req.remarks().isBlank() ? null : req.remarks().trim());
+		trades.saveAndFlush(continued);
+		listings.reserveStock(listing.sellerId(), listing.regDate(), req.orderQuantity());
+		mail(Kind.PURCHASE_REQUESTED, continued, buyerId, listing.prodName());
+		return toResponse(continued, TradeStats.REQUESTED, listing.prodName(), listing.photo(), nicknameOf(listing.sellerId()));
 	}
 
 	/** 판매자 견적 수락 — 매물 단가를 희망단가로 내리고 견적수락 (사용자 결정 2026-10-21) */

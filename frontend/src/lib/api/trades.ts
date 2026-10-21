@@ -15,6 +15,9 @@ export const tradesApi = {
       body: JSON.stringify({ items }),
       headers: { "Idempotency-Key": idempotencyKey },
     }),
+  /** 수락된 견적에서 [구매] — 같은 거래가 구매요청이 된다 (새 거래 없음). 단가는 서버가 지금 매물 단가로 정한다 */
+  purchaseQuote: (tradeId: string, body: { orderQuantity: number; reqDeliDate?: string; remarks?: string }) =>
+    api<Trade>(`/api/v1/trades/${encodeURIComponent(tradeId)}/purchase`, { method: "POST", body: JSON.stringify(body) }),
   /** 구매자 거래완료 → 구매확정 */
   complete: (tradeId: string) => action(tradeId, "complete"),
   /** 판매자 견적 수락(매물 단가 = 희망단가)·거절 → 견적수락·견적거절 */

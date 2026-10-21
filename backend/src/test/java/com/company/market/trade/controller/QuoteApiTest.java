@@ -348,6 +348,95 @@ class QuoteApiTest {
 		assertThat(statsOf(accepted)).isEqualTo("견적수락");
 	}
 
+	// ---- 수락된 견적에서 [구매] — 같은 행이 구매요청 → 구매확정으로 이어진다 (사용자 결정 2026-10-21) ----
+
+	private ResultActions buyFromQuote(Cookie who, String tradeId, int quantity) throws Exception {
+		return mvc.perform(post("/api/v1/trades/" + tradeId + "/purchase").cookie(who).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"orderQuantity\":%d,\"reqDeliDate\":\"2099-12-31\",\"remarks\":\"납품 전 연락\"}".formatted(quantity)));
+	}
+
+	private int stockOf(String regDate) {
+		return jdbc.queryForObject("select stock_quantity from trd_prod_reg where reg_date = ?", Integer.class, regDate);
+	}
+
+	private String acceptedQuote(String regDate, int price) throws Exception {
+		String tradeId = quoted(regDate, price);
+		action(seller, tradeId, "accept").andExpect(status().isOk());
+		return tradeId;
+	}
+
+	@Test
+	@DisplayName("수락된 견적에서 [구매]: 새 행 없이 같은 행이 구매요청이 된다 — TYPE 견적조정 그대로, 재고 예약, 단가는 지금 매물 단가")
+	void purchaseContinuesTheSameRow() throws Exception {
+		String tradeId = acceptedQuote(REG_A, 900);
+		buyFromQuote(buyer, tradeId, 2).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.tradeId").value(tradeId))
+			.andExpect(jsonPath("$.data.tradeType").value("quote"))
+			.andExpect(jsonPath("$.data.tradeStats").value("requested"))
+			.andExpect(jsonPath("$.data.orderUnitPrice").value(900));
+		assertThat(tradeCount()).isEqualTo(1);
+		var row = jdbc.queryForMap("select * from trd_trade_info where trade_id = ?", tradeId);
+		assertThat(row.get("trade_type")).isEqualTo("견적조정");
+		assertThat(row.get("trade_stats")).isEqualTo("구매요청");
+		assertThat(row.get("order_quantity")).isEqualTo(2);
+		assertThat(row.get("req_deli_date")).isEqualTo("2099-12-31");
+		assertThat(row.get("remarks")).isEqualTo("납품 전 연락");
+		assertThat(stockOf(REG_A)).isEqualTo(8);
+	}
+
+	@Test
+	@DisplayName("견적 [구매]는 수락된 견적만, 보낸 구매자만 — 요청·거절 상태 409, 판매자·남 403, 입력 오류 400, 재고 초과 409(행·재고 그대로)")
+	void purchaseFromQuoteGuards() throws Exception {
+		String pending = quoted(REG_A, 900);
+		buyFromQuote(buyer, pending, 1).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRADE_NOT_PENDING"));
+		action(seller, pending, "reject").andExpect(status().isOk());
+		buyFromQuote(buyer, pending, 1).andExpect(status().isConflict());
+		quotes(buyer, item(sellerId, REG_A, 800, 1)).andExpect(status().isCreated());
+		action(seller, pending, "accept").andExpect(status().isOk());
+
+		Cookie stranger = cookieOf(newUser("quotestranger2", "01022220008"));
+		buyFromQuote(seller, pending, 1).andExpect(status().isForbidden());
+		buyFromQuote(stranger, pending, 1).andExpect(status().isForbidden());
+		mvc.perform(post("/api/v1/trades/" + pending + "/purchase").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"orderQuantity\":1,\"reqDeliDate\":\"2000-01-01\"}"))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.reqDeliDate").exists());
+		buyFromQuote(buyer, pending, 11).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRADE_OUT_OF_STOCK"));
+		assertThat(statsOf(pending)).isEqualTo("견적수락");
+		assertThat(stockOf(REG_A)).isEqualTo(10);
+		buyFromQuote(buyer, "26102199999", 1).andExpect(status().isNotFound());
+	}
+
+	@Test
+	@DisplayName("[구매] 뒤 거래완료는 같은 행이 구매확정 + 거래이력 1줄. 그 매물에 새 견적을 보낼 수 있다")
+	void completeThenQuoteAgain() throws Exception {
+		String tradeId = acceptedQuote(REG_A, 900);
+		buyFromQuote(buyer, tradeId, 2).andExpect(status().isOk());
+		action(buyer, tradeId, "complete").andExpect(status().isOk()).andExpect(jsonPath("$.data.tradeStats").value("confirmed"));
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_history where trade_id = ?", Integer.class, tradeId)).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select trade_type from trd_trade_history where trade_id = ?", String.class, tradeId))
+			.isEqualTo("거래");
+
+		quotes(buyer, item(sellerId, REG_A, 800, 1)).andExpect(status().isCreated());
+		assertThat(tradeCount()).isEqualTo(2);
+		assertThat(statsOf(tradeId)).isEqualTo("구매확정");
+	}
+
+	@Test
+	@DisplayName("구매요청이 된 견적 행은 재요청이 덮어쓰지 않고, 취소하면 행이 지워지고 재고가 돌아온다 (판매자도 취소 가능)")
+	void purchaseStageRowIsNotOverwrittenAndCanBeCanceled() throws Exception {
+		String tradeId = acceptedQuote(REG_A, 900);
+		buyFromQuote(buyer, tradeId, 3).andExpect(status().isOk());
+		quotes(buyer, item(sellerId, REG_A, 700, 1)).andExpect(status().isCreated());
+		assertThat(tradeCount()).isEqualTo(2);
+		assertThat(statsOf(tradeId)).isEqualTo("구매요청");
+		assertThat(jdbc.queryForObject("select order_unit_price from trd_trade_info where trade_id = ?", Integer.class, tradeId))
+			.isEqualTo(900);
+
+		action(seller, tradeId, "cancel").andExpect(status().isNoContent());
+		assertThat(tradeCount()).isEqualTo(1);
+		assertThat(stockOf(REG_A)).isEqualTo(10);
+	}
+
 	@Test
 	@DisplayName("구매요청 거래에는 수락·거절이 없다 — 409")
 	void acceptOnlyQuotes() throws Exception {

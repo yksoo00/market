@@ -1,6 +1,7 @@
 package com.company.market.trade.service;
 
 import com.company.market.listing.service.ListingDeletingEvent;
+import com.company.market.trade.domain.TradeStats;
 import com.company.market.trade.domain.TradeType;
 import com.company.market.trade.repository.TradeInfoRepository;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +20,7 @@ class TradeListingCleanup {
 
 	@EventListener
 	void onListingDeleting(ListingDeletingEvent event) {
-		trades.deleteByListingAndType(event.sellerId(), event.regDate(), TradeType.QUOTE);
+		trades.deleteByListingAndTypeAndStats(event.sellerId(), event.regDate(), TradeType.QUOTE, TradeStats.QUOTE_STAGES);
 	}
 
 }

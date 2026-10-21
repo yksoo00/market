@@ -82,7 +82,7 @@ export function TradeList({ role, reg }: Props) {
 
   const confirmText: Record<Exclude<RowAction, "buy" | "requote">, (item: Trade) => string> = {
     complete: () => t.confirmComplete,
-    cancel: (item) => (item.tradeType === "quote" ? t.confirmCancelQuote : t.confirmCancel),
+    cancel: (item) => (item.tradeStats.startsWith("quote") ? t.confirmCancelQuote : t.confirmCancel),
     accept: () => t.confirmAccept,
     reject: () => t.confirmReject,
   };
@@ -135,9 +135,12 @@ export function TradeList({ role, reg }: Props) {
         <PurchaseDialog
           sellerId={buying.sellerId}
           regDate={buying.regDate}
+          // 수락된 견적이면 그 행이 구매요청이 된다 — 새 줄이 생기지 않는다
+          quoteTradeId={buying.tradeId}
+          defaultQuantity={buying.orderQuantity}
           open
           onOpenChange={(open) => !open && setBuying(null)}
-          // 새 구매요청 줄이 생겼으니 목록을 다시 읽고, 구매 모달을 연 다른 곳과 같은 완료 안내를 띄운다
+          // 그 줄이 구매요청으로 바뀌었으니 목록을 다시 읽고, 구매 모달을 연 다른 곳과 같은 완료 안내를 띄운다
           onPurchased={() => {
             setPurchased(true);
             reload();
@@ -262,7 +265,8 @@ function Body({ load, asBuyer, busy, onAct, onRetry }: BodyProps) {
     );
   };
   // 견적 줄: 희망단가를 크게, 등록단가를 곁에 (한 줄에 화살표로 이어 쓰면 수량·금액과 섞여 읽기 어렵다)
-  const isQuote = (item: Trade) => item.tradeType === "quote" && item.salesUnitPrice !== null;
+  // 구매 단계로 이어진 행은 구매 줄처럼 (그때부턴 희망단가가 아니라 구매 단가)
+  const isQuote = (item: Trade) => item.tradeStats.startsWith("quote") && item.salesUnitPrice !== null;
   const unitPrice = (item: Trade) =>
     isQuote(item) ? (
       <>

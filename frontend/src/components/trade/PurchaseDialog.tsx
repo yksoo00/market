@@ -32,13 +32,17 @@ interface Props {
   onOpenChange: (open: boolean) => void;
   /** 요청 성공 — 모달은 이미 닫혔다. 부모가 결과 안내를 띄운다 */
   onPurchased: (created: Trade) => void;
+  /** 수락된 견적에서 [구매]: 그 거래ID. 있으면 새 거래를 만들지 않고 그 견적이 구매요청이 된다 (견적서 한 건 = 한 행) */
+  quoteTradeId?: string;
+  /** 견적에서 연 모달의 주문량 기본값(견적 수량). 없으면 최소주문량 */
+  defaultQuantity?: number;
 }
 
 /**
  * 구매요청 모달 (스펙 2026-10-15-purchase-design.md "구매 모달"). 상세·검색 결과가 같이 쓴다.
  * 열 때마다 매물을 다시 읽는다 — 검색 결과엔 최소주문량·주문단위가 없고, 재고는 최신이어야 해서.
  */
-export function PurchaseDialog({ sellerId, regDate, open, onOpenChange, onPurchased }: Props) {
+export function PurchaseDialog({ sellerId, regDate, open, onOpenChange, onPurchased, quoteTradeId, defaultQuantity }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* 3분할 아래 칸(iframe)은 창 높이의 절반도 안 된다 — 낮은 칸에선 여백을 줄이고, 그래도 넘치면 모달 안에서 스크롤 (dialog.tsx max-h) */}
@@ -48,7 +52,16 @@ export function PurchaseDialog({ sellerId, regDate, open, onOpenChange, onPurcha
           <DialogDescription className="text-[13px]">{t.desc}</DialogDescription>
         </div>
         {/* 닫으면 내용을 버려 다음에 열 때 새로 읽고, Idempotency-Key 도 새로 만든다 */}
-        {open && <PurchaseBody sellerId={sellerId} regDate={regDate} onClose={() => onOpenChange(false)} onPurchased={onPurchased} />}
+        {open && (
+          <PurchaseBody
+            sellerId={sellerId}
+            regDate={regDate}
+            quoteTradeId={quoteTradeId}
+            defaultQuantity={defaultQuantity}
+            onClose={() => onOpenChange(false)}
+            onPurchased={onPurchased}
+          />
+        )}
       </DialogContent>
     </Dialog>
   );
@@ -59,7 +72,7 @@ type Load =
   | { kind: "error" }
   | { kind: "ready"; detail: ListingDetail; meId: string | null; anonymous: boolean; version: number };
 
-function PurchaseBody({ sellerId, regDate, onClose, onPurchased }: Omit<Props, "open" | "onOpenChange"> & { onClose: () => void }) {
+function PurchaseBody({ sellerId, regDate, quoteTradeId, defaultQuantity, onClose, onPurchased }: Omit<Props, "open" | "onOpenChange"> & { onClose: () => void }) {
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const pathname = usePathname();
   const [notice, setNotice] = useState<string | null>(null);
@@ -141,6 +154,8 @@ function PurchaseBody({ sellerId, regDate, onClose, onPurchased }: Omit<Props, "
       // 재고 부족(409)으로 다시 읽으면 새 재고 기준의 검증으로 폼을 새로 만든다
       key={load.version}
       detail={load.detail}
+      quoteTradeId={quoteTradeId}
+      defaultQuantity={defaultQuantity}
       notice={notice}
       onStockChanged={() => {
         setNotice(t.stockRefreshed);
@@ -154,13 +169,15 @@ function PurchaseBody({ sellerId, regDate, onClose, onPurchased }: Omit<Props, "
 
 interface FormProps {
   detail: ListingDetail;
+  quoteTradeId?: string;
+  defaultQuantity?: number;
   notice: string | null;
   onStockChanged: () => void;
   onClose: () => void;
   onPurchased: (created: Trade) => void;
 }
 
-function PurchaseForm({ detail, notice, onStockChanged, onClose, onPurchased }: FormProps) {
+function PurchaseForm({ detail, quoteTradeId, defaultQuantity, notice, onStockChanged, onClose, onPurchased }: FormProps) {
   // 날짜 기준·중복 방지 키는 폼을 연 동안 고정
   const [today] = useState(() => todayInSeoul());
   const [idempotencyKey] = useState(() => crypto.randomUUID());
@@ -177,7 +194,7 @@ function PurchaseForm({ detail, notice, onStockChanged, onClose, onPurchased }: 
     ),
     mode: "onTouched",
     reValidateMode: "onChange",
-    defaultValues: { orderQuantity: String(detail.minOrderQuantity), reqDeliDate: detail.deliveryDate ?? "", remarks: "" },
+    defaultValues: { orderQuantity: String(defaultQuantity ?? detail.minOrderQuantity), reqDeliDate: detail.deliveryDate ?? "", remarks: "" },
   });
   const {
     control,
@@ -193,16 +210,14 @@ function PurchaseForm({ detail, notice, onStockChanged, onClose, onPurchased }: 
   const submit = handleSubmit(async (values) => {
     setFormError(null);
     setUnreachable(false);
-    const result = await tradesApi.create(
-      {
-        sellerId: detail.userId,
-        regDate: detail.regDate,
-        orderQuantity: values.orderQuantity,
-        ...(values.reqDeliDate ? { reqDeliDate: values.reqDeliDate } : {}),
-        ...(values.remarks ? { remarks: values.remarks } : {}),
-      },
-      idempotencyKey,
-    );
+    const fields = {
+      orderQuantity: values.orderQuantity,
+      ...(values.reqDeliDate ? { reqDeliDate: values.reqDeliDate } : {}),
+      ...(values.remarks ? { remarks: values.remarks } : {}),
+    };
+    const result = quoteTradeId
+      ? await tradesApi.purchaseQuote(quoteTradeId, fields)
+      : await tradesApi.create({ sellerId: detail.userId, regDate: detail.regDate, ...fields }, idempotencyKey);
     if (result.ok) {
       onClose();
       onPurchased(result.data);
