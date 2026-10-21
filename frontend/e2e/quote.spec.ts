@@ -120,7 +120,7 @@ test("견적 요청 → 판매자 수락(매물 단가 변경) → 구매자 [�
     await page.goto("/my/sales");
     await page.getByRole("button", { name: t.acceptAria(prodName) }).click();
     const row = page.getByRole("table").getByRole("row").filter({ hasText: prodName });
-    await expect(row.getByText(t.stats.quoteReplied)).toBeVisible();
+    await expect(row.getByText(t.stats.quoteAccepted)).toBeVisible();
     // 답한 뒤엔 수락·거절 버튼이 없다 (두 번 누를 수 없음)
     await expect(page.getByRole("button", { name: t.acceptAria(prodName) })).toHaveCount(0);
     await page.goto(listingPath);

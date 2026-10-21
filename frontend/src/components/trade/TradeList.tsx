@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { cn } from "cn";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
+import { QuoteDialog } from "@/components/trade/QuoteDialog";
 import { tradesApi } from "@/lib/api/trades";
 import { formatPrice } from "@/lib/format";
 import { listingHref } from "@/lib/search";
@@ -39,9 +40,12 @@ export function TradeList({ role, reg }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   // seq: 같은 문구가 연달아 나와도 알림을 새로 그려 스크린리더가 다시 읽게 (key)
   const [message, setMessage] = useState<{ seq: number; text: string } | null>(null);
-  // 회신 받은 견적 줄의 [구매] — 바뀐 매물을 지금 구매 모달로 산다
+  // 수락된 견적 줄의 [구매] — 바뀐 매물을 지금 구매 모달로 산다
   const [buying, setBuying] = useState<Trade | null>(null);
   const [purchased, setPurchased] = useState(false);
+  // 거절된 견적 줄의 [재요청] — 같은 매물에 견적 요청 모달을 다시 연다 (서버가 기존 견적 행을 덮어쓴다)
+  const [requoting, setRequoting] = useState<Trade | null>(null);
+  const [requoted, setRequoted] = useState(false);
   const asBuyer = role === "buyer";
 
   useEffect(() => {
@@ -76,7 +80,7 @@ export function TradeList({ role, reg }: Props) {
     );
   };
 
-  const confirmText: Record<Exclude<RowAction, "buy">, (item: Trade) => string> = {
+  const confirmText: Record<Exclude<RowAction, "buy" | "requote">, (item: Trade) => string> = {
     complete: () => t.confirmComplete,
     cancel: (item) => (item.tradeType === "quote" ? t.confirmCancelQuote : t.confirmCancel),
     accept: () => t.confirmAccept,
@@ -86,6 +90,10 @@ export function TradeList({ role, reg }: Props) {
   const act = async (item: Trade, what: RowAction) => {
     if (what === "buy") {
       setBuying(item);
+      return;
+    }
+    if (what === "requote") {
+      setRequoting(item);
       return;
     }
     if (!window.confirm(confirmText[what](item))) return;
@@ -136,6 +144,27 @@ export function TradeList({ role, reg }: Props) {
           }}
         />
       )}
+      {requoting && (
+        <QuoteDialog
+          targets={[{ sellerId: requoting.sellerId, regDate: requoting.regDate }]}
+          open
+          onOpenChange={(open) => !open && setRequoting(null)}
+          // 같은 행이 견적요청으로 돌아갔으니 목록을 다시 읽는다
+          onRequested={() => {
+            setRequoted(true);
+            reload();
+          }}
+        />
+      )}
+      <ResultDialog
+        open={requoted}
+        tone="success"
+        title={trade.quote.doneTitle}
+        message={trade.quote.doneMessage}
+        actionLabel={t.confirmDone}
+        onAction={() => setRequoted(false)}
+        onClose={() => setRequoted(false)}
+      />
       <ResultDialog
         open={purchased}
         tone="success"
@@ -232,10 +261,19 @@ function Body({ load, asBuyer, busy, onAct, onRetry }: BodyProps) {
       </div>
     );
   };
+  // 견적 줄: 희망단가를 크게, 등록단가를 곁에 (한 줄에 화살표로 이어 쓰면 수량·금액과 섞여 읽기 어렵다)
+  const isQuote = (item: Trade) => item.tradeType === "quote" && item.salesUnitPrice !== null;
   const unitPrice = (item: Trade) =>
-    item.tradeType === "quote" && item.salesUnitPrice !== null
-      ? t.quotePrice(formatPrice(item.salesUnitPrice), formatPrice(item.orderUnitPrice))
-      : formatPrice(item.orderUnitPrice);
+    isQuote(item) ? (
+      <>
+        <span>{formatPrice(item.orderUnitPrice)}</span>
+        <span className="block text-[11px] text-ink-3">
+          {t.listedPrice} {formatPrice(item.salesUnitPrice ?? 0)}
+        </span>
+      </>
+    ) : (
+      formatPrice(item.orderUnitPrice)
+    );
   const counterpart = asBuyer ? c.seller : c.buyer;
 
   return (
@@ -245,7 +283,6 @@ function Body({ load, asBuyer, busy, onAct, onRetry }: BodyProps) {
         <table className="w-full min-w-4xl text-sm">
           <thead className="bg-bg text-[12px] text-ink-2">
             <tr>
-              <th className="px-3 py-2.5 text-left font-medium w-28">{c.tradeId}</th>
               <th className="px-3 py-2.5 text-left font-medium">{c.product}</th>
               <th className="px-3 py-2.5 text-left font-medium w-28">{counterpart}</th>
               <th className="px-3 py-2.5 text-right font-medium w-20">{c.quantity}</th>
@@ -259,7 +296,6 @@ function Body({ load, asBuyer, busy, onAct, onRetry }: BodyProps) {
           <tbody>
             {load.items.map((item) => (
               <tr key={item.tradeId} className="border-t border-line-2 align-top">
-                <td className="px-3 py-2.5 font-mono tabular-nums text-ink-2">{item.tradeId}</td>
                 <td className="px-3 py-2.5">
                   <Link href={listingHref({ userId: item.sellerId, regDate: item.regDate })} className="font-medium hover:text-primary">
                     {item.prodName}
@@ -292,14 +328,28 @@ function Body({ load, asBuyer, busy, onAct, onRetry }: BodyProps) {
             <p className="text-[12px] text-ink-2">
               {counterpart} {item.counterpartNickname ?? "-"} · {c.reqDeliDate} <span className="font-mono">{item.reqDeliDate ?? "-"}</span>
             </p>
-            <p className="text-[13px] font-mono tabular-nums">
-              {qty.format(item.orderQuantity)} × {unitPrice(item)} = <span className="font-bold">{formatPrice(item.amount)}</span>
-            </p>
+            {isQuote(item) ? (
+              <div className="text-[13px] font-mono tabular-nums flex flex-col gap-0.5">
+                <p>
+                  <span className="font-sans text-ink-2">{c.quantity}</span> {qty.format(item.orderQuantity)}
+                </p>
+                <p>
+                  <span className="font-sans text-ink-2">{t.wantedPrice}</span> {formatPrice(item.orderUnitPrice)}
+                  <span className="ml-1.5 text-[11px] text-ink-3">
+                    {t.listedPrice} {formatPrice(item.salesUnitPrice ?? 0)}
+                  </span>
+                </p>
+                <p>
+                  <span className="font-sans text-ink-2">{c.amount}</span> <span className="font-bold">{formatPrice(item.amount)}</span>
+                </p>
+              </div>
+            ) : (
+              <p className="text-[13px] font-mono tabular-nums">
+                {qty.format(item.orderQuantity)} × {unitPrice(item)} = <span className="font-bold">{formatPrice(item.amount)}</span>
+              </p>
+            )}
             {item.remarks && <p className="text-[12px] text-ink-2 wrap-break-word">{item.remarks}</p>}
-            <div className="flex items-center gap-2">
-              <span className="grow font-mono text-[11px] text-ink-3">{item.tradeId}</span>
-              {actions(item)}
-            </div>
+            {actions(item)}
           </li>
         ))}
       </ul>
@@ -311,13 +361,14 @@ const statsClass: Record<TradeStats, string> = {
   cart: "bg-line-2 text-ink-2",
   compare: "bg-line-2 text-ink-2",
   quoteRequested: "bg-green-soft text-green",
-  quoteReplied: "bg-line-2 text-ink-2",
+  quoteAccepted: "bg-up/10 text-up",
+  quoteRejected: "bg-down/10 text-down",
   requested: "bg-primary-soft text-primary",
   confirmed: "bg-up/10 text-up",
 };
 
 /** 채운 버튼 — 그 줄에서 주로 누를 것 */
-const primaryActions = new Set<RowAction>(["complete", "accept", "buy"]);
+const primaryActions = new Set<RowAction>(["complete", "accept", "buy", "requote"]);
 
 const actionAria: Record<RowAction, (name: string) => string> = {
   complete: t.completeAria,
@@ -325,6 +376,7 @@ const actionAria: Record<RowAction, (name: string) => string> = {
   accept: t.acceptAria,
   reject: t.rejectAria,
   buy: t.buyAria,
+  requote: t.requoteAria,
 };
 
 function StatsBadge({ stats }: { stats: TradeStats }) {

@@ -1,7 +1,7 @@
 // 거래 API 타입. 백엔드 trade/dto 와 1:1
 
 /** 거래상태 = 지금 어디까지 왔나 (백엔드 TradeStats.code). cart·compare 는 아직 안 씀 */
-export type TradeStats = "cart" | "compare" | "quoteRequested" | "quoteReplied" | "requested" | "confirmed";
+export type TradeStats = "cart" | "compare" | "quoteRequested" | "quoteAccepted" | "quoteRejected" | "requested" | "confirmed";
 
 /** 거래종류 = 무슨 기록인가 (백엔드 TradeType.code). quote = 견적, purchase = 구매 */
 export type TradeType = "review" | "quote" | "purchase";
