@@ -31,7 +31,8 @@ docker compose up --watch api-dev    # 백엔드를 컨테이너로 (+ postgres,
 # backend/
 ./gradlew bootRun                    # 실행
 ./gradlew test                       # 테스트. Docker Desktop 실행 필수 (Testcontainers Postgres·Redis)
-./gradlew check                      # 컴파일 + 테스트 + 정적 분석. 커밋 전 통과 필수
+./gradlew test --tests "*CartApiTest" # 작업 중엔 바꾼 영역만 (전체는 3~5분)
+./gradlew check                      # 컴파일 + 테스트 + 정적 분석. PR 올리기 직전 1번 통과 필수
 
 # frontend/
 pnpm dev / pnpm build
@@ -84,6 +85,8 @@ market/
 
 - 스킬 쓰는 기준 (superpowers 의 "항상 먼저 스킬"보다 이 줄이 우선):
   - 파일 3개 이상, 또는 DB·인증·권한·화면 흐름이 바뀌면 예외 없이 `superpowers:brainstorming` → `writing-plans` → 승인 후 구현. 구현은 가능하면 `test-driven-development`.
+  - 단, 중간 크기 기능(새 테이블·새 도메인 패키지·인증/권한 변경이 **없는** 기능 — 예: 장바구니·비교용)은 스펙과 계획을 `docs/superpowers/plans/` 파일 **하나**로 쓴다(맨 위 "설계" 절 + 아래 작업). 승인은 그 파일 한 번. 구현은 직접(native), 작업마다 리뷰하지 않고 PR 의 `/code-review` 한 번 (2026-10-21, decisions.md).
+  - 테스트 실행: 작업 중엔 바꾼 영역 테스트만(`--tests`, `pnpm exec vitest run <파일>`, 프론트 typecheck·lint 는 항상 같이). 백엔드 전체 `./gradlew check` 는 PR 직전 1번. E2E 는 PR 직전에 그 기능 spec 만 1번 — 단계 실패만 조사하고, 시간 초과는 재실행 1번 통과면 끝(원인 조사 안 함).
   - 버그·이상 동작은 `systematic-debugging` 먼저. 완료·PR 전 `verification-before-completion`.
   - 코드·문서를 본 뒤에도 요구가 안 정해진 큰 항목은 `grilling`(사용자용 `grill-me`와 같은 내용)으로 WHAT/WHY 를 정하고 멈춘다.
   - 질문·상태 확인·작은 수정엔 스킬을 부르지 않는다. 승인된 계획 뒤에 다시 부르지 않는다.
