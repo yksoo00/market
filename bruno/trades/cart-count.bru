@@ -1,0 +1,19 @@
+meta {
+  name: 장바구니 개수
+  type: http
+  seq: 13
+}
+
+get {
+  url: {{baseUrl}}/api/v1/cart/count
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  헤더 배지 숫자. 200 { ok, data: { count } }
+}

@@ -1,0 +1,26 @@
+meta {
+  name: 장바구니 빼기
+  type: http
+  seq: 14
+}
+
+post {
+  url: {{baseUrl}}/api/v1/cart/remove
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "tradeIds": ["26102110001"]
+  }
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  tradeIds 1~100개(cart-list.bru 의 tradeId). 204 — 행 삭제.
+  내 장바구니 행이 아닌 게 섞이면 404 TRADE_NOT_FOUND, 아무것도 안 지운다.
+}

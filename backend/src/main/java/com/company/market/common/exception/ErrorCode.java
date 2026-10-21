@@ -53,6 +53,7 @@ public enum ErrorCode {
 	TRADE_NOT_PENDING(HttpStatus.CONFLICT, "이미 확정되었거나 취소된 거래입니다."),
 	TRADE_ID_EXHAUSTED(HttpStatus.CONFLICT, "주문이 몰려 있습니다. 잠시 후 다시 시도해 주세요."),
 	QUOTE_ALREADY_REQUESTED(HttpStatus.CONFLICT, "같은 매물의 견적 요청이 겹쳤습니다. 다시 시도해 주세요."),
+	CART_FULL(HttpStatus.CONFLICT, "장바구니는 100개까지 담을 수 있습니다."),
 
 	// 업로드
 	UPLOAD_INVALID_TYPE(HttpStatus.BAD_REQUEST, "올릴 수 없는 파일 형식입니다."),
