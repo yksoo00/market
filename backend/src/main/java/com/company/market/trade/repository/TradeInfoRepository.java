@@ -1,5 +1,6 @@
 package com.company.market.trade.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -19,6 +20,16 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	/** trade_id 는 unique 라 구매자 없이 하나로 찾는다 */
 	Optional<TradeInfo> findByTradeId(String tradeId);
 
+	/** 구매자·매물당 견적 행은 하나(ux_trd_trade_info_one_quote) — 재요청이 덮어쓸 행 */
+	Optional<TradeInfo> findByUserIdAndSellerIdAndRegDateAndTradeType(UUID userId, UUID sellerId, String regDate,
+			TradeType tradeType);
+
+	/** 매물 삭제 때 그 매물의 견적 행을 모두 지운다 (구매요청·거래 행은 그대로 — 남아 있으면 매물 FK 가 삭제를 막는다) */
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("delete from TradeInfo t where t.sellerId = :sellerId and t.regDate = :regDate and t.tradeType = :type")
+	int deleteByListingAndType(@Param("sellerId") UUID sellerId, @Param("regDate") String regDate,
+			@Param("type") TradeType type);
+
 	/**
 	 * 같은 시간대의 가장 큰 거래ID — 거래ID 순번. LIKE 'prefix%' 는 기본 collation 의 unique 인덱스를 못 타지만
 	 * 범위(between)는 탄다 (11자 고정 길이 숫자라 문자열 순서 = 숫자 순서)
@@ -32,11 +43,15 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	 */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""
-			update TradeInfo t set t.tradeStats = :to, t.tradeType = :type
+			update TradeInfo t set t.tradeStats = :to
 			 where t.tradeId = :tradeId and t.tradeStats = :from
 			""")
-	int updateStatus(@Param("tradeId") String tradeId, @Param("from") TradeStats from, @Param("to") TradeStats to,
-			@Param("type") TradeType type);
+	int updateStatus(@Param("tradeId") String tradeId, @Param("from") TradeStats from, @Param("to") TradeStats to);
+
+	/** 취소 = 행 삭제. updateStatus 와 같은 이유로 그 상태일 때만 지운다 — 0 이면 이미 다른 상태 (호출자가 409) */
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("delete from TradeInfo t where t.tradeId = :tradeId and t.tradeStats = :stats")
+	int deleteIfStatus(@Param("tradeId") String tradeId, @Param("stats") TradeStats stats);
 
 	/** 내가 구매자인 거래, trade_id 내림차순(= 최신순, 11자 고정 길이라 문자열 순서가 시간 순서). cursor 보다 앞만 */
 	@Query("""
@@ -56,12 +71,12 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	List<TradeInfo> findSellerPage(@Param("sellerId") UUID sellerId, @Param("regDate") String regDate,
 			@Param("cursor") String cursor, Pageable page);
 
-	/** 판매자 매물별 그 상태 건수 → [regDate, count] */
+	/** 판매자 매물별 그 상태들 건수 → [regDate, count] */
 	@Query("""
 			select t.regDate, count(t) from TradeInfo t
-			 where t.sellerId = :sellerId and t.tradeStats = :stats
+			 where t.sellerId = :sellerId and t.tradeStats in :stats
 			 group by t.regDate
 			""")
-	List<Object[]> countBySellerGroupByListing(@Param("sellerId") UUID sellerId, @Param("stats") TradeStats stats);
+	List<Object[]> countBySellerGroupByListing(@Param("sellerId") UUID sellerId, @Param("stats") Collection<TradeStats> stats);
 
 }

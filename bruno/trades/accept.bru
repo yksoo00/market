@@ -1,0 +1,25 @@
+meta {
+  name: 견적 수락
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/trades/:tradeId/accept
+  body: none
+  auth: none
+}
+
+params:path {
+  tradeId: 26102010001
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  그 매물의 판매자만(아니면 403). 견적요청 상태의 견적만 — 아니면 409 TRADE_NOT_PENDING.
+  200 tradeStats "quoteReplied". 매물 단가를 희망단가로 내린다(이미 더 싸면 그대로). 거래완료 매물은 409 LISTING_COMPLETED.
+  구매자에게 수락 메일. 구매자는 바뀐 매물을 [구매](create.bru)로 산다.
+}

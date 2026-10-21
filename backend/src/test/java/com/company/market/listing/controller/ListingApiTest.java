@@ -939,20 +939,42 @@ class ListingApiTest {
 	}
 
 	@Test
-	@DisplayName("거래가 있는 매물은 삭제할 수 없다 — 409 LISTING_HAS_TRADES, 매물은 남는다")
+	@DisplayName("견적 행만 있는 매물은 삭제되고 견적 행도 같이 지워진다 (회신 뒤에도)")
+	void listingWithOnlyQuotesIsDeletedWithThem() throws Exception {
+		String regDate = createListing(authCookie);
+		UUID buyer = userIdOf(otherUserCookie());
+		jdbc.update("""
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, order_unit_price,
+					order_quantity, req_deli_date, trade_stats)
+				values (?, '26101510001', '견적조정', ?, ?, 500000, 1, null, '견적회신')
+				""", buyer, userId, regDate);
+
+		mvc.perform(delete("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie))
+			.andExpect(status().isNoContent());
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class)).isZero();
+	}
+
+	@Test
+	@DisplayName("거래가 있는 매물은 삭제할 수 없다 — 409 LISTING_HAS_TRADES, 매물은 남고 견적 행도 남는다")
 	void listingWithTradeCannotBeDeleted() throws Exception {
 		String regDate = createListing(authCookie);
 		UUID buyer = userIdOf(otherUserCookie());
 		jdbc.update("""
 				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, order_unit_price,
 					order_quantity, req_deli_date, trade_stats)
-				values (?, '26101510001', '구매취소', ?, ?, 500000, 1, '2026-10-20', '취소')
+				values (?, '26101510001', '거래', ?, ?, 500000, 1, '2099-12-31', '구매요청')
+				""", buyer, userId, regDate);
+		jdbc.update("""
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, order_unit_price,
+					order_quantity, req_deli_date, trade_stats)
+				values (?, '26101510002', '견적조정', ?, ?, 500000, 1, null, '견적요청')
 				""", buyer, userId, regDate);
 
 		mvc.perform(delete("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie))
 			.andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("LISTING_HAS_TRADES"));
 		mvc.perform(get("/api/v1/listings/" + userId + "/" + regDate)).andExpect(status().isOk());
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class)).isEqualTo(2);
 	}
 
 	@Test

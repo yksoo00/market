@@ -15,6 +15,8 @@ app:
     secret: test-secret-test-secret-test-secret-32bytes
   identity-verification:
     provider: stub
+  mail:
+    async: false   # 요청이 끝난 직후 보낸 메일을 바로 확인한다 (TradeMailTest)
   storage:
     root: build/test-uploads
     min-free: 1MB   # 개발 PC 디스크 여유와 무관하게 통과. 하한 동작은 UploadServiceTest 가 본다

@@ -128,6 +128,19 @@
   - 거래완료 `POST /trades/{id}/complete`: 구매자만(아니면 403). 취소 `/cancel`: 구매자·그 매물의 판매자만. 둘 다 `구매요청` 상태에서만(아니면 409 `TRADE_NOT_PENDING`), 상태 조건부 UPDATE 라 동시 확정·취소 중 하나만 성공.
   - 목록 `GET /trades?role=buyer|seller` 는 본인 거래만(id 는 인증 정보에서). 응답의 상대방은 닉네임만 — 이메일·전화 없음. 사진은 공개 키만. 커서는 거래ID 11자리 숫자, 형식이 틀리면 400 `fields.cursor`(비우면 첫 페이지).
   - 거래ID(`yyMMddHH`+순번)는 UUID 가 아니라 추측할 수 있다. 그래서 모든 거래 API 가 구매자·판매자 확인을 먼저 한다(조회 `get` 은 남의 거래면 404). 확정·취소는 남의 거래에 403 이라 존재 여부는 드러난다 — 내용은 안 보이므로 감수.
+  - 취소(2026-10-20)는 행을 지운다 → 204. 지워진 거래에 다시 확정·취소하면 404.
+- 견적 (2026-10-20, `POST /api/v1/trades/quotes` 외 — 스펙 `2026-10-20-quote-request-design.md`). 프론트 `lib/validation/quote.ts` 와 서버 `QuoteCreateRequest`·`TradeService.requestQuotes` 가 같은 규칙:
+  | 항목 | 규칙 |
+  |---|---|
+  | `items` | 1 ~ 20개. 하나라도 틀리면 아무것도 저장하지 않는다 → 400 `fields["items[i].칸"]` |
+  | 매물 `sellerId`·`regDate` | 구매와 같음. 내 매물 403 `TRADE_OWN_LISTING`, 거래완료 409 `LISTING_COMPLETED`, 한 요청에 같은 매물이 두 번이면 409 `QUOTE_ALREADY_REQUESTED`. 구매자·매물당 견적 행은 하나라 이미 있으면 덮어쓴다 |
+  | 희망단가 `orderUnitPrice` | 1 ~ 그 매물의 등록단가 |
+  | 수량 `orderQuantity` | 구매와 같음(1 ~ 100,000, 최소주문량 이상, 주문단위 배수, 재고 이하). 금액은 희망단가 × 수량 ≤ 2,147,483,647 |
+  | 비고 `remarks` | 100자 이하 |
+  | 납품희망일 | 받지 않는다 (`req_deli_date` null) |
+  - 수락 `POST /trades/{id}/accept`·거절 `/reject`: 그 매물의 판매자만(아니면 403), 견적요청 상태만(아니면 409 `TRADE_NOT_PENDING`). 수락은 매물 행을 잠그고 단가를 희망단가로 내린다(올리지 않음). 견적 취소는 보낸 구매자만(판매자 403).
+  - 멱등 키: scope `quote-create`, 저장 값은 만든 거래ID 목록(쉼표).
+- 알림 메일 (2026-10-20): 받는 주소는 `trd_user_info.user_email` 을 서버 안(`UserDirectory.emailsOf` → 메일 발송)에서만 쓴다. API 응답·화면·로그에 넣지 않는다 — 로그는 거래ID·uid 만. 본문에도 상대 연락처를 넣지 않는다. SMTP 계정은 `.env`(`MAIL_*`)에만.
 - 숫자: 가격 0 ~ 10억, 수량 1 ~ 100,000.
 - ID는 UUID 형식 검사. 정수 ID 없음 (열거 공격 방지). 예외: 거래ID (위 "구매", 사용자 지정 형식).
 - SQL: JPA/파라미터 바인딩만. 문자열 결합 쿼리 금지. `@Query`에 사용자 입력 직접 삽입 금지. 예외로 허용: 코드에 고정된 조건 조각만 이어 붙이고 값은 전부 바인딩하는 동적 JPQL(`listing/repository/ListingSearchRepository`).

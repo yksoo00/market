@@ -17,13 +17,14 @@ import { upload } from "@/messages/upload";
 
 const t = home.quick;
 
-// TODO(페이지 미구현): 임시 경로. 각 화면을 만들 때 실제 경로로 바꾼다 (sellManual·sellExtra 는 구현됨)
+// 견적 3개는 견적 화면이 따로 없어 그 일을 하는 화면으로 (2026-10-20): 요청은 검색 결과의 [견적 요청],
+// 판매자 처리는 받은 구매요청, 구매자 확인은 내 구매목록. QuickMenu 와 같은 표
 const routes = {
   sellManual: "/listings/new",
   sellExtra: "/listings/extra",
-  sellQuote: "/quotes/adjust",
-  buyRequest: "/requests/new",
-  buyQuotes: "/quotes",
+  sellQuote: "/my/sales",
+  buyRequest: "/search",
+  buyQuotes: "/my/purchases",
 };
 
 type Tone = "sell" | "buy";

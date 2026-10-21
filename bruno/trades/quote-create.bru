@@ -1,0 +1,38 @@
+meta {
+  name: 견적 요청
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{baseUrl}}/api/v1/trades/quotes
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "items": [
+      {
+        "sellerId": "00000000-0000-0000-0000-000000000000",
+        "regDate": "20261020100000",
+        "orderUnitPrice": 9000,
+        "orderQuantity": 2,
+        "remarks": "단가 조정 부탁드립니다"
+      }
+    ]
+  }
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  로그인(login.bru) 먼저. 구매자는 인증 정보에서만. sellerId·regDate 는 매물 키(자리표시).
+  items 1~20개. 매물마다 희망단가(1 ~ 등록단가)·수량(최소주문량 이상·주문단위 배수·재고 이하)·비고(100자). 납품희망일은 받지 않는다.
+  201 { ok, data: TradeResponse[] } — tradeType "quote", tradeStats "quoteRequested". 재고는 그대로. 판매자에게 메일.
+  하나라도 틀리면 아무것도 저장 안 됨 — 400 fields["items[i].orderUnitPrice"]·["items[i].orderQuantity"].
+  403 TRADE_OWN_LISTING: 내 매물. 404: 없는 매물. 409 LISTING_COMPLETED, QUOTE_ALREADY_REQUESTED(한 요청에 같은 매물이 두 번, 또는 동시 요청이 겹침 — 다시 보내면 됨). 이미 내 견적 행이 있으면 새 행 없이 덮어쓰고 견적요청으로 되돌린다.
+  Idempotency-Key 헤더(UUID, 선택) — 같은 키 재전송은 처음 결과를 그대로 돌려준다.
+}

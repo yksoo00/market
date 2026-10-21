@@ -43,6 +43,7 @@ import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.repository.ListingSearchRepository;
 import com.company.market.listing.service.ProductService.ProductDraft;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,6 +71,8 @@ public class ListingService {
 	private final UploadService uploads;
 
 	private final Clock clock;
+
+	private final ApplicationEventPublisher events;
 
 	@Transactional
 	public ListingResponse create(UUID userId, ListingCreateRequest req) {
@@ -290,6 +293,8 @@ public class ListingService {
 	@Transactional
 	public void delete(UUID pathUserId, String regDate, UUID requesterId) {
 		Listing listing = lockOwned(pathUserId, regDate, requesterId);
+		// 견적 행은 매물과 함께 지운다 — 거래 도메인이 같은 트랜잭션에서 듣는다 (listing → trade 직접 호출 금지)
+		events.publishEvent(new ListingDeletingEvent(pathUserId, regDate));
 		// 거래가 1건이라도 있으면 trd_trade_info 의 매물 FK 가 막는다. 거래 테이블을 여기서 직접 보지 않으려고(도메인 간은
 		// service 로만, 거래 → 매물 방향이라 역참조 불가) 위반을 잡아 409 로 바꾼다. flush 해야 이 메서드 안에서 위반이 난다
 		try {
@@ -362,6 +367,19 @@ public class ListingService {
 		if (listings.reserveStock(sellerId, regDate, quantity, LocalDateTime.now(clock).format(REG_DATE_FORMAT)) == 0) {
 			throw new ApiException(ErrorCode.TRADE_OUT_OF_STOCK);
 		}
+	}
+
+	/**
+	 * 견적 수락 — 매물 단가를 희망단가로 내린다(더 싸면 그대로). 행을 잠그고 읽어 구매요청·수정과 차례를 맞춘다.
+	 * 거래완료 매물은 409 (단가를 바꿔도 살 수 없다). 호출자 트랜잭션에 합류해 같이 롤백
+	 */
+	@Transactional
+	public void applyQuotePrice(UUID sellerId, String regDate, int price) {
+		Listing listing = listings.findForUpdate(sellerId, regDate).orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
+		if (listing.getDtExpire() != null) {
+			throw new ApiException(ErrorCode.LISTING_COMPLETED);
+		}
+		listing.lowerPriceTo(price, LocalDateTime.now(clock).format(REG_DATE_FORMAT));
 	}
 
 	/** 거래 취소로 재고 복원 + 거래완료일시 지움 */

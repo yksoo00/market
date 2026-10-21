@@ -140,6 +140,14 @@ public class Listing implements Persistable<ListingId> {
 		this.prodId = prodId;
 	}
 
+	/** 판매자가 견적을 수락 — 등록단가를 희망단가로 내린다. 이미 더 싸면 그대로(올리지 않음) */
+	public void lowerPriceTo(int price, String dtUpdate) {
+		if (salesUnitPrice == null || price < salesUnitPrice) {
+			this.salesUnitPrice = price;
+			this.dtUpdate = dtUpdate;
+		}
+	}
+
 	/** null 이 아닌 필드만 반영 (PATCH 부분수정). 상품마스터 칸은 ListingService 가 따로 처리 */
 	public void applyUpdate(ListingUpdateRequest req, String dtUpdate) {
 		if (req.tradeType() != null) {
