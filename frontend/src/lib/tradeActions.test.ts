@@ -22,11 +22,13 @@ const row = (tradeType: TradeType, tradeStats: TradeStats): Trade => ({
 describe("rowActions", () => {
   it.each([
     ["quote", "quoteRequested", true, ["cancel"]],
-    ["quote", "quoteReplied", true, ["buy"]],
+    ["quote", "quoteAccepted", true, ["buy"]],
+    ["quote", "quoteRejected", true, ["requote", "cancel"]],
     ["purchase", "requested", true, ["complete", "cancel"]],
     ["purchase", "confirmed", true, []],
     ["quote", "quoteRequested", false, ["accept", "reject"]],
-    ["quote", "quoteReplied", false, []],
+    ["quote", "quoteAccepted", false, []],
+    ["quote", "quoteRejected", false, []],
     ["purchase", "requested", false, ["cancel"]],
     ["purchase", "confirmed", false, []],
   ] as const)("%s/%s 구매자=%s → %j", (type, stats, asBuyer, expected) => {

@@ -17,7 +17,7 @@ export const tradesApi = {
     }),
   /** 구매자 거래완료 → 구매확정 */
   complete: (tradeId: string) => action(tradeId, "complete"),
-  /** 판매자 견적 수락(매물 단가 = 희망단가)·거절 → 견적회신 */
+  /** 판매자 견적 수락(매물 단가 = 희망단가)·거절 → 견적수락·견적거절 */
   accept: (tradeId: string) => action(tradeId, "accept"),
   reject: (tradeId: string) => action(tradeId, "reject"),
   /** 취소 = 행 삭제 → 204 (돌려줄 거래 없음) */

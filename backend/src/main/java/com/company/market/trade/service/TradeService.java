@@ -243,10 +243,15 @@ public class TradeService {
 			if (!me.equals(trade.getUserId())) {
 				throw new ApiException(ErrorCode.FORBIDDEN);
 			}
-			if (trades.deleteIfStatus(tradeId, TradeStats.QUOTE_REQUESTED) == 0) {
+			// 답 오기 전(견적요청)이나 거절 뒤에만. 수락된 견적은 [구매]로 가야 하므로 지울 수 없다
+			if (trades.deleteIfStatus(tradeId, TradeStats.QUOTE_REQUESTED) == 1) {
+				mail(Kind.QUOTE_CANCELED, trade, me, productNameOf(trade));
+				return;
+			}
+			// 거절 뒤 취소는 판매자가 이미 답한 건이라 메일을 보내지 않는다
+			if (trades.deleteIfStatus(tradeId, TradeStats.QUOTE_REJECTED) == 0) {
 				throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 			}
-			mail(Kind.QUOTE_CANCELED, trade, me, productNameOf(trade));
 			return;
 		}
 		if (!me.equals(trade.getUserId()) && !me.equals(trade.getSellerId())) {
@@ -259,13 +264,13 @@ public class TradeService {
 		mail(Kind.PURCHASE_CANCELED, trade, me, productNameOf(trade));
 	}
 
-	/** 판매자 견적 수락 — 매물 단가를 희망단가로 내리고 견적회신. 결과(수락)는 메일로만 구분된다 (사용자 결정 2026-10-20) */
+	/** 판매자 견적 수락 — 매물 단가를 희망단가로 내리고 견적수락 (사용자 결정 2026-10-21) */
 	@Transactional
 	public TradeResponse accept(UUID me, String tradeId) {
 		return reply(me, tradeId, true);
 	}
 
-	/** 판매자 견적 거절 — 매물은 그대로, 견적회신 */
+	/** 판매자 견적 거절 — 매물은 그대로, 견적거절 */
 	@Transactional
 	public TradeResponse reject(UUID me, String tradeId) {
 		return reply(me, tradeId, false);
@@ -283,10 +288,11 @@ public class TradeService {
 			listings.applyQuotePrice(trade.getSellerId(), trade.getRegDate(), trade.getOrderUnitPrice());
 		}
 		// 동시 수락·거절·취소 중 하나만 — 지면 단가 변경도 같이 롤백된다
-		if (trades.updateStatus(tradeId, TradeStats.QUOTE_REQUESTED, TradeStats.QUOTE_REPLIED) == 0) {
+		TradeStats result = accepted ? TradeStats.QUOTE_ACCEPTED : TradeStats.QUOTE_REJECTED;
+		if (trades.updateStatus(tradeId, TradeStats.QUOTE_REQUESTED, result) == 0) {
 			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 		}
-		TradeResponse replied = respond(me, trade, TradeStats.QUOTE_REPLIED);
+		TradeResponse replied = respond(me, trade, result);
 		mail(accepted ? Kind.QUOTE_ACCEPTED : Kind.QUOTE_REJECTED, trade, me, replied.prodName());
 		return replied;
 	}

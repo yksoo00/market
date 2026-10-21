@@ -214,7 +214,7 @@ class QuoteApiTest {
 	}
 
 	@Test
-	@DisplayName("거절·수락으로 견적회신이 된 뒤 다시 요청하면 같은 행이 견적요청으로 돌아간다. 매물 정보도 새로 읽는다")
+	@DisplayName("거절·수락 뒤 다시 요청하면 같은 행이 견적요청으로 돌아간다. 매물 정보도 새로 읽는다")
 	void requoteAfterReply() throws Exception {
 		String rejected = quoted(REG_A, 900);
 		action(seller, rejected, "reject").andExpect(status().isOk());
@@ -284,13 +284,13 @@ class QuoteApiTest {
 	}
 
 	@Test
-	@DisplayName("판매자 수락: 매물 단가 = 희망단가, 견적회신. 두 번째 수락·거절은 409")
+	@DisplayName("판매자 수락: 매물 단가 = 희망단가, 견적수락. 두 번째 수락·거절은 409")
 	void sellerAccepts() throws Exception {
 		String tradeId = quoted(REG_A, 900);
 		action(seller, tradeId, "accept").andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.tradeStats").value("quoteReplied"));
+			.andExpect(jsonPath("$.data.tradeStats").value("quoteAccepted"));
 		assertThat(priceOf(REG_A)).isEqualTo(900);
-		assertThat(statsOf(tradeId)).isEqualTo("견적회신");
+		assertThat(statsOf(tradeId)).isEqualTo("견적수락");
 		action(seller, tradeId, "accept").andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("TRADE_NOT_PENDING"));
 		action(seller, tradeId, "reject").andExpect(status().isConflict());
@@ -316,7 +316,7 @@ class QuoteApiTest {
 	}
 
 	@Test
-	@DisplayName("판매자 거절: 단가 그대로, 견적회신. 구매자·남은 수락·거절 403")
+	@DisplayName("판매자 거절: 단가 그대로, 견적거절. 구매자·남은 수락·거절 403")
 	void sellerRejectsOthersForbidden() throws Exception {
 		String tradeId = quoted(REG_A, 900);
 		Cookie stranger = cookieOf(newUser("quotestranger", "01022220009"));
@@ -324,22 +324,28 @@ class QuoteApiTest {
 		action(stranger, tradeId, "reject").andExpect(status().isForbidden());
 
 		action(seller, tradeId, "reject").andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.tradeStats").value("quoteReplied"));
+			.andExpect(jsonPath("$.data.tradeStats").value("quoteRejected"));
 		assertThat(priceOf(REG_A)).isEqualTo(1000);
-		assertThat(statsOf(tradeId)).isEqualTo("견적회신");
+		assertThat(statsOf(tradeId)).isEqualTo("견적거절");
 	}
 
 	@Test
-	@DisplayName("구매자 견적 취소: 행 삭제(204). 판매자는 견적을 취소 못 함 403. 회신 뒤 취소 409")
+	@DisplayName("구매자 견적 취소: 행 삭제(204). 판매자는 견적을 취소 못 함 403. 거절된 견적도 취소(204), 수락된 견적은 취소 409")
 	void buyerCancelsQuote() throws Exception {
 		String tradeId = quoted(REG_A, 900);
 		action(seller, tradeId, "cancel").andExpect(status().isForbidden());
 		action(buyer, tradeId, "cancel").andExpect(status().isNoContent());
 		assertThat(tradeCount()).isZero();
 
-		String replied = quoted(REG_A, 900);
-		action(seller, replied, "reject").andExpect(status().isOk());
-		action(buyer, replied, "cancel").andExpect(status().isConflict());
+		String rejected = quoted(REG_A, 900);
+		action(seller, rejected, "reject").andExpect(status().isOk());
+		action(buyer, rejected, "cancel").andExpect(status().isNoContent());
+		assertThat(tradeCount()).isZero();
+
+		String accepted = quoted(REG_A, 900);
+		action(seller, accepted, "accept").andExpect(status().isOk());
+		action(buyer, accepted, "cancel").andExpect(status().isConflict());
+		assertThat(statsOf(accepted)).isEqualTo("견적수락");
 	}
 
 	@Test

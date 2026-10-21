@@ -66,13 +66,13 @@ public class TradeController {
 		return ApiResponse.of(trades.complete(me.id(), tradeId));
 	}
 
-	/** 판매자 견적 수락 → 매물 단가를 희망단가로, 견적회신 */
+	/** 판매자 견적 수락 → 매물 단가를 희망단가로, 견적수락 */
 	@PostMapping("/{tradeId}/accept")
 	public ApiResponse<TradeResponse> accept(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable String tradeId) {
 		return ApiResponse.of(trades.accept(me.id(), tradeId));
 	}
 
-	/** 판매자 견적 거절 → 견적회신 */
+	/** 판매자 견적 거절 → 견적거절 */
 	@PostMapping("/{tradeId}/reject")
 	public ApiResponse<TradeResponse> reject(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable String tradeId) {
 		return ApiResponse.of(trades.reject(me.id(), tradeId));
