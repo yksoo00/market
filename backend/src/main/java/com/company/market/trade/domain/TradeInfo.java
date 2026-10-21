@@ -103,6 +103,26 @@ public class TradeInfo implements Persistable<TradeInfoId> {
 		this.tradeStats = tradeStats;
 	}
 
+	/**
+	 * 견적 재요청 — 같은 행을 새 요청으로 덮어쓴다 (구매자·매물당 견적 행 하나, 사용자 결정 2026-10-21).
+	 * 매물 스냅샷도 지금 값으로 다시 복사하고, 판매자 답을 기다리는 상태로 되돌린다
+	 */
+	public void requote(String prodId, String prodState, Integer salesUnitPrice, Integer stockQuantity,
+			Integer minOrderQuantity, Integer orderUnit, String provDate, Integer orderUnitPrice, Integer orderQuantity,
+			String remarks) {
+		this.prodId = prodId;
+		this.prodState = prodState;
+		this.salesUnitPrice = salesUnitPrice;
+		this.stockQuantity = stockQuantity;
+		this.minOrderQuantity = minOrderQuantity;
+		this.orderUnit = orderUnit;
+		this.provDate = provDate;
+		this.orderUnitPrice = orderUnitPrice;
+		this.orderQuantity = orderQuantity;
+		this.remarks = remarks;
+		this.tradeStats = TradeStats.QUOTE_REQUESTED;
+	}
+
 	@Override
 	public TradeInfoId getId() {
 		return new TradeInfoId(userId, tradeId);

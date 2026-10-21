@@ -133,7 +133,7 @@
   | 항목 | 규칙 |
   |---|---|
   | `items` | 1 ~ 20개. 하나라도 틀리면 아무것도 저장하지 않는다 → 400 `fields["items[i].칸"]` |
-  | 매물 `sellerId`·`regDate` | 구매와 같음. 내 매물 403 `TRADE_OWN_LISTING`, 거래완료 409 `LISTING_COMPLETED`, 같은 매물에 답을 기다리는 내 견적이 있으면 409 `QUOTE_ALREADY_REQUESTED` |
+  | 매물 `sellerId`·`regDate` | 구매와 같음. 내 매물 403 `TRADE_OWN_LISTING`, 거래완료 409 `LISTING_COMPLETED`, 한 요청에 같은 매물이 두 번이면 409 `QUOTE_ALREADY_REQUESTED`. 구매자·매물당 견적 행은 하나라 이미 있으면 덮어쓴다 |
   | 희망단가 `orderUnitPrice` | 1 ~ 그 매물의 등록단가 |
   | 수량 `orderQuantity` | 구매와 같음(1 ~ 100,000, 최소주문량 이상, 주문단위 배수, 재고 이하). 금액은 희망단가 × 수량 ≤ 2,147,483,647 |
   | 비고 `remarks` | 100자 이하 |

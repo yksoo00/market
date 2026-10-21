@@ -174,7 +174,7 @@ class QuoteApiTest {
 	}
 
 	@Test
-	@DisplayName("내 매물 403, 거래완료 409, 같은 매물에 대기 중 견적이 있으면 409 QUOTE_ALREADY_REQUESTED, 비로그인 401")
+	@DisplayName("내 매물 403, 거래완료 409, 한 요청에 같은 매물이 두 번이면 409 QUOTE_ALREADY_REQUESTED, 비로그인 401")
 	void blockedCases() throws Exception {
 		quotes(seller, item(sellerId, REG_A, 900, 1)).andExpect(status().isForbidden())
 			.andExpect(jsonPath("$.code").value("TRADE_OWN_LISTING"));
@@ -183,14 +183,77 @@ class QuoteApiTest {
 		quotes(buyer, item(sellerId, REG_B, 400, 1)).andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("LISTING_COMPLETED"));
 
-		quotes(buyer, item(sellerId, REG_A, 900, 1)).andExpect(status().isCreated());
-		quotes(buyer, item(sellerId, REG_A, 800, 1)).andExpect(status().isConflict())
+		quotes(buyer, item(sellerId, REG_A, 900, 1), item(sellerId, REG_A, 800, 1)).andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("QUOTE_ALREADY_REQUESTED"));
-		assertThat(tradeCount()).isEqualTo(1);
+		assertThat(tradeCount()).isZero();
 
 		mvc.perform(post("/api/v1/trades/quotes").contentType(MediaType.APPLICATION_JSON)
 				.content("{\"items\":[" + item(sellerId, REG_A, 900, 1) + "]}"))
 			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	@DisplayName("같은 매물에 다시 견적 요청 — 새 행 없이 기존 행을 덮어쓴다 (단가·수량·비고, 상태 견적요청)")
+	void requoteOverwritesPending() throws Exception {
+		String tradeId = quoted(REG_A, 900);
+		quotes(buyer, item(sellerId, REG_A, 800, 3)).andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data[0].tradeId").value(tradeId))
+			.andExpect(jsonPath("$.data[0].orderUnitPrice").value(800));
+		assertThat(tradeCount()).isEqualTo(1);
+		var row = jdbc.queryForMap("select * from trd_trade_info where trade_id = ?", tradeId);
+		assertThat(row.get("order_unit_price")).isEqualTo(800);
+		assertThat(row.get("order_quantity")).isEqualTo(3);
+		assertThat(row.get("trade_stats")).isEqualTo("견적요청");
+	}
+
+	@Test
+	@DisplayName("거절·수락으로 견적회신이 된 뒤 다시 요청하면 같은 행이 견적요청으로 돌아간다. 매물 정보도 새로 읽는다")
+	void requoteAfterReply() throws Exception {
+		String rejected = quoted(REG_A, 900);
+		action(seller, rejected, "reject").andExpect(status().isOk());
+		quotes(buyer, item(sellerId, REG_A, 850, 1)).andExpect(status().isCreated());
+		assertThat(tradeCount()).isEqualTo(1);
+		assertThat(statsOf(rejected)).isEqualTo("견적요청");
+
+		action(seller, rejected, "accept").andExpect(status().isOk());
+		assertThat(priceOf(REG_A)).isEqualTo(850);
+		quotes(buyer, item(sellerId, REG_A, 800, 1)).andExpect(status().isCreated());
+		assertThat(tradeCount()).isEqualTo(1);
+		var row = jdbc.queryForMap("select * from trd_trade_info where trade_id = ?", rejected);
+		assertThat(row.get("trade_stats")).isEqualTo("견적요청");
+		assertThat(row.get("sales_unit_price")).isEqualTo(850);
+		assertThat(row.get("order_unit_price")).isEqualTo(800);
+	}
+
+	@Test
+	@DisplayName("구매요청 행과 견적 행은 따로 — 직접 구매가 있어도 견적은 새 행, 견적을 덮어써도 구매 행은 그대로")
+	void quoteRowIsSeparateFromPurchaseRow() throws Exception {
+		jdbc.update("""
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
+					order_unit_price, order_quantity, req_deli_date, trade_stats)
+				values (?, '26102010999', '거래', ?, ?, 'QUOTEAPI01', 1000, 1, '2099-12-31', '구매요청')
+				""", buyerId, sellerId, REG_A);
+		quotes(buyer, item(sellerId, REG_A, 900, 1)).andExpect(status().isCreated());
+		quotes(buyer, item(sellerId, REG_A, 800, 1)).andExpect(status().isCreated());
+		assertThat(tradeCount()).isEqualTo(2);
+		assertThat(jdbc.queryForObject("select order_unit_price from trd_trade_info where trade_id = '26102010999'", Integer.class))
+			.isEqualTo(1000);
+	}
+
+	@Test
+	@DisplayName("DB 는 구매자·매물당 견적 행을 하나만 허용한다 (동시 요청 방어)")
+	void databaseRejectsSecondQuoteRow() {
+		insertQuoteRow("26102010001");
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> insertQuoteRow("26102010002"))
+			.isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+	}
+
+	private void insertQuoteRow(String tradeId) {
+		jdbc.update("""
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
+					order_unit_price, order_quantity, trade_stats)
+				values (?, ?, '견적조정', ?, ?, 'QUOTEAPI01', 900, 1, '견적요청')
+				""", buyerId, tradeId, sellerId, REG_A);
 	}
 
 	// ---- 회신·취소 ----

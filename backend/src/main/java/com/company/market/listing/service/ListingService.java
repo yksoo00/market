@@ -43,6 +43,7 @@ import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.repository.ListingSearchRepository;
 import com.company.market.listing.service.ProductService.ProductDraft;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -70,6 +71,8 @@ public class ListingService {
 	private final UploadService uploads;
 
 	private final Clock clock;
+
+	private final ApplicationEventPublisher events;
 
 	@Transactional
 	public ListingResponse create(UUID userId, ListingCreateRequest req) {
@@ -290,6 +293,8 @@ public class ListingService {
 	@Transactional
 	public void delete(UUID pathUserId, String regDate, UUID requesterId) {
 		Listing listing = lockOwned(pathUserId, regDate, requesterId);
+		// 견적 행은 매물과 함께 지운다 — 거래 도메인이 같은 트랜잭션에서 듣는다 (listing → trade 직접 호출 금지)
+		events.publishEvent(new ListingDeletingEvent(pathUserId, regDate));
 		// 거래가 1건이라도 있으면 trd_trade_info 의 매물 FK 가 막는다. 거래 테이블을 여기서 직접 보지 않으려고(도메인 간은
 		// service 로만, 거래 → 매물 방향이라 역참조 불가) 위반을 잡아 409 로 바꾼다. flush 해야 이 메서드 안에서 위반이 난다
 		try {

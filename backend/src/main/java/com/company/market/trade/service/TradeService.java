@@ -5,6 +5,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,7 @@ import com.company.market.user.service.UserDirectory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -109,15 +111,17 @@ public class TradeService {
 	}
 
 	/**
-	 * 견적 요청 N건 (스펙 2026-10-20). 매물마다 견적조정/견적요청 1행, 재고는 건드리지 않는다.
+	 * 견적 요청 N건 (스펙 2026-10-20). 매물마다 견적조정 1행(구매자·매물당 하나 — 있으면 덮어써 견적요청으로 되돌린다,
+	 * 사용자 결정 2026-10-21), 재고는 건드리지 않는다.
 	 * 하나라도 틀리면 아무것도 저장하지 않는다(트랜잭션). 재고를 바꾸지 않으니 매물을 잠그지 않는다 — 여러 매물을
-	 * 잠그면 다른 요청과 순서가 엇갈려 교착될 수 있다. 같은 매물이 두 번 오면 두 번째가 409 (먼저 저장한 행을 본다)
+	 * 잠그면 다른 요청과 순서가 엇갈려 교착될 수 있다. 한 요청에 같은 매물이 두 번 오면 409
 	 */
 	@Transactional
 	public List<TradeResponse> requestQuotes(UUID buyerId, QuoteCreateRequest req) {
 		Map<String, String> failures = new LinkedHashMap<>();
 		List<TradeInfo> saved = new ArrayList<>();
 		List<ListingTradeSnapshot> snapshots = new ArrayList<>();
+		Set<String> seen = new HashSet<>();
 		for (int i = 0; i < req.items().size(); i++) {
 			QuoteCreateRequest.Item item = req.items().get(i);
 			ListingTradeSnapshot listing = listings.snapshotForTrade(item.sellerId(), item.regDate());
@@ -141,28 +145,44 @@ public class TradeService {
 			if (!failures.isEmpty()) {
 				continue;
 			}
-			if (trades.existsByUserIdAndSellerIdAndRegDateAndTradeStats(buyerId, listing.sellerId(), listing.regDate(),
-					TradeStats.QUOTE_REQUESTED)) {
+			if (!seen.add(listing.sellerId() + "/" + listing.regDate())) {
 				throw new ApiException(ErrorCode.QUOTE_ALREADY_REQUESTED);
 			}
-			saved.add(trades.saveAndFlush(TradeInfo.builder()
-				.userId(buyerId)
-				.tradeId(tradeIds.next())
-				.tradeType(TradeType.QUOTE)
-				.sellerId(listing.sellerId())
-				.regDate(listing.regDate())
-				.prodId(listing.prodId())
-				.prodState(listing.prodState())
-				.salesUnitPrice(listing.salesUnitPrice())
-				.stockQuantity(listing.stockQuantity())
-				.minOrderQuantity(listing.minOrderQuantity())
-				.orderUnit(listing.orderUnit())
-				.provDate(listing.provDate())
-				.orderUnitPrice(item.orderUnitPrice())
-				.orderQuantity(item.orderQuantity())
-				.remarks(item.remarks() == null || item.remarks().isBlank() ? null : item.remarks().trim())
-				.tradeStats(TradeStats.QUOTE_REQUESTED)
-				.build()));
+			String remarks = item.remarks() == null || item.remarks().isBlank() ? null : item.remarks().trim();
+			TradeInfo existing = trades.findByUserIdAndSellerIdAndRegDateAndTradeType(buyerId, listing.sellerId(),
+					listing.regDate(), TradeType.QUOTE).orElse(null);
+			if (existing != null) {
+				existing.requote(listing.prodId(), listing.prodState(), listing.salesUnitPrice(), listing.stockQuantity(),
+						listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), item.orderUnitPrice(),
+						item.orderQuantity(), remarks);
+				saved.add(trades.saveAndFlush(existing));
+			}
+			else {
+				try {
+					saved.add(trades.saveAndFlush(TradeInfo.builder()
+						.userId(buyerId)
+						.tradeId(tradeIds.next())
+						.tradeType(TradeType.QUOTE)
+						.sellerId(listing.sellerId())
+						.regDate(listing.regDate())
+						.prodId(listing.prodId())
+						.prodState(listing.prodState())
+						.salesUnitPrice(listing.salesUnitPrice())
+						.stockQuantity(listing.stockQuantity())
+						.minOrderQuantity(listing.minOrderQuantity())
+						.orderUnit(listing.orderUnit())
+						.provDate(listing.provDate())
+						.orderUnitPrice(item.orderUnitPrice())
+						.orderQuantity(item.orderQuantity())
+						.remarks(remarks)
+						.tradeStats(TradeStats.QUOTE_REQUESTED)
+						.build()));
+				}
+				catch (DataIntegrityViolationException e) {
+					// 같은 구매자의 요청이 동시에 둘 들어와 부분 unique 인덱스에 걸렸다. 다시 보내면 먼저 저장된 행을 덮어쓴다
+					throw new ApiException(ErrorCode.QUOTE_ALREADY_REQUESTED);
+				}
+			}
 			snapshots.add(listing);
 			// 커밋 뒤에만 나가므로 뒤에서 실패(400·409)해 롤백되면 이 메일도 안 간다
 			mail(Kind.QUOTE_REQUESTED, saved.getLast(), buyerId, listing.prodName());

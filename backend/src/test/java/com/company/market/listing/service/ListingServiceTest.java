@@ -17,6 +17,7 @@ import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.repository.ListingSearchRepository;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationEventPublisher;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -25,6 +26,7 @@ import org.springframework.dao.DataIntegrityViolationException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,7 +51,7 @@ class ListingServiceTest {
 	@DisplayName("저장 시 복합키 충돌(DataIntegrityViolationException)이면 LISTING_DUPLICATE_REG_TIME 으로 바뀐다")
 	void translatesDuplicateKeyViolation() {
 		Clock clock = Clock.fixed(Instant.parse("2026-09-29T12:00:00Z"), ZoneOffset.UTC);
-		ListingService service = new ListingService(listings, searchRepository, products, categories, uploads, clock);
+		ListingService service = new ListingService(listings, searchRepository, products, categories, uploads, clock, mock(ApplicationEventPublisher.class));
 		when(categories.existsById("P01-Q01-R001")).thenReturn(true);
 		when(products.findOrCreate(any())).thenReturn(Product.builder().prodId("ELEC00010001").regDate("20260929120000")
 			.categoryCode("P01-Q01-R001").prodName("노트북").prodBrand("삼성").build());
@@ -67,7 +69,7 @@ class ListingServiceTest {
 	@DisplayName("한국 날짜 기준: UTC 23:30(한국 다음 날 08:30)에 한국 오늘을 납기일·제조일로 넣으면 통과")
 	void datesUseSeoulToday() {
 		Clock clock = Clock.fixed(Instant.parse("2026-10-01T23:30:00Z"), ZoneOffset.UTC);
-		ListingService service = new ListingService(listings, searchRepository, products, categories, uploads, clock);
+		ListingService service = new ListingService(listings, searchRepository, products, categories, uploads, clock, mock(ApplicationEventPublisher.class));
 		when(categories.existsById("P01-Q01-R001")).thenReturn(true);
 		when(products.findOrCreate(any())).thenReturn(Product.builder().prodId("ELEC00010001").regDate("20261001233000")
 			.categoryCode("P01-Q01-R001").prodName("노트북").prodBrand("삼성").build());
