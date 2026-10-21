@@ -11,16 +11,19 @@ export function cartBadge(count: number): string | null {
 
 /**
  * 담기·빼기·견적·구매 뒤 헤더 숫자를 다시 읽게 한다. 칸은 iframe 이라 헤더 상태를 직접 못 바꾼다 — 칸 열기 신호와
- * 같은 통로(window.top). 최상위 창이면 top 이 자기 자신이라 헤더가 그대로 받는다
+ * 같은 통로(window.top). 최상위 창이면 top 이 자기 자신이라 헤더가 그대로 받는다.
+ * source 는 칸 엔진의 "market-tile" 과 다르게 둔다 — TileFrame 은 그 source 를 전부 칸 경로 보고로 읽는다
  */
 export function notifyCartChanged(): void {
-  window.top?.postMessage({ source: "market-tile", type: CART_CHANGED }, window.location.origin);
+  window.top?.postMessage({ source: CART_SOURCE, type: CART_CHANGED }, window.location.origin);
 }
+
+const CART_SOURCE = "market-cart";
 
 /** 다른 출처의 메시지는 무시한다 */
 export function isCartChanged(e: MessageEvent, origin: string): boolean {
   const data = e.data as { source?: unknown; type?: unknown } | null;
-  return e.origin === origin && data?.source === "market-tile" && data.type === CART_CHANGED;
+  return e.origin === origin && data?.source === CART_SOURCE && data.type === CART_CHANGED;
 }
 
 /** 거래완료 매물은 장바구니에 남지만 견적·구매 대상이 아니다 (빼기만) */
