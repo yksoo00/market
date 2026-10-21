@@ -155,6 +155,7 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
           open={buying}
           onOpenChange={setBuying}
           onPurchased={() => {
+            notifyCartChanged();
             setPurchased(true);
             onPurchased?.();
           }}
@@ -165,7 +166,10 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
           targets={[{ sellerId: detail.userId, regDate: detail.regDate }]}
           open
           onOpenChange={setQuoting}
-          onRequested={() => setQuoted(true)}
+          onRequested={() => {
+            notifyCartChanged();
+            setQuoted(true);
+          }}
         />
       )}
       <ResultDialog

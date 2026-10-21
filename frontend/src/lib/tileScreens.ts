@@ -19,6 +19,7 @@ const SCREENS: { id: string; group: TileGroup; pattern: RegExp }[] = [
   { id: "sellExtra", group: "sell", pattern: /^\/listings\/extra$/ },
   { id: "myListings", group: "sell", pattern: /^\/my\/listings$/ },
   { id: "myPurchases", group: "buy", pattern: /^\/my\/purchases$/ },
+  { id: "myCart", group: "buy", pattern: /^\/my\/cart$/ },
   { id: "mySales", group: "sell", pattern: /^\/my\/sales$/ },
   { id: "my", group: "common", pattern: /^\/my$/ },
   { id: "listingDetail", group: "common", pattern: /^\/listings\/[^/]+\/[^/]+$/ },

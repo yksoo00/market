@@ -13,6 +13,7 @@ export const cart = {
   },
   page: {
     title: "장바구니",
+    count: (n: number) => `담은 상품 ${n}개`,
     empty: "장바구니가 비었어요.",
     toSearch: "상품 검색",
     remove: "빼기",

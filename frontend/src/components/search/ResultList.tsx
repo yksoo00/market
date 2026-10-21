@@ -9,7 +9,7 @@ import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog, type QuoteTarget } from "@/components/trade/QuoteDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cartApi } from "@/lib/api/cart";
-import { notifyCartChanged } from "@/lib/cart";
+import { cartActionable, notifyCartChanged } from "@/lib/cart";
 import { formatPrice } from "@/lib/format";
 import { isOwner } from "@/lib/listingDetail";
 import { pendingLabel, salesHref } from "@/lib/tradeCounts";
@@ -70,8 +70,12 @@ interface Props {
   query: SearchQuery;
   /** 같은 조건의 전체 개수. items 는 [더 보기]로 받은 만큼만 */
   total: number;
-  /** mine = 내 판매글 모드: 선택·견적·구매 없이 행마다 [수정] */
-  scope?: SearchScope;
+  /** mine = 내 판매글 모드: 선택·견적·구매 없이 행마다 [수정]. cart = 장바구니: [빼기]·[견적 요청]·[구매] */
+  scope?: SearchScope | "cart";
+  /** cart: [빼기] — 고른 매물 (부모가 tradeId 로 바꿔 지운다) */
+  onRemove?: (items: ListingSearchItem[]) => void;
+  /** cart: 견적·구매가 끝나고 완료 안내를 닫았을 때 — 서버가 그 매물을 장바구니에서 지웠으니 목록을 다시 읽게 */
+  onChanged?: () => void;
   /** mine 모드에서 표의 [수정] 을 눌렀을 때 (행 안 수정). 없으면 [수정] 은 수정 화면 링크 */
   onEdit?: (item: ListingSearchItem) => void;
   /** mine 모드: 로그인한 사용자 id. 내 글에만 [수정]을 그린다 (서버가 mine=true 로 거르지 못해도 남의 글에 수정 버튼이 뜨지 않게) */
@@ -83,9 +87,10 @@ interface Props {
 }
 
 // 선택 상태는 결과 집합마다 새로 시작한다 — 페이지에서 key={buildSearchHref(query)}로 다시 마운트
-export function ResultList({ items, query, total, scope = "search", onEdit, ownerId = null, pendingCounts = null, onPurchased }: Props) {
+export function ResultList({ items, query, total, scope = "search", onEdit, ownerId = null, pendingCounts = null, onPurchased, onRemove, onChanged }: Props) {
   const openTile = useTileOpen();
   const mine = scope === "mine";
+  const inCart = scope === "cart";
   // 거래완료(재고 소진)된 매물은 서버가 수정을 막는다 (409 LISTING_COMPLETED) — 버튼도 그리지 않는다
   const canEdit = (item: ListingSearchItem) => mine && isOwner(ownerId, item.userId) && item.tradeStatus !== "completed";
   // "구매요청 N건" → 받은 구매요청을 그 매물로 걸러 연다. 같은 판매 그룹이라 옆 칸에 반반으로
@@ -130,9 +135,18 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   const headerChecked = allChecked ? true : selected.size > 0 ? "indeterminate" : false;
   const toggleAll = () => setSelected(allChecked ? new Set() : new Set(items.map(keyOf)));
   const showNotice = (text: string) => setNotice((prev) => ({ seq: (prev?.seq ?? 0) + 1, text }));
+  // 장바구니엔 거래완료 매물이 남아 있을 수 있다 — 견적·구매 대상에서 빼고 알린다 (빼기만 된다)
+  const chosenForTrade = () => {
+    const chosen = items.filter((i) => selected.has(keyOf(i)));
+    if (!inCart) return chosen;
+    const actionable = chosen.filter(cartActionable);
+    if (actionable.length < chosen.length) showNotice(cart.page.completedSkipped);
+    return actionable;
+  };
   // 견적은 여러 매물을 한 번에 (서버 한도 20개)
   const quoteSelected = () => {
-    const chosen = items.filter((i) => selected.has(keyOf(i)));
+    const chosen = chosenForTrade();
+    if (chosen.length === 0) return;
     if (chosen.length > MAX_QUOTE_ITEMS) showNotice(trade.quote.tooMany(MAX_QUOTE_ITEMS));
     else setQuoting(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
   };
@@ -155,18 +169,33 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   };
   // 구매 모달은 매물 1개용 — 여러 개를 체크했으면 하나만 고르라고 알린다 (계획 2026-10-15 "스펙과 달라진 점")
   const buySelected = () => {
-    const chosen = items.filter((i) => selected.has(keyOf(i)));
+    const chosen = chosenForTrade();
     if (chosen.length === 1) setBuying(chosen[0]);
-    else showNotice(p.oneAtATime);
+    else if (chosen.length > 1) showNotice(p.oneAtATime);
+  };
+  // 견적·구매 완료 안내를 닫을 때 장바구니 목록을 다시 읽는다 — 바로 다시 읽으면 목록이 새로 그려지며 안내가 사라진다
+  const closeDone = () => {
+    if (inCart) onChanged?.();
   };
   // router.push 는 타일 큐를 안 거쳐, iframe 칸에서 누르면 그 칸이 닫히고 2분할이 된다. 이름 링크와 같은 규칙(칸 규칙)으로 연다.
   // 내 판매글도 검색처럼 상세를 보조 칸에 연다 — 전체 화면(reset)으로 열던 예외는 이 화면만 2분할이 돼 뺐다 (decisions.md 2026-10-19)
   const go = (item: ListingSearchItem) => openTile(listingHref(item), false);
 
-  if (items.length === 0) return <Empty query={query} scope={scope} />;
+  // 장바구니의 빈 화면은 CartView 가 그린다
+  if (items.length === 0) return inCart ? null : <Empty query={query} scope={scope} />;
 
   const actions = (size: string) => (
     <>
+      {inCart && (
+        <button
+          type="button"
+          disabled={selected.size === 0}
+          onClick={() => onRemove?.(items.filter((i) => selected.has(keyOf(i))))}
+          className={`${size} px-3 rounded-md border border-line text-ink-2 text-sm font-medium hover:bg-bg disabled:opacity-40 disabled:pointer-events-none`}
+        >
+          {cart.page.remove}
+        </button>
+      )}
       {scope === "search" && (
         <button
           type="button"
@@ -208,7 +237,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
           />
         )}
         <p className="grow text-sm text-ink-2" aria-live="polite">
-          <span className="font-bold text-ink">{r.count(total)}</span>
+          <span className="font-bold text-ink">{inCart ? cart.page.count(total) : r.count(total)}</span>
           {selected.size > 0 && r.selected(selected.size)}
         </p>
         {!mine && <div className="hidden @min-[36rem]:flex gap-2">{actions("h-8.5")}</div>}
@@ -221,13 +250,23 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
           open
           onOpenChange={(open) => !open && setBuying(null)}
           onPurchased={() => {
+            // 서버가 그 매물을 장바구니에서 지웠다 (어디서 샀든) — 헤더 숫자를 맞춘다
+            notifyCartChanged();
             setPurchased(true);
             onPurchased?.({ userId: buying.userId, regDate: buying.regDate });
           }}
         />
       )}
       {!mine && quoting && (
-        <QuoteDialog targets={quoting} open onOpenChange={(open) => !open && setQuoting(null)} onRequested={() => setQuoted(true)} />
+        <QuoteDialog
+          targets={quoting}
+          open
+          onOpenChange={(open) => !open && setQuoting(null)}
+          onRequested={() => {
+            notifyCartChanged();
+            setQuoted(true);
+          }}
+        />
       )}
       <ResultDialog
         open={quoted}
@@ -237,9 +276,13 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
         actionLabel={p.toPurchases}
         onAction={() => {
           setQuoted(false);
+          closeDone();
           openTile("/my/purchases", false);
         }}
-        onClose={() => setQuoted(false)}
+        onClose={() => {
+          setQuoted(false);
+          closeDone();
+        }}
       />
       <ResultDialog
         open={purchased}
@@ -249,9 +292,13 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
         actionLabel={p.toPurchases}
         onAction={() => {
           setPurchased(false);
+          closeDone();
           openTile("/my/purchases", false);
         }}
-        onClose={() => setPurchased(false)}
+        onClose={() => {
+          setPurchased(false);
+          closeDone();
+        }}
       />
       <ResultDialog
         open={added}

@@ -28,6 +28,7 @@ describe("screenOf", () => {
   it("마이페이지는 공통이라 어느 칸 옆에도 반반으로 열린다", () => {
     expect(screenOf("/my")).toEqual({ id: "my", group: "common" });
     expect(screenOf("/my/purchases")).toEqual({ id: "myPurchases", group: "buy" });
+    expect(screenOf("/my/cart")).toEqual({ id: "myCart", group: "buy" });
     expect(isRelated(screenOf("/my"), [screenOf("/"), screenOf("/search")])).toBe(true);
   });
 
