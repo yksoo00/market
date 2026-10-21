@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -176,9 +177,13 @@ class SchemaConstraintsTest {
 		UUID[] ids = insertListingAndBuyer();
 		insertRow(ids[0], ids[1], "26102113001", "구매검토", "장바구니");
 		assertThatThrownBy(() -> insertRow(ids[0], ids[1], "26102113002", "구매검토", "장바구니"))
-			.isInstanceOf(DataIntegrityViolationException.class);
+			.isInstanceOf(DuplicateKeyException.class);
 		insertRow(ids[0], ids[1], "26102113003", "견적조정", "견적요청");
-		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class)).isEqualTo(2);
+		// 다른 구매자는 같은 매물을 따로 담는다
+		insertUser("buyer02", "buyer2@example.com", "personal", null);
+		UUID other = jdbc.queryForObject("select uid from trd_user_info where user_id = 'buyer02'", UUID.class);
+		insertRow(other, ids[1], "26102113004", "구매검토", "장바구니");
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class)).isEqualTo(3);
 	}
 
 	@Test
