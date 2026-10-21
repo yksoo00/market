@@ -12,7 +12,8 @@ export default defineConfig({
   // 가입·등록이 같은 개발 DB 를 쓰므로 한 번에 하나씩 (rate limit 은 2026-10-19 보류 — 재도입되면 가입 한도도 다시 고려)
   workers: 1,
   retries: 0,
-  timeout: 60_000,
+  // 가입 2번 + 등록이 있는 흐름이 개발 PC(메모리 적음)에서 60초 근처라 시간 초과로 흔들렸다 (decisions.md 2026-10-21 작업 절차)
+  timeout: 120_000,
   // 개발 서버는 화면을 처음 요청할 때 컴파일한다 — 기본 5초면 차가운 서버에서 이동 확인이 먼저 끝나 가입 한도만 깎는다
   expect: { timeout: 15_000 },
   reporter: [["list"]],
