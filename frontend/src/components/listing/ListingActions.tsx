@@ -7,8 +7,11 @@ import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog } from "@/components/trade/QuoteDialog";
+import { cartApi } from "@/lib/api/cart";
 import { listingsApi } from "@/lib/api/listings";
+import { notifyCartChanged } from "@/lib/cart";
 import { ownerActions, purchaseBlockReason } from "@/lib/listingDetail";
+import { cart } from "@/messages/cart";
 import { listing } from "@/messages/listing";
 import { trade } from "@/messages/trade";
 import type { ListingDetail } from "@/types/listing";
@@ -42,6 +45,9 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
   const [purchased, setPurchased] = useState(false);
   const [quoting, setQuoting] = useState(false);
   const [quoted, setQuoted] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState(false);
+  const [cartError, setCartError] = useState<string | null>(null);
 
   const block = purchaseBlockReason(detail, meId);
   const mine = ownerActions(detail);
@@ -56,6 +62,19 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
     open();
   };
   const buy = () => openIfLoggedIn(() => setBuying(true));
+  // 장바구니는 모달 없이 바로 담는다. 이미 담겨 있어도 성공
+  const addToCart = async () => {
+    setAdding(true);
+    setCartError(null);
+    const res = await cartApi.add([{ sellerId: detail.userId, regDate: detail.regDate }]);
+    setAdding(false);
+    if (res.ok) {
+      notifyCartChanged();
+      setAdded(true);
+    } else {
+      setCartError(trade.errors[res.code] ?? res.message);
+    }
+  };
 
   const remove = async () => {
     if (!window.confirm(t.confirmDelete)) return;
@@ -99,7 +118,15 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
             </>
           ) : (
             <>
-              {/* 견적도 구매와 같은 이유(거래완료·재고 부족)로 막는다 */}
+              {/* 장바구니·견적도 구매와 같은 이유(거래완료·재고 부족)로 막는다 */}
+              <button
+                type="button"
+                onClick={() => openIfLoggedIn(() => void addToCart())}
+                disabled={(block !== null && block !== "login") || adding}
+                className={outline}
+              >
+                {cart.add.button}
+              </button>
               <button
                 type="button"
                 onClick={() => openIfLoggedIn(() => setQuoting(true))}
@@ -112,6 +139,11 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
                 {t.buy}
               </button>
               {block !== null && block !== "login" && <span className="text-[13px] text-ink-2">{p.blocked[block]}</span>}
+              {cartError && (
+                <span role="alert" className="text-[13px] text-down">
+                  {cartError}
+                </span>
+              )}
             </>
           )}
         </div>
@@ -159,6 +191,18 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
           openTile("/my/purchases", false);
         }}
         onClose={() => setPurchased(false)}
+      />
+      <ResultDialog
+        open={added}
+        tone="success"
+        title={cart.add.doneTitle}
+        message={cart.add.doneMessage}
+        actionLabel={cart.add.toCart}
+        onAction={() => {
+          setAdded(false);
+          openTile("/my/cart", false);
+        }}
+        onClose={() => setAdded(false)}
       />
     </div>
   );

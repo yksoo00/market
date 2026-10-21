@@ -8,11 +8,15 @@ import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog, type QuoteTarget } from "@/components/trade/QuoteDialog";
 import { Checkbox } from "@/components/ui/checkbox";
+import { cartApi } from "@/lib/api/cart";
+import { notifyCartChanged } from "@/lib/cart";
 import { formatPrice } from "@/lib/format";
 import { isOwner } from "@/lib/listingDetail";
 import { pendingLabel, salesHref } from "@/lib/tradeCounts";
+import { MAX_CART_ADD } from "@/lib/validation/cart";
 import { MAX_QUOTE_ITEMS } from "@/lib/validation/quote";
 import { activeFilterCount, buildSearchHref, clearFilters, listingHref, type SearchQuery, type SearchScope } from "@/lib/search";
+import { cart } from "@/messages/cart";
 import { my } from "@/messages/my";
 import { search as t } from "@/messages/search";
 import { trade } from "@/messages/trade";
@@ -111,6 +115,9 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   // [견적 요청] 모달 대상(체크한 매물 1~20개)과 성공 안내
   const [quoting, setQuoting] = useState<QuoteTarget[] | null>(null);
   const [quoted, setQuoted] = useState(false);
+  // [장바구니] 보내는 중(버튼 비활성)과 성공 안내
+  const [adding, setAdding] = useState(false);
+  const [added, setAdded] = useState(false);
 
   const toggle = (key: string) =>
     setSelected((prev) => {
@@ -129,6 +136,23 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
     if (chosen.length > MAX_QUOTE_ITEMS) showNotice(trade.quote.tooMany(MAX_QUOTE_ITEMS));
     else setQuoting(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
   };
+  // 장바구니는 모달 없이 바로 담는다 (서버 한도 20개). 하나라도 틀리면 서버가 아무것도 안 담고 이유를 돌려준다
+  const addSelected = async () => {
+    const chosen = items.filter((i) => selected.has(keyOf(i)));
+    if (chosen.length > MAX_CART_ADD) {
+      showNotice(cart.add.tooMany(MAX_CART_ADD));
+      return;
+    }
+    setAdding(true);
+    const res = await cartApi.add(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
+    setAdding(false);
+    if (res.ok) {
+      notifyCartChanged();
+      setAdded(true);
+    } else {
+      showNotice(trade.errors[res.code] ?? res.message);
+    }
+  };
   // 구매 모달은 매물 1개용 — 여러 개를 체크했으면 하나만 고르라고 알린다 (계획 2026-10-15 "스펙과 달라진 점")
   const buySelected = () => {
     const chosen = items.filter((i) => selected.has(keyOf(i)));
@@ -143,6 +167,16 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
 
   const actions = (size: string) => (
     <>
+      {scope === "search" && (
+        <button
+          type="button"
+          disabled={selected.size === 0 || adding}
+          onClick={addSelected}
+          className={`${size} px-3 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft disabled:opacity-40 disabled:pointer-events-none`}
+        >
+          {cart.add.button}
+        </button>
+      )}
       <button
         type="button"
         disabled={selected.size === 0}
@@ -218,6 +252,18 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
           openTile("/my/purchases", false);
         }}
         onClose={() => setPurchased(false)}
+      />
+      <ResultDialog
+        open={added}
+        tone="success"
+        title={cart.add.doneTitle}
+        message={cart.add.doneMessage}
+        actionLabel={cart.add.toCart}
+        onAction={() => {
+          setAdded(false);
+          openTile("/my/cart", false);
+        }}
+        onClose={() => setAdded(false)}
       />
 
       {!mine && notice !== null && (
