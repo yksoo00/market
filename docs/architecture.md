@@ -27,6 +27,7 @@
 | Spring Boot 4.1, Java 21 | REST API | 패키지 user·listing·trade·common |
 | PostgreSQL 16 | 영속 데이터 | 정의서 테이블 `trd_*` 6개 + 보조 테이블. 목록은 `data-model.md` |
 | Redis 7 | refresh 세션, 업로드 기록(24시간), 멱등 키, 가입 임시값(약관·본인인증 스텁) | 인증·업로드·매물 등록·구매요청 흐름에 사용 |
+| 메일 | 견적·거래 알림 (`common/mail`, `MAIL_*`) | 하이웍스 SMTP. 거래 커밋 뒤 동기 발송, 실패는 로그만. `MAIL_HOST` 가 비면 보내지 않고 로그 (decisions.md 2026-10-20) |
 | 파일 저장소 | 업로드 파일 (`common/storage`, `STORAGE_ROOT`) | 서버 로컬 디스크. Compose는 volume `uploads_data`를 api-1·api-2가 공유. DB와 함께 백업 (decisions.md 2026-10-02) |
 
 ## 백엔드 구조
