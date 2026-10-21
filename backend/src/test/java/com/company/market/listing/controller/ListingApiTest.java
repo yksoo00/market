@@ -978,6 +978,23 @@ class ListingApiTest {
 	}
 
 	@Test
+	@DisplayName("구매 단계로 넘어간 견적 행(구매요청·구매확정)이 있는 매물은 삭제할 수 없다 — 견적 단계 행만 같이 지워진다")
+	void listingWithPurchaseStageQuoteRowCannotBeDeleted() throws Exception {
+		String regDate = createListing(authCookie);
+		UUID buyer = userIdOf(otherUserCookie());
+		jdbc.update("""
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, order_unit_price,
+					order_quantity, req_deli_date, trade_stats)
+				values (?, '26101510003', '견적조정', ?, ?, 500000, 1, '2099-12-31', '구매요청')
+				""", buyer, userId, regDate);
+
+		mvc.perform(delete("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie))
+			.andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("LISTING_HAS_TRADES"));
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class)).isEqualTo(1);
+	}
+
+	@Test
 	@DisplayName("없는 매물을 삭제하려 하면 404")
 	void deleteMissingIsNotFound() throws Exception {
 		mvc.perform(delete("/api/v1/listings/" + UUID.randomUUID() + "/20260101000000").cookie(authCookie))
