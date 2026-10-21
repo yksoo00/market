@@ -193,6 +193,133 @@ class QuoteApiTest {
 			.andExpect(status().isUnauthorized());
 	}
 
+	// ---- 회신·취소 ----
+
+	private String quoted(String regDate, int price) throws Exception {
+		quotes(buyer, item(sellerId, regDate, price, 1)).andExpect(status().isCreated());
+		return jdbc.queryForObject("select trade_id from trd_trade_info where reg_date = ? and trade_stats = '견적요청'",
+				String.class, regDate);
+	}
+
+	private ResultActions action(Cookie who, String tradeId, String what) throws Exception {
+		return mvc.perform(post("/api/v1/trades/" + tradeId + "/" + what).cookie(who));
+	}
+
+	private int priceOf(String regDate) {
+		return jdbc.queryForObject("select sales_unit_price from trd_prod_reg where reg_date = ?", Integer.class, regDate);
+	}
+
+	private String statsOf(String tradeId) {
+		return jdbc.queryForObject("select trade_stats from trd_trade_info where trade_id = ?", String.class, tradeId);
+	}
+
+	@Test
+	@DisplayName("판매자 수락: 매물 단가 = 희망단가, 견적회신. 두 번째 수락·거절은 409")
+	void sellerAccepts() throws Exception {
+		String tradeId = quoted(REG_A, 900);
+		action(seller, tradeId, "accept").andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.tradeStats").value("quoteReplied"));
+		assertThat(priceOf(REG_A)).isEqualTo(900);
+		assertThat(statsOf(tradeId)).isEqualTo("견적회신");
+		action(seller, tradeId, "accept").andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("TRADE_NOT_PENDING"));
+		action(seller, tradeId, "reject").andExpect(status().isConflict());
+	}
+
+	@Test
+	@DisplayName("수락 때 매물이 이미 희망단가보다 싸면 단가를 올리지 않는다")
+	void acceptDoesNotRaisePrice() throws Exception {
+		String tradeId = quoted(REG_A, 900);
+		jdbc.update("update trd_prod_reg set sales_unit_price = 800 where reg_date = ?", REG_A);
+		action(seller, tradeId, "accept").andExpect(status().isOk());
+		assertThat(priceOf(REG_A)).isEqualTo(800);
+	}
+
+	@Test
+	@DisplayName("거래완료 매물은 수락 409 LISTING_COMPLETED, 견적은 그대로")
+	void acceptCompletedListing() throws Exception {
+		String tradeId = quoted(REG_A, 900);
+		jdbc.update("update trd_prod_reg set stock_quantity = 0, dt_expire = '20261020100000' where reg_date = ?", REG_A);
+		action(seller, tradeId, "accept").andExpect(status().isConflict())
+			.andExpect(jsonPath("$.code").value("LISTING_COMPLETED"));
+		assertThat(statsOf(tradeId)).isEqualTo("견적요청");
+	}
+
+	@Test
+	@DisplayName("판매자 거절: 단가 그대로, 견적회신. 구매자·남은 수락·거절 403")
+	void sellerRejectsOthersForbidden() throws Exception {
+		String tradeId = quoted(REG_A, 900);
+		Cookie stranger = cookieOf(newUser("quotestranger", "01022220009"));
+		action(buyer, tradeId, "accept").andExpect(status().isForbidden());
+		action(stranger, tradeId, "reject").andExpect(status().isForbidden());
+
+		action(seller, tradeId, "reject").andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.tradeStats").value("quoteReplied"));
+		assertThat(priceOf(REG_A)).isEqualTo(1000);
+		assertThat(statsOf(tradeId)).isEqualTo("견적회신");
+	}
+
+	@Test
+	@DisplayName("구매자 견적 취소: 행 삭제(204). 판매자는 견적을 취소 못 함 403. 회신 뒤 취소 409")
+	void buyerCancelsQuote() throws Exception {
+		String tradeId = quoted(REG_A, 900);
+		action(seller, tradeId, "cancel").andExpect(status().isForbidden());
+		action(buyer, tradeId, "cancel").andExpect(status().isNoContent());
+		assertThat(tradeCount()).isZero();
+
+		String replied = quoted(REG_A, 900);
+		action(seller, replied, "reject").andExpect(status().isOk());
+		action(buyer, replied, "cancel").andExpect(status().isConflict());
+	}
+
+	@Test
+	@DisplayName("구매요청 거래에는 수락·거절이 없다 — 409")
+	void acceptOnlyQuotes() throws Exception {
+		jdbc.update("""
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
+					order_unit_price, order_quantity, req_deli_date, trade_stats)
+				values (?, '26102010999', '거래', ?, ?, 'QUOTEAPI01', 1000, 1, '2099-12-31', '구매요청')
+				""", buyerId, sellerId, REG_A);
+		action(seller, "26102010999", "accept").andExpect(status().isConflict());
+	}
+
+	@Test
+	@DisplayName("pending-counts 는 판매자가 처리할 견적요청 + 구매요청")
+	void pendingCountsIncludeQuotes() throws Exception {
+		quoted(REG_A, 900);
+		jdbc.update("""
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
+					order_unit_price, order_quantity, req_deli_date, trade_stats)
+				values (?, '26102010999', '거래', ?, ?, 'QUOTEAPI01', 1000, 1, '2099-12-31', '구매요청')
+				""", buyerId, sellerId, REG_A);
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/trades/pending-counts")
+				.cookie(seller))
+			.andExpect(jsonPath("$.data['" + REG_A + "']").value(2));
+	}
+
+	@Test
+	@DisplayName("수락과 구매자 취소가 동시에 오면 하나만 성공 — 단가는 수락이 이긴 경우에만 바뀐다")
+	void concurrentAcceptAndCancel() throws Exception {
+		String tradeId = quoted(REG_A, 900);
+		java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+		java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(2);
+		var accept = pool.submit(() -> {
+			start.await();
+			return action(seller, tradeId, "accept").andReturn().getResponse().getStatus();
+		});
+		var cancel = pool.submit(() -> {
+			start.await();
+			return action(buyer, tradeId, "cancel").andReturn().getResponse().getStatus();
+		});
+		start.countDown();
+		int accepted = accept.get();
+		int canceled = cancel.get();
+		pool.shutdown();
+
+		assertThat((accepted == 200) ^ (canceled == 204)).isTrue();
+		assertThat(priceOf(REG_A)).isEqualTo(accepted == 200 ? 900 : 1000);
+	}
+
 	@Test
 	@DisplayName("같은 Idempotency-Key 로 다시 보내면 처음 결과를 돌려주고 행은 그대로")
 	void idempotentQuotes() throws Exception {

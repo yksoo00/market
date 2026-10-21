@@ -364,6 +364,19 @@ public class ListingService {
 		}
 	}
 
+	/**
+	 * 견적 수락 — 매물 단가를 희망단가로 내린다(더 싸면 그대로). 행을 잠그고 읽어 구매요청·수정과 차례를 맞춘다.
+	 * 거래완료 매물은 409 (단가를 바꿔도 살 수 없다). 호출자 트랜잭션에 합류해 같이 롤백
+	 */
+	@Transactional
+	public void applyQuotePrice(UUID sellerId, String regDate, int price) {
+		Listing listing = listings.findForUpdate(sellerId, regDate).orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
+		if (listing.getDtExpire() != null) {
+			throw new ApiException(ErrorCode.LISTING_COMPLETED);
+		}
+		listing.lowerPriceTo(price, LocalDateTime.now(clock).format(REG_DATE_FORMAT));
+	}
+
 	/** 거래 취소로 재고 복원 + 거래완료일시 지움 */
 	@Transactional
 	public void releaseStock(UUID sellerId, String regDate, int quantity) {

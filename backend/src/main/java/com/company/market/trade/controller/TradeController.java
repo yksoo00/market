@@ -65,6 +65,18 @@ public class TradeController {
 		return ApiResponse.of(trades.complete(me.id(), tradeId));
 	}
 
+	/** 판매자 견적 수락 → 매물 단가를 희망단가로, 견적회신 */
+	@PostMapping("/{tradeId}/accept")
+	public ApiResponse<TradeResponse> accept(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable String tradeId) {
+		return ApiResponse.of(trades.accept(me.id(), tradeId));
+	}
+
+	/** 판매자 견적 거절 → 견적회신 */
+	@PostMapping("/{tradeId}/reject")
+	public ApiResponse<TradeResponse> reject(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable String tradeId) {
+		return ApiResponse.of(trades.reject(me.id(), tradeId));
+	}
+
 	/** 확정 전 취소 (구매자·판매자). 행이 지워지므로 돌려줄 거래가 없다 → 204 */
 	@PostMapping("/{tradeId}/cancel")
 	public ResponseEntity<Void> cancel(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable String tradeId) {

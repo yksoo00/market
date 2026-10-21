@@ -1,5 +1,6 @@
 package com.company.market.trade.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -62,12 +63,12 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	List<TradeInfo> findSellerPage(@Param("sellerId") UUID sellerId, @Param("regDate") String regDate,
 			@Param("cursor") String cursor, Pageable page);
 
-	/** 판매자 매물별 그 상태 건수 → [regDate, count] */
+	/** 판매자 매물별 그 상태들 건수 → [regDate, count] */
 	@Query("""
 			select t.regDate, count(t) from TradeInfo t
-			 where t.sellerId = :sellerId and t.tradeStats = :stats
+			 where t.sellerId = :sellerId and t.tradeStats in :stats
 			 group by t.regDate
 			""")
-	List<Object[]> countBySellerGroupByListing(@Param("sellerId") UUID sellerId, @Param("stats") TradeStats stats);
+	List<Object[]> countBySellerGroupByListing(@Param("sellerId") UUID sellerId, @Param("stats") Collection<TradeStats> stats);
 
 }

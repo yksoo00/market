@@ -204,6 +204,16 @@ public class TradeService {
 	@Transactional
 	public void cancel(UUID me, String tradeId) {
 		TradeInfo trade = trades.findByTradeId(tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
+		// 견적은 보낸 구매자만 거둔다(판매자는 거절). 판매자 답이 오기 전(견적요청)에만, 재고는 잡지 않았으니 그대로
+		if (trade.getTradeType() == TradeType.QUOTE) {
+			if (!me.equals(trade.getUserId())) {
+				throw new ApiException(ErrorCode.FORBIDDEN);
+			}
+			if (trades.deleteIfStatus(tradeId, TradeStats.QUOTE_REQUESTED) == 0) {
+				throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
+			}
+			return;
+		}
 		if (!me.equals(trade.getUserId()) && !me.equals(trade.getSellerId())) {
 			throw new ApiException(ErrorCode.FORBIDDEN);
 		}
@@ -211,6 +221,36 @@ public class TradeService {
 			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 		}
 		listings.releaseStock(trade.getSellerId(), trade.getRegDate(), trade.getOrderQuantity());
+	}
+
+	/** 판매자 견적 수락 — 매물 단가를 희망단가로 내리고 견적회신. 결과(수락)는 메일로만 구분된다 (사용자 결정 2026-10-20) */
+	@Transactional
+	public TradeResponse accept(UUID me, String tradeId) {
+		return reply(me, tradeId, true);
+	}
+
+	/** 판매자 견적 거절 — 매물은 그대로, 견적회신 */
+	@Transactional
+	public TradeResponse reject(UUID me, String tradeId) {
+		return reply(me, tradeId, false);
+	}
+
+	private TradeResponse reply(UUID me, String tradeId, boolean accepted) {
+		TradeInfo trade = trades.findByTradeId(tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
+		if (!me.equals(trade.getSellerId())) {
+			throw new ApiException(ErrorCode.FORBIDDEN);
+		}
+		if (trade.getTradeType() != TradeType.QUOTE) {
+			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
+		}
+		if (accepted) {
+			listings.applyQuotePrice(trade.getSellerId(), trade.getRegDate(), trade.getOrderUnitPrice());
+		}
+		// 동시 수락·거절·취소 중 하나만 — 지면 단가 변경도 같이 롤백된다
+		if (trades.updateStatus(tradeId, TradeStats.QUOTE_REQUESTED, TradeStats.QUOTE_REPLIED) == 0) {
+			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
+		}
+		return respond(me, trade, TradeStats.QUOTE_REPLIED);
 	}
 
 	/** 구매자·판매자만 본다. 남이면 없는 것과 같게 404 (거래ID 존재 여부를 흘리지 않게) */
@@ -264,9 +304,9 @@ public class TradeService {
 		return new TradePageResponse(items, hasMore ? pageRows.get(pageRows.size() - 1).getTradeId() : null);
 	}
 
-	/** 내 매물별 구매요청(대기) 건수. 키 = 매물 regDate. 내 판매글 표의 "구매요청 N건" */
+	/** 내 매물별 판매자가 처리할 건수(견적요청 + 구매요청). 키 = 매물 regDate. 내 판매글 표의 "구매요청 N건" */
 	public Map<String, Long> pendingCounts(UUID sellerId) {
-		return trades.countBySellerGroupByListing(sellerId, TradeStats.REQUESTED).stream()
+		return trades.countBySellerGroupByListing(sellerId, List.of(TradeStats.QUOTE_REQUESTED, TradeStats.REQUESTED)).stream()
 			.collect(Collectors.toMap(r -> (String) r[0], r -> (Long) r[1]));
 	}
 
