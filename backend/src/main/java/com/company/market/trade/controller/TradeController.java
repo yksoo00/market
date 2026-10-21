@@ -55,7 +55,8 @@ public class TradeController {
 		List<TradeResponse> created = idempotency.run("quote-create", me.id(), idempotencyKey,
 				() -> trades.requestQuotes(me.id(), req),
 				list -> list.stream().map(TradeResponse::tradeId).collect(Collectors.joining(",")),
-				ids -> Arrays.stream(ids.split(",")).map(id -> trades.get(me.id(), id)).toList());
+				// 응답이 유실된 뒤 그중 하나를 취소했으면(행 삭제) 그 줄만 빠진다 — 전체를 404 로 만들지 않는다
+				ids -> Arrays.stream(ids.split(",")).flatMap(id -> trades.find(me.id(), id).stream()).toList());
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(created));
 	}
 

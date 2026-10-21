@@ -1,15 +1,39 @@
 package com.company.market.common.mail;
 
 import java.util.Properties;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.task.SyncTaskExecutor;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
+import org.springframework.scheduling.annotation.EnableAsync;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 @Configuration
+@EnableAsync
 public class MailConfig {
 
 	private static final int TIMEOUT_MS = 10_000;
+
+	/**
+	 * 알림 메일 전용 스레드. 작게(동시 2~4통)·대기열 100 — SMTP 가 막혀도 요청 스레드·DB 커넥션을 잡지 않고, 넘치면
+	 * 호출 스레드가 직접 보내지 않고 버린다(DiscardPolicy: 알림은 사라져도 업무는 이미 끝났다)
+	 */
+	@Bean("mailExecutor")
+	Executor mailExecutor(MailProperties props) {
+		if (!props.isAsync()) {
+			return new SyncTaskExecutor();
+		}
+		ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+		executor.setThreadNamePrefix("mail-");
+		executor.setCorePoolSize(2);
+		executor.setMaxPoolSize(4);
+		executor.setQueueCapacity(100);
+		executor.setRejectedExecutionHandler(new ThreadPoolExecutor.DiscardPolicy());
+		return executor;
+	}
 
 	@Bean
 	Mailer mailer(MailProperties props) {

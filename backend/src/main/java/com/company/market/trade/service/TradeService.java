@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -279,10 +280,14 @@ public class TradeService {
 
 	/** 구매자·판매자만 본다. 남이면 없는 것과 같게 404 (거래ID 존재 여부를 흘리지 않게) */
 	public TradeResponse get(UUID viewerId, String tradeId) {
-		TradeInfo trade = trades.findByTradeId(tradeId)
+		return find(viewerId, tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
+	}
+
+	/** get 과 같되 없으면(남의 거래 포함) 빈 값 — 멱등 재전송이 지워진 거래를 건너뛰게 */
+	public Optional<TradeResponse> find(UUID viewerId, String tradeId) {
+		return trades.findByTradeId(tradeId)
 			.filter(t -> viewerId.equals(t.getUserId()) || viewerId.equals(t.getSellerId()))
-			.orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
-		return respond(viewerId, trade, trade.getTradeStats());
+			.map(trade -> respond(viewerId, trade, trade.getTradeStats()));
 	}
 
 	/** role = buyer(내 구매) | seller(받은 구매요청, regDate 로 한 매물만). 최신순 20개 + 커서 */

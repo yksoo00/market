@@ -73,9 +73,12 @@ function QuoteBody({ targets, onClose, onRequested }: Omit<Props, "open" | "onOp
     void Promise.all([Promise.all(targets.map((x) => listingsApi.get(x.sellerId, x.regDate))), authApi.me()]).then(([results, me]) => {
       if (!alive) return;
       const details = results.flatMap((r) => (r.ok ? [r.data] : []));
+      // 로그인 확인이 인증 만료가 아닌 이유(네트워크 등)로 실패하면 내 매물을 가려낼 수 없다 — 그대로 보내면 서버가 내 매물
+      // 하나 때문에 배치 전체를 403 으로 거절하고 어느 줄인지 알려 주지 못하므로 다시 읽게 한다
+      const meUnknown = !me.ok && !isAuthLost(me.code);
       setLoad(
-        details.length === results.length
-          ? { kind: "ready", details, meId: me.ok ? me.data.id : null, anonymous: !me.ok && isAuthLost(me.code) }
+        details.length === results.length && !meUnknown
+          ? { kind: "ready", details, meId: me.ok ? me.data.id : null, anonymous: !me.ok }
           : { kind: "error" },
       );
     });

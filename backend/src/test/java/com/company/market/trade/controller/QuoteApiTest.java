@@ -317,6 +317,8 @@ class QuoteApiTest {
 		pool.shutdown();
 
 		assertThat((accepted == 200) ^ (canceled == 204)).isTrue();
+		// 진 쪽은 교착·500 이 아니라 409(이미 처리됨) 또는 404(취소로 행이 지워짐)
+		assertThat(accepted == 200 ? canceled : accepted).isIn(404, 409);
 		assertThat(priceOf(REG_A)).isEqualTo(accepted == 200 ? 900 : 1000);
 	}
 
