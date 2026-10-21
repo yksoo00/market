@@ -74,8 +74,8 @@ interface Props {
   scope?: SearchScope | "cart";
   /** cart: [빼기] — 고른 매물 (부모가 tradeId 로 바꿔 지운다) */
   onRemove?: (items: ListingSearchItem[]) => void;
-  /** cart: 견적·구매가 끝나고 완료 안내를 닫았을 때 — 서버가 그 매물을 장바구니에서 지웠으니 목록을 다시 읽게 */
-  onChanged?: () => void;
+  /** cart: 빼는 중 — [빼기]를 막아 두 번 보내지 않게 */
+  removing?: boolean;
   /** mine 모드에서 표의 [수정] 을 눌렀을 때 (행 안 수정). 없으면 [수정] 은 수정 화면 링크 */
   onEdit?: (item: ListingSearchItem) => void;
   /** mine 모드: 로그인한 사용자 id. 내 글에만 [수정]을 그린다 (서버가 mine=true 로 거르지 못해도 남의 글에 수정 버튼이 뜨지 않게) */
@@ -87,7 +87,7 @@ interface Props {
 }
 
 // 선택 상태는 결과 집합마다 새로 시작한다 — 페이지에서 key={buildSearchHref(query)}로 다시 마운트
-export function ResultList({ items, query, total, scope = "search", onEdit, ownerId = null, pendingCounts = null, onPurchased, onRemove, onChanged }: Props) {
+export function ResultList({ items, query, total, scope = "search", onEdit, ownerId = null, pendingCounts = null, onPurchased, onRemove, removing = false }: Props) {
   const openTile = useTileOpen();
   const mine = scope === "mine";
   const inCart = scope === "cart";
@@ -112,6 +112,8 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
     );
   };
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
+  // 장바구니는 다른 칸에서 바뀌면 표를 새로 그리지 않고 줄만 바꾼다 — 사라진 줄의 선택은 여기서 걸러 센다
+  const picked: ReadonlySet<string> = new Set(items.map(keyOf).filter((k) => selected.has(k)));
   // seq: 같은 문구가 연달아 나와도 알림 요소를 새로 그려 스크린리더가 다시 읽게 한다 (key 로 사용)
   const [notice, setNotice] = useState<{ seq: number; text: string } | null>(null);
   // [구매] 모달 대상(체크한 매물 1개)과 성공 안내
@@ -131,13 +133,13 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
       else next.add(key);
       return next;
     });
-  const allChecked = items.length > 0 && selected.size === items.length;
-  const headerChecked = allChecked ? true : selected.size > 0 ? "indeterminate" : false;
+  const allChecked = items.length > 0 && picked.size === items.length;
+  const headerChecked = allChecked ? true : picked.size > 0 ? "indeterminate" : false;
   const toggleAll = () => setSelected(allChecked ? new Set() : new Set(items.map(keyOf)));
   const showNotice = (text: string) => setNotice((prev) => ({ seq: (prev?.seq ?? 0) + 1, text }));
   // 장바구니엔 거래완료 매물이 남아 있을 수 있다 — 견적·구매 대상에서 빼고 알린다 (빼기만 된다)
   const chosenForTrade = () => {
-    const chosen = items.filter((i) => selected.has(keyOf(i)));
+    const chosen = items.filter((i) => picked.has(keyOf(i)));
     if (!inCart) return chosen;
     const actionable = chosen.filter(cartActionable);
     if (actionable.length < chosen.length) showNotice(cart.page.completedSkipped);
@@ -152,7 +154,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   };
   // 장바구니는 모달 없이 바로 담는다 (서버 한도 20개). 하나라도 틀리면 서버가 아무것도 안 담고 이유를 돌려준다
   const addSelected = async () => {
-    const chosen = items.filter((i) => selected.has(keyOf(i)));
+    const chosen = items.filter((i) => picked.has(keyOf(i)));
     if (chosen.length > MAX_CART_ADD) {
       showNotice(cart.add.tooMany(MAX_CART_ADD));
       return;
@@ -173,10 +175,6 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
     if (chosen.length === 1) setBuying(chosen[0]);
     else if (chosen.length > 1) showNotice(p.oneAtATime);
   };
-  // 견적·구매 완료 안내를 닫을 때 장바구니 목록을 다시 읽는다 — 바로 다시 읽으면 목록이 새로 그려지며 안내가 사라진다
-  const closeDone = () => {
-    if (inCart) onChanged?.();
-  };
   // router.push 는 타일 큐를 안 거쳐, iframe 칸에서 누르면 그 칸이 닫히고 2분할이 된다. 이름 링크와 같은 규칙(칸 규칙)으로 연다.
   // 내 판매글도 검색처럼 상세를 보조 칸에 연다 — 전체 화면(reset)으로 열던 예외는 이 화면만 2분할이 돼 뺐다 (decisions.md 2026-10-19)
   const go = (item: ListingSearchItem) => openTile(listingHref(item), false);
@@ -189,8 +187,8 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
       {inCart && (
         <button
           type="button"
-          disabled={selected.size === 0}
-          onClick={() => onRemove?.(items.filter((i) => selected.has(keyOf(i))))}
+          disabled={picked.size === 0 || removing}
+          onClick={() => onRemove?.(items.filter((i) => picked.has(keyOf(i))))}
           className={`${size} px-3 rounded-md border border-line text-ink-2 text-sm font-medium hover:bg-bg disabled:opacity-40 disabled:pointer-events-none`}
         >
           {cart.page.remove}
@@ -199,7 +197,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
       {scope === "search" && (
         <button
           type="button"
-          disabled={selected.size === 0 || adding}
+          disabled={picked.size === 0 || adding}
           onClick={addSelected}
           className={`${size} px-3 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft disabled:opacity-40 disabled:pointer-events-none`}
         >
@@ -208,7 +206,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
       )}
       <button
         type="button"
-        disabled={selected.size === 0}
+        disabled={picked.size === 0}
         onClick={quoteSelected}
         className={`${size} px-3 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft disabled:opacity-40 disabled:pointer-events-none`}
       >
@@ -216,7 +214,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
       </button>
       <button
         type="button"
-        disabled={selected.size === 0}
+        disabled={picked.size === 0}
         onClick={buySelected}
         className={`${size} px-4 rounded-md bg-primary text-white text-sm font-bold hover:bg-primary-dark disabled:opacity-40 disabled:pointer-events-none`}
       >
@@ -238,7 +236,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
         )}
         <p className="grow text-sm text-ink-2" aria-live="polite">
           <span className="font-bold text-ink">{inCart ? cart.page.count(total) : r.count(total)}</span>
-          {selected.size > 0 && r.selected(selected.size)}
+          {picked.size > 0 && r.selected(picked.size)}
         </p>
         {!mine && <div className="hidden @min-[36rem]:flex gap-2">{actions("h-8.5")}</div>}
       </div>
@@ -276,13 +274,9 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
         actionLabel={p.toPurchases}
         onAction={() => {
           setQuoted(false);
-          closeDone();
           openTile("/my/purchases", false);
         }}
-        onClose={() => {
-          setQuoted(false);
-          closeDone();
-        }}
+        onClose={() => setQuoted(false)}
       />
       <ResultDialog
         open={purchased}
@@ -292,13 +286,9 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
         actionLabel={p.toPurchases}
         onAction={() => {
           setPurchased(false);
-          closeDone();
           openTile("/my/purchases", false);
         }}
-        onClose={() => {
-          setPurchased(false);
-          closeDone();
-        }}
+        onClose={() => setPurchased(false)}
       />
       <ResultDialog
         open={added}
@@ -376,7 +366,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
                 >
                   {!mine && (
                     <td className="sticky left-0 z-10 bg-surface group-hover:bg-bg pl-3" onClick={stop}>
-                      <Checkbox checked={selected.has(key)} onCheckedChange={() => toggle(key)} aria-label={r.selectRow(item.prodName)} />
+                      <Checkbox checked={picked.has(key)} onCheckedChange={() => toggle(key)} aria-label={r.selectRow(item.prodName)} />
                     </td>
                   )}
                   <td className={`sticky ${mine ? "left-0 pl-3" : "left-10"} z-10 bg-surface group-hover:bg-bg px-2 truncate font-medium border-r border-line-2`} title={item.prodName}>
@@ -423,7 +413,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
             >
               {!mine && (
                 <div className="pt-0.5" onClick={stop}>
-                  <Checkbox checked={selected.has(key)} onCheckedChange={() => toggle(key)} aria-label={r.selectRow(item.prodName)} />
+                  <Checkbox checked={picked.has(key)} onCheckedChange={() => toggle(key)} aria-label={r.selectRow(item.prodName)} />
                 </div>
               )}
               <div className="min-w-0 grow flex flex-col gap-1">
@@ -464,7 +454,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
       </ul>
 
       {/* 모바일: 선택하면 아래(탭바 위)에 고정. main 이 스크롤 칸이라 sticky 로 칸 바닥에 붙는다 */}
-      {!mine && selected.size > 0 && (
+      {!mine && picked.size > 0 && (
         <div className="@min-[36rem]:hidden sticky bottom-0 -mx-4 px-4 py-2.5 flex gap-2 bg-surface border-t border-line [&>button]:flex-1">
           {actions("h-10")}
         </div>

@@ -137,4 +137,17 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     await expect(page.getByText(cart.page.empty)).toBeVisible();
     await expect(cartLink(0)).toBeVisible();
   });
+
+  await test.step("열어 둔 장바구니는 다른 창(칸)에서 담으면 새로고침 없이 바뀐다", async () => {
+    // 칸은 같은 출처의 다른 창이라, 다른 탭으로 같은 신호 경로(BroadcastChannel)를 확인한다
+    const other = await page.context().newPage();
+    await other.goto(`/search?q=${encodeURIComponent(word)}`);
+    const row = other.getByRole("table").getByRole("row").filter({ hasText: nameB });
+    await row.getByRole("checkbox", { name: search.result.selectRow(nameB) }).check();
+    await other.getByRole("button", { name: cart.add.button, exact: true }).first().click();
+    await expect(other.getByRole("dialog", { name: cart.add.doneTitle })).toBeVisible();
+    await expect(rowOf(nameB)).toHaveCount(1);
+    await expect(cartLink(1)).toBeVisible();
+    await other.close();
+  });
 });

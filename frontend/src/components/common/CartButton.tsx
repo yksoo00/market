@@ -4,12 +4,12 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/common/Icon";
 import { cartApi } from "@/lib/api/cart";
-import { cartBadge, isCartChanged } from "@/lib/cart";
+import { cartBadge, onCartChanged } from "@/lib/cart";
 import { cart as t } from "@/messages/cart";
 
 /**
  * 헤더 장바구니 아이콘 + 개수 배지 (로그인했을 때만 헤더가 그린다). 칸(iframe)에서 담기·빼기·견적·구매가 끝나면
- * cart-changed 신호가 오고 숫자를 다시 읽는다. 조회 실패면 배지만 숨긴다 — 헤더를 막지 않는다
+ * 장바구니 바뀜 신호(onCartChanged)가 오고 숫자를 다시 읽는다. 조회 실패면 배지만 숨긴다 — 헤더를 막지 않는다
  */
 export function CartButton() {
   const [count, setCount] = useState(0);
@@ -21,13 +21,10 @@ export function CartButton() {
         if (alive) setCount(res.ok ? res.data.count : 0);
       });
     load();
-    const onMessage = (e: MessageEvent) => {
-      if (isCartChanged(e, window.location.origin)) load();
-    };
-    window.addEventListener("message", onMessage);
+    const off = onCartChanged(load);
     return () => {
       alive = false;
-      window.removeEventListener("message", onMessage);
+      off();
     };
   }, []);
 

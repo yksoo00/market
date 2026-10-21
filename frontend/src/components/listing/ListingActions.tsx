@@ -10,7 +10,7 @@ import { QuoteDialog } from "@/components/trade/QuoteDialog";
 import { cartApi } from "@/lib/api/cart";
 import { listingsApi } from "@/lib/api/listings";
 import { notifyCartChanged } from "@/lib/cart";
-import { ownerActions, purchaseBlockReason } from "@/lib/listingDetail";
+import { cartBlocked, ownerActions, purchaseBlockReason } from "@/lib/listingDetail";
 import { cart } from "@/messages/cart";
 import { listing } from "@/messages/listing";
 import { trade } from "@/messages/trade";
@@ -118,11 +118,11 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
             </>
           ) : (
             <>
-              {/* 장바구니·견적도 구매와 같은 이유(거래완료·재고 부족)로 막는다 */}
+              {/* 견적도 구매와 같은 이유(거래완료·재고 부족)로 막는다. 장바구니는 거래완료·내 매물만 (cartBlocked) */}
               <button
                 type="button"
                 onClick={() => openIfLoggedIn(() => void addToCart())}
-                disabled={(block !== null && block !== "login") || adding}
+                disabled={cartBlocked(detail, meId) || adding}
                 className={outline}
               >
                 {cart.add.button}

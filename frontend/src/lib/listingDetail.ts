@@ -59,6 +59,11 @@ export function purchaseBlockReason(d: ListingDetail, meId: string | null): Purc
   return null;
 }
 
+/** [장바구니]는 서버(CartService)처럼 거래완료·내 매물만 막는다 — 재고가 모자라도 나중에 살 수 있어 담아 둔다 */
+export function cartBlocked(d: ListingDetail, meId: string | null): boolean {
+  return d.tradeStatus === "completed" || isOwner(meId, d.userId);
+}
+
 export interface InfoRow {
   label: string;
   value: string;

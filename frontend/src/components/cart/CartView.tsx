@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { ResultList } from "@/components/search/ResultList";
 import { cartApi } from "@/lib/api/cart";
-import { notifyCartChanged } from "@/lib/cart";
+import { notifyCartChanged, onCartChanged } from "@/lib/cart";
 import { parseSearchParams } from "@/lib/search";
 import { cart as t } from "@/messages/cart";
 import { trade } from "@/messages/trade";
@@ -17,26 +17,33 @@ type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; items: C
 const NO_QUERY = parseSearchParams({});
 const keyOf = (i: ListingSearchItem) => `${i.userId}/${i.regDate}`;
 
-/** 내 장바구니 (스펙 2026-10-21). 검색 결과 표(scope="cart")를 그대로 쓰고, 100개까지라 [더 보기] 없이 한 번에 읽는다 */
+/**
+ * 내 장바구니 (스펙 2026-10-21). 검색 결과 표(scope="cart")를 그대로 쓰고, 100개까지라 [더 보기] 없이 한 번에 읽는다.
+ * 이 칸이나 다른 칸에서 담기·빼기·견적·구매가 끝나면(onCartChanged) 다시 읽는다. 표는 새로 마운트하지 않는다 —
+ * 견적·구매 완료 안내가 떠 있는 채로 줄만 바뀐다
+ */
 export function CartView() {
   const openTile = useTileOpen();
   const [state, setState] = useState<State>({ kind: "loading" });
-  // 다시 읽을 때마다 올린다 — 표를 새로 마운트해 지워진 줄의 선택이 남지 않게
-  const [version, setVersion] = useState(0);
+  const [attempt, setAttempt] = useState(0);
+  const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const reload = () => setAttempt((n) => n + 1);
 
   useEffect(() => {
     let alive = true;
     void cartApi.list().then((res) => {
       if (!alive) return;
-      setState(res.ok ? { kind: "ready", items: res.data.items } : { kind: "error" });
+      // 다시 읽기가 실패하면 보이던 목록은 그대로 둔다 (처음 읽기만 오류 화면)
+      if (res.ok) setState({ kind: "ready", items: res.data.items });
+      else setState((prev) => (prev.kind === "ready" ? prev : { kind: "error" }));
     });
     return () => {
       alive = false;
     };
-  }, [version]);
+  }, [attempt]);
 
-  const reload = () => setVersion((n) => n + 1);
+  useEffect(() => onCartChanged(() => setAttempt((n) => n + 1)), []);
 
   if (state.kind === "loading") return <div className="h-40 rounded-md bg-line-2 animate-pulse" aria-busy="true" />;
   if (state.kind === "error") {
@@ -75,11 +82,13 @@ export function CartView() {
 
   const tradeIdByKey = new Map(items.map((i) => [keyOf(i.listing), i.tradeId]));
   const remove = async (chosen: ListingSearchItem[]) => {
+    setRemoving(true);
     setRemoveError(null);
     const ids = chosen.map((i) => tradeIdByKey.get(keyOf(i))).filter((id): id is string => id !== undefined);
     const res = await cartApi.remove(ids);
+    setRemoving(false);
     if (!res.ok) setRemoveError(trade.errors[res.code] ?? res.message);
-    // 실패(다른 칸에서 이미 뺐거나 넘어감)해도 지금 상태로 다시 읽는다
+    // 실패(다른 칸에서 이미 뺐거나 넘어감)해도 지금 상태로 다시 읽는다. 신호가 이 칸에도 와서 다시 읽는다
     notifyCartChanged();
     reload();
   };
@@ -92,13 +101,12 @@ export function CartView() {
         </p>
       )}
       <ResultList
-        key={version}
         items={items.map((i) => i.listing)}
         total={items.length}
         query={NO_QUERY}
         scope="cart"
         onRemove={(chosen) => void remove(chosen)}
-        onChanged={reload}
+        removing={removing}
       />
     </div>
   );

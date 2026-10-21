@@ -7,6 +7,7 @@ import { ResultDialog } from "@/components/common/ResultDialog";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog } from "@/components/trade/QuoteDialog";
 import { tradesApi } from "@/lib/api/trades";
+import { notifyCartChanged } from "@/lib/cart";
 import { formatPrice } from "@/lib/format";
 import { listingHref } from "@/lib/search";
 import { rowActions, type RowAction } from "@/lib/tradeActions";
@@ -142,6 +143,8 @@ export function TradeList({ role, reg }: Props) {
           onOpenChange={(open) => !open && setBuying(null)}
           // 그 줄이 구매요청으로 바뀌었으니 목록을 다시 읽고, 구매 모달을 연 다른 곳과 같은 완료 안내를 띄운다
           onPurchased={() => {
+            // 서버가 그 매물을 장바구니에서 지웠다 — 헤더 숫자를 맞춘다
+            notifyCartChanged();
             setPurchased(true);
             reload();
           }}
@@ -154,6 +157,7 @@ export function TradeList({ role, reg }: Props) {
           onOpenChange={(open) => !open && setRequoting(null)}
           // 같은 행이 견적요청으로 돌아갔으니 목록을 다시 읽는다
           onRequested={() => {
+            notifyCartChanged();
             setRequoted(true);
             reload();
           }}
