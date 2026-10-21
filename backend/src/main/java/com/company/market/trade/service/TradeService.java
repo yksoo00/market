@@ -107,6 +107,8 @@ public class TradeService {
 			.tradeStats(TradeStats.REQUESTED)
 			.build());
 		listings.reserveStock(listing.sellerId(), listing.regDate(), req.orderQuantity());
+		// 구매로 넘어간 매물은 장바구니에서 뺀다 — 어디서 눌렀든(스펙 2026-10-21). 위에서 실패하면 같이 롤백돼 남는다
+		trades.deleteCartRow(buyerId, listing.sellerId(), listing.regDate(), TradeStats.CART);
 		mail(Kind.PURCHASE_REQUESTED, trade, buyerId, listing.prodName());
 		return toResponse(trade, TradeStats.REQUESTED, listing.prodName(), listing.photo(), nicknameOf(listing.sellerId()));
 	}
@@ -188,6 +190,8 @@ public class TradeService {
 				}
 			}
 			snapshots.add(listing);
+			// 견적으로 넘어간 매물은 장바구니에서 뺀다. 뒤 칸에서 실패(400·409)하면 트랜잭션째 롤백돼 남는다
+			trades.deleteCartRow(buyerId, listing.sellerId(), listing.regDate(), TradeStats.CART);
 			// 커밋 뒤에만 나가므로 뒤에서 실패(400·409)해 롤백되면 이 메일도 안 간다
 			mail(Kind.QUOTE_REQUESTED, saved.getLast(), buyerId, listing.prodName());
 		}
@@ -302,6 +306,7 @@ public class TradeService {
 				req.remarks() == null || req.remarks().isBlank() ? null : req.remarks().trim());
 		trades.saveAndFlush(continued);
 		listings.reserveStock(listing.sellerId(), listing.regDate(), req.orderQuantity());
+		trades.deleteCartRow(buyerId, listing.sellerId(), listing.regDate(), TradeStats.CART);
 		mail(Kind.PURCHASE_REQUESTED, continued, buyerId, listing.prodName());
 		return toResponse(continued, TradeStats.REQUESTED, listing.prodName(), listing.photo(), nicknameOf(listing.sellerId()));
 	}
@@ -372,11 +377,11 @@ public class TradeService {
 		List<TradeInfo> rows;
 		if ("buyer".equals(role)) {
 			asBuyer = true;
-			rows = trades.findBuyerPage(me, after, page);
+			rows = trades.findBuyerPage(me, TradeType.REVIEW, after, page);
 		}
 		else if ("seller".equals(role)) {
 			asBuyer = false;
-			rows = trades.findSellerPage(me, regDate == null || regDate.isBlank() ? null : regDate, after, page);
+			rows = trades.findSellerPage(me, TradeType.REVIEW, regDate == null || regDate.isBlank() ? null : regDate, after, page);
 		}
 		else {
 			throw new ValidationException(Map.of("role", "role 은 buyer 또는 seller 여야 합니다."));

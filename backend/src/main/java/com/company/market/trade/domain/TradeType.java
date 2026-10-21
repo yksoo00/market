@@ -8,7 +8,7 @@ import jakarta.persistence.Converter;
  */
 public enum TradeType implements TradeCode {
 
-	/** 장바구니·비교용 (아직 안 씀) */
+	/** 장바구니(비교용은 아직 안 씀). 구매자 거래 목록·판매자 화면에 안 나온다 */
 	REVIEW("구매검토", "review"),
 	QUOTE("견적조정", "quote"),
 	PURCHASE("거래", "purchase");

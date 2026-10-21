@@ -275,6 +275,90 @@ class CartApiTest {
 		assertThat(cartRows()).isEqualTo(2);
 	}
 
+	private ResultActions buy(String regDate, int quantity) throws Exception {
+		return mvc.perform(post("/api/v1/trades").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"sellerId\":\"%s\",\"regDate\":\"%s\",\"orderQuantity\":%d}".formatted(sellerId, regDate, quantity)));
+	}
+
+	private ResultActions quote(String regDate, int price) throws Exception {
+		return mvc.perform(post("/api/v1/trades/quotes").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"items\":[{\"sellerId\":\"%s\",\"regDate\":\"%s\",\"orderUnitPrice\":%d,\"orderQuantity\":1}]}"
+				.formatted(sellerId, regDate, price)));
+	}
+
+	@Test
+	@DisplayName("구매하면 그 매물이 장바구니에서 빠지고 내 구매목록에 구매요청")
+	void purchaseRemovesFromCart() throws Exception {
+		add(buyer, REG_A, REG_B).andExpect(status().isOk());
+		buy(REG_A, 2).andExpect(status().isCreated());
+		assertThat(cartRows()).isEqualTo(1);
+		mvc.perform(get("/api/v1/trades").param("role", "buyer").cookie(buyer))
+			.andExpect(jsonPath("$.data.items", hasSize(1)))
+			.andExpect(jsonPath("$.data.items[0].tradeStats").value("requested"));
+	}
+
+	@Test
+	@DisplayName("구매가 실패(재고 부족 409)하면 장바구니 행이 남는다")
+	void failedPurchaseKeepsCart() throws Exception {
+		add(buyer, REG_A).andExpect(status().isOk());
+		buy(REG_A, 11).andExpect(status().is4xxClientError());
+		assertThat(cartRows()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("견적 요청하면 그 매물만 장바구니에서 빠진다, 실패(희망단가 초과 400)면 남는다")
+	void quoteRemovesFromCart() throws Exception {
+		add(buyer, REG_A, REG_B).andExpect(status().isOk());
+		quote(REG_B, 501).andExpect(status().isBadRequest());
+		assertThat(cartRows()).isEqualTo(2);
+		quote(REG_A, 900).andExpect(status().isCreated());
+		assertThat(cartRows()).isEqualTo(1);
+		assertThat(cartTradeId(buyerId, REG_B)).isNotNull();
+	}
+
+	@Test
+	@DisplayName("수락된 견적에서 구매해도 그 매물이 장바구니에서 빠진다")
+	void purchaseFromQuoteRemovesFromCart() throws Exception {
+		quote(REG_A, 900).andExpect(status().isCreated());
+		String quoteId = jdbc.queryForObject("select trade_id from trd_trade_info where trade_type = '견적조정'", String.class);
+		mvc.perform(post("/api/v1/trades/" + quoteId + "/accept").cookie(seller)).andExpect(status().isOk());
+		add(buyer, REG_A).andExpect(status().isOk());
+		mvc.perform(post("/api/v1/trades/" + quoteId + "/purchase").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"orderQuantity\":1}")).andExpect(status().isOk());
+		assertThat(cartRows()).isZero();
+	}
+
+	@Test
+	@DisplayName("매물을 지우면 그 매물의 장바구니 행도 지워진다")
+	void listingDeleteRemovesCartRows() throws Exception {
+		add(buyer, REG_A).andExpect(status().isOk());
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+			.delete("/api/v1/listings/" + sellerId + "/" + REG_A).cookie(seller)).andExpect(status().isNoContent());
+		assertThat(cartRows()).isZero();
+	}
+
+	@Test
+	@DisplayName("장바구니 행은 판매자 목록·pendingCounts·내 구매목록에 안 보인다")
+	void cartHiddenFromTradeLists() throws Exception {
+		add(buyer, REG_A).andExpect(status().isOk());
+		mvc.perform(get("/api/v1/trades").param("role", "seller").cookie(seller)).andExpect(jsonPath("$.data.items", hasSize(0)));
+		mvc.perform(get("/api/v1/trades/pending-counts").cookie(seller)).andExpect(jsonPath("$.data." + REG_A).doesNotExist());
+		mvc.perform(get("/api/v1/trades").param("role", "buyer").cookie(buyer)).andExpect(jsonPath("$.data.items", hasSize(0)));
+	}
+
+	@Test
+	@DisplayName("장바구니 tradeId 로 거래 동작(취소·완료·수락·견적구매)을 불러도 행이 안 바뀐다")
+	void cartRowIgnoresTradeActions() throws Exception {
+		add(buyer, REG_A).andExpect(status().isOk());
+		String id = cartTradeId(buyerId, REG_A);
+		mvc.perform(post("/api/v1/trades/" + id + "/cancel").cookie(buyer)).andExpect(status().is4xxClientError());
+		mvc.perform(post("/api/v1/trades/" + id + "/complete").cookie(buyer)).andExpect(status().is4xxClientError());
+		mvc.perform(post("/api/v1/trades/" + id + "/accept").cookie(seller)).andExpect(status().is4xxClientError());
+		mvc.perform(post("/api/v1/trades/" + id + "/purchase").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"orderQuantity\":1}")).andExpect(status().is4xxClientError());
+		assertThat(cartRows()).isEqualTo(1);
+	}
+
 	@Test
 	@DisplayName("로그인 안 하면 401")
 	void requiresLogin() throws Exception {
