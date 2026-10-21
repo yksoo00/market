@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { cn } from "cn";
+import { ResultDialog } from "@/components/common/ResultDialog";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { tradesApi } from "@/lib/api/trades";
 import { formatPrice } from "@/lib/format";
@@ -40,6 +41,7 @@ export function TradeList({ role, reg }: Props) {
   const [message, setMessage] = useState<{ seq: number; text: string } | null>(null);
   // 회신 받은 견적 줄의 [구매] — 바뀐 매물을 지금 구매 모달로 산다
   const [buying, setBuying] = useState<Trade | null>(null);
+  const [purchased, setPurchased] = useState(false);
   const asBuyer = role === "buyer";
 
   useEffect(() => {
@@ -127,10 +129,22 @@ export function TradeList({ role, reg }: Props) {
           regDate={buying.regDate}
           open
           onOpenChange={(open) => !open && setBuying(null)}
-          // 새 구매요청 줄이 생겼으니 목록을 다시 읽는다
-          onPurchased={reload}
+          // 새 구매요청 줄이 생겼으니 목록을 다시 읽고, 구매 모달을 연 다른 곳과 같은 완료 안내를 띄운다
+          onPurchased={() => {
+            setPurchased(true);
+            reload();
+          }}
         />
       )}
+      <ResultDialog
+        open={purchased}
+        tone="success"
+        title={trade.purchase.doneTitle}
+        message={trade.purchase.doneMessage}
+        actionLabel={t.confirmDone}
+        onAction={() => setPurchased(false)}
+        onClose={() => setPurchased(false)}
+      />
       {load.kind === "ready" && load.nextCursor && (
         <div className="flex flex-col items-center gap-1.5">
           <button
