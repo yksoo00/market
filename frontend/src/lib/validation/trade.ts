@@ -24,6 +24,15 @@ export interface PurchaseLimits {
 
 export const orderAmount = (unitPrice: number, quantity: number) => unitPrice * quantity;
 
+/** 주문량 규칙(구매·견적 같음, 서버 TradeService.quantityFailure). 금액은 그 거래의 단가로. 맞으면 null */
+export function quantityIssue(l: Pick<PurchaseLimits, "stock" | "minOrder" | "unit">, n: number, unitPrice: number): string | null {
+  if (n < l.minOrder) return v.quantityMin(l.minOrder);
+  if (n % l.unit !== 0) return v.quantityUnit(l.unit);
+  if (n > l.stock || n > MAX_QUANTITY) return v.quantityStock(Math.min(l.stock, MAX_QUANTITY));
+  if (orderAmount(unitPrice, n) > MAX_INT) return v.amountMax;
+  return null;
+}
+
 export function purchaseSchema(l: PurchaseLimits) {
   return z.object({
     orderQuantity: z
@@ -32,16 +41,7 @@ export function purchaseSchema(l: PurchaseLimits) {
       .refine((s) => isInt(s), v.quantityFormat)
       .transform(Number)
       .superRefine((n, ctx) => {
-        const message =
-          n < l.minOrder
-            ? v.quantityMin(l.minOrder)
-            : n % l.unit !== 0
-              ? v.quantityUnit(l.unit)
-              : n > l.stock || n > MAX_QUANTITY
-                ? v.quantityStock(Math.min(l.stock, MAX_QUANTITY))
-                : orderAmount(l.unitPrice, n) > MAX_INT
-                  ? v.amountMax
-                  : null;
+        const message = quantityIssue(l, n, l.unitPrice);
         if (message) ctx.addIssue({ code: "custom", message });
       }),
     reqDeliDate: z

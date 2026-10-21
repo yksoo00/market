@@ -68,6 +68,41 @@ export const trade = {
     // 검색 결과에서 여러 개를 체크하고 [구매]를 누를 때
     oneAtATime: "구매는 한 번에 한 매물씩 요청할 수 있어요. 하나만 체크해 주세요.",
   },
+  // 견적 모달 (검색 결과·상세의 [견적 요청], 스펙 2026-10-20)
+  quote: {
+    title: "견적 요청",
+    desc: "희망단가를 보내면 판매자가 수락하거나 거절해요. 수락하면 매물 단가가 바뀌고, 그 뒤 [구매]로 사면 돼요.",
+    loading: "매물 정보를 불러오는 중…",
+    loadFailed: "매물 정보를 불러오지 못했어요.",
+    retry: "다시 시도",
+    listedPrice: "등록단가",
+    stock: "재고",
+    rule: (minOrder: string, unit: string) => `최소 ${minOrder} · ${unit} 단위`,
+    orderUnitPrice: "희망단가",
+    orderQuantity: "수량",
+    remarks: "비고",
+    remarksPlaceholder: "판매자에게 전할 말 (선택, 100자)",
+    skipped: "보내지 않는 매물",
+    blocked: {
+      completed: "거래가 끝난 매물",
+      own: "내 매물",
+      lowStock: "재고가 최소주문량보다 적음",
+    },
+    nothingToSend: "견적을 보낼 수 있는 매물이 없어요.",
+    submit: (n: number) => `견적 요청 ${n}건 보내기`,
+    cancel: "닫기",
+    loginRequired: "로그인해야 견적을 요청할 수 있어요.",
+    toLogin: "로그인하기",
+    doneTitle: "견적을 요청했어요",
+    doneMessage: "판매자가 답하면 메일로 알려 드려요.\n내 구매목록에서 진행 상태를 볼 수 있어요.",
+    tooMany: (max: number) => `견적은 한 번에 ${max}개까지 요청할 수 있어요. 체크를 줄여 주세요.`,
+    validation: {
+      priceRequired: "희망단가를 입력해 주세요.",
+      priceFormat: "희망단가는 숫자로만 입력해 주세요.",
+      priceRange: (listed: number) => `희망단가는 1원 이상 등록단가(${listed.toLocaleString("ko-KR")}원) 이하로 입력해 주세요.`,
+      remarksMax: "비고는 100자까지 쓸 수 있어요.",
+    },
+  },
   // 내 구매목록·받은 구매요청 (TradeList)
   list: {
     loading: "불러오는 중…",

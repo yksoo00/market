@@ -6,10 +6,12 @@ import { Icon } from "@/components/common/Icon";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
+import { QuoteDialog, type QuoteTarget } from "@/components/trade/QuoteDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { formatPrice } from "@/lib/format";
 import { isOwner } from "@/lib/listingDetail";
 import { pendingLabel, salesHref } from "@/lib/tradeCounts";
+import { MAX_QUOTE_ITEMS } from "@/lib/validation/quote";
 import { activeFilterCount, buildSearchHref, clearFilters, listingHref, type SearchQuery, type SearchScope } from "@/lib/search";
 import { my } from "@/messages/my";
 import { search as t } from "@/messages/search";
@@ -106,6 +108,9 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   // [구매] 모달 대상(체크한 매물 1개)과 성공 안내
   const [buying, setBuying] = useState<ListingSearchItem | null>(null);
   const [purchased, setPurchased] = useState(false);
+  // [견적 요청] 모달 대상(체크한 매물 1~20개)과 성공 안내
+  const [quoting, setQuoting] = useState<QuoteTarget[] | null>(null);
+  const [quoted, setQuoted] = useState(false);
 
   const toggle = (key: string) =>
     setSelected((prev) => {
@@ -117,8 +122,13 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   const allChecked = items.length > 0 && selected.size === items.length;
   const headerChecked = allChecked ? true : selected.size > 0 ? "indeterminate" : false;
   const toggleAll = () => setSelected(allChecked ? new Set() : new Set(items.map(keyOf)));
-  // TODO(거래 흐름 미정, decisions.md 미정 항목): 견적 요청 → 견적 확인 흐름이 정해지면 실제 동작으로 교체
   const showNotice = (text: string) => setNotice((prev) => ({ seq: (prev?.seq ?? 0) + 1, text }));
+  // 견적은 여러 매물을 한 번에 (서버 한도 20개)
+  const quoteSelected = () => {
+    const chosen = items.filter((i) => selected.has(keyOf(i)));
+    if (chosen.length > MAX_QUOTE_ITEMS) showNotice(trade.quote.tooMany(MAX_QUOTE_ITEMS));
+    else setQuoting(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
+  };
   // 구매 모달은 매물 1개용 — 여러 개를 체크했으면 하나만 고르라고 알린다 (계획 2026-10-15 "스펙과 달라진 점")
   const buySelected = () => {
     const chosen = items.filter((i) => selected.has(keyOf(i)));
@@ -136,7 +146,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
       <button
         type="button"
         disabled={selected.size === 0}
-        onClick={() => showNotice(r.pending)}
+        onClick={quoteSelected}
         className={`${size} px-3 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft disabled:opacity-40 disabled:pointer-events-none`}
       >
         {r.quote}
@@ -182,6 +192,21 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
           }}
         />
       )}
+      {!mine && quoting && (
+        <QuoteDialog targets={quoting} open onOpenChange={(open) => !open && setQuoting(null)} onRequested={() => setQuoted(true)} />
+      )}
+      <ResultDialog
+        open={quoted}
+        tone="success"
+        title={trade.quote.doneTitle}
+        message={trade.quote.doneMessage}
+        actionLabel={p.toPurchases}
+        onAction={() => {
+          setQuoted(false);
+          openTile("/my/purchases", false);
+        }}
+        onClose={() => setQuoted(false)}
+      />
       <ResultDialog
         open={purchased}
         tone="success"

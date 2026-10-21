@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ListingDetail } from "@/types/listing";
 import {
-  buyerActionsDisabled,
   formatRegDate,
   infoRows,
   isAuthLost,
@@ -92,12 +91,6 @@ describe("isAuthLost", () => {
   });
 });
 
-describe("buyerActionsDisabled", () => {
-  it("거래완료면 true, 거래 가능이면 false", () => {
-    expect(buyerActionsDisabled({ ...base, tradeStatus: "completed" })).toBe(true);
-    expect(buyerActionsDisabled(base)).toBe(false);
-  });
-});
 
 describe("purchaseBlockReason", () => {
   const OTHER = "11111111-2222-3333-4444-555555555555";

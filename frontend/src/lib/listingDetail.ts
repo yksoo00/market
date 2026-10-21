@@ -37,9 +37,6 @@ export function isOwner(meId: string | null, userId: string): boolean {
   return meId !== null && meId.toLowerCase() === userId.toLowerCase();
 }
 
-export function buyerActionsDisabled(d: ListingDetail): boolean {
-  return d.tradeStatus === "completed";
-}
 
 /**
  * 내 매물 버튼. 거래완료 = 거래가 있으니 서버가 수정·추가등록(409 LISTING_COMPLETED)·삭제(409 LISTING_HAS_TRADES)를
