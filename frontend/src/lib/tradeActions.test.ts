@@ -31,6 +31,10 @@ describe("rowActions", () => {
     ["quote", "quoteRejected", false, []],
     ["purchase", "requested", false, ["cancel"]],
     ["purchase", "confirmed", false, []],
+    // 수락된 견적에서 이어진 행 — 종류는 견적이어도 진행 상태가 구매요청이면 구매 줄과 같다
+    ["quote", "requested", true, ["complete", "cancel"]],
+    ["quote", "requested", false, ["cancel"]],
+    ["quote", "confirmed", true, []],
   ] as const)("%s/%s 구매자=%s → %j", (type, stats, asBuyer, expected) => {
     expect(rowActions(row(type, stats), asBuyer)).toEqual(expected);
   });

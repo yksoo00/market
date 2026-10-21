@@ -20,15 +20,18 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	/** trade_id 는 unique 라 구매자 없이 하나로 찾는다 */
 	Optional<TradeInfo> findByTradeId(String tradeId);
 
-	/** 구매자·매물당 견적 행은 하나(ux_trd_trade_info_one_quote) — 재요청이 덮어쓸 행 */
-	Optional<TradeInfo> findByUserIdAndSellerIdAndRegDateAndTradeType(UUID userId, UUID sellerId, String regDate,
-			TradeType tradeType);
+	/** 구매자·매물당 견적 단계 행은 하나(ux_trd_trade_info_one_quote) — 재요청이 덮어쓸 행. 구매 단계로 넘어간 행은 찾지 않는다 */
+	Optional<TradeInfo> findByUserIdAndSellerIdAndRegDateAndTradeTypeAndTradeStatsIn(UUID userId, UUID sellerId,
+			String regDate, TradeType tradeType, Collection<TradeStats> stats);
 
-	/** 매물 삭제 때 그 매물의 견적 행을 모두 지운다 (구매요청·거래 행은 그대로 — 남아 있으면 매물 FK 가 삭제를 막는다) */
+	/** 매물 삭제 때 그 매물의 견적 단계 행을 모두 지운다 (구매요청·구매확정 행은 그대로 — 남아 있으면 매물 FK 가 삭제를 막는다) */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
-	@Query("delete from TradeInfo t where t.sellerId = :sellerId and t.regDate = :regDate and t.tradeType = :type")
-	int deleteByListingAndType(@Param("sellerId") UUID sellerId, @Param("regDate") String regDate,
-			@Param("type") TradeType type);
+	@Query("""
+			delete from TradeInfo t
+			 where t.sellerId = :sellerId and t.regDate = :regDate and t.tradeType = :type and t.tradeStats in :stats
+			""")
+	int deleteByListingAndTypeAndStats(@Param("sellerId") UUID sellerId, @Param("regDate") String regDate,
+			@Param("type") TradeType type, @Param("stats") Collection<TradeStats> stats);
 
 	/**
 	 * 같은 시간대의 가장 큰 거래ID — 거래ID 순번. LIKE 'prefix%' 는 기본 collation 의 unique 인덱스를 못 타지만

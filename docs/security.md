@@ -139,6 +139,7 @@
   | 비고 `remarks` | 100자 이하 |
   | 납품희망일 | 받지 않는다 (`req_deli_date` null) |
   - 수락 `POST /trades/{id}/accept`·거절 `/reject`: 그 매물의 판매자만(아니면 403), 견적요청 상태만(아니면 409 `TRADE_NOT_PENDING`). 수락은 매물 행을 잠그고 단가를 희망단가로 내린다(올리지 않음). 견적 취소는 보낸 구매자만(판매자 403), 견적요청·견적거절 상태에서만(견적수락은 409 `TRADE_NOT_PENDING`).
+  - 수락된 견적에서 구매 `POST /trades/{id}/purchase`(2026-10-21): 보낸 구매자만(아니면 403), `견적수락` 상태만(아니면 409 `TRADE_NOT_PENDING`), 매물 거래완료 409 `LISTING_COMPLETED`, 재고 초과 409 `TRADE_OUT_OF_STOCK`. 본문은 구매와 같은 수량(1~100,000)·납품희망일·요청사항(≤100). 단가는 받지 않고 지금 매물 단가. 새 행 없이 같은 행이 `구매요청`.
   - 멱등 키: scope `quote-create`, 저장 값은 만든 거래ID 목록(쉼표).
 - 알림 메일 (2026-10-20): 받는 주소는 `trd_user_info.user_email` 을 서버 안(`UserDirectory.emailsOf` → 메일 발송)에서만 쓴다. API 응답·화면·로그에 넣지 않는다 — 로그는 거래ID·uid 만. 본문에도 상대 연락처를 넣지 않는다. SMTP 계정은 `.env`(`MAIL_*`)에만.
 - 숫자: 가격 0 ~ 10억, 수량 1 ~ 100,000.

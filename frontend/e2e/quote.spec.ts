@@ -141,7 +141,8 @@ test("견적 요청 → 판매자 수락(매물 단가 변경) → 구매자 [�
     await dialog.getByRole("button", { name: trade.purchase.submit, exact: true }).click();
     await expect(page.getByRole("dialog", { name: trade.purchase.doneTitle })).toBeVisible();
     await page.keyboard.press("Escape");
-    // 새 구매요청 줄이 생기고 단가는 바뀐 9000
+    // 새 줄이 아니라 그 견적 줄이 구매요청으로 이어진다(견적서 한 건 = 한 행). 단가는 바뀐 9000
+    await expect(page.getByRole("table").getByRole("row").filter({ hasText: prodName })).toHaveCount(1);
     const bought = page.getByRole("table").getByRole("row").filter({ hasText: prodName }).filter({ hasText: t.stats.requested });
     await expect(bought).toHaveCount(1);
     await expect(bought).toContainText("9,000");

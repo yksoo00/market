@@ -123,6 +123,27 @@ public class TradeInfo implements Persistable<TradeInfoId> {
 		this.tradeStats = TradeStats.QUOTE_REQUESTED;
 	}
 
+	/**
+	 * 수락된 견적에서 [구매] — 같은 행이 구매요청이 된다 (견적서 한 건 = 한 행, 사용자 결정 2026-10-21). TYPE 은 견적조정 그대로.
+	 * 매물 스냅샷은 지금 값으로 다시 복사하고, 단가는 지금 매물 단가(수락으로 내려간 값)로 한다
+	 */
+	public void continueAsPurchase(String prodId, String prodState, Integer salesUnitPrice, Integer stockQuantity,
+			Integer minOrderQuantity, Integer orderUnit, String provDate, Integer orderQuantity, String reqDeliDate,
+			String remarks) {
+		this.prodId = prodId;
+		this.prodState = prodState;
+		this.salesUnitPrice = salesUnitPrice;
+		this.stockQuantity = stockQuantity;
+		this.minOrderQuantity = minOrderQuantity;
+		this.orderUnit = orderUnit;
+		this.provDate = provDate;
+		this.orderUnitPrice = salesUnitPrice;
+		this.orderQuantity = orderQuantity;
+		this.reqDeliDate = reqDeliDate;
+		this.remarks = remarks;
+		this.tradeStats = TradeStats.REQUESTED;
+	}
+
 	@Override
 	public TradeInfoId getId() {
 		return new TradeInfoId(userId, tradeId);

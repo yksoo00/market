@@ -9,6 +9,7 @@ import com.company.market.common.api.ApiResponse;
 import com.company.market.common.auth.AuthenticatedUser;
 import com.company.market.common.idempotency.IdempotencyGuard;
 import com.company.market.trade.dto.QuoteCreateRequest;
+import com.company.market.trade.dto.QuotePurchaseRequest;
 import com.company.market.trade.dto.TradeCreateRequest;
 import com.company.market.trade.dto.TradePageResponse;
 import com.company.market.trade.dto.TradeResponse;
@@ -58,6 +59,13 @@ public class TradeController {
 				// 응답이 유실된 뒤 그중 하나를 취소했으면(행 삭제) 그 줄만 빠진다 — 전체를 404 로 만들지 않는다
 				ids -> Arrays.stream(ids.split(",")).flatMap(id -> trades.find(me.id(), id).stream()).toList());
 		return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.of(created));
+	}
+
+	/** 수락된 견적에서 구매자 [구매] — 같은 거래가 구매요청이 된다 (새 거래 없음) */
+	@PostMapping("/{tradeId}/purchase")
+	public ApiResponse<TradeResponse> purchaseFromQuote(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable String tradeId,
+			@Valid @RequestBody QuotePurchaseRequest req) {
+		return ApiResponse.of(trades.purchaseFromQuote(me.id(), tradeId, req));
 	}
 
 	/** 구매자 거래완료 → 구매확정 */
