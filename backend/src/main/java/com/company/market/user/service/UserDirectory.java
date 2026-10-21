@@ -33,6 +33,20 @@ public class UserDirectory {
 		return names;
 	}
 
+	/**
+	 * 알림 메일 받을 주소 — 서버 안(메일 발송)에서만 쓴다. API 응답·로그에 넣지 않는다(개인정보).
+	 * 비어 있는 사용자는 빠진다
+	 */
+	public Map<UUID, String> emailsOf(Collection<UUID> ids) {
+		Map<UUID, String> emails = new HashMap<>();
+		for (User user : users.findAllById(ids)) {
+			if (user.getEmail() != null && !user.getEmail().isBlank()) {
+				emails.put(user.getId(), user.getEmail());
+			}
+		}
+		return emails;
+	}
+
 	private static String publicName(User user) {
 		if (user.getKind() == UserKind.BUSINESS) {
 			return user.getCompanyName() == null || user.getCompanyName().isBlank() ? null : user.getCompanyName();

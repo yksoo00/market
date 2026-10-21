@@ -24,6 +24,7 @@ import com.company.market.trade.domain.TradeInfo;
 import com.company.market.trade.domain.TradeStats;
 import com.company.market.trade.domain.TradeType;
 import com.company.market.trade.dto.QuoteCreateRequest;
+import com.company.market.trade.service.TradeMailEvent.Kind;
 import com.company.market.trade.dto.TradeCreateRequest;
 import com.company.market.trade.dto.TradePageResponse;
 import com.company.market.trade.dto.TradeResponse;
@@ -31,6 +32,7 @@ import com.company.market.trade.repository.TradeHistoryRepository;
 import com.company.market.trade.repository.TradeInfoRepository;
 import com.company.market.user.service.UserDirectory;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -60,6 +62,9 @@ public class TradeService {
 	private final UserDirectory userDirectory;
 
 	private final Clock clock;
+
+	/** 메일 이벤트 — 커밋 뒤 TradeMailListener 가 보낸다 */
+	private final ApplicationEventPublisher events;
 
 	@Transactional
 	public TradeResponse request(UUID buyerId, TradeCreateRequest req) {
@@ -98,6 +103,7 @@ public class TradeService {
 			.tradeStats(TradeStats.REQUESTED)
 			.build());
 		listings.reserveStock(listing.sellerId(), listing.regDate(), req.orderQuantity());
+		mail(Kind.PURCHASE_REQUESTED, trade, buyerId, listing.prodName());
 		return toResponse(trade, TradeStats.REQUESTED, listing.prodName(), listing.photo(), nicknameOf(listing.sellerId()));
 	}
 
@@ -157,6 +163,8 @@ public class TradeService {
 				.tradeStats(TradeStats.QUOTE_REQUESTED)
 				.build()));
 			snapshots.add(listing);
+			// 커밋 뒤에만 나가므로 뒤에서 실패(400·409)해 롤백되면 이 메일도 안 간다
+			mail(Kind.QUOTE_REQUESTED, saved.getLast(), buyerId, listing.prodName());
 		}
 		if (!failures.isEmpty()) {
 			throw new ValidationException(failures);
@@ -194,7 +202,9 @@ public class TradeService {
 			// 요청 때 int 범위를 넘는 금액은 거절했으므로 넘치지 않는다
 			.tradeAmount(trade.getOrderUnitPrice() * trade.getOrderQuantity())
 			.build());
-		return respond(me, trade, TradeStats.CONFIRMED);
+		TradeResponse confirmed = respond(me, trade, TradeStats.CONFIRMED);
+		mail(Kind.PURCHASE_CONFIRMED, trade, me, confirmed.prodName());
+		return confirmed;
 	}
 
 	/**
@@ -212,6 +222,7 @@ public class TradeService {
 			if (trades.deleteIfStatus(tradeId, TradeStats.QUOTE_REQUESTED) == 0) {
 				throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 			}
+			mail(Kind.QUOTE_CANCELED, trade, me, productNameOf(trade));
 			return;
 		}
 		if (!me.equals(trade.getUserId()) && !me.equals(trade.getSellerId())) {
@@ -221,6 +232,7 @@ public class TradeService {
 			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 		}
 		listings.releaseStock(trade.getSellerId(), trade.getRegDate(), trade.getOrderQuantity());
+		mail(Kind.PURCHASE_CANCELED, trade, me, productNameOf(trade));
 	}
 
 	/** 판매자 견적 수락 — 매물 단가를 희망단가로 내리고 견적회신. 결과(수락)는 메일로만 구분된다 (사용자 결정 2026-10-20) */
@@ -250,7 +262,19 @@ public class TradeService {
 		if (trades.updateStatus(tradeId, TradeStats.QUOTE_REQUESTED, TradeStats.QUOTE_REPLIED) == 0) {
 			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 		}
-		return respond(me, trade, TradeStats.QUOTE_REPLIED);
+		TradeResponse replied = respond(me, trade, TradeStats.QUOTE_REPLIED);
+		mail(accepted ? Kind.QUOTE_ACCEPTED : Kind.QUOTE_REJECTED, trade, me, replied.prodName());
+		return replied;
+	}
+
+	private void mail(Kind kind, TradeInfo trade, UUID actorId, String prodName) {
+		events.publishEvent(new TradeMailEvent(kind, trade.getTradeId(), trade.getUserId(), trade.getSellerId(), actorId,
+				prodName, trade.getSalesUnitPrice(), trade.getOrderUnitPrice(), trade.getOrderQuantity()));
+	}
+
+	/** 구매 때 상품 이름 (거래에 복사된 상품ID 의 마스터) */
+	private String productNameOf(TradeInfo trade) {
+		return listings.productNames(List.of(trade.getProdId())).get(trade.getProdId());
 	}
 
 	/** 구매자·판매자만 본다. 남이면 없는 것과 같게 404 (거래ID 존재 여부를 흘리지 않게) */
