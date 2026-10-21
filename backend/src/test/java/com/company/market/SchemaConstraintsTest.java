@@ -162,6 +162,25 @@ class SchemaConstraintsTest {
 			.isInstanceOf(DataIntegrityViolationException.class);
 	}
 
+	private void insertRow(UUID buyer, UUID seller, String tradeId, String type, String stats) {
+		jdbc.update("""
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
+					order_unit_price, order_quantity, trade_stats)
+				values (?, ?, ?, ?, '20261015100000', 'TRADETEST1', 1000, 1, ?)
+				""", buyer, tradeId, type, seller, stats);
+	}
+
+	@Test
+	@DisplayName("장바구니 행은 구매자·매물당 하나 — 같은 매물의 견적 행과는 같이 있을 수 있다 (V202610211300)")
+	void oneCartRowPerListing() {
+		UUID[] ids = insertListingAndBuyer();
+		insertRow(ids[0], ids[1], "26102113001", "구매검토", "장바구니");
+		assertThatThrownBy(() -> insertRow(ids[0], ids[1], "26102113002", "구매검토", "장바구니"))
+			.isInstanceOf(DataIntegrityViolationException.class);
+		insertRow(ids[0], ids[1], "26102113003", "견적조정", "견적요청");
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class)).isEqualTo(2);
+	}
+
 	@Test
 	@DisplayName("trd_prod_master.category_code 가 카테고리에 없으면 외래키가 거부한다")
 	void productCategoryForeignKey() {
