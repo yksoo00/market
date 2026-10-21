@@ -147,3 +147,97 @@ test("견적 요청 → 판매자 수락(매물 단가 변경) → 구매자 [�
     await expect(bought).toContainText("9,000");
   });
 });
+
+// 거절 흐름: 거절된 견적 줄은 [구매] 없이 [재요청]·[취소]. 재요청은 같은 줄을 견적요청으로 되돌리고(새 줄 없음), 취소하면 줄이 지워진다
+test("견적 요청 → 판매자 거절 → 구매자 [재요청] → 다시 거절 → [취소]", async ({ page }) => {
+  const stamp = Date.now().toString().slice(-8);
+  const seller = `e2eqs${stamp}`;
+  const buyer = `e2eqb${stamp}`;
+  const prodName = `E2E 거절 ${stamp}`;
+  page.on("dialog", (d) => void d.accept());
+  const buyerRow = () => page.getByRole("table").getByRole("row").filter({ hasText: prodName });
+
+  const sellerRejects = async () => {
+    await logIn(page, seller);
+    await page.goto("/my/sales");
+    await page.getByRole("button", { name: t.rejectAria(prodName) }).click();
+    await expect(buyerRow().getByText(t.stats.quoteRejected)).toBeVisible();
+    // 답한 뒤엔 판매자에게 버튼이 없다
+    await expect(page.getByRole("button", { name: t.rejectAria(prodName) })).toHaveCount(0);
+    await logOut(page);
+  };
+
+  await test.step("판매자 가입·등록 (단가 10000, 재고 5)", async () => {
+    await signUp(page, seller, stamp);
+    await logIn(page, seller);
+    await page.goto("/listings/new");
+    await page.locator("#productPicker").click();
+    await page.getByRole("option", { name: listing.form.master.manualOption }).click();
+    await page.locator("#categoryPicker").click();
+    await page.getByRole("button", { name: "PC주요부품" }).click();
+    await page.getByRole("button", { name: "CPU/프로세서" }).click();
+    await page.getByRole("button", { name: "인텔 CPU" }).click();
+    await page.locator('input[name="prodBrand"]').fill("Dell");
+    await page.locator('input[name="prodName"]').fill(prodName);
+    await page.locator("#prodState").selectOption("신품");
+    await page.locator('input[name="salesUnitPrice"]').fill("10000");
+    await page.locator('input[type="file"][accept*=".jpg"]').setInputFiles({
+      name: "main.jpg",
+      mimeType: "image/jpeg",
+      buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0x10, 0x4a, 0x46, 0x49, 0x46, 0, 1]),
+    });
+    await expect(page.getByRole("status", { name: listing.form.uploading })).toBeHidden();
+    await page.locator('input[name="salesQuantity"]').fill("5");
+    await page.getByRole("button", { name: listing.form.submit, exact: true }).click();
+    await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
+    await logOut(page);
+  });
+
+  await test.step("구매자: 견적 요청 (희망단가 9000)", async () => {
+    await signUp(page, buyer, String((Number(stamp) + 1) % 100_000_000).padStart(8, "0"));
+    await logIn(page, buyer);
+    await page.goto(`/search?q=${encodeURIComponent(prodName)}`);
+    const row = page.getByRole("table").getByRole("row").filter({ hasText: prodName });
+    await row.getByRole("checkbox", { name: search.result.selectRow(prodName) }).check();
+    await page.getByRole("button", { name: search.result.quote, exact: true }).first().click();
+    const dialog = page.getByRole("dialog", { name: q.title });
+    await dialog.locator('input[name="items.0.orderUnitPrice"]').fill("9000");
+    await dialog.getByRole("button", { name: q.submit(1) }).click();
+    await expect(page.getByRole("dialog", { name: q.doneTitle })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await logOut(page);
+  });
+
+  await test.step("판매자 [거절]", sellerRejects);
+
+  await test.step("구매자: 거절됨 줄은 [재요청]·[취소]만, [구매] 없음", async () => {
+    await logIn(page, buyer);
+    await page.goto("/my/purchases");
+    await expect(buyerRow().getByText(t.stats.quoteRejected)).toBeVisible();
+    await expect(page.getByRole("button", { name: t.requoteAria(prodName) })).toBeVisible();
+    await expect(page.getByRole("button", { name: t.cancelAria(prodName) })).toBeVisible();
+    await expect(page.getByRole("button", { name: t.buyAria(prodName) })).toHaveCount(0);
+  });
+
+  await test.step("구매자 [재요청] → 희망단가 8000 → 같은 줄이 견적요청으로 돌아간다 (새 줄 없음)", async () => {
+    await page.getByRole("button", { name: t.requoteAria(prodName) }).click();
+    const dialog = page.getByRole("dialog", { name: q.title });
+    await dialog.locator('input[name="items.0.orderUnitPrice"]').fill("8000");
+    await dialog.getByRole("button", { name: q.submit(1) }).click();
+    await expect(page.getByRole("dialog", { name: q.doneTitle })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(buyerRow()).toHaveCount(1);
+    await expect(buyerRow().getByText(t.stats.quoteRequested)).toBeVisible();
+    await expect(buyerRow()).toContainText("8,000");
+    await logOut(page);
+  });
+
+  await test.step("판매자 다시 [거절]", sellerRejects);
+
+  await test.step("구매자 [취소] → 줄이 지워진다", async () => {
+    await logIn(page, buyer);
+    await page.goto("/my/purchases");
+    await page.getByRole("button", { name: t.cancelAria(prodName) }).click();
+    await expect(buyerRow()).toHaveCount(0);
+  });
+});
