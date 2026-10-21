@@ -144,7 +144,8 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     // 판매자는 [거래완료]가 없고 [취소]만
     await expect(page.getByRole("button", { name: t.completeAria(prodName) })).toHaveCount(0);
     await page.getByRole("button", { name: t.cancelAria(prodName) }).click();
-    await expect(page.getByRole("table").getByText(t.stats.canceled)).toBeVisible();
+    // 취소하면 거래 행이 지워진다 (2026-10-20) — 구매요청 줄은 사라지고 확정된 줄만 남는다
+    await expect(pendingRow).toHaveCount(0);
     await expect(page.getByRole("table").getByText(t.stats.confirmed)).toBeVisible();
   });
 

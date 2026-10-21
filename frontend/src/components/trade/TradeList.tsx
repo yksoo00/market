@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { cn } from "cn";
+import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { tradesApi } from "@/lib/api/trades";
 import { formatPrice } from "@/lib/format";
 import { listingHref } from "@/lib/search";
+import { rowActions, type RowAction } from "@/lib/tradeActions";
 import { my } from "@/messages/my";
 import { trade } from "@/messages/trade";
 import type { Trade, TradeRole, TradeStats } from "@/types/trade";
@@ -24,8 +26,8 @@ interface Props {
 }
 
 /**
- * 거래 목록 (스펙 2026-10-15-purchase-design.md "화면"). 구매자·판매자 화면이 같이 쓴다.
- * 구매요청 상태인 행만 버튼 — 구매자: [거래완료]·[취소], 판매자: [취소]. 상대가 먼저 처리했으면(409) 목록을 다시 읽는다.
+ * 거래 목록 (스펙 2026-10-15-purchase-design.md·2026-10-20-quote-request-design.md "화면"). 구매자·판매자 화면이 같이 쓴다.
+ * 줄마다 누를 수 있는 버튼은 lib/tradeActions. 취소하면 행이 지워져 줄을 뺀다. 상대가 먼저 처리했으면(409·404) 목록을 다시 읽는다.
  */
 export function TradeList({ role, reg }: Props) {
   const [load, setLoad] = useState<Load>({ kind: "loading" });
@@ -36,6 +38,8 @@ export function TradeList({ role, reg }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   // seq: 같은 문구가 연달아 나와도 알림을 새로 그려 스크린리더가 다시 읽게 (key)
   const [message, setMessage] = useState<{ seq: number; text: string } | null>(null);
+  // 회신 받은 견적 줄의 [구매] — 바뀐 매물을 지금 구매 모달로 산다
+  const [buying, setBuying] = useState<Trade | null>(null);
   const asBuyer = role === "buyer";
 
   useEffect(() => {
@@ -70,19 +74,34 @@ export function TradeList({ role, reg }: Props) {
     );
   };
 
-  const act = async (item: Trade, what: "complete" | "cancel") => {
-    if (!window.confirm(what === "complete" ? t.confirmComplete : t.confirmCancel)) return;
+  const confirmText: Record<Exclude<RowAction, "buy">, (item: Trade) => string> = {
+    complete: () => t.confirmComplete,
+    cancel: (item) => (item.tradeType === "quote" ? t.confirmCancelQuote : t.confirmCancel),
+    accept: () => t.confirmAccept,
+    reject: () => t.confirmReject,
+  };
+
+  const act = async (item: Trade, what: RowAction) => {
+    if (what === "buy") {
+      setBuying(item);
+      return;
+    }
+    if (!window.confirm(confirmText[what](item))) return;
     setBusy(item.tradeId);
-    const res = await (what === "complete" ? tradesApi.complete(item.tradeId) : tradesApi.cancel(item.tradeId));
+    const res = await (what === "cancel" ? tradesApi.cancel(item.tradeId) : tradesApi[what](item.tradeId));
     setBusy(null);
     if (res.ok) {
-      setLoad((prev) =>
-        prev.kind === "ready" ? { ...prev, items: prev.items.map((i) => (i.tradeId === res.data.tradeId ? res.data : i)) } : prev,
-      );
+      setLoad((prev) => {
+        if (prev.kind !== "ready") return prev;
+        // 취소는 행이 지워진다(204) — 줄을 뺀다
+        if (res.data === null) return { ...prev, items: prev.items.filter((i) => i.tradeId !== item.tradeId) };
+        const updated = res.data;
+        return { ...prev, items: prev.items.map((i) => (i.tradeId === updated.tradeId ? updated : i)) };
+      });
       return;
     }
     setMessage((prev) => ({ seq: (prev?.seq ?? 0) + 1, text: trade.errors[res.code] ?? res.message }));
-    // 상대가 먼저 확정·취소했으면 지금 상태를 다시 보여 준다
+    // 상대가 먼저 처리했으면(지워졌으면 404) 지금 상태를 다시 보여 준다
     if (res.code === "TRADE_NOT_PENDING" || res.code === "TRADE_NOT_FOUND") setAttempt((n) => n + 1);
   };
 
@@ -102,6 +121,16 @@ export function TradeList({ role, reg }: Props) {
         </p>
       )}
       <Body load={load} asBuyer={asBuyer} busy={busy} onAct={act} onRetry={reload} />
+      {buying && (
+        <PurchaseDialog
+          sellerId={buying.sellerId}
+          regDate={buying.regDate}
+          open
+          onOpenChange={(open) => !open && setBuying(null)}
+          // 새 구매요청 줄이 생겼으니 목록을 다시 읽는다
+          onPurchased={reload}
+        />
+      )}
       {load.kind === "ready" && load.nextCursor && (
         <div className="flex flex-col items-center gap-1.5">
           <button
@@ -127,7 +156,7 @@ interface BodyProps {
   load: Load;
   asBuyer: boolean;
   busy: string | null;
-  onAct: (item: Trade, what: "complete" | "cancel") => void;
+  onAct: (item: Trade, what: RowAction) => void;
   onRetry: () => void;
 }
 
@@ -164,31 +193,35 @@ function Body({ load, asBuyer, busy, onAct, onRetry }: BodyProps) {
     );
   }
 
-  const actions = (item: Trade) =>
-    item.tradeStats === "requested" && (
+  const actions = (item: Trade) => {
+    const list = rowActions(item, asBuyer);
+    if (list.length === 0) return null;
+    return (
       <div className="flex gap-1.5 justify-end">
-        {asBuyer && (
+        {list.map((what) => (
           <button
+            key={what}
             type="button"
-            onClick={() => onAct(item, "complete")}
+            onClick={() => onAct(item, what)}
             disabled={busy !== null}
-            aria-label={t.completeAria(item.prodName)}
-            className="h-8 px-3 rounded-md bg-primary text-white text-[13px] font-bold hover:bg-primary-dark disabled:opacity-40"
+            aria-label={actionAria[what](item.prodName)}
+            className={cn(
+              "h-8 px-3 rounded-md text-[13px] disabled:opacity-40",
+              primaryActions.has(what)
+                ? "bg-primary text-white font-bold hover:bg-primary-dark"
+                : "border border-line font-medium text-ink-2 hover:bg-bg",
+            )}
           >
-            {t.complete}
+            {t[what]}
           </button>
-        )}
-        <button
-          type="button"
-          onClick={() => onAct(item, "cancel")}
-          disabled={busy !== null}
-          aria-label={t.cancelAria(item.prodName)}
-          className="h-8 px-3 rounded-md border border-line text-[13px] font-medium text-ink-2 hover:bg-bg disabled:opacity-40"
-        >
-          {t.cancel}
-        </button>
+        ))}
       </div>
     );
+  };
+  const unitPrice = (item: Trade) =>
+    item.tradeType === "quote" && item.salesUnitPrice !== null
+      ? t.quotePrice(formatPrice(item.salesUnitPrice), formatPrice(item.orderUnitPrice))
+      : formatPrice(item.orderUnitPrice);
   const counterpart = asBuyer ? c.seller : c.buyer;
 
   return (
@@ -221,9 +254,9 @@ function Body({ load, asBuyer, busy, onAct, onRetry }: BodyProps) {
                 </td>
                 <td className="px-3 py-2.5 truncate">{item.counterpartNickname ?? "-"}</td>
                 <td className="px-3 py-2.5 text-right font-mono tabular-nums">{qty.format(item.orderQuantity)}</td>
-                <td className="px-3 py-2.5 text-right font-mono tabular-nums">{formatPrice(item.orderUnitPrice)}</td>
+                <td className="px-3 py-2.5 text-right font-mono tabular-nums">{unitPrice(item)}</td>
                 <td className="px-3 py-2.5 text-right font-mono tabular-nums font-bold">{formatPrice(item.amount)}</td>
-                <td className="px-3 py-2.5 font-mono tabular-nums">{item.reqDeliDate}</td>
+                <td className="px-3 py-2.5 font-mono tabular-nums">{item.reqDeliDate ?? "-"}</td>
                 <td className="px-3 py-2.5">
                   <StatsBadge stats={item.tradeStats} />
                 </td>
@@ -243,10 +276,10 @@ function Body({ load, asBuyer, busy, onAct, onRetry }: BodyProps) {
               <StatsBadge stats={item.tradeStats} />
             </div>
             <p className="text-[12px] text-ink-2">
-              {counterpart} {item.counterpartNickname ?? "-"} · {c.reqDeliDate} <span className="font-mono">{item.reqDeliDate}</span>
+              {counterpart} {item.counterpartNickname ?? "-"} · {c.reqDeliDate} <span className="font-mono">{item.reqDeliDate ?? "-"}</span>
             </p>
             <p className="text-[13px] font-mono tabular-nums">
-              {qty.format(item.orderQuantity)} × {formatPrice(item.orderUnitPrice)} = <span className="font-bold">{formatPrice(item.amount)}</span>
+              {qty.format(item.orderQuantity)} × {unitPrice(item)} = <span className="font-bold">{formatPrice(item.amount)}</span>
             </p>
             {item.remarks && <p className="text-[12px] text-ink-2 wrap-break-word">{item.remarks}</p>}
             <div className="flex items-center gap-2">
@@ -261,9 +294,23 @@ function Body({ load, asBuyer, busy, onAct, onRetry }: BodyProps) {
 }
 
 const statsClass: Record<TradeStats, string> = {
+  cart: "bg-line-2 text-ink-2",
+  compare: "bg-line-2 text-ink-2",
+  quoteRequested: "bg-green-soft text-green",
+  quoteReplied: "bg-line-2 text-ink-2",
   requested: "bg-primary-soft text-primary",
   confirmed: "bg-up/10 text-up",
-  canceled: "bg-line-2 text-ink-3",
+};
+
+/** 채운 버튼 — 그 줄에서 주로 누를 것 */
+const primaryActions = new Set<RowAction>(["complete", "accept", "buy"]);
+
+const actionAria: Record<RowAction, (name: string) => string> = {
+  complete: t.completeAria,
+  cancel: t.cancelAria,
+  accept: t.acceptAria,
+  reject: t.rejectAria,
+  buy: t.buyAria,
 };
 
 function StatsBadge({ stats }: { stats: TradeStats }) {
