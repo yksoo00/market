@@ -20,7 +20,8 @@ public class SmtpMailer implements Mailer {
 		SimpleMailMessage message = new SimpleMailMessage();
 		message.setFrom(from);
 		message.setTo(to);
-		message.setSubject(subject);
+		// 제목엔 판매자가 정한 상품명이 들어간다 — 줄바꿈이 남으면 Bcc·Content-Type 같은 헤더를 끼워 넣을 수 있다
+		message.setSubject(subject.replaceAll("[\\r\\n]+", " "));
 		message.setText(body);
 		sender.send(message);
 	}
