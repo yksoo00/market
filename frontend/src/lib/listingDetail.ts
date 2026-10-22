@@ -65,6 +65,8 @@ export function cartBlocked(d: ListingDetail, meId: string | null): boolean {
 }
 
 export interface InfoRow {
+  /** 비교 화면(lib/compare)이 줄을 찾는 이름 */
+  key: string;
   label: string;
   value: string;
   mono?: boolean;
@@ -77,20 +79,20 @@ const count = (n: number | null) => (n === null ? t.empty : num.format(n));
 export function infoRows(d: ListingDetail): InfoRow[] {
   const r = t.rows;
   return [
-    { label: r.brand, value: d.prodBrand },
-    { label: r.prodId, value: d.prodId, mono: true },
-    { label: r.leadTime, value: orEmpty(d.deliveryDate) },
-    { label: r.state, value: d.prodState },
-    { label: r.unitPrice, value: t.won(formatPrice(d.salesUnitPrice)) },
-    { label: r.stock, value: count(d.stockQuantity) },
-    { label: r.category, value: d.categoryPath ?? d.category },
-    { label: r.tradeType, value: d.tradeType },
-    { label: r.mufcDate, value: orEmpty(d.mufcDate) },
-    { label: r.minOrder, value: count(d.minOrderQuantity) },
-    { label: r.orderUnit, value: count(d.orderUnit) },
-    { label: r.salesQuantity, value: count(d.salesQuantity) },
-    { label: r.warranty, value: orEmpty(d.warrantyUntil) },
-    { label: r.coverage, value: orEmpty(d.warrantyCoverage) },
-    { label: r.regDate, value: formatRegDate(d.regDate) },
+    { key: "brand", label: r.brand, value: d.prodBrand },
+    { key: "prodId", label: r.prodId, value: d.prodId, mono: true },
+    { key: "leadTime", label: r.leadTime, value: orEmpty(d.deliveryDate) },
+    { key: "state", label: r.state, value: d.prodState },
+    { key: "unitPrice", label: r.unitPrice, value: t.won(formatPrice(d.salesUnitPrice)) },
+    { key: "stock", label: r.stock, value: count(d.stockQuantity) },
+    { key: "category", label: r.category, value: d.categoryPath ?? d.category },
+    { key: "tradeType", label: r.tradeType, value: d.tradeType },
+    { key: "mufcDate", label: r.mufcDate, value: orEmpty(d.mufcDate) },
+    { key: "minOrder", label: r.minOrder, value: count(d.minOrderQuantity) },
+    { key: "orderUnit", label: r.orderUnit, value: count(d.orderUnit) },
+    { key: "salesQuantity", label: r.salesQuantity, value: count(d.salesQuantity) },
+    { key: "warranty", label: r.warranty, value: orEmpty(d.warrantyUntil) },
+    { key: "coverage", label: r.coverage, value: orEmpty(d.warrantyCoverage) },
+    { key: "regDate", label: r.regDate, value: formatRegDate(d.regDate) },
   ];
 }

@@ -13,6 +13,7 @@ export const compare = {
     tooFew: "비교할 상품이 2개 이상 있어야 해요.",
     removedSkipped: "지워진 상품은 빼고 보여 줘요.",
     loadFailed: "비교할 상품을 불러오지 못했어요.",
+    cartFailed: "장바구니를 불러오지 못해 [빼기]를 숨겼어요.",
     retry: "다시 시도",
     toCart: "장바구니로",
     remove: "빼기",

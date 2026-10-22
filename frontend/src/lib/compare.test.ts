@@ -77,11 +77,17 @@ describe("compareHref · parseCompareItems", () => {
   it("형식·개수·중복이 틀리면 null", () => {
     expect(parseCompareItems(null)).toBeNull();
     expect(parseCompareItems("")).toBeNull();
-    expect(parseCompareItems(`${U1}_${REG(1)}`)).toBeNull();
     expect(parseCompareItems(`${U1}_${REG(1)},${U1}_${REG(1)}`)).toBeNull();
+    // 같은 매물을 대소문자만 바꿔 넣어도 중복
+    const upper = "AAAAAAAA-1111-1111-1111-111111111111";
+    expect(parseCompareItems(`${upper.toLowerCase()}_${REG(1)},${upper}_${REG(1)}`)).toBeNull();
     expect(parseCompareItems(`nope_${REG(1)},${U2}_${REG(2)}`)).toBeNull();
     expect(parseCompareItems(`${U1}_2026,${U2}_${REG(2)}`)).toBeNull();
     expect(parseCompareItems([1, 2, 3, 4, 5].map((n) => `${U1}_${REG(n)}`).join(","))).toBeNull();
+  });
+
+  it("1개는 받는다 — 빼고 하나 남은 주소를 새로고침해도 화면이 '2개 이상' 안내", () => {
+    expect(parseCompareItems(`${U1}_${REG(1)}`)).toEqual([{ userId: U1, regDate: REG(1) }]);
   });
 
   it("빼기 뒤 남은 것만", () => {
@@ -113,15 +119,41 @@ describe("compareRows", () => {
   });
 
   it("재고 최대·납기 가장 빠름·보증 가장 김·최소주문 최소, 값 없는 상품은 후보 아님", () => {
-    const rows = compareRows([
-      detail({ stockQuantity: 3, deliveryDate: "2026-11-01", warrantyUntil: "2027-01-01", minOrderQuantity: 2 }),
-      detail({ regDate: REG(2), stockQuantity: 7, deliveryDate: null, warrantyUntil: null, minOrderQuantity: 1 }),
-      detail({ regDate: REG(3), stockQuantity: null, deliveryDate: "2026-10-30", warrantyUntil: "2026-12-01", minOrderQuantity: 3 }),
-    ]);
+    const rows = compareRows(
+      [
+        detail({ stockQuantity: 3, deliveryDate: "2026-11-01", warrantyUntil: "2027-01-01", minOrderQuantity: 2 }),
+        detail({ regDate: REG(2), stockQuantity: 7, deliveryDate: null, warrantyUntil: null, minOrderQuantity: 1 }),
+        detail({ regDate: REG(3), stockQuantity: 4, deliveryDate: "2026-10-30", warrantyUntil: "2026-12-01", minOrderQuantity: 3 }),
+      ],
+      "2026-10-22",
+    );
     expect([...row(rows, "stock").best]).toEqual([1]);
     expect([...row(rows, "leadTime").best]).toEqual([2]);
     expect([...row(rows, "warranty").best]).toEqual([0]);
     expect([...row(rows, "minOrder").best]).toEqual([1]);
+  });
+
+  it("최소주문량만큼 재고가 없으면(살 수 없음) 후보가 아니다", () => {
+    const rows = compareRows([
+      detail({ salesUnitPrice: 8000, stockQuantity: 1, minOrderQuantity: 5 }),
+      detail({ regDate: REG(2), salesUnitPrice: 9000, stockQuantity: 10 }),
+      detail({ regDate: REG(3), salesUnitPrice: 7000, stockQuantity: null }),
+    ]);
+    expect([...row(rows, "unitPrice").best]).toEqual([1]);
+  });
+
+  it("이미 끝난 보증은 가장 김 후보가 아니다", () => {
+    const rows = compareRows(
+      [detail({ warrantyUntil: "2026-10-01" }), detail({ regDate: REG(2), warrantyUntil: "2026-09-01" })],
+      "2026-10-22",
+    );
+    expect(row(rows, "warranty").best.size).toBe(0);
+  });
+
+  it("상세 정보 표 줄을 그대로 쓰고 나머지 칸을 뒤에 붙인다", () => {
+    const keys = compareRows([detail(), detail({ regDate: REG(2) })]).map((r) => r.key);
+    expect(keys.slice(0, 3)).toEqual(["brand", "prodId", "leadTime"]);
+    expect(keys.at(-1)).toBe("description");
   });
 
   it("서류는 있음/없음, 사진은 장 수", () => {

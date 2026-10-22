@@ -207,7 +207,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
       {inCart && (
         <button
           type="button"
-          disabled={picked.size < MIN_COMPARE}
+          disabled={picked.size < MIN_COMPARE || removing}
           onClick={compareSelected}
           className={`${size} px-3 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft disabled:opacity-40 disabled:pointer-events-none`}
         >

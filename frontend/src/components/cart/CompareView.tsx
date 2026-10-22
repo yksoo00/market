@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Icon } from "@/components/common/Icon";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
@@ -41,6 +41,7 @@ export function CompareView({ raw }: { raw: string | null }) {
   const [attempt, setAttempt] = useState(0);
   const [cartItems, setCartItems] = useState<CartItem[] | null>(null);
   const [cartAttempt, setCartAttempt] = useState(0);
+  const [cartFailed, setCartFailed] = useState(false);
   const [onlyDiff, setOnlyDiff] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -49,12 +50,13 @@ export function CompareView({ raw }: { raw: string | null }) {
   const [quoting, setQuoting] = useState<QuoteTarget[] | null>(null);
   const [quoted, setQuoted] = useState(false);
 
-  // 빼기로 열이 줄어도 다시 읽지 않는다 (keys 는 매물을 처음 읽을 때만 쓴다)
-  const [loadKeys] = useState(keys);
+  // 빼기는 열만 줄이고 다시 읽지 않는다. 다시 읽을 땐(견적·구매 뒤·재시도) 지금 남은 상품만 — 빼기가 ref 도 같이 줄인다
+  const keysRef = useRef(keys);
   useEffect(() => {
-    if (!loadKeys) return;
+    const current = keysRef.current;
+    if (!current) return;
     let alive = true;
-    void Promise.all(loadKeys.map((k) => listingsApi.get(k.userId, k.regDate))).then((results) => {
+    void Promise.all(current.map((k) => listingsApi.get(k.userId, k.regDate))).then((results) => {
       if (!alive) return;
       // 그새 지워진 매물만 빼고, 다른 실패는 처음 읽기만 오류 화면 (다시 읽기 실패는 보이던 표 그대로)
       if (results.some((res) => !res.ok && res.code !== "LISTING_NOT_FOUND")) {
@@ -67,14 +69,15 @@ export function CompareView({ raw }: { raw: string | null }) {
     return () => {
       alive = false;
     };
-  }, [loadKeys, attempt]);
+  }, [attempt]);
 
   useEffect(() => {
     let alive = true;
     void cartApi.list().then((res) => {
       if (!alive) return;
-      // 못 읽으면 [빼기]만 숨긴다 (비교는 매물 값만으로 된다)
+      // 못 읽으면 [빼기]만 숨기고 알린다 (비교는 매물 값만으로 된다)
       setCartItems(res.ok ? res.data.items : null);
+      setCartFailed(!res.ok);
     });
     return () => {
       alive = false;
@@ -121,6 +124,7 @@ export function CompareView({ raw }: { raw: string | null }) {
       return;
     }
     const next = withoutItem(keys ?? [], d);
+    keysRef.current = next;
     setKeys(next);
     // 같은 화면 안 주소만 바꾼다 — 새로고침·칸 복원이 남은 상품으로 열리게 (Next 가 history.replaceState 를 따라간다)
     window.history.replaceState(null, "", compareHref(next));
@@ -143,6 +147,14 @@ export function CompareView({ raw }: { raw: string | null }) {
       {state.skipped && (
         <p role="status" className="text-[13px] text-ink-2">
           {t.page.removedSkipped}
+        </p>
+      )}
+      {cartFailed && (
+        <p role="alert" className="flex flex-wrap items-center gap-2 text-[13px] text-down">
+          {t.page.cartFailed}
+          <button type="button" onClick={() => setCartAttempt((n) => n + 1)} className="text-primary font-medium hover:underline">
+            {t.page.retry}
+          </button>
         </p>
       )}
       {removeError && (
