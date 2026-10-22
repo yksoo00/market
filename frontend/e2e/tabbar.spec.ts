@@ -3,7 +3,9 @@ import { home } from "@/messages/home";
 
 // 아래 탭바는 폰(화면 768 미만)에서만. PC 분할의 좁은 주기능 칸(768 미만)에서도 숨는다 — 칸 폭 기준이던 버그 (2026-10-22)
 // 백엔드 없이도 돈다 (검색 결과가 "불러오지 못했어요"여도 칸 배치는 같다)
-const tab = (page: Page) => page.getByRole("link", { name: home.tabs.post, exact: true });
+const tab = (page: Page, label: string) => page.getByRole("link", { name: label, exact: true });
+// 사용자 404 화면이 없어 Next 기본 문구가 나온다 — 주소만 보면 없는 경로로 가도 통과하므로 이것도 본다
+const notFound = (page: Page) => page.getByText("This page could not be found");
 
 test.describe("PC 분할", () => {
   test.use({ viewport: { width: 1500, height: 800 } });
@@ -15,7 +17,7 @@ test.describe("PC 분할", () => {
     // 칸 규칙: 홈은 iframe 칸, 주기능(검색)은 주소창 문서 (frontend.md)
     await expect(page.locator('iframe[src="/"]')).toHaveCount(1);
     await expect(page).toHaveURL(/\/search/);
-    await expect(tab(page)).toBeHidden();
+    await expect(tab(page, home.tabs.post)).toBeHidden();
   });
 });
 
@@ -24,16 +26,19 @@ test.describe("폰", () => {
 
   test("탭바가 보인다", async ({ page }) => {
     await page.goto("/");
-    await expect(tab(page)).toBeVisible();
+    await expect(tab(page, home.tabs.post)).toBeVisible();
   });
 
   // '매물'·'내 정보'가 없는 경로(/listings, /me)로 가 404 였다 (2026-10-22)
   test("탭바 링크가 있는 화면으로 간다", async ({ page }) => {
     await page.goto("/");
-    await page.getByRole("link", { name: home.tabs.listings, exact: true }).click();
+    await tab(page, home.tabs.listings).click();
     await expect(page).toHaveURL(/\/search$/);
+    await expect(notFound(page)).toHaveCount(0);
     await page.goto("/");
-    await page.getByRole("link", { name: home.tabs.me, exact: true }).click();
-    await expect(page).toHaveURL(/\/my$/);
+    await tab(page, home.tabs.me).click();
+    // 백엔드가 떠 있고 로그인 안 했으면 마이페이지가 로그인으로 보낸다 — 둘 다 /my 로 간 것
+    await expect(page).toHaveURL(/\/my$|\/login\?next=%2Fmy/);
+    await expect(notFound(page)).toHaveCount(0);
   });
 });
