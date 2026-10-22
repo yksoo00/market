@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 
@@ -160,6 +161,29 @@ class SchemaConstraintsTest {
 		insertTrade(ids[0], ids[1], "26101510001");
 		assertThatThrownBy(() -> jdbc.update("delete from trd_prod_reg where user_id = ?", ids[1]))
 			.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	private void insertRow(UUID buyer, UUID seller, String tradeId, String type, String stats) {
+		jdbc.update("""
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
+					order_unit_price, order_quantity, trade_stats)
+				values (?, ?, ?, ?, '20261015100000', 'TRADETEST1', 1000, 1, ?)
+				""", buyer, tradeId, type, seller, stats);
+	}
+
+	@Test
+	@DisplayName("장바구니 행은 구매자·매물당 하나 — 같은 매물의 견적 행과는 같이 있을 수 있다 (V202610211300)")
+	void oneCartRowPerListing() {
+		UUID[] ids = insertListingAndBuyer();
+		insertRow(ids[0], ids[1], "26102113001", "구매검토", "장바구니");
+		assertThatThrownBy(() -> insertRow(ids[0], ids[1], "26102113002", "구매검토", "장바구니"))
+			.isInstanceOf(DuplicateKeyException.class);
+		insertRow(ids[0], ids[1], "26102113003", "견적조정", "견적요청");
+		// 다른 구매자는 같은 매물을 따로 담는다
+		insertUser("buyer02", "buyer2@example.com", "personal", null);
+		UUID other = jdbc.queryForObject("select uid from trd_user_info where user_id = 'buyer02'", UUID.class);
+		insertRow(other, ids[1], "26102113004", "구매검토", "장바구니");
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class)).isEqualTo(3);
 	}
 
 	@Test
