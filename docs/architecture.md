@@ -14,7 +14,7 @@
 - 로컬은 Docker Compose로 PostgreSQL·Redis를 실행하고, Spring은 `bootRun`, 프론트는 `pnpm dev`로 실행한다.
 - Spring을 컨테이너로 띄우려면 `docker compose up --watch api-dev`(`dev` 프로필, `backend/Dockerfile.dev`). compose watch가 `src/`를 컨테이너로 복사 → 컨테이너 안 `gradlew classes --continuous`가 컴파일 → devtools가 앱만 재시작한다. `build.gradle`이 바뀌면 이미지를 다시 빌드한다. 포트는 호스트 `bootRun`과 같은 `127.0.0.1:8080`이라 둘 중 하나만 띄운다 (decisions.md 2026-10-07).
 - Compose `prod` 프로필에는 Spring 복제본 2개가 있지만, 현재 외부 프록시·TLS는 실행하지 않는다.
-- 구현된 도메인: 계정(가입·로그인), 매물(등록·수정·추가등록·검색·상세, 상품마스터에서 고르기), 거래(직접 구매 — 요청·거래완료·취소, 견적 요청·수락·거절, 장바구니). 비교용·결제·채팅은 없다. AI 기능은 보류(서비스 제거).
+- 구현된 도메인: 계정(가입·로그인), 매물(등록·수정·추가등록·검색·상세, 상품마스터에서 고르기), 거래(직접 구매 — 요청·거래완료·취소, 견적 요청·수락·거절, 장바구니·비교 화면). 비교 목록 저장·결제·채팅은 없다. AI 기능은 보류(서비스 제거).
 - rate limit 은 2026-10-19 에 전부 지웠다. 운영 전에 다시 넣는다 (decisions.md 같은 날).
 - `organization` 패키지는 조직 테이블을 없앤 뒤 남은 코드다 (`@Entity` 주석 처리). 쓰는 곳이 없다.
 - 소셜 로그인은 구현했으나 단일 `trd_user_info` 전환으로 일시 주석 처리했다 (`OAuthController` 등).

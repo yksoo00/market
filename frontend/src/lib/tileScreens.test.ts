@@ -29,6 +29,9 @@ describe("screenOf", () => {
     expect(screenOf("/my")).toEqual({ id: "my", group: "common" });
     expect(screenOf("/my/purchases")).toEqual({ id: "myPurchases", group: "buy" });
     expect(screenOf("/my/cart")).toEqual({ id: "myCart", group: "buy" });
+    // 비교는 장바구니(주기능)에서 열면 보조 칸
+    expect(screenOf("/my/cart/compare?items=a_1,b_2")).toEqual({ id: "cartCompare", group: "buy" });
+    expect(isRelated(screenOf("/my/cart/compare"), [screenOf("/"), screenOf("/my/cart")])).toBe(true);
     expect(isRelated(screenOf("/my"), [screenOf("/"), screenOf("/search")])).toBe(true);
   });
 

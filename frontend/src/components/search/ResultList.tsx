@@ -10,6 +10,7 @@ import { QuoteDialog, type QuoteTarget } from "@/components/trade/QuoteDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cartApi } from "@/lib/api/cart";
 import { cartActionable, notifyCartChanged } from "@/lib/cart";
+import { compareBlock, compareHref, MAX_COMPARE, MIN_COMPARE } from "@/lib/compare";
 import { formatPrice } from "@/lib/format";
 import { isOwner } from "@/lib/listingDetail";
 import { pendingLabel, salesHref } from "@/lib/tradeCounts";
@@ -17,6 +18,7 @@ import { MAX_CART_ADD } from "@/lib/validation/cart";
 import { MAX_QUOTE_ITEMS } from "@/lib/validation/quote";
 import { activeFilterCount, buildSearchHref, clearFilters, listingHref, type SearchQuery, type SearchScope } from "@/lib/search";
 import { cart } from "@/messages/cart";
+import { compare } from "@/messages/compare";
 import { my } from "@/messages/my";
 import { search as t } from "@/messages/search";
 import { trade } from "@/messages/trade";
@@ -70,7 +72,7 @@ interface Props {
   query: SearchQuery;
   /** 같은 조건의 전체 개수. items 는 [더 보기]로 받은 만큼만 */
   total: number;
-  /** mine = 내 판매글 모드: 선택·견적·구매 없이 행마다 [수정]. cart = 장바구니: [빼기]·[견적 요청]·[구매] */
+  /** mine = 내 판매글 모드: 선택·견적·구매 없이 행마다 [수정]. cart = 장바구니: [빼기]·[비교]·[견적 요청]·[구매] */
   scope?: SearchScope | "cart";
   /** cart: [빼기] — 고른 매물 (부모가 tradeId 로 바꿔 지운다) */
   onRemove?: (items: ListingSearchItem[]) => void;
@@ -175,6 +177,14 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
     if (chosen.length === 1) setBuying(chosen[0]);
     else if (chosen.length > 1) showNotice(p.oneAtATime);
   };
+  // 비교는 같은 소분류 2~4개. 거래완료도 볼 수 있어 거르지 않는다 (비교 화면이 버튼만 숨김). 장바구니(주기능) 옆 보조 칸에 연다
+  const compareSelected = () => {
+    const chosen = items.filter((i) => picked.has(keyOf(i)));
+    const block = compareBlock(chosen);
+    if (block === "tooMany") showNotice(compare.tooMany(MAX_COMPARE));
+    else if (block === "category") showNotice(compare.otherCategory);
+    else if (block === null) openTile(compareHref(chosen), false);
+  };
   // router.push 는 타일 큐를 안 거쳐, iframe 칸에서 누르면 그 칸이 닫히고 2분할이 된다. 이름 링크와 같은 규칙(칸 규칙)으로 연다.
   // 내 판매글도 검색처럼 상세를 보조 칸에 연다 — 전체 화면(reset)으로 열던 예외는 이 화면만 2분할이 돼 뺐다 (decisions.md 2026-10-19)
   const go = (item: ListingSearchItem) => openTile(listingHref(item), false);
@@ -192,6 +202,16 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
           className={`${size} px-3 rounded-md border border-line text-ink-2 text-sm font-medium hover:bg-bg disabled:opacity-40 disabled:pointer-events-none`}
         >
           {cart.page.remove}
+        </button>
+      )}
+      {inCart && (
+        <button
+          type="button"
+          disabled={picked.size < MIN_COMPARE || removing}
+          onClick={compareSelected}
+          className={`${size} px-3 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft disabled:opacity-40 disabled:pointer-events-none`}
+        >
+          {compare.button}
         </button>
       )}
       {scope === "search" && (
