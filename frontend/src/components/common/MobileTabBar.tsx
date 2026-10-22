@@ -17,7 +17,8 @@ export function MobileTabBar({ active = "/" }: { active?: string }) {
   if (framed) return null;
 
   return (
-    <nav className="@md:hidden h-15 shrink-0 grid grid-cols-4 bg-surface border-t border-line text-[10px] pb-[env(safe-area-inset-bottom)]">
+    // 칸 폭(@md)이 아니라 화면 폭(md) 기준 — 분할 기준(useIsWide, 화면 768)과 같다. 칸 폭으로 보면 PC 분할의 좁은 주기능 칸에도 탭바가 떴다
+    <nav className="md:hidden h-15 shrink-0 grid grid-cols-4 bg-surface border-t border-line text-[10px] pb-[env(safe-area-inset-bottom)]">
       {tabs.map(({ icon, label, href, center }) => {
         const on = href === active;
         return (
