@@ -7,9 +7,10 @@ import { home as t } from "@/messages/home";
 
 const tabs: { icon: IconName; label: string; href: string; center?: boolean }[] = [
   { icon: "home", label: t.tabs.home, href: "/" },
-  { icon: "sell", label: t.tabs.listings, href: "/listings" },
+  // 매물 목록 화면은 따로 없다 — 검색 결과가 그 역할. 내 정보는 마이페이지 (/listings·/me 는 없는 경로라 404 였다)
+  { icon: "sell", label: t.tabs.listings, href: "/search" },
   { icon: "plus", label: t.tabs.post, href: "/listings/new", center: true },
-  { icon: "user", label: t.tabs.me, href: "/me" },
+  { icon: "user", label: t.tabs.me, href: "/my" },
 ];
 
 export function MobileTabBar({ active = "/" }: { active?: string }) {

@@ -26,4 +26,14 @@ test.describe("폰", () => {
     await page.goto("/");
     await expect(tab(page)).toBeVisible();
   });
+
+  // '매물'·'내 정보'가 없는 경로(/listings, /me)로 가 404 였다 (2026-10-22)
+  test("탭바 링크가 있는 화면으로 간다", async ({ page }) => {
+    await page.goto("/");
+    await page.getByRole("link", { name: home.tabs.listings, exact: true }).click();
+    await expect(page).toHaveURL(/\/search$/);
+    await page.goto("/");
+    await page.getByRole("link", { name: home.tabs.me, exact: true }).click();
+    await expect(page).toHaveURL(/\/my$/);
+  });
 });
