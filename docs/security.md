@@ -141,6 +141,13 @@
   - 수락 `POST /trades/{id}/accept`·거절 `/reject`: 그 매물의 판매자만(아니면 403), 견적요청 상태만(아니면 409 `TRADE_NOT_PENDING`). 수락은 매물 행을 잠그고 단가를 희망단가로 내린다(올리지 않음). 견적 취소는 보낸 구매자만(판매자 403), 견적요청·견적거절 상태에서만(견적수락은 409 `TRADE_NOT_PENDING`).
   - 수락된 견적에서 구매 `POST /trades/{id}/purchase`(2026-10-21): 보낸 구매자만(아니면 403), `견적수락` 상태만(아니면 409 `TRADE_NOT_PENDING`), 매물 거래완료 409 `LISTING_COMPLETED`, 재고 초과 409 `TRADE_OUT_OF_STOCK`. 본문은 구매와 같은 수량(1~100,000)·납품희망일·요청사항(≤100). 단가는 받지 않고 지금 매물 단가. 새 행 없이 같은 행이 `구매요청`.
   - 멱등 키: scope `quote-create`, 저장 값은 만든 거래ID 목록(쉼표).
+- 장바구니 (2026-10-21, `/api/v1/cart` — 스펙 `2026-10-21-cart-design.md`). 프론트 `lib/validation/cart.ts` 와 서버 `CartAddRequest`·`CartRemoveRequest`·`CartService` 가 같은 값:
+  | 항목 | 규칙 |
+  |---|---|
+  | 담기 `items` | 1 ~ 20개 (`sellerId`·`regDate` 만). 내 매물 403 `TRADE_OWN_LISTING`, 거래완료 409 `LISTING_COMPLETED`, 없는 매물 404. 하나라도 틀리면 아무것도 안 담는다 |
+  | 장바구니 합계 | 100개. 넘으면 409 `CART_FULL`. 이미 담긴 매물은 건너뛴다(성공) — 동시에 담아도 행은 하나(`ux_trd_trade_info_one_cart`) |
+  | 빼기 `tradeIds` | 1 ~ 100개, 각 20자 이하. 내 장바구니 행이 아닌 게 섞이면 404 `TRADE_NOT_FOUND`, 아무것도 안 지운다 |
+  - 목록·개수·빼기는 본인 행만(id 는 인증 정보에서). 장바구니 행은 판매자 쪽 화면·API 에 나오지 않는다. 멱등 키 없음(다시 담아도 행이 늘지 않음).
 - 알림 메일 (2026-10-20): 받는 주소는 `trd_user_info.user_email` 을 서버 안(`UserDirectory.emailsOf` → 메일 발송)에서만 쓴다. API 응답·화면·로그에 넣지 않는다 — 로그는 거래ID·uid 만. 본문에도 상대 연락처를 넣지 않는다. SMTP 계정은 `.env`(`MAIL_*`)에만.
 - 숫자: 가격 0 ~ 10억, 수량 1 ~ 100,000.
 - ID는 UUID 형식 검사. 정수 ID 없음 (열거 공격 방지). 예외: 거래ID (위 "구매", 사용자 지정 형식).

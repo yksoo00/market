@@ -1,0 +1,20 @@
+meta {
+  name: 장바구니 목록
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{baseUrl}}/api/v1/cart
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  내 장바구니, 최근에 담은 것부터(최대 100, 페이지 없음).
+  200 { ok, data: { items: [{ tradeId, listing }] } } — listing 은 매물 검색 결과 항목과 같은 칸(지금 매물 값). 거래완료 매물도 남고 listing.tradeStatus "completed".
+}

@@ -353,6 +353,13 @@ public class ListingService {
 		return found.stream().collect(Collectors.toMap(Listing::getId, l -> toSnapshot(l, productsById.get(l.getProdId()))));
 	}
 
+	/** 장바구니 목록용 — 검색 결과와 같은 칸(지금 매물 값)을 매물·상품 각 한 쿼리로. 없는 키는 빠진다 */
+	public Map<ListingId, ListingSearchItemResponse> searchItems(Collection<ListingId> ids) {
+		List<Listing> found = listings.findAllById(ids);
+		Map<String, Product> productsById = products.getAll(found.stream().map(Listing::getProdId).collect(Collectors.toSet()));
+		return found.stream().collect(Collectors.toMap(Listing::getId, l -> toSearchItem(l, productsById.get(l.getProdId()))));
+	}
+
 	/**
 	 * 상품ID → 상품명. 거래는 구매 때 상품ID 를 복사해 두므로, 판매자가 나중에 매물의 상품명을 바꿔도(= 다른 마스터를
 	 * 가리킴) 거래 내역은 구매 때 이름을 보여 준다

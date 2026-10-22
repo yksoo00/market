@@ -9,6 +9,7 @@ import {
   mainPhoto,
   ownerActions,
   purchaseBlockReason,
+  cartBlocked,
 } from "@/lib/listingDetail";
 
 describe("ownerActions", () => {
@@ -163,5 +164,18 @@ describe("infoRows 카테고리", () => {
       "가전 > 가전 기타 > 가전 기타",
     );
     expect(categoryValue({ ...base, categoryPath: null })).toBe("ELEC0001");
+  });
+});
+
+describe("cartBlocked", () => {
+  const OTHER = "11111111-2222-3333-4444-555555555555";
+  const buyable = { ...base, stockQuantity: 10, minOrderQuantity: 2 };
+
+  // 서버 CartService 와 같은 규칙: 거래완료·내 매물만 막는다. 재고 부족은 나중에 살 수 있어 담을 수 있다
+  it("거래완료·내 매물이면 막고, 재고 부족·비로그인은 막지 않는다", () => {
+    expect(cartBlocked({ ...buyable, tradeStatus: "completed" }, OTHER)).toBe(true);
+    expect(cartBlocked(buyable, UUID.toUpperCase())).toBe(true);
+    expect(cartBlocked({ ...buyable, stockQuantity: 0 }, OTHER)).toBe(false);
+    expect(cartBlocked(buyable, null)).toBe(false);
   });
 });
