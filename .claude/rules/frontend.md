@@ -49,7 +49,8 @@ frontend/src/
 - 코드로 다른 화면을 여는 이동(저장·로그인 성공 후 등)은 `router.push` 대신 `useTileOpen()`. `router.push`는 큐를 거치지 않는다 (같은 화면 안 이동·쿼리 변경은 `router.push` 그대로). 예외: 그 칸 자체가 다른 화면으로 바뀌어야 하면(가입 완료 → 로그인) `router.replace` — iframe 칸이면 큐가 그 칸을 닫고 새 화면을 규칙대로 연다(`paneNavigated`).
 
 ## 테스트
-- Vitest: `lib/`, `hooks/` 단위. Playwright: 핵심 흐름 (가입→로그인→상품 등록) 최소 1개.
+- Vitest: `lib/`, `hooks/` 단위. Playwright: 핵심 흐름 (가입→로그인→상품 등록) 최소 1개. 새 기능은 그 기능 흐름 spec 1개, PR 직전에 그것만 1번 돌린다 (CLAUDE.md "테스트 실행").
+- E2E 에서 모달이 열려 있으면 바깥(헤더 등)은 aria-hidden 이라 role 로 못 찾는다 — 모달을 닫고 확인한다.
 
 ## 하지 말 것
 - `localStorage`에 access token 저장. httpOnly 쿠키로.
