@@ -13,6 +13,7 @@ import { listingsApi } from "@/lib/api/listings";
 import { tradesApi } from "@/lib/api/trades";
 import { formatPrice } from "@/lib/format";
 import { applyServerError } from "@/lib/form";
+import { todayInSeoul } from "@/lib/listingForm";
 import { isAuthLost, purchaseBlockReason, type PurchaseBlock } from "@/lib/listingDetail";
 import { quoteSchema, type QuoteFormInput, type QuoteFormOutput } from "@/lib/validation/quote";
 import { trade } from "@/messages/trade";
@@ -143,17 +144,25 @@ interface FormProps {
 const toFormPath = (key: string) => key.replace(/\[(\d+)\]/, ".$1");
 
 function QuoteForm({ sendable, skipped, onClose, onRequested }: FormProps) {
+  // 날짜 기준은 폼을 연 동안 고정 (구매 모달과 같음)
+  const [today] = useState(() => todayInSeoul());
   const [idempotencyKey] = useState(() => crypto.randomUUID());
   const form = useForm<QuoteFormInput, unknown, QuoteFormOutput>({
     resolver: zodResolver(
       quoteSchema(
-        sendable.map((d) => ({ stock: d.stockQuantity ?? 0, minOrder: d.minOrderQuantity, unit: d.orderUnit, listedPrice: d.salesUnitPrice })),
+        sendable.map((d) => ({ stock: d.stockQuantity ?? 0, minOrder: d.minOrderQuantity, unit: d.orderUnit, listedPrice: d.salesUnitPrice, today })),
       ),
     ),
     mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: {
-      items: sendable.map((d) => ({ orderUnitPrice: String(d.salesUnitPrice), orderQuantity: String(d.minOrderQuantity), remarks: "" })),
+      // 납품희망일 기본값은 매물 제공가능일 (2026-10-27), 바꿀 수 있다
+      items: sendable.map((d) => ({
+        orderUnitPrice: String(d.salesUnitPrice),
+        orderQuantity: String(d.minOrderQuantity),
+        reqDeliDate: d.deliveryDate ?? "",
+        remarks: "",
+      })),
     } as QuoteFormInput,
   });
   const {
@@ -165,7 +174,7 @@ function QuoteForm({ sendable, skipped, onClose, onRequested }: FormProps) {
   const [unreachable, setUnreachable] = useState(false);
 
   const fieldPaths = sendable.flatMap((_, i) =>
-    (["orderUnitPrice", "orderQuantity", "remarks"] as const).map((f) => `items.${i}.${f}` as Path<QuoteFormInput>),
+    (["orderUnitPrice", "orderQuantity", "reqDeliDate", "remarks"] as const).map((f) => `items.${i}.${f}` as Path<QuoteFormInput>),
   );
 
   const submit = handleSubmit(async (values) => {
@@ -177,6 +186,7 @@ function QuoteForm({ sendable, skipped, onClose, onRequested }: FormProps) {
         regDate: sendable[i].regDate,
         orderUnitPrice: row.orderUnitPrice,
         orderQuantity: row.orderQuantity,
+        reqDeliDate: row.reqDeliDate,
         ...(row.remarks ? { remarks: row.remarks } : {}),
       })),
       idempotencyKey,
@@ -208,7 +218,7 @@ function QuoteForm({ sendable, skipped, onClose, onRequested }: FormProps) {
                   {t.rule(n(d.minOrderQuantity), n(d.orderUnit))}
                 </p>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <FormField<QuoteFormInput>
                   name={`items.${i}.orderUnitPrice`}
                   label={t.orderUnitPrice}
@@ -223,6 +233,7 @@ function QuoteForm({ sendable, skipped, onClose, onRequested }: FormProps) {
                   maxLength={6}
                   className="font-mono tabular-nums"
                 />
+                <FormField<QuoteFormInput> name={`items.${i}.reqDeliDate`} label={t.reqDeliDate} type="date" min={today} />
               </div>
               <FormField<QuoteFormInput> name={`items.${i}.remarks`} label={t.remarks} placeholder={t.remarksPlaceholder} />
             </li>

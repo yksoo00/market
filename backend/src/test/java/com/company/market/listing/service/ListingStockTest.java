@@ -7,6 +7,7 @@ import com.company.market.common.crypto.PiiHasher;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.listing.domain.Listing;
+import com.company.market.listing.domain.ListingId;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.dto.ListingTradeSnapshot;
 import com.company.market.listing.repository.ListingRepository;
@@ -104,19 +105,26 @@ class ListingStockTest {
 	@Test
 	@DisplayName("재고를 정확히 0으로 줄이면 dt_expire 가 들어가고, 복원하면 지워진다")
 	void reserveToZeroThenRelease() {
-		service.reserveStock(sellerId, REG_DATE, 5);
+		service.reserveStock(new ListingId(sellerId, REG_DATE, "STOCKTEST1"), 5);
 		assertThat(stock()).isZero();
 		assertThat(dtExpire()).isNotNull();
 
-		service.releaseStock(sellerId, REG_DATE, 5);
+		service.releaseStock(new ListingId(sellerId, REG_DATE, "STOCKTEST1"), 5);
 		assertThat(stock()).isEqualTo(5);
 		assertThat(dtExpire()).isNull();
 	}
 
 	@Test
+	@DisplayName("가리키는 매물이 없으면 재고 복원은 LISTING_NOT_FOUND — 복원을 조용히 놓치지 않는다")
+	void releaseStockOfMissingListingFails() {
+		assertThatThrownBy(() -> service.releaseStock(new ListingId(sellerId, REG_DATE, "NOPE000001"), 1))
+			.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.LISTING_NOT_FOUND));
+	}
+
+	@Test
 	@DisplayName("일부만 줄이면 dt_expire 는 비어 있다")
 	void partialReserveKeepsAvailable() {
-		service.reserveStock(sellerId, REG_DATE, 3);
+		service.reserveStock(new ListingId(sellerId, REG_DATE, "STOCKTEST1"), 3);
 
 		assertThat(stock()).isEqualTo(2);
 		assertThat(dtExpire()).isNull();
@@ -125,7 +133,7 @@ class ListingStockTest {
 	@Test
 	@DisplayName("재고보다 많이 줄이면 TRADE_OUT_OF_STOCK, 재고는 그대로")
 	void overReserveFails() {
-		assertThatThrownBy(() -> service.reserveStock(sellerId, REG_DATE, 6))
+		assertThatThrownBy(() -> service.reserveStock(new ListingId(sellerId, REG_DATE, "STOCKTEST1"), 6))
 			.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.TRADE_OUT_OF_STOCK));
 		assertThat(stock()).isEqualTo(5);
 	}
@@ -135,7 +143,7 @@ class ListingStockTest {
 	void completedListingCannotReserve() {
 		jdbc.update("update trd_prod_reg set dt_expire = '20261015120000' where user_id = ?", sellerId);
 
-		assertThatThrownBy(() -> service.reserveStock(sellerId, REG_DATE, 1))
+		assertThatThrownBy(() -> service.reserveStock(new ListingId(sellerId, REG_DATE, "STOCKTEST1"), 1))
 			.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.TRADE_OUT_OF_STOCK));
 	}
 

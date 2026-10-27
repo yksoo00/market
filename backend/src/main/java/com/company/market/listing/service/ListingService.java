@@ -44,7 +44,6 @@ import com.company.market.listing.repository.ListingSearchRepository;
 import com.company.market.listing.service.ProductService.ProductDraft;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -121,9 +120,17 @@ public class ListingService {
 			photos = List.of(product.getProdPhoto1());
 		}
 
+		// 같은 사용자 같은 초 등록은 409 — 매물 주소(userId, regDate)가 매물 하나를 가리키게. DB unique 대신 잠금인 이유는
+		// ListingRepository.lockRegistration
+		listings.lockRegistration(userId);
+		String regDate = LocalDateTime.now(clock).format(REG_DATE_FORMAT);
+		if (listings.existsByUserIdAndRegDate(userId, regDate)) {
+			throw new ApiException(ErrorCode.LISTING_DUPLICATE_REG_TIME);
+		}
+
 		Listing listing = Listing.builder()
 			.userId(userId)
-			.regDate(LocalDateTime.now(clock).format(REG_DATE_FORMAT))
+			.regDate(regDate)
 			.prodId(product.getProdId())
 			.tradeType(req.tradeType())
 			.prodState(req.prodState())
@@ -131,7 +138,7 @@ public class ListingService {
 			.salesQuantity(req.salesQuantity())
 			.minOrderQuantity(minOrderQuantity)
 			.orderUnit(orderUnit)
-			.deliveryDate(req.deliveryDate() == null || req.deliveryDate().isEmpty() ? null : req.deliveryDate())
+			.deliveryDate(req.deliveryDate())
 			// 등록할 땐 재고 = 판매수량 (사용자 지시 2026-10-19). 재고만 따로 고치는 건 수정 화면에서
 			.stockQuantity(req.salesQuantity())
 			.prodDescription(req.description())
@@ -142,12 +149,8 @@ public class ListingService {
 			.prodImage4(photoAt(photos, 3))
 			.build();
 
-		try {
-			listings.saveAndFlush(listing);
-		}
-		catch (DataIntegrityViolationException e) {
-			throw new ApiException(ErrorCode.LISTING_DUPLICATE_REG_TIME);
-		}
+		// 같은 (user_id, reg_date) 는 위 잠금·확인이 막아 PK 충돌이 나지 않는다
+		listings.saveAndFlush(listing);
 
 		return toResponse(listing, product);
 	}
@@ -164,6 +167,10 @@ public class ListingService {
 		// 제조일도 저장된 값 그대로면 건너뛴다 (납기일과 같은 이유). 새로 보낸 값만 오늘까지인지 본다
 		String newMufcDate = req.prodMufcDate() == null || req.prodMufcDate().isEmpty()
 				|| req.prodMufcDate().equals(currentProduct.getProdMufcDate()) ? null : req.prodMufcDate();
+		// 제공가능일은 정의서 NOT NULL — 수정에서 비울 수 없다 (null = 안 바꿈)
+		if (req.deliveryDate() != null && req.deliveryDate().isBlank()) {
+			throw new ValidationException(Map.of("deliveryDate", ListingCreateRequest.DELIVERY_DATE_REQUIRED));
+		}
 		validateDates(newMufcDate, Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
 		// 대표 사진 필수(등록 규칙)를 수정에서도 지킨다 — 사진이 있는 매물은 전부 뺄 수 없다.
 		// 사진 없는 옛 매물은 [] 를 보내도 바뀌는 게 없어 막지 않는다
@@ -202,6 +209,16 @@ public class ListingService {
 		uploads.claim(requesterId, files);
 
 		listing.applyUpdate(req, LocalDateTime.now(clock).format(REG_DATE_FORMAT));
+		if (!product.getProdId().equals(listing.getProdId())) {
+			String oldProdId = listing.getProdId();
+			// prod_id 는 PK 라 JPA 로 못 바꾼다 — 다른 칸을 먼저 저장(flush)하고 native 로 바꾼 뒤(컨텍스트 비움) 응답용 값만 맞춘다
+			listings.flush();
+			listings.changeProdId(listing.getUserId(), listing.getRegDate(), product.getProdId());
+			listing.changeProduct(product.getProdId());
+			// 이 매물을 가리키는 거래 행도 새 prod_id 로 — 거래는 (seller_id, prod_reg_date, prod_id) 로 매물을 찾는다
+			events.publishEvent(new ListingProductChangedEvent(listing.getUserId(), listing.getRegDate(), oldProdId,
+					product.getProdId()));
+		}
 		return toResponse(listing, product);
 	}
 
@@ -253,7 +270,7 @@ public class ListingService {
 					textOrCurrent(req.prodSpecInfo(), current.getProdSpecInfo()),
 					// 옛 상품의 데이터시트·사진은 처음 등록한 다른 판매자의 파일일 수 있어 물려주지 않는다. 사진은 이 매물의 첫 사진
 					null, firstPhoto(listing)));
-			listing.changeProduct(target.getProdId());
+			// 매물의 prod_id(PK) 는 update() 가 다른 칸을 저장한 뒤 바꾼다
 			return target;
 		}
 
@@ -293,27 +310,20 @@ public class ListingService {
 	@Transactional
 	public void delete(UUID pathUserId, String regDate, UUID requesterId) {
 		Listing listing = lockOwned(pathUserId, regDate, requesterId);
-		// 견적 행은 매물과 함께 지운다 — 거래 도메인이 같은 트랜잭션에서 듣는다 (listing → trade 직접 호출 금지)
-		events.publishEvent(new ListingDeletingEvent(pathUserId, regDate));
-		// 거래가 1건이라도 있으면 trd_trade_info 의 매물 FK 가 막는다. 거래 테이블을 여기서 직접 보지 않으려고(도메인 간은
-		// service 로만, 거래 → 매물 방향이라 역참조 불가) 위반을 잡아 409 로 바꾼다. flush 해야 이 메서드 안에서 위반이 난다
-		try {
-			listings.delete(listing);
-			listings.flush();
-		}
-		catch (DataIntegrityViolationException e) {
-			throw new ApiException(ErrorCode.LISTING_HAS_TRADES);
-		}
+		// 견적·장바구니 행은 매물과 함께 지우고, 남은 거래가 있으면 LISTING_HAS_TRADES 로 막는다 — 거래 도메인이 같은
+		// 트랜잭션에서 듣는다 (listing → trade 직접 호출 금지, FK 가 없어 DB 는 막지 않는다 2026-10-27)
+		events.publishEvent(new ListingDeletingEvent(pathUserId, regDate, listing.getProdId()));
+		listings.delete(listing);
 	}
 
 	/**
 	 * 수정·삭제 대상: 소유자 확인을 먼저 하고 그다음 행을 잠그고 읽는다. 잠금 먼저면 남이 수정·삭제 요청을 반복해
-	 * 매물 행을 잠가 구매요청을 막을 수 있다. 확인용 조회는 엔티티를 올리지 않는다(existsById) — 먼저 올려 두면
+	 * 매물 행을 잠가 구매요청을 막을 수 있다. 확인용 조회는 엔티티를 올리지 않는다(exists) — 먼저 올려 두면
 	 * 잠금 조회가 그 옛 상태를 그대로 돌려준다. 없는 매물은 남이 보내도 404 (기존 응답 그대로)
 	 */
 	private Listing lockOwned(UUID pathUserId, String regDate, UUID requesterId) {
 		if (!requesterId.equals(pathUserId)) {
-			throw new ApiException(listings.existsById(new ListingId(pathUserId, regDate)) ? ErrorCode.FORBIDDEN
+			throw new ApiException(listings.existsByUserIdAndRegDate(pathUserId, regDate) ? ErrorCode.FORBIDDEN
 					: ErrorCode.LISTING_NOT_FOUND);
 		}
 		return listings.findForUpdate(pathUserId, regDate).orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
@@ -331,10 +341,28 @@ public class ListingService {
 		return toSnapshot(listing, products.get(listing.getProdId()));
 	}
 
-	/** 구매요청이 복사해 갈 매물 값 (거래 도메인용) */
-	public ListingTradeSnapshot snapshotForTrade(UUID sellerId, String regDate) {
-		Listing listing = listings.findById(new ListingId(sellerId, regDate))
+	/** 거래 행에서 매물을 잠그고 읽는다 (거래 행의 seller_id, prod_reg_date, prod_id) */
+	@Transactional
+	public ListingTradeSnapshot lockForTrade(ListingId id) {
+		Listing listing = listings.findForUpdate(id.getUserId(), id.getRegDate(), id.getProdId())
 			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
+		return toSnapshot(listing, products.get(listing.getProdId()));
+	}
+
+	/**
+	 * 견적·장바구니가 복사해 갈 매물 값 (거래 도메인용). 공유 잠금으로 읽어 그 트랜잭션이 끝날 때까지 매물 삭제·상품 변경이
+	 * 기다린다 — 지워진 매물을 가리키는 거래 행이 생기지 않게 (ListingRepository.findForShare)
+	 */
+	@Transactional
+	public ListingTradeSnapshot snapshotForTrade(UUID sellerId, String regDate) {
+		Listing listing = listings.findForShare(sellerId, regDate)
+			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
+		return toSnapshot(listing, products.get(listing.getProdId()));
+	}
+
+	/** 거래 행이 가리키는 매물 값 (거래 행의 seller_id, prod_reg_date, prod_id) */
+	public ListingTradeSnapshot snapshotForTrade(ListingId id) {
+		Listing listing = listings.findById(id).orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
 		return toSnapshot(listing, products.get(listing.getProdId()));
 	}
 
@@ -360,18 +388,15 @@ public class ListingService {
 		return found.stream().collect(Collectors.toMap(Listing::getId, l -> toSearchItem(l, productsById.get(l.getProdId()))));
 	}
 
-	/**
-	 * 상품ID → 상품명. 거래는 구매 때 상품ID 를 복사해 두므로, 판매자가 나중에 매물의 상품명을 바꿔도(= 다른 마스터를
-	 * 가리킴) 거래 내역은 구매 때 이름을 보여 준다
-	 */
+	/** 상품ID → 상품명 (거래 메일 등, 거래 행의 prod_id 로) */
 	public Map<String, String> productNames(Collection<String> prodIds) {
 		return products.getAll(prodIds).values().stream().collect(Collectors.toMap(Product::getProdId, Product::getProdName));
 	}
 
 	/** 구매요청의 재고 차감. 재고 부족·거래완료면 TRADE_OUT_OF_STOCK (호출자 트랜잭션에 합류해 같이 롤백) */
 	@Transactional
-	public void reserveStock(UUID sellerId, String regDate, int quantity) {
-		if (listings.reserveStock(sellerId, regDate, quantity, LocalDateTime.now(clock).format(REG_DATE_FORMAT)) == 0) {
+	public void reserveStock(ListingId id, int quantity) {
+		if (listings.reserveStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity, LocalDateTime.now(clock).format(REG_DATE_FORMAT)) == 0) {
 			throw new ApiException(ErrorCode.TRADE_OUT_OF_STOCK);
 		}
 	}
@@ -381,8 +406,8 @@ public class ListingService {
 	 * 거래완료 매물은 409 (단가를 바꿔도 살 수 없다). 호출자 트랜잭션에 합류해 같이 롤백
 	 */
 	@Transactional
-	public void applyQuotePrice(UUID sellerId, String regDate, int price) {
-		Listing listing = listings.findForUpdate(sellerId, regDate).orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
+	public void applyQuotePrice(ListingId id, int price) {
+		Listing listing = listings.findForUpdate(id.getUserId(), id.getRegDate(), id.getProdId()).orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
 		if (listing.getDtExpire() != null) {
 			throw new ApiException(ErrorCode.LISTING_COMPLETED);
 		}
@@ -391,12 +416,15 @@ public class ListingService {
 
 	/** 거래 취소로 재고 복원 + 거래완료일시 지움 */
 	@Transactional
-	public void releaseStock(UUID sellerId, String regDate, int quantity) {
-		listings.releaseStock(sellerId, regDate, quantity);
+	public void releaseStock(ListingId id, int quantity) {
+		// 0행이면 가리키는 매물이 없다 — 조용히 넘어가면 취소는 되고 재고만 사라진다
+		if (listings.releaseStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity) == 0) {
+			throw new ApiException(ErrorCode.LISTING_NOT_FOUND);
+		}
 	}
 
 	public ListingResponse get(UUID userId, String regDate) {
-		Listing listing = listings.findById(new ListingId(userId, regDate))
+		Listing listing = listings.findByUserIdAndRegDate(userId, regDate)
 			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
 		return toResponse(listing, products.get(listing.getProdId()));
 	}

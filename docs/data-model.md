@@ -69,7 +69,7 @@
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | prod_id | varchar(20) | PK | 레거시 비즈니스 키를 그대로 PK로 씀 (uuid 서로게이트 없음, 2026-09-29 지시). 자동생성: `KP-연도-일련번호6자리`(예 `KP-2026-000001`), 일련번호는 한국 날짜 기준 해마다 1부터 (2026-10-08). 그 전에 만든 행은 옛 형식(카테고리 8자+4자리) 그대로 |
-| category_code | varchar(12) | not null, FK→trd_ctgr_code(category_code) `fk_trd_prod_master_category` | 카테고리 코드 목록에 있는 값만 (등록·수정 API 도 검사) |
+| category_code | varchar(12) | not null | 카테고리 코드 목록에 있는 값만 — 등록·수정 API 가 검사 (외래키는 2026-10-27 에 없앰) |
 | prod_name | varchar(50) | not null | |
 | prod_mpn | varchar(20) | | 제조사 번호(코드) |
 | prod_scan_code | varchar(20) | | 상품 스캔 코드 (정의서). 아직 채우지 않음 |
@@ -85,16 +85,16 @@
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| user_id | uuid | PK(복합), FK→trd_user_info | 레거시 "사용자ID". 로그인 아이디 문자열이 아니라 trd_user_info.uid(uuid). 조직(seller_org_id)은 넣지 않음 — decisions.md 미정 항목을 이 커밋에서 확정 |
-| reg_date | varchar(14) | PK(복합), not null | 등록일시(일시분초). user_id 와 복합 PK — 같은 사용자가 같은 초에 두 번 등록하면 409(코드리뷰로 조용한 덮어쓰기 버그를 고침, 2026-09-29) |
-| prod_id | varchar(20) | not null, FK→trd_prod_master(prod_id) | |
+| user_id | uuid | PK(복합) | 레거시 "사용자ID". 로그인 아이디 문자열이 아니라 trd_user_info.uid(uuid). 조직(seller_org_id)은 넣지 않음 — decisions.md 미정 항목을 이 커밋에서 확정 |
+| reg_date | varchar(14) | PK(복합), not null | 등록일시(일시분초). 같은 사용자가 같은 초에 두 번 등록하면 409 — 서버가 사용자별 잠금으로 막아(2026-10-27) 매물 주소의 (user_id, reg_date) 두 값으로도 매물 하나 |
+| prod_id | varchar(20) | PK(복합) | 정의서 PK 세 값 중 하나 (2026-10-27). 매물 수정에서 상품을 바꾸면 이 값과 그 매물을 가리키는 거래 행의 prod_id 가 같이 바뀐다 |
 | trade_type | varchar(20) | not null | 거래종류 (등록) |
 | prod_state | varchar(20) | not null | 상품상태 (레거시: "신품대비 00%" 자유 텍스트) |
 | sales_unit_price | integer | not null | 등록단가 |
 | sales_quantity | integer | not null | 등록수량 |
-| min_order_quantity | integer | not null, default 1 | |
-| order_unit | integer | not null, default 1 | |
-| prov_date | varchar(10) | | 납기일(제공가능일). **레거시 스펙엔 물리명이 REG_DATE 로 등록일시와 중복 기재되어 있어 분리함** |
+| min_order_quantity | integer | default 1 | 정의서대로 NOT NULL 아님 (서버는 늘 채운다) |
+| order_unit | integer | default 1 | 같음 |
+| prov_date | varchar(10) | not null | 제공가능일(납기일). 등록·수정에서 필수 (2026-10-27, 그 전 빈 행은 등록일로 채움). **레거시 스펙엔 물리명이 REG_DATE 로 등록일시와 중복 기재되어 있어 분리함** |
 | stock_quantity | integer ? | | 재고수량. 비우면 등록수량(sales_quantity)으로 채운다(레거시 기본값 "판매수량") |
 | prod_description | varchar(200) | | |
 | prod_data_sheet | varchar(100) | | |
@@ -104,14 +104,14 @@
 | warranty_coverage | varchar(10) | | 불량지원방법 (대체/환불) |
 | replace_prod | varchar(100) | | 대체품 — 직접 입력한 글 (2026-10-13부터. 전엔 파일 경로. 옛 값은 그대로 두고 글로 보임) |
 | test_report | varchar(100) | | 경로정보 |
-| prod_coa | varchar(100) | | 정품인증서 경로정보 |
+| certificate_of_authenticity | varchar(100) | | 정품인증서 경로정보. 정의서 물리명 CERTIFICATE OF AUTHENTICITY 를 밑줄로 (2026-10-27, 전엔 prod_coa) |
 | dt_update | varchar(14) | | 최종갱신일시 |
 | dt_expire | varchar(14) | | 거래완료일시 |
 | spare_col | varchar(100) | | |
 
 경로정보 컬럼(사진·데이터시트·대체품·테스트리포트·정품인증서)은 URL이 아니라 **저장소 키** — `POST /api/v1/uploads`가 돌려준 `public|private/listings/<종류>/yyyy/MM/<uuid>.<ext>` (최대 80자). 파일은 `GET /api/v1/files/{key}`로 연다 (security.md "파일 업로드", decisions.md 2026-10-02).
 
-인덱스: `U (prod_name, prod_brand)` on trd_prod_master (동시 등록 경합 시 재사용 판단의 근거 — 코드리뷰 지적으로 추가, 2026-09-29), `(prod_id)`·`(reg_date)` on trd_prod_reg (FK·목록 조회용).
+인덱스: `U (prod_name, prod_brand)` on trd_prod_master (동시 등록 경합 시 재사용 판단의 근거 — 코드리뷰 지적으로 추가, 2026-09-29), `(prod_id)`·`(reg_date)` on trd_prod_reg (목록 조회용). 외래키는 없다 (2026-10-27 — 정의서 FOREIGN KEY 표는 의미상 관계, 정합은 서버가 지킨다).
 제약: `trd_prod_master`·`trd_prod_reg` 엔티티는 PK를 직접 채우므로(uuid `@GeneratedValue` 없음) `Persistable` 구현 필수 — 없으면 Spring Data가 항상 `merge`(UPDATE)를 타서 중복 키를 조용히 덮어쓴다(코드리뷰로 발견, 2026-09-29 수정). 매물 목록 커서는 `reg_date` 단독이 아니라 `reg_date_userId` 복합값 — 같은 초에 다른 사용자가 등록하면 reg_date만으로는 페이지 경계에서 소실될 수 있어서.
 
 검색(`GET /api/v1/listings`, 2026-10-02): 상품명·상품번호·제조사(`trd_prod_master`)에 낱말별 `lower(...) like`, 거래상태는 `trd_prod_reg.dt_expire` 유무, 가격·재고·납기일은 `trd_prod_reg` 컬럼. 검색용 인덱스는 없다 — 느린 게 측정되면 pg_trgm 등 검토. 카테고리 필터는 아직 없음 (마스터 테이블은 있음).
@@ -137,26 +137,27 @@
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| user_id | uuid | PK(복합), FK→trd_user_info(uid) `fk_trd_trade_info_buyer` | 구매자. 정의서 varchar(20) → uuid |
-| trade_id | varchar(20) | PK(복합), **unique** `ux_trd_trade_info_trade_id` | `yyMMddHH`(한국 시간) + 순번 3자리, 11자 (예 `26092917001`). 순번은 그 시간대 전체에서 001부터. unique 는 거래이력 FK 용 (정의서 밖) |
+| user_id | uuid | PK(복합) | 구매자. 정의서 varchar(20) → uuid |
+| trade_id | varchar(20) | PK(복합) | `yyMMddHH`(한국 시간) + 순번 3자리, 11자 (예 `26092917001`). 순번은 그 시간대 전체에서 001부터. 겹치지 않는 건 생성기(시간대 잠금)가 보장 — DB unique 는 2026-10-27 에 뺐다 |
 | trade_type | varchar(20) | not null | 거래종류: 위 표 |
-| seller_id | uuid | FK(seller_id, reg_date)→trd_prod_reg(user_id, reg_date) `fk_trd_trade_info_listing` | 판매자. 정의서 물리명 `USER_ID`가 구매자와 겹쳐 이름 변경 |
-| reg_date | varchar(14) | 위 FK | 매물 등록일시 |
-| prod_id | varchar(20) | | 복사. 정의서 50 → 마스터에 맞춰 20 |
+| seller_id | uuid | | 판매자. (seller_id, prod_reg_date, prod_id) = 매물 PK 세 값. 정의서 물리명 `USER_ID`가 구매자와 겹쳐 이름 변경 |
+| prod_reg_date | varchar(14) | not null | 매물 등록일시 (정의서 PROD_REG_DATE, 2026-10-27 전엔 reg_date) |
+| reg_date | varchar(14) | | 거래 등록일시 yyyyMMddHHmmss (한국) — 행을 만든 시각, 상태가 바뀌어도 그대로. 2026-10-27 전 행은 거래ID 앞 8자리 + `0000` |
+| prod_id | varchar(50) | | 복사 (정의서 50). 매물 수정에서 상품이 바뀌면 그 매물의 거래 행도 새 값으로 (세 값으로 매물을 찾으므로) |
 | prod_state | varchar(20) | | 복사 |
 | sales_unit_price | integer | | 복사 (등록단가) |
 | stock_quantity | integer | | 복사 (요청 시점, 줄이기 전) |
 | min_order_quantity | integer | | 복사 |
 | order_unit | integer | | 복사 |
-| prov_date | varchar(10) | **nullable** | 복사 (제공가능일). 정의서 NOT NULL — 매물 납기일이 선택이라 |
+| prov_date | varchar(10) | not null | 복사 (제공가능일, 2026-10-27 부터 매물에서 필수) |
 | order_unit_price | integer | not null | 거래: = 등록단가 (구매자가 못 바꿈). 견적조정: 희망단가 (1 ~ 등록단가) |
 | order_quantity | integer | not null | 구매자 입력, 기본 최소주문량 |
-| req_deli_date | varchar(10) | **nullable** (2026-10-20) | 납품희망일 yyyy-MM-dd. 거래: 구매자 입력, 기본 제공가능일 (매물 납기일이 없으면 필수 입력). 견적조정: null (받지 않음). 정의서 NOT NULL |
+| req_deli_date | varchar(10) | not null | 납품희망일 yyyy-MM-dd. 구매·견적 모두 구매자 입력(필수), 화면 기본값은 제공가능일. 장바구니 행은 제공가능일 (2026-10-27, 그 전 빈 행은 제공가능일로 채움) |
 | remarks | varchar(100) | | 요청사항 (견적은 비고) |
 | trade_stats | varchar(10) | not null | 거래상태: 위 표 |
 | spare_col | varchar(100) | | |
 
-인덱스: `ix_trd_trade_info_listing (seller_id, reg_date)` (FK·판매자 목록·매물별 요청 건수). 구매자 목록은 PK 앞부분 `user_id`.
+인덱스: `ix_trd_trade_info_listing (seller_id, prod_reg_date, prod_id)` (판매자 목록·매물별 요청 건수). `ix_trd_trade_info_trade_id (trade_id)` — 거래ID 로만 찾는 조회용 일반 인덱스(중복 금지 아님, 정의서 밖, 2026-10-27 사용자 승인). 부분 unique `ux_trd_trade_info_one_quote`·`ux_trd_trade_info_one_cart` 도 `(user_id, seller_id, prod_reg_date, prod_id)`. 외래키 없음 — 매물 삭제 때 남은 거래 행이 있으면 서버가 409 `LISTING_HAS_TRADES`. 구매자 목록은 PK 앞부분 `user_id`.
 
 ### trd_trade_history (TRD_TRADE_HISTORY — 거래이력)
 
@@ -164,17 +165,17 @@
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| trade_id | varchar(20) | PK(복합), FK→trd_trade_info(trade_id) `fk_trd_trade_history_trade` | |
+| user_id | uuid | PK(복합) | 구매자 (정의서 USER_ID, 2026-10-27 전엔 buyer_id) |
+| trade_id | varchar(20) | PK(복합) | |
 | trade_date | varchar(14) | PK(복합) | 확정일시 yyyyMMddHHmmss |
-| prod_id | varchar(20) | PK(복합) | |
+| prod_id | varchar(50) | not null | 구매 때 상품ID (정의서 50) |
 | trade_type | varchar(10) | not null | `거래` (2026-10-20 전엔 `구매확정`) |
-| seller_id | uuid | not null, FK→trd_user_info(uid) | 정의서 물리명이 논리명과 뒤바뀜(판매자=BUYER_ID) → 바로잡음 |
-| buyer_id | uuid | not null, FK→trd_user_info(uid) | |
+| seller_id | uuid | not null | 정의서 물리명이 논리명과 뒤바뀜(판매자=BUYER_ID) → 바로잡음 |
 | trade_unit_price | integer | | |
 | trade_quantity | integer | | |
 | trade_amount | integer | | 단가 × 수량 (int 범위를 넘는 주문은 요청 때 거절) |
 | spare_col | varchar(100) | | |
 
-인덱스: `ix_trd_trade_history_seller`, `ix_trd_trade_history_buyer` (FK). 지금 흐름은 거래 1건 = 이력 1줄이지만 PK 는 정의서대로 둔다(나중 견적·분할 확정).
+인덱스: `ix_trd_trade_history_seller` (판매 이력). 구매 이력은 PK 앞자리 `user_id`. 외래키 없음 (2026-10-27). 지금 흐름은 거래 1건 = 이력 1줄이지만 PK 는 정의서대로 둔다(나중 견적·분할 확정).
 
 **다음에 정할 것**: PRD 작성 시 이미지 다건 구조(별도 테이블) 전환, prod_state enum화, 조직(seller_org_id) 도입 여부, quantity·가격 검증 규칙(`security.md`).

@@ -15,7 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 거래ID = 한국 시간 yyMMddHH + 그 시간대 순번 3자리 (예 26092917001, 사용자 지시 2026-10-15).
- * 순번은 "그 시간대 최댓값 + 1" — unique 인덱스 범위 조회라 LIKE 건수 세기와 달리 거래가 쌓여도 느려지지 않는다. 같은 시간대에 동시에 만들면 같은 번호가 나오는데, 겹친 뒤 다시 시도할 수는 없다 —
+ * 순번은 "그 시간대 최댓값 + 1" — trade_id 인덱스(ix_trd_trade_info_trade_id) 범위 조회라 LIKE 건수 세기와 달리 거래가 쌓여도 느려지지 않는다. 같은 시간대에 동시에 만들면 같은 번호가 나오는데, 겹친 뒤 다시 시도할 수는 없다 —
  * Postgres 는 실패한 문장 하나로 트랜잭션 전체가 중단돼서. 그래서 시간대별 advisory lock 으로 세기부터 저장·커밋까지 줄 세운다.
  * 락은 호출자 트랜잭션이 끝날 때 풀리므로 그 트랜잭션 안에서만 부른다(MANDATORY).
  */

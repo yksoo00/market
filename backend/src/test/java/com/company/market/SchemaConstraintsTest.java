@@ -81,9 +81,10 @@ class SchemaConstraintsTest {
 	@DisplayName("정의서 물리명: trd_prod_master·trd_prod_reg·trd_user_info·trd_trade_info·trd_trade_history 의 정의서 컬럼이 있다")
 	void legacyPhysicalNames() {
 		String[][] columns = { { "trd_prod_master", "prod_mpn" }, { "trd_prod_master", "prod_scan_code" },
-				{ "trd_prod_reg", "prov_date" }, { "trd_prod_reg", "prod_coa" }, { "trd_user_info", "uid" },
-				{ "trd_trade_info", "seller_id" }, { "trd_trade_info", "trade_stats" },
-				{ "trd_trade_history", "buyer_id" }, { "trd_trade_history", "trade_amount" } };
+				{ "trd_prod_reg", "prov_date" }, { "trd_prod_reg", "certificate_of_authenticity" },
+				{ "trd_user_info", "uid" }, { "trd_trade_info", "seller_id" }, { "trd_trade_info", "trade_stats" },
+				{ "trd_trade_info", "prod_reg_date" }, { "trd_trade_info", "reg_date" },
+				{ "trd_trade_history", "user_id" }, { "trd_trade_history", "trade_amount" } };
 		for (String[] c : columns) {
 			assertThat(jdbc.queryForObject("select count(*) from information_schema.columns "
 					+ "where table_schema = current_schema() and table_name = ? and column_name = ?",
@@ -112,62 +113,98 @@ class SchemaConstraintsTest {
 				insert into trd_prod_master (prod_id, category_code, prod_name, prod_brand, reg_date)
 				values ('TRADETEST1', 'P01-Q01-R001', '상품', '브랜드', '20261015100000')
 				""");
-		jdbc.update("""
-				insert into trd_prod_reg (user_id, reg_date, prod_id, trade_type, prod_state, sales_unit_price, sales_quantity)
-				values (?, '20261015100000', 'TRADETEST1', '판매', '신품', 1000, 10)
-				""", seller);
+		insertProdReg(seller, "20261015100000", "TRADETEST1");
 		return new UUID[] { buyer, seller };
+	}
+
+	private void insertProdReg(UUID seller, String regDate, String prodId) {
+		jdbc.update("""
+				insert into trd_prod_reg (user_id, reg_date, prod_id, trade_type, prod_state, sales_unit_price,
+					sales_quantity, prov_date)
+				values (?, ?, ?, '판매', '신품', 1000, 10, '2026-10-20')
+				""", seller, regDate, prodId);
 	}
 
 	private void insertTrade(UUID buyer, UUID seller, String tradeId) {
 		jdbc.update("""
-				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
-					order_unit_price, order_quantity, req_deli_date, trade_stats)
-				values (?, ?, '구매요청', ?, '20261015100000', 'TRADETEST1', 1000, 1, '2026-10-20', '구매요청')
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id,
+					order_unit_price, order_quantity, prov_date, req_deli_date, trade_stats)
+				values (?, ?, '구매요청', ?, '20261015100000', 'TRADETEST1', 1000, 1, '2026-10-20', '2026-10-20', '구매요청')
 				""", buyer, tradeId, seller);
 	}
 
 	@Test
-	@DisplayName("거래 테이블: trade_id 는 유일하고, 이력은 없는 거래를 가리킬 수 없다")
-	void tradeIdUniqueAndHistoryForeignKey() {
-		UUID[] ids = insertListingAndBuyer();
-		insertTrade(ids[0], ids[1], "26101510001");
-		// 구매자가 달라도 같은 trade_id 는 안 된다 (이력 FK 가 trade_id 하나로 거래를 가리키므로)
-		assertThatThrownBy(() -> insertTrade(ids[1], ids[1], "26101510001"))
-			.isInstanceOf(DataIntegrityViolationException.class);
-		assertThatThrownBy(() -> jdbc.update("""
-				insert into trd_trade_history (trade_id, trade_date, prod_id, trade_type, seller_id, buyer_id)
-				values ('26101599999', '20261015120000', 'TRADETEST1', '구매확정', ?, ?)
-				""", ids[1], ids[0])).isInstanceOf(DataIntegrityViolationException.class);
-	}
-
-	@Test
-	@DisplayName("견적조정 행은 납품희망일 없이 저장된다 (req_deli_date nullable, 2026-10-20)")
-	void quoteRowWithoutReqDeliDate() {
+	@DisplayName("FK 가 없다 — 이력은 없는 거래를 가리켜도 저장된다 (정의서 FOREIGN KEY 는 의미상 관계, 2026-10-27)")
+	void noForeignKeys() {
+		assertThat(jdbc.queryForObject("""
+				select count(*) from information_schema.table_constraints
+				 where table_schema = current_schema() and constraint_type = 'FOREIGN KEY' and table_name like 'trd_%'
+				""", Integer.class)).isZero();
 		UUID[] ids = insertListingAndBuyer();
 		jdbc.update("""
-				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
-					order_unit_price, order_quantity, req_deli_date, trade_stats)
-				values (?, '26102010001', '견적조정', ?, '20261015100000', 'TRADETEST1', 900, 1, null, '견적요청')
+				insert into trd_trade_history (user_id, trade_id, trade_date, prod_id, trade_type, seller_id)
+				values (?, '26101599999', '20261015120000', 'TRADETEST1', '거래', ?)
 				""", ids[0], ids[1]);
-		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info where req_deli_date is null", Integer.class))
-			.isEqualTo(1);
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_history", Integer.class)).isEqualTo(1);
 	}
 
 	@Test
-	@DisplayName("거래 매물 FK: 거래가 있는 매물은 지울 수 없다")
-	void listingWithTradeCannotBeDeleted() {
+	@DisplayName("trd_prod_reg PK 는 (user_id, reg_date, prod_id) — 상품이 다르면 같은 초도 저장, 세 값이 같으면 거부")
+	void prodRegPrimaryKeyHasProdId() {
 		UUID[] ids = insertListingAndBuyer();
-		insertTrade(ids[0], ids[1], "26101510001");
-		assertThatThrownBy(() -> jdbc.update("delete from trd_prod_reg where user_id = ?", ids[1]))
+		jdbc.update("""
+				insert into trd_prod_master (prod_id, category_code, prod_name, prod_brand, reg_date)
+				values ('TRADETEST2', 'P01-Q01-R001', '상품2', '브랜드', '20261015100000')
+				""");
+		insertProdReg(ids[1], "20261015100000", "TRADETEST2");
+		assertThatThrownBy(() -> insertProdReg(ids[1], "20261015100000", "TRADETEST2"))
+			.isInstanceOf(DuplicateKeyException.class);
+	}
+
+	@Test
+	@DisplayName("trd_trade_info 의 prod_reg_date·prov_date·req_deli_date 는 NOT NULL (정의서)")
+	void tradeInfoNotNullColumns() {
+		UUID[] ids = insertListingAndBuyer();
+		String sql = """
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id,
+					order_unit_price, order_quantity, prov_date, req_deli_date, trade_stats)
+				values (?, '26101510009', '거래', ?, ?, 'TRADETEST1', 1000, 1, ?, ?, '구매요청')
+				""";
+		assertThatThrownBy(() -> jdbc.update(sql, ids[0], ids[1], null, "2026-10-20", "2026-10-20")).as("prod_reg_date")
 			.isInstanceOf(DataIntegrityViolationException.class);
+		assertThatThrownBy(() -> jdbc.update(sql, ids[0], ids[1], "20261015100000", null, "2026-10-20")).as("prov_date")
+			.isInstanceOf(DataIntegrityViolationException.class);
+		assertThatThrownBy(() -> jdbc.update(sql, ids[0], ids[1], "20261015100000", "2026-10-20", null)).as("req_deli_date")
+			.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	@DisplayName("trd_trade_info 에 거래ID 찾기용 일반 인덱스가 있다 — PK 는 구매자가 앞자리라 거래ID 만으로는 못 탄다 (2026-10-27)")
+	void tradeIdIndex() {
+		assertThat(jdbc.queryForObject("""
+				select indexdef from pg_indexes
+				 where schemaname = current_schema() and indexname = 'ix_trd_trade_info_trade_id'
+				""", String.class)).contains("(trade_id)").doesNotContain("UNIQUE");
+	}
+
+	@Test
+	@DisplayName("trd_trade_history PK 는 (user_id, trade_id, trade_date)")
+	void tradeHistoryPrimaryKey() {
+		assertThat(jdbc.queryForList("""
+				select k.column_name from information_schema.table_constraints c
+				  join information_schema.key_column_usage k on k.constraint_name = c.constraint_name
+				   and k.table_schema = c.table_schema
+				 where c.table_schema = current_schema() and c.table_name = 'trd_trade_history'
+				   and c.constraint_type = 'PRIMARY KEY'
+				 order by k.ordinal_position
+				""", String.class)).containsExactly("user_id", "trade_id", "trade_date");
 	}
 
 	private void insertRow(UUID buyer, UUID seller, String tradeId, String type, String stats) {
 		jdbc.update("""
-				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
-					order_unit_price, order_quantity, trade_stats)
-				values (?, ?, ?, ?, '20261015100000', 'TRADETEST1', 1000, 1, ?)
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id,
+					order_unit_price, order_quantity, prov_date, req_deli_date, trade_stats)
+				values (?, ?, ?, ?, '20261015100000', 'TRADETEST1', 1000, 1, '2026-10-20', '2026-10-20', ?)
 				""", buyer, tradeId, type, seller, stats);
 	}
 
@@ -184,15 +221,6 @@ class SchemaConstraintsTest {
 		UUID other = jdbc.queryForObject("select uid from trd_user_info where user_id = 'buyer02'", UUID.class);
 		insertRow(other, ids[1], "26102113004", "구매검토", "장바구니");
 		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class)).isEqualTo(3);
-	}
-
-	@Test
-	@DisplayName("trd_prod_master.category_code 가 카테고리에 없으면 외래키가 거부한다")
-	void productCategoryForeignKey() {
-		assertThatThrownBy(() -> jdbc.update("""
-				insert into trd_prod_master (prod_id, category_code, prod_name, prod_brand, reg_date)
-				values ('FKTEST0001', 'NOPE-CODE', '상품', '브랜드', '20261013120000')
-				""")).isInstanceOf(DataIntegrityViolationException.class);
 	}
 
 }

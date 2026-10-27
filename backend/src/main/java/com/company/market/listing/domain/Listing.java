@@ -20,7 +20,8 @@ import lombok.Getter;
 import org.springframework.data.domain.Persistable;
 
 /**
- * 상품등록정보(TRD_PROD_REG, 테이블 trd_prod_reg). uuid 서로게이트 PK 없음 — (user_id, reg_date) 복합 PK (decisions.md 2026-09-29).
+ * 상품등록정보(TRD_PROD_REG, 테이블 trd_prod_reg). 정의서 복합 PK (user_id, reg_date, prod_id) (2026-10-27).
+ * 같은 사용자 같은 초 등록은 ListingService 가 잠금으로 막아 (user_id, reg_date) 만으로도 매물 하나가 정해진다.
  * PK 를 직접 채우므로(@GeneratedValue 없음) Persistable 없이는 save() 가 항상 id!=null → merge 로 가서
  * 같은 초 중복 등록을 INSERT 충돌이 아니라 UPDATE 로 조용히 덮어쓴다. Persistable.isNew() 로 진짜 신규만 INSERT(persist) 하게 한다.
  */
@@ -41,7 +42,8 @@ public class Listing implements Persistable<ListingId> {
 	@Column(name = "reg_date")
 	private String regDate;
 
-	@Column(nullable = false)
+	@Id
+	@Column(name = "prod_id")
 	private String prodId;
 
 	@Column(nullable = false)
@@ -56,10 +58,8 @@ public class Listing implements Persistable<ListingId> {
 	@Column(nullable = false)
 	private Integer salesQuantity;
 
-	@Column(nullable = false)
 	private Integer minOrderQuantity;
 
-	@Column(nullable = false)
 	private Integer orderUnit;
 
 	@Column(name = "prov_date")
@@ -91,7 +91,7 @@ public class Listing implements Persistable<ListingId> {
 
 	private String testReport;
 
-	@Column(name = "prod_coa")
+	@Column(name = "certificate_of_authenticity")
 	private String certificateOfAuthen;
 
 	private String dtUpdate;
@@ -135,7 +135,10 @@ public class Listing implements Persistable<ListingId> {
 		this.spareCol = spareCol;
 	}
 
-	/** 이 매물만 다른 상품마스터로 옮긴다 (남의 매물은 그대로) */
+	/**
+	 * 이 매물만 다른 상품마스터로 옮긴다 (남의 매물은 그대로). prod_id 는 PK 라 JPA 가 바꾸지 못한다 — DB 는
+	 * ListingRepository.changeProdId 가 바꾸고, 이 메서드는 그 뒤 분리된 엔티티의 값만 맞춘다 (응답용)
+	 */
 	public void changeProduct(String prodId) {
 		this.prodId = prodId;
 	}
@@ -169,7 +172,7 @@ public class Listing implements Persistable<ListingId> {
 			this.orderUnit = req.orderUnit();
 		}
 		if (req.deliveryDate() != null) {
-			this.deliveryDate = emptyToNull(req.deliveryDate());
+			this.deliveryDate = req.deliveryDate();
 		}
 		if (req.stockQuantity() != null) {
 			this.stockQuantity = req.stockQuantity();
@@ -236,7 +239,7 @@ public class Listing implements Persistable<ListingId> {
 
 	@Override
 	public ListingId getId() {
-		return new ListingId(userId, regDate);
+		return new ListingId(userId, regDate, prodId);
 	}
 
 	@Override

@@ -29,7 +29,7 @@ docs {
   sellerId·regDate 는 매물 키 (listings/get.bru 경로의 userId·regDate). 예시 값은 자리표시.
   201 { ok, data: TradeResponse } — tradeId(yyMMddHH+순번 3자리), tradeStats "requested", amount = 등록단가 × 수량.
   단가는 보내지 않는다 — 등록단가 고정. 요청하면 재고가 바로 줄고, 0이 되면 매물이 거래완료가 된다.
-  reqDeliDate 생략 시 매물 납기일, 매물에도 없으면 400 fields.reqDeliDate.
+  reqDeliDate 필수 (2026-10-27) — 생략·빈 값 400 fields.reqDeliDate "납품희망일을 입력해 주세요.".
   400 fields.orderQuantity: 최소주문량 미만, 주문단위 배수 아님, 금액 int 초과. 400 fields.reqDeliDate: 과거·형식.
   403 TRADE_OWN_LISTING: 내 매물. 404: 없는 매물. 409 LISTING_COMPLETED, TRADE_OUT_OF_STOCK, TRADE_ID_EXHAUSTED.
   429: 20회/시간/사용자. Idempotency-Key 헤더(UUID, 선택) — 같은 키 재전송은 처음 거래를 그대로 돌려준다.

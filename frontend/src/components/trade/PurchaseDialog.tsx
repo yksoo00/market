@@ -188,7 +188,6 @@ function PurchaseForm({ detail, quoteTradeId, defaultQuantity, notice, onStockCh
         minOrder: detail.minOrderQuantity,
         unit: detail.orderUnit,
         unitPrice: detail.salesUnitPrice,
-        provDate: detail.deliveryDate,
         today,
       }),
     ),
@@ -212,7 +211,7 @@ function PurchaseForm({ detail, quoteTradeId, defaultQuantity, notice, onStockCh
     setUnreachable(false);
     const fields = {
       orderQuantity: values.orderQuantity,
-      ...(values.reqDeliDate ? { reqDeliDate: values.reqDeliDate } : {}),
+      reqDeliDate: values.reqDeliDate,
       ...(values.remarks ? { remarks: values.remarks } : {}),
     };
     const result = quoteTradeId

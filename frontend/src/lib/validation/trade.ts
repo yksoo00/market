@@ -16,11 +16,23 @@ export interface PurchaseLimits {
   minOrder: number;
   unit: number;
   unitPrice: number;
-  /** 매물 납기일 YYYY-MM-DD. 없으면 납품희망일 필수 */
-  provDate: string | null;
   /** 한국 날짜 YYYY-MM-DD (lib/listingForm todayInSeoul) */
   today: string;
 }
+
+/**
+ * 납품희망일 (구매·견적 같음, 서버 TradeService.reqDeliDateFailure): 필수(정의서 NOT NULL, 2026-10-27), 실제 날짜, 오늘 이후.
+ * 화면 기본값은 매물 제공가능일 — 모달이 채운다
+ */
+export const reqDeliDateField = (today: string) =>
+  z
+    .string()
+    .min(1, v.deliRequired)
+    .superRefine((s, ctx) => {
+      if (s === "") return;
+      if (!isValidDate(s)) ctx.addIssue({ code: "custom", message: v.date });
+      else if (s < today) ctx.addIssue({ code: "custom", message: v.deliPast });
+    });
 
 export const orderAmount = (unitPrice: number, quantity: number) => unitPrice * quantity;
 
@@ -44,20 +56,7 @@ export function purchaseSchema(l: PurchaseLimits) {
         const message = quantityIssue(l, n, l.unitPrice);
         if (message) ctx.addIssue({ code: "custom", message });
       }),
-    reqDeliDate: z
-      .string()
-      .superRefine((s, ctx) => {
-        if (s === "") {
-          // 비우면 서버가 매물 납기일을 쓴다 — 그 날짜도 같은 규칙(오늘 이후)으로 본다
-          if (!l.provDate) ctx.addIssue({ code: "custom", message: v.deliRequired });
-          else if (l.provDate < l.today) ctx.addIssue({ code: "custom", message: v.deliProvPast });
-          return;
-        }
-        if (!isValidDate(s)) ctx.addIssue({ code: "custom", message: v.date });
-        else if (s < l.today) ctx.addIssue({ code: "custom", message: v.deliPast });
-      })
-      // 비우면 키를 빼서 서버가 매물 납기일을 쓰게 한다
-      .transform((s) => (s === "" ? undefined : s)),
+    reqDeliDate: reqDeliDateField(l.today),
     remarks: z
       .string()
       .trim()

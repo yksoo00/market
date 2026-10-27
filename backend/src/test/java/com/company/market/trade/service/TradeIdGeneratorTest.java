@@ -65,7 +65,7 @@ class TradeIdGeneratorTest {
 
 	private TradeInfo trade(String tradeId) {
 		return TradeInfo.builder().userId(buyerId).tradeId(tradeId).tradeType(TradeType.PURCHASE)
-			.orderUnitPrice(1000).orderQuantity(1).reqDeliDate("2026-10-20").tradeStats(TradeStats.REQUESTED).build();
+			.prodRegDate("20261020120000").provDate("2026-10-20").orderUnitPrice(1000).orderQuantity(1).reqDeliDate("2026-10-20").tradeStats(TradeStats.REQUESTED).build();
 	}
 
 	@Test

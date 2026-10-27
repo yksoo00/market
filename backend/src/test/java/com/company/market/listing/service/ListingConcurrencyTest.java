@@ -10,6 +10,7 @@ import com.company.market.common.crypto.PiiHasher;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.listing.domain.Listing;
+import com.company.market.listing.domain.ListingId;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.dto.ListingUpdateRequest;
 import com.company.market.listing.repository.ListingRepository;
@@ -71,7 +72,7 @@ class ListingConcurrencyTest {
 			.prodName("노트북 C").prodBrand("삼성").regDate(REG_DATE).build());
 		listings.saveAndFlush(Listing.builder().userId(sellerId).regDate(REG_DATE).prodId("CONCTEST01")
 			.tradeType("등록").prodState("신품").salesUnitPrice(1000).salesQuantity(10).stockQuantity(10)
-			.minOrderQuantity(1).orderUnit(1).build());
+			.minOrderQuantity(1).orderUnit(1).deliveryDate("2026-12-31").build());
 	}
 
 	@AfterEach
@@ -89,7 +90,7 @@ class ListingConcurrencyTest {
 		CountDownLatch release = new CountDownLatch(1);
 		// 구매요청 쪽: 재고를 줄이고(행 잠금) 커밋 전에 멈춘다
 		CompletableFuture<Void> purchase = CompletableFuture.runAsync(() -> tx.executeWithoutResult(s -> {
-			service.reserveStock(sellerId, REG_DATE, 5);
+			service.reserveStock(new ListingId(sellerId, REG_DATE, "CONCTEST01"), 5);
 			reserved.countDown();
 			await(release);
 		}));
@@ -115,7 +116,7 @@ class ListingConcurrencyTest {
 		CountDownLatch reserved = new CountDownLatch(1);
 		CountDownLatch release = new CountDownLatch(1);
 		CompletableFuture<Void> purchase = CompletableFuture.runAsync(() -> tx.executeWithoutResult(s -> {
-			service.reserveStock(sellerId, REG_DATE, 1);
+			service.reserveStock(new ListingId(sellerId, REG_DATE, "CONCTEST01"), 1);
 			reserved.countDown();
 			await(release);
 		}));

@@ -4,16 +4,23 @@ import { quoteSchema, type QuoteLimits } from "./quote";
 
 const v = trade.validation;
 const q = trade.quote.validation;
-const limits: QuoteLimits = { stock: 10, minOrder: 2, unit: 2, listedPrice: 1000 };
-const parse = (row: Partial<{ orderUnitPrice: string; orderQuantity: string; remarks: string }>, l: QuoteLimits = limits) =>
-  quoteSchema([l]).safeParse({ items: [{ orderUnitPrice: "900", orderQuantity: "2", remarks: "", ...row }] });
+const limits: QuoteLimits = { stock: 10, minOrder: 2, unit: 2, listedPrice: 1000, today: "2026-10-16" };
+const parse = (row: Partial<{ orderUnitPrice: string; orderQuantity: string; reqDeliDate: string; remarks: string }>, l: QuoteLimits = limits) =>
+  quoteSchema([l]).safeParse({ items: [{ orderUnitPrice: "900", orderQuantity: "2", reqDeliDate: "2026-10-30", remarks: "", ...row }] });
 const errorOf = (r: ReturnType<typeof parse>, field: string) =>
   r.success ? undefined : r.error.issues.find((i) => i.path.join(".") === `items.0.${field}`)?.message;
 
 describe("quoteSchema", () => {
   it("맞으면 숫자로 바꾸고 빈 비고는 뺀다", () => {
     const r = parse({});
-    expect(r.success && r.data).toEqual({ items: [{ orderUnitPrice: 900, orderQuantity: 2, remarks: undefined }] });
+    expect(r.success && r.data).toEqual({ items: [{ orderUnitPrice: 900, orderQuantity: 2, reqDeliDate: "2026-10-30", remarks: undefined }] });
+  });
+
+  it("납품희망일: 비우면 필수, 없는 날짜·오늘 이전은 오류, 오늘은 통과 (2026-10-27)", () => {
+    expect(errorOf(parse({ reqDeliDate: "" }), "reqDeliDate")).toBe(v.deliRequired);
+    expect(errorOf(parse({ reqDeliDate: "2026-02-30" }), "reqDeliDate")).toBe(v.date);
+    expect(errorOf(parse({ reqDeliDate: "2026-10-15" }), "reqDeliDate")).toBe(v.deliPast);
+    expect(parse({ reqDeliDate: "2026-10-16" }).success).toBe(true);
   });
 
   it("희망단가: 비움·숫자 아님·0·등록단가 초과는 오류, 등록단가와 같으면 통과", () => {
@@ -32,7 +39,7 @@ describe("quoteSchema", () => {
   });
 
   it("금액은 희망단가로 본다 — 희망단가 × 수량이 int 를 넘으면 오류", () => {
-    const big: QuoteLimits = { stock: 100_000, minOrder: 1, unit: 1, listedPrice: 1_000_000_000 };
+    const big: QuoteLimits = { stock: 100_000, minOrder: 1, unit: 1, listedPrice: 1_000_000_000, today: "2026-10-16" };
     expect(errorOf(parse({ orderUnitPrice: "1000000000", orderQuantity: "3" }, big), "orderQuantity")).toBe(v.amountMax);
     expect(parse({ orderUnitPrice: "1", orderQuantity: "3" }, big).success).toBe(true);
   });
@@ -40,8 +47,8 @@ describe("quoteSchema", () => {
   it("줄마다 그 매물의 규칙을 쓴다 — 두 번째 줄 등록단가 500", () => {
     const r = quoteSchema([limits, { ...limits, listedPrice: 500 }]).safeParse({
       items: [
-        { orderUnitPrice: "900", orderQuantity: "2", remarks: "" },
-        { orderUnitPrice: "900", orderQuantity: "2", remarks: "" },
+        { orderUnitPrice: "900", orderQuantity: "2", reqDeliDate: "2026-10-30", remarks: "" },
+        { orderUnitPrice: "900", orderQuantity: "2", reqDeliDate: "2026-10-30", remarks: "" },
       ],
     });
     const issues = r.success ? [] : r.error.issues.map((i) => `${i.path.join(".")}:${i.message}`);

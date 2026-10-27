@@ -76,6 +76,8 @@ test("견적 요청 → 판매자 수락(매물 단가 변경) → 구매자 [�
     });
     await expect(page.getByRole("status", { name: listing.form.uploading })).toBeHidden();
     await page.locator('input[name="salesQuantity"]').fill("5");
+    // 제공가능일 필수 (2026-10-27)
+    await page.locator('input[name="deliveryDate"]').fill(new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10));
     await page.getByRole("button", { name: listing.form.submit, exact: true }).click();
     await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
     listingPath = new URL(page.url()).pathname;
@@ -189,6 +191,8 @@ test("견적 요청 → 판매자 거절 → 구매자 [재요청] → 다시 �
     });
     await expect(page.getByRole("status", { name: listing.form.uploading })).toBeHidden();
     await page.locator('input[name="salesQuantity"]').fill("5");
+    // 제공가능일 필수 (2026-10-27)
+    await page.locator('input[name="deliveryDate"]').fill(new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10));
     await page.getByRole("button", { name: listing.form.submit, exact: true }).click();
     await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
     await logOut(page);

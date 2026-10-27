@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isValidDate } from "@/lib/search";
-import { isInt, MAX_DESCRIPTION, MAX_PHOTOS, MAX_PRICE, MAX_QUANTITY, PROD_STATES } from "@/lib/validation/listing";
+import { isInt, MAX_DESCRIPTION, MAX_PHOTOS, MAX_PRICE, MAX_QUANTITY, PROD_STATES, requiredDate } from "@/lib/validation/listing";
 import { listing } from "@/messages/listing";
 
 const v = listing.validation;
@@ -26,7 +26,7 @@ export function listingEditSchema(today: string, initialDeliveryDate: string, ha
       stockQuantity: requiredInt(0, MAX_QUANTITY, v.stockQuantity),
       minOrderQuantity: requiredInt(1, MAX_QUANTITY, v.minOrderQuantity),
       orderUnit: requiredInt(1, MAX_QUANTITY, v.orderUnit),
-      deliveryDate: z.string().refine((s) => s === "" || isValidDate(s), v.date),
+      deliveryDate: requiredDate,
       description: z.string().trim().max(MAX_DESCRIPTION, v.description),
       photos: z.array(z.string()).max(MAX_PHOTOS, v.photos),
       listingDataSheet: z.string(),

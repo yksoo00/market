@@ -124,7 +124,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"노트북 X","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":500000,"salesQuantity":3,
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":500000,"salesQuantity":3,
 					 "photos":["%s","%s"]}
 					""".formatted(p1, p2)))
 			.andExpect(status().isCreated())
@@ -136,12 +136,34 @@ class ListingApiTest {
 	}
 
 	@Test
+	@DisplayName("제공가능일 없이 등록하면 400 fields.deliveryDate — 정의서 NOT NULL (2026-10-27)")
+	void deliveryDateRequiredOnCreate() throws Exception {
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"P01-Q01-R001","prodName":"노트북 N","prodBrand":"삼성",
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.deliveryDate").value("제공가능일을 입력해 주세요."));
+	}
+
+	@Test
+	@DisplayName("수정에서 제공가능일을 빈 값으로 보내면 400 fields.deliveryDate, 값은 그대로")
+	void deliveryDateCannotBeClearedOnUpdate() throws Exception {
+		String regDate = createListing(authCookie);
+		patchListing(regDate, "{\"deliveryDate\":\"\"}").andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.deliveryDate").value("제공가능일을 입력해 주세요."));
+		assertThat(jdbc.queryForObject("select prov_date from trd_prod_reg where user_id = ? and reg_date = ?", String.class,
+				userId, regDate)).isEqualTo("2099-12-31");
+	}
+
+	@Test
 	@DisplayName("가격이 10억을 넘으면 400 VALIDATION, fields.salesUnitPrice")
 	void priceOverLimit() throws Exception {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"노트북 Y","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":2000000000,"salesQuantity":1}
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":2000000000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.salesUnitPrice").isString());
@@ -164,7 +186,7 @@ class ListingApiTest {
 			mvc.perform(post("/api/v1/listings").cookie(authCookie)
 					.contentType(MediaType.APPLICATION_JSON).content("""
 						{"categoryCode":"P01-Q01-R001","prodName":"노트북 Z1","prodBrand":"삼성",
-						 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1%s}
+						 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1%s}
 						""".formatted(photos)))
 				.andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.fields.photos").value("대표 사진을 올려 주세요."));
@@ -174,7 +196,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(other).with(mainPhoto(other))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"노트북 Z2","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
 					 "photos":["%s","%s","%s","%s"]}
 					""".formatted(uploaded(other, UploadKind.LISTING_PHOTO), uploaded(other, UploadKind.LISTING_PHOTO),
 						uploaded(other, UploadKind.LISTING_PHOTO), uploaded(other, UploadKind.LISTING_PHOTO))))
@@ -188,7 +210,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"노트북 P1","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
 					 "photos":["a.jpg","b.jpg","c.jpg","d.jpg","e.jpg"]}
 					"""))
 			.andExpect(status().isBadRequest())
@@ -198,7 +220,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"노트북 P2","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
 					 "photos":["%s"]}
 					""".formatted(tooLong)))
 			.andExpect(status().isBadRequest())
@@ -211,7 +233,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"노트북 P3","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
 					 "photos":["  "]}
 					"""))
 			.andExpect(status().isBadRequest())
@@ -224,7 +246,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"노트북 P4","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":5,
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":5,
 					 "minOrderQuantity":10}
 					"""))
 			.andExpect(status().isBadRequest())
@@ -239,7 +261,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"노트북 T","prodBrand":"삼성 ",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.prodId").value(prodId));
@@ -247,7 +269,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(otherUserCookie()).with(mainPhoto(otherUserCookie()))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":" 노트북 T","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.prodId").value(prodId));
@@ -261,7 +283,7 @@ class ListingApiTest {
 		MvcResult created = mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"노트북 G","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isCreated()).andReturn();
 		String regDate = created.getResponse().getContentAsString().replaceAll(".*\"regDate\":\"([^\"]+)\".*", "$1");
@@ -279,7 +301,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"노트북 S","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":7,"stockQuantity":2}
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":7,"stockQuantity":2}
 					"""))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.stockQuantity").value(7));
@@ -294,7 +316,7 @@ class ListingApiTest {
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"노트북 D","prodBrand":"삼성",
 					 "prodNo":"MODEL-1","prodSpecInfo":"i7/16GB/512GB",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
 					 "listingDataSheet":"%s"}
 					""".formatted(sheet)))
 			.andExpect(status().isCreated())
@@ -313,7 +335,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"노트북 K1","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
 					 "photos":["%s","%s"],"listingDataSheet":"%s","productDataSheet":"%s"}
 					""".formatted(p1, p2, sheet, sheet)))
 			.andExpect(status().isCreated())
@@ -511,17 +533,6 @@ class ListingApiTest {
 	}
 
 	@Test
-	@DisplayName("수정에서 납기일에 빈 문자열을 보내면 비운다")
-	void updateClearsDeliveryDate() throws Exception {
-		String regDate = createListing(authCookie);
-		String today = LocalDate.now(SEOUL).toString();
-		patchListing(regDate, "{\"deliveryDate\":\"%s\"}".formatted(today)).andExpect(status().isOk());
-
-		patchListing(regDate, "{\"deliveryDate\":\"\"}").andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.deliveryDate").value(org.hamcrest.Matchers.nullValue()));
-	}
-
-	@Test
 	@DisplayName("같은 Idempotency-Key 로 다시 등록하면(응답 유실 후 재시도) 새로 만들지 않고 처음 매물을 돌려준다")
 	void idempotentCreateReturnsFirstListing() throws Exception {
 		String key = UUID.randomUUID().toString();
@@ -575,7 +586,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie)).header("Idempotency-Key", key)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"노트북 I3","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,"minOrderQuantity":5}
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,"minOrderQuantity":5}
 					"""))
 			.andExpect(status().isBadRequest());
 
@@ -591,7 +602,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(otherUserCookie()).with(mainPhoto(otherUserCookie())).header("Idempotency-Key", key)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"노트북 I5","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.prodName").value("노트북 I5"));
@@ -608,7 +619,7 @@ class ListingApiTest {
 		return mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie)).header("Idempotency-Key", key)
 			.contentType(MediaType.APPLICATION_JSON).content("""
 				{"categoryCode":"P01-Q01-R001","prodName":"%s","prodBrand":"삼성",
-				 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+				 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
 				""".formatted(prodName)));
 	}
 
@@ -616,7 +627,7 @@ class ListingApiTest {
 		return mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 			.contentType(MediaType.APPLICATION_JSON).content("""
 				{"categoryCode":"P01-Q01-R001","prodName":"%s","prodBrand":"삼성",
-				 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,%s}
+				 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,%s}
 				""".formatted(prodName, extraJson)));
 	}
 
@@ -624,7 +635,7 @@ class ListingApiTest {
 		return mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 			.contentType(MediaType.APPLICATION_JSON).content("""
 				{"categoryCode":"P01-Q01-R001","prodName":"%s","prodBrand":"삼성",
-				 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+				 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
 				 "photos":["%s"]}
 				""".formatted(prodName, photoKey)));
 	}
@@ -660,7 +671,7 @@ class ListingApiTest {
 			.regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(userId).regDate(regDate).prodId(prodId).tradeType("등록")
 			.prodState("양호").salesUnitPrice(1000).salesQuantity(1).minOrderQuantity(1).orderUnit(1).stockQuantity(1)
-			.warrantyPeriod(warrantyPeriod).build());
+			.warrantyPeriod(warrantyPeriod).deliveryDate("2026-12-31").build());
 	}
 
 	@Test
@@ -750,7 +761,7 @@ class ListingApiTest {
 			String regDate = String.format("202609291200%02d", i);
 			listingRepository.saveAndFlush(Listing.builder().userId(userId).regDate(regDate).prodId(product.getProdId())
 				.tradeType("등록").prodState("new").salesUnitPrice(1000).salesQuantity(1)
-				.minOrderQuantity(1).orderUnit(1).build());
+				.minOrderQuantity(1).orderUnit(1).deliveryDate("2026-12-31").build());
 		}
 
 		mvc.perform(get("/api/v1/listings"))
@@ -786,7 +797,7 @@ class ListingApiTest {
 		MvcResult created = mvc.perform(post("/api/v1/listings").cookie(cookie).with(mainPhoto(cookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"노트북 U","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":500000,"salesQuantity":1}
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":500000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isCreated()).andReturn();
 		return created.getResponse().getContentAsString().replaceAll(".*\"regDate\":\"([^\"]+)\".*", "$1");
@@ -835,7 +846,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"NOPE-CODE","prodName":"노트북 C1","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":500000,"salesQuantity":1}
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":500000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.categoryCode").value("없는 카테고리 코드입니다."));
@@ -858,7 +869,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001X","prodName":"노트북 C2","prodBrand":"삼성",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":500000,"salesQuantity":1}
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":500000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.categoryCode").isString());
@@ -944,10 +955,10 @@ class ListingApiTest {
 		String regDate = createListing(authCookie);
 		UUID buyer = userIdOf(otherUserCookie());
 		jdbc.update("""
-				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, order_unit_price,
-					order_quantity, req_deli_date, trade_stats)
-				values (?, '26101510001', '견적조정', ?, ?, 500000, 1, null, '견적수락')
-				""", buyer, userId, regDate);
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id, order_unit_price,
+					order_quantity, prov_date, req_deli_date, trade_stats)
+				values (?, '26101510001', '견적조정', ?, ?, ?, 500000, 1, '2099-12-31', '2099-12-31', '견적수락')
+				""", buyer, userId, regDate, prodIdOf(regDate));
 
 		mvc.perform(delete("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie))
 			.andExpect(status().isNoContent());
@@ -960,15 +971,15 @@ class ListingApiTest {
 		String regDate = createListing(authCookie);
 		UUID buyer = userIdOf(otherUserCookie());
 		jdbc.update("""
-				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, order_unit_price,
-					order_quantity, req_deli_date, trade_stats)
-				values (?, '26101510001', '거래', ?, ?, 500000, 1, '2099-12-31', '구매요청')
-				""", buyer, userId, regDate);
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id, order_unit_price,
+					order_quantity, prov_date, req_deli_date, trade_stats)
+				values (?, '26101510001', '거래', ?, ?, ?, 500000, 1, '2099-12-31', '2099-12-31', '구매요청')
+				""", buyer, userId, regDate, prodIdOf(regDate));
 		jdbc.update("""
-				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, order_unit_price,
-					order_quantity, req_deli_date, trade_stats)
-				values (?, '26101510002', '견적조정', ?, ?, 500000, 1, null, '견적요청')
-				""", buyer, userId, regDate);
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id, order_unit_price,
+					order_quantity, prov_date, req_deli_date, trade_stats)
+				values (?, '26101510002', '견적조정', ?, ?, ?, 500000, 1, '2099-12-31', '2099-12-31', '견적요청')
+				""", buyer, userId, regDate, prodIdOf(regDate));
 
 		mvc.perform(delete("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie))
 			.andExpect(status().isConflict())
@@ -983,10 +994,10 @@ class ListingApiTest {
 		String regDate = createListing(authCookie);
 		UUID buyer = userIdOf(otherUserCookie());
 		jdbc.update("""
-				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, order_unit_price,
-					order_quantity, req_deli_date, trade_stats)
-				values (?, '26101510003', '견적조정', ?, ?, 500000, 1, '2099-12-31', '구매요청')
-				""", buyer, userId, regDate);
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id, order_unit_price,
+					order_quantity, prov_date, req_deli_date, trade_stats)
+				values (?, '26101510003', '견적조정', ?, ?, ?, 500000, 1, '2099-12-31', '2099-12-31', '구매요청')
+				""", buyer, userId, regDate, prodIdOf(regDate));
 
 		mvc.perform(delete("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie))
 			.andExpect(status().isConflict())
@@ -1015,7 +1026,7 @@ class ListingApiTest {
 		MvcResult created = mvc.perform(post("/api/v1/listings").cookie(cookie).with(mainPhoto(cookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"%s","prodBrand":"%s","prodNo":%s,
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":500000,"salesQuantity":1}
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":500000,"salesQuantity":1}
 					""".formatted(name, brand, prodNo == null ? "null" : "\"" + prodNo + "\"")))
 			.andExpect(status().isCreated()).andReturn();
 		return created.getResponse().getContentAsString().replaceAll(".*\"regDate\":\"([^\"]+)\".*", "$1");
@@ -1023,6 +1034,11 @@ class ListingApiTest {
 
 	private String prodIdOf(UUID owner, String regDate) {
 		return jdbc.queryForObject("select prod_id from trd_prod_reg where user_id = ? and reg_date = ?", String.class, owner, regDate);
+	}
+
+	private String prodIdOf(String regDate) {
+		return jdbc.queryForObject("select prod_id from trd_prod_reg where user_id = ? and reg_date = ?", String.class, userId,
+				regDate);
 	}
 
 	private UUID userIdOf(Cookie cookie) {
@@ -1179,7 +1195,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"prodId":"KP-2026-900001","categoryCode":"NOPE","prodName":"무시될 이름","prodBrand":"무시",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isCreated())
 			.andExpect(jsonPath("$.data.prodId").value("KP-2026-900001"))
@@ -1202,7 +1218,7 @@ class ListingApiTest {
 
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
-					{"prodId":"KP-2026-900001","tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
+					{"prodId":"KP-2026-900001","tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,
 					 "photos":["%s"],"listingDataSheet":"%s"}
 					""".formatted(photo, sheet)))
 			.andExpect(status().isCreated())
@@ -1220,7 +1236,7 @@ class ListingApiTest {
 
 		mvc.perform(post("/api/v1/listings").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("""
-					{"prodId":"KP-2026-900001","tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					{"prodId":"KP-2026-900001","tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.photos").value("대표 사진을 올려 주세요."));
@@ -1231,7 +1247,7 @@ class ListingApiTest {
 	void unknownProdIdIsBadRequest() throws Exception {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
-					{"prodId":"KP-2026-999999","tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					{"prodId":"KP-2026-999999","tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.prodId").value("없는 상품입니다."));
@@ -1242,7 +1258,7 @@ class ListingApiTest {
 	void directInputRequiresProductFields() throws Exception {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
-					{"tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					{"tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
 					"""))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.categoryCode").value("필수 입력입니다."))
@@ -1258,7 +1274,7 @@ class ListingApiTest {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
 				.contentType(MediaType.APPLICATION_JSON).content("""
 					{"categoryCode":"P01-Q01-R001","prodName":"새 마스터","prodBrand":"새제조사",
-					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,"listingDataSheet":"%s"}
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1,"listingDataSheet":"%s"}
 					""".formatted(sheet)))
 			.andExpect(status().isCreated());
 

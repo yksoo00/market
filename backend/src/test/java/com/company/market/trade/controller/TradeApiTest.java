@@ -141,7 +141,7 @@ class TradeApiTest {
 			.prodName("서버 R740").prodBrand("Dell").regDate(REG_DATE).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(sellerId).regDate(REG_DATE).prodId("TRADEAPI01")
 			.tradeType("등록").prodState("신품대비 90%").salesUnitPrice(price).salesQuantity(stock).stockQuantity(stock)
-			.minOrderQuantity(minOrder).orderUnit(unit).deliveryDate(deliveryDate).build());
+			.minOrderQuantity(minOrder).orderUnit(unit).deliveryDate(deliveryDate == null ? "2099-12-31" : deliveryDate).build());
 	}
 
 	private ResultActions request(Cookie who, String body) throws Exception {
@@ -151,7 +151,7 @@ class TradeApiTest {
 	private String body(int quantity, String reqDeliDate) {
 		return """
 				{"sellerId":"%s","regDate":"%s","orderQuantity":%d%s,"remarks":"빠른 납품 부탁"}
-				""".formatted(sellerId, REG_DATE, quantity, reqDeliDate == null ? "" : ",\"reqDeliDate\":\"" + reqDeliDate + "\"");
+				""".formatted(sellerId, REG_DATE, quantity, ",\"reqDeliDate\":\"" + (reqDeliDate == null ? "2099-12-31" : reqDeliDate) + "\"");
 	}
 
 	private Integer stock() {
@@ -246,14 +246,6 @@ class TradeApiTest {
 	}
 
 	@Test
-	@DisplayName("납기일 없는 매물에 납품희망일을 비우면 400 fields.reqDeliDate")
-	void reqDeliDateRequiredWithoutListingDate() throws Exception {
-		listing(1000, 10, 1, 1, null);
-		request(buyer, body(1, null)).andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.fields.reqDeliDate").value("납품희망일을 입력해 주세요."));
-	}
-
-	@Test
 	@DisplayName("과거 납품희망일은 400, 형식이 틀리면 400")
 	void pastOrMalformedReqDeliDate() throws Exception {
 		listing(1000, 10, 1, 1, null);
@@ -264,23 +256,15 @@ class TradeApiTest {
 	}
 
 	@Test
-	@DisplayName("납품희망일을 비웠는데 매물 납기일이 지났으면 400 '매물 납기일이 지났습니다', 오늘이면 통과")
-	void emptyReqDeliDateWithPastListingDate() throws Exception {
-		listing(1000, 10, 1, 1, "2020-01-01");
-		request(buyer, body(1, null)).andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.fields.reqDeliDate").value("매물 납기일이 지났습니다. 납품희망일을 입력해 주세요."));
-
-		String today = LocalDate.now(ZoneId.of("Asia/Seoul")).toString();
-		jdbc.update("update trd_prod_reg set prov_date = ? where user_id = ?", today, sellerId);
-		request(buyer, body(1, null)).andExpect(status().isCreated());
-	}
-
-	@Test
-	@DisplayName("납품희망일을 비우면 매물 납기일이 들어간다")
-	void reqDeliDateDefaultsToListingDate() throws Exception {
+	@DisplayName("납품희망일 없이 구매하면 400 fields.reqDeliDate — 정의서 NOT NULL, 화면 기본값은 제공가능일 (2026-10-27)")
+	void reqDeliDateRequired() throws Exception {
 		listing(1000, 10, 1, 1, "2099-12-31");
-		request(buyer, body(1, null)).andExpect(status().isCreated())
-			.andExpect(jsonPath("$.data.reqDeliDate").value("2099-12-31"));
+		request(buyer, body(1, "")).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.reqDeliDate").value("납품희망일을 입력해 주세요."));
+		request(buyer, """
+				{"sellerId":"%s","regDate":"%s","orderQuantity":1}
+				""".formatted(sellerId, REG_DATE)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.reqDeliDate").value("납품희망일을 입력해 주세요."));
 	}
 
 	@Test
@@ -460,7 +444,7 @@ class TradeApiTest {
 		assertThat(row.get("trade_type")).isEqualTo("거래");
 		assertThat(row.get("prod_id")).isEqualTo("TRADEAPI01");
 		assertThat(row.get("seller_id")).isEqualTo(sellerId);
-		assertThat(row.get("buyer_id")).isEqualTo(buyerId);
+		assertThat(row.get("user_id")).isEqualTo(buyerId);
 		assertThat(row.get("trade_unit_price")).isEqualTo(1000);
 		assertThat(row.get("trade_quantity")).isEqualTo(3);
 		assertThat(row.get("trade_amount")).isEqualTo(3000);
@@ -590,7 +574,7 @@ class TradeApiTest {
 			.prodName("스위치 C9300").prodBrand("Cisco").regDate(REG_DATE_2).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(sellerId).regDate(REG_DATE_2).prodId("TRADEAPI02")
 			.tradeType("등록").prodState("신품").salesUnitPrice(500).salesQuantity(100).stockQuantity(100)
-			.minOrderQuantity(1).orderUnit(1).build());
+			.minOrderQuantity(1).orderUnit(1).deliveryDate("2026-12-31").build());
 	}
 
 	private String requestAs(UUID who, String regDate, int quantity, String remarks) {
@@ -667,8 +651,8 @@ class TradeApiTest {
 	}
 
 	@Test
-	@DisplayName("판매자가 매물 상품명을 바꿔도 거래 내역의 상품명은 구매 때 이름")
-	void tradeKeepsProductNameAtPurchase() throws Exception {
+	@DisplayName("판매자가 매물 상품을 바꾸면 진행 중 거래도 새 상품을 가리킨다 — 거래는 매물 PK 세 값으로 찾는다 (2026-10-27)")
+	void tradeFollowsListingProductChange() throws Exception {
 		listing(1000, 10, 1, 1, null);
 		String tradeId = requested(1);
 		mvc.perform(patch("/api/v1/listings/" + sellerId + "/" + REG_DATE).cookie(seller)
@@ -676,8 +660,8 @@ class TradeApiTest {
 			.andExpect(status().isOk());
 
 		mvc.perform(get("/api/v1/trades?role=buyer").cookie(buyer))
-			.andExpect(jsonPath("$.data.items[0].prodName").value("서버 R740"));
-		action(buyer, tradeId, "complete").andExpect(jsonPath("$.data.prodName").value("서버 R740"));
+			.andExpect(jsonPath("$.data.items[0].prodName").value("새 이름 서버"));
+		action(buyer, tradeId, "complete").andExpect(jsonPath("$.data.prodName").value("새 이름 서버"));
 	}
 
 	@Test

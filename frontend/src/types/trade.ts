@@ -9,22 +9,24 @@ export type TradeType = "review" | "quote" | "purchase";
 /** 거래 목록에서 내가 어느 쪽인지 — buyer: 내 구매목록, seller: 받은 구매요청 */
 export type TradeRole = "buyer" | "seller";
 
-/** POST /api/v1/trades 요청. 단가는 보내지 않는다 (등록단가 고정). reqDeliDate 를 빼면 매물 납기일 */
+/** POST /api/v1/trades 요청. 단가는 보내지 않는다 (등록단가 고정). 납품희망일 필수 (2026-10-27) */
 export interface TradeCreateRequest {
   sellerId: string;
   regDate: string;
   orderQuantity: number;
   /** YYYY-MM-DD */
-  reqDeliDate?: string;
+  reqDeliDate: string;
   remarks?: string;
 }
 
-/** POST /api/v1/trades/quotes 한 줄. 납품희망일은 받지 않는다 */
+/** POST /api/v1/trades/quotes 한 줄. 납품희망일 필수 (2026-10-27) */
 export interface QuoteItem {
   sellerId: string;
   regDate: string;
   orderUnitPrice: number;
   orderQuantity: number;
+  /** YYYY-MM-DD */
+  reqDeliDate: string;
   remarks?: string;
 }
 

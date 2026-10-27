@@ -5,16 +5,23 @@ import java.util.UUID;
 
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
+import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** listings 의 복합 PK: (user_id, reg_date). uuid 서로게이트 PK 없음 (decisions.md 2026-09-29) */
+/**
+ * trd_prod_reg 의 정의서 복합 PK: (user_id, reg_date, prod_id) (2026-10-27). 거래가 매물을 찾는 키이기도 하다 —
+ * 거래 행의 (seller_id, prod_reg_date, prod_id).
+ */
 @EqualsAndHashCode
 @NoArgsConstructor
 @AllArgsConstructor
+@Getter
 public class ListingId implements Serializable {
 
 	private UUID userId;
 
 	private String regDate;
+
+	private String prodId;
 
 }

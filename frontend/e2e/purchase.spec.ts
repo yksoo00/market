@@ -57,8 +57,7 @@ async function requestPurchase(page: Page, listingPath: string, quantity: string
   await expect(dialog).toBeVisible();
   const submit = dialog.getByRole("button", { name: trade.purchase.submit, exact: true });
   await dialog.locator('input[name="orderQuantity"]').fill(quantity);
-  // 매물 납기일이 없으면 납품희망일 필수 — 비어 있으면 버튼이 꺼져 있다
-  await expect(submit).toBeDisabled();
+  // 납품희망일은 제공가능일이 기본값으로 채워진다 — 다른 날짜로 바꿔 본다
   await dialog.locator('input[name="reqDeliDate"]').fill(daysLater(7));
   await expect(submit).toBeEnabled();
   await submit.click();
@@ -95,6 +94,8 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     });
     await expect(page.getByRole("status", { name: listing.form.uploading })).toBeHidden();
     await page.locator('input[name="salesQuantity"]').fill("5");
+    // 제공가능일 필수 (2026-10-27)
+    await page.locator('input[name="deliveryDate"]').fill(new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10));
     await page.getByRole("button", { name: listing.form.submit, exact: true }).click();
     await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
     listingPath = new URL(page.url()).pathname;

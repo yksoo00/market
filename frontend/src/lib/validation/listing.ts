@@ -54,6 +54,9 @@ const optionalDate = z
   .refine((s) => s === "" || isValidDate(s), v.date)
   .transform((s) => (s === "" ? undefined : s));
 
+// 제공가능일은 정의서 NOT NULL — 등록·수정 모두 필수 (2026-10-27). 서버도 같은 400
+export const requiredDate = z.string().min(1, v.required).refine((s) => s === "" || isValidDate(s), v.date);
+
 /** today = 한국 날짜 YYYY-MM-DD (lib/listingForm todayInSeoul). 제조일·납기일 범위의 기준 */
 export function listingFormSchema(today: string) {
   return z
@@ -76,7 +79,7 @@ export function listingFormSchema(today: string) {
       salesQuantity: requiredInt(1, MAX_QUANTITY, v.salesQuantity),
       minOrderQuantity: optionalInt(1, MAX_QUANTITY, v.minOrderQuantity),
       orderUnit: optionalInt(1, MAX_QUANTITY, v.orderUnit),
-      deliveryDate: optionalDate,
+      deliveryDate: requiredDate,
       description: optionalText(MAX_DESCRIPTION, v.description),
       // 대표 사진(첫 장) 필수 — 등록 화면 규칙(아래 superRefine: 마스터 사진이 있으면 예외). 수정은 사진 없는 옛 매물도 열 수 있어 listingEdit 은 필수로 하지 않는다
       photos: z.array(z.string()).max(MAX_PHOTOS, v.photos),
@@ -95,7 +98,7 @@ export function listingFormSchema(today: string) {
       if (d.prodId === "" && typeof d.prodMufcDate === "string" && d.prodMufcDate > today) {
         ctx.addIssue({ code: "custom", path: ["prodMufcDate"], message: v.prodMufcDate });
       }
-      if (typeof d.deliveryDate === "string" && d.deliveryDate < today) {
+      if (typeof d.deliveryDate === "string" && d.deliveryDate !== "" && d.deliveryDate < today) {
         ctx.addIssue({ code: "custom", path: ["deliveryDate"], message: v.deliveryDate });
       }
     });
