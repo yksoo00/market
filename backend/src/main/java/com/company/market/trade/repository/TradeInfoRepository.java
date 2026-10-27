@@ -87,7 +87,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			@Param("type") TradeType type, @Param("stats") Collection<TradeStats> stats);
 
 	/**
-	 * 같은 시간대의 가장 큰 거래ID — 거래ID 순번. LIKE 'prefix%' 는 기본 collation 의 unique 인덱스를 못 타지만
+	 * 같은 시간대의 가장 큰 거래ID — 거래ID 순번. LIKE 'prefix%' 는 기본 collation 의 trade_id 인덱스(ix_trd_trade_info_trade_id)를 못 타지만
 	 * 범위(between)는 탄다 (11자 고정 길이 숫자라 문자열 순서 = 숫자 순서)
 	 */
 	@Query("select max(t.tradeId) from TradeInfo t where t.tradeId between :from and :to")

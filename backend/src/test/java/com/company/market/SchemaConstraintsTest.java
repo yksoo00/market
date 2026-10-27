@@ -179,6 +179,15 @@ class SchemaConstraintsTest {
 	}
 
 	@Test
+	@DisplayName("trd_trade_info 에 거래ID 찾기용 일반 인덱스가 있다 — PK 는 구매자가 앞자리라 거래ID 만으로는 못 탄다 (2026-10-27)")
+	void tradeIdIndex() {
+		assertThat(jdbc.queryForObject("""
+				select indexdef from pg_indexes
+				 where schemaname = current_schema() and indexname = 'ix_trd_trade_info_trade_id'
+				""", String.class)).contains("(trade_id)").doesNotContain("UNIQUE");
+	}
+
+	@Test
 	@DisplayName("trd_trade_history PK 는 (user_id, trade_id, trade_date)")
 	void tradeHistoryPrimaryKey() {
 		assertThat(jdbc.queryForList("""
