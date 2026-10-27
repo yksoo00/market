@@ -3,22 +3,17 @@ import { trade } from "@/messages/trade";
 import { MAX_INT, orderAmount, purchaseSchema, type PurchaseLimits } from "./trade";
 
 const v = trade.validation;
-const limits: PurchaseLimits = { stock: 100, minOrder: 4, unit: 2, unitPrice: 1000, provDate: "2026-10-30", today: "2026-10-16" };
+const limits: PurchaseLimits = { stock: 100, minOrder: 4, unit: 2, unitPrice: 1000, today: "2026-10-16" };
 const parse = (over: Partial<{ orderQuantity: string; reqDeliDate: string; remarks: string }>, l: PurchaseLimits = limits) =>
-  purchaseSchema(l).safeParse({ orderQuantity: "4", reqDeliDate: "", remarks: "", ...over });
+  purchaseSchema(l).safeParse({ orderQuantity: "4", reqDeliDate: "2026-10-30", remarks: "", ...over });
 const errorOf = (r: ReturnType<typeof parse>, path: string) =>
   r.success ? undefined : r.error.issues.find((i) => i.path.join(".") === path)?.message;
 
 describe("purchaseSchema", () => {
-  it("규칙에 맞으면 숫자로 바꾸고 빈 납품희망일·요청사항은 빼서 서버 기본값을 쓴다", () => {
+  it("규칙에 맞으면 숫자로 바꾸고 빈 요청사항은 뺀다. 납품희망일은 늘 보낸다", () => {
     const r = parse({ orderQuantity: "6" });
     expect(r.success).toBe(true);
-    expect(r.success && r.data).toEqual({ orderQuantity: 6, reqDeliDate: undefined, remarks: undefined });
-  });
-
-  it("납품희망일 빈칸인데 매물 납기일이 지났으면 입력 요구, 오늘이면 통과", () => {
-    expect(errorOf(parse({}, { ...limits, provDate: "2026-10-15" }), "reqDeliDate")).toBe(v.deliProvPast);
-    expect(parse({}, { ...limits, provDate: "2026-10-16" }).success).toBe(true);
+    expect(r.success && r.data).toEqual({ orderQuantity: 6, reqDeliDate: "2026-10-30", remarks: undefined });
   });
 
   it("주문량: 비움·숫자 아님은 필수/형식 오류", () => {
@@ -43,8 +38,8 @@ describe("purchaseSchema", () => {
     expect(errorOf(r, "orderQuantity")).toBe(v.amountMax);
   });
 
-  it("납품희망일: 매물 납기일이 없으면 필수", () => {
-    expect(errorOf(parse({}, { ...limits, provDate: null }), "reqDeliDate")).toBe(v.deliRequired);
+  it("납품희망일: 비우면 필수 오류 — 정의서 NOT NULL (2026-10-27)", () => {
+    expect(errorOf(parse({ reqDeliDate: "" }), "reqDeliDate")).toBe(v.deliRequired);
   });
 
   it("납품희망일: 없는 날짜·오늘 이전은 오류, 오늘은 통과", () => {

@@ -122,7 +122,7 @@
   |---|---|
   | 매물 `sellerId`·`regDate` | 필수, UUID·14자 이하. 없는 매물 404, 내 매물 403 `TRADE_OWN_LISTING`, 거래완료 409 `LISTING_COMPLETED` |
   | 주문량 `orderQuantity` | 1 ~ 100,000, 최소주문량 이상, 주문단위 배수, 단가 × 수량 ≤ 2,147,483,647(거래이력 금액이 int) → 400 `fields.orderQuantity`. 재고 초과는 409 `TRADE_OUT_OF_STOCK` (조건부 UPDATE 가 최종 판정) |
-  | 납품희망일 `reqDeliDate` | YYYY-MM-DD 실제 날짜, 오늘(한국) 이후. 비우면 매물 납기일, 매물에도 없으면 필수, 매물 납기일이 오늘(한국) 전이면 입력 요구("매물 납기일이 지났습니다") → 400 `fields.reqDeliDate` |
+  | 납품희망일 `reqDeliDate` | **필수** (2026-10-27, 정의서 NOT NULL — 빈 값·누락 400 "납품희망일을 입력해 주세요."). YYYY-MM-DD 실제 날짜, 오늘(한국) 이후 → 400 `fields.reqDeliDate`. 화면 기본값은 매물 제공가능일 |
   | 요청사항 `remarks` | 100자 이하 |
   | 단가 | 받지 않는다 — 서버가 등록단가로 고정. 매물 값 복사도 서버가(클라이언트 값 불신) |
   - 거래완료 `POST /trades/{id}/complete`: 구매자만(아니면 403). 취소 `/cancel`: 구매자·그 매물의 판매자만. 둘 다 `구매요청` 상태에서만(아니면 409 `TRADE_NOT_PENDING`), 상태 조건부 UPDATE 라 동시 확정·취소 중 하나만 성공.
@@ -137,7 +137,7 @@
   | 희망단가 `orderUnitPrice` | 1 ~ 그 매물의 등록단가 |
   | 수량 `orderQuantity` | 구매와 같음(1 ~ 100,000, 최소주문량 이상, 주문단위 배수, 재고 이하). 금액은 희망단가 × 수량 ≤ 2,147,483,647 |
   | 비고 `remarks` | 100자 이하 |
-  | 납품희망일 | 받지 않는다 (`req_deli_date` null) |
+  | 납품희망일 `reqDeliDate` | **필수**, 구매와 같은 규칙 (2026-10-27 — 전엔 받지 않았다). 오류는 `fields["items[i].reqDeliDate"]`. 재요청은 새 값으로 덮어쓴다 |
   - 수락 `POST /trades/{id}/accept`·거절 `/reject`: 그 매물의 판매자만(아니면 403), 견적요청 상태만(아니면 409 `TRADE_NOT_PENDING`). 수락은 매물 행을 잠그고 단가를 희망단가로 내린다(올리지 않음). 견적 취소는 보낸 구매자만(판매자 403), 견적요청·견적거절 상태에서만(견적수락은 409 `TRADE_NOT_PENDING`).
   - 수락된 견적에서 구매 `POST /trades/{id}/purchase`(2026-10-21): 보낸 구매자만(아니면 403), `견적수락` 상태만(아니면 409 `TRADE_NOT_PENDING`), 매물 거래완료 409 `LISTING_COMPLETED`, 재고 초과 409 `TRADE_OUT_OF_STOCK`. 본문은 구매와 같은 수량(1~100,000)·납품희망일·요청사항(≤100). 단가는 받지 않고 지금 매물 단가. 새 행 없이 같은 행이 `구매요청`.
   - 멱등 키: scope `quote-create`, 저장 값은 만든 거래ID 목록(쉼표).

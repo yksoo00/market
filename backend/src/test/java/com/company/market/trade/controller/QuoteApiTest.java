@@ -113,9 +113,15 @@ class QuoteApiTest {
 	}
 
 	private static String item(UUID seller, String regDate, int price, int quantity) {
+		return item(seller, regDate, price, quantity, "2099-11-30");
+	}
+
+	/** reqDeliDate = null 이면 칸을 빼고 보낸다 */
+	private static String item(UUID seller, String regDate, int price, int quantity, String reqDeliDate) {
 		return """
-				{"sellerId":"%s","regDate":"%s","orderUnitPrice":%d,"orderQuantity":%d,"remarks":"단가 조정 부탁"}
-				""".formatted(seller, regDate, price, quantity);
+				{"sellerId":"%s","regDate":"%s","orderUnitPrice":%d,"orderQuantity":%d,"remarks":"단가 조정 부탁"%s}
+				""".formatted(seller, regDate, price, quantity,
+				reqDeliDate == null ? "" : ",\"reqDeliDate\":\"" + reqDeliDate + "\"");
 	}
 
 	private ResultActions quotes(Cookie who, String... items) throws Exception {
@@ -128,7 +134,7 @@ class QuoteApiTest {
 	}
 
 	@Test
-	@DisplayName("여러 매물에 견적 요청: 매물마다 견적조정/견적요청 1행, 재고 그대로, 납품희망일은 매물 제공가능일 (Task 4 전 임시)")
+	@DisplayName("여러 매물에 견적 요청: 매물마다 견적조정/견적요청 1행, 재고 그대로, 납품희망일은 보낸 값")
 	void requestQuotesForSeveralListings() throws Exception {
 		quotes(buyer, item(sellerId, REG_A, 900, 2), item(sellerId, REG_B, 450, 10))
 			.andExpect(status().isCreated())
@@ -137,14 +143,14 @@ class QuoteApiTest {
 			.andExpect(jsonPath("$.data[0].tradeStats").value("quoteRequested"))
 			.andExpect(jsonPath("$.data[0].salesUnitPrice").value(1000))
 			.andExpect(jsonPath("$.data[0].orderUnitPrice").value(900))
-			.andExpect(jsonPath("$.data[0].reqDeliDate").value("2099-12-31"));
+			.andExpect(jsonPath("$.data[0].reqDeliDate").value("2099-11-30"));
 
 		var row = jdbc.queryForMap("select * from trd_trade_info where prod_reg_date = ?", REG_A);
 		assertThat(row.get("trade_type")).isEqualTo("견적조정");
 		assertThat(row.get("trade_stats")).isEqualTo("견적요청");
 		assertThat(row.get("order_unit_price")).isEqualTo(900);
 		assertThat(row.get("sales_unit_price")).isEqualTo(1000);
-		assertThat(row.get("req_deli_date")).isEqualTo("2099-12-31");
+		assertThat(row.get("req_deli_date")).isEqualTo("2099-11-30");
 		assertThat(row.get("remarks")).isEqualTo("단가 조정 부탁");
 		assertThat(jdbc.queryForObject("select stock_quantity from trd_prod_reg where reg_date = ?", Integer.class, REG_A))
 			.isEqualTo(10);
@@ -197,6 +203,26 @@ class QuoteApiTest {
 	void duplicateIsReportedEvenIfEarlierItemIsInvalid() throws Exception {
 		quotes(buyer, item(sellerId, REG_A, 9999, 1), item(sellerId, REG_A, 800, 1)).andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("QUOTE_ALREADY_REQUESTED"));
+	}
+
+	@Test
+	@DisplayName("견적 항목에 납품희망일이 없거나 오늘 전이면 400 fields[items[i].reqDeliDate], 아무것도 저장 안 함 (2026-10-27)")
+	void quoteReqDeliDateRequired() throws Exception {
+		quotes(buyer, item(sellerId, REG_A, 900, 1, null)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields['items[0].reqDeliDate']").value("납품희망일을 입력해 주세요."));
+		quotes(buyer, item(sellerId, REG_A, 900, 1), item(sellerId, REG_B, 450, 10, "2000-01-01"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields['items[1].reqDeliDate']").value("납품희망일은 오늘 이후 날짜로 입력하세요."));
+		assertThat(tradeCount()).isZero();
+	}
+
+	@Test
+	@DisplayName("견적 재요청은 납품희망일도 새 값으로 덮어쓴다")
+	void requoteOverwritesReqDeliDate() throws Exception {
+		String tradeId = quoted(REG_A, 900);
+		quotes(buyer, item(sellerId, REG_A, 800, 3, "2099-10-01")).andExpect(status().isCreated());
+		assertThat(jdbc.queryForObject("select req_deli_date from trd_trade_info where trade_id = ?", String.class, tradeId))
+			.isEqualTo("2099-10-01");
 	}
 
 	@Test
@@ -400,6 +426,10 @@ class QuoteApiTest {
 		mvc.perform(post("/api/v1/trades/" + pending + "/purchase").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
 				.content("{\"orderQuantity\":1,\"reqDeliDate\":\"2000-01-01\"}"))
 			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.reqDeliDate").exists());
+		mvc.perform(post("/api/v1/trades/" + pending + "/purchase").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"orderQuantity\":1}"))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.reqDeliDate").value("납품희망일을 입력해 주세요."));
 		buyFromQuote(buyer, pending, 11).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRADE_OUT_OF_STOCK"));
 		assertThat(statsOf(pending)).isEqualTo("견적수락");
 		assertThat(stockOf(REG_A)).isEqualTo(10);

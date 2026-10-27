@@ -144,7 +144,7 @@ class TradeMailTest {
 	private ResultActions quote(int price) throws Exception {
 		return mvc.perform(post("/api/v1/trades/quotes").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
 			.content("""
-					{"items":[{"sellerId":"%s","regDate":"%s","orderUnitPrice":%d,"orderQuantity":1}]}
+					{"items":[{"sellerId":"%s","regDate":"%s","orderUnitPrice":%d,"orderQuantity":1,"reqDeliDate":"2099-12-31"}]}
 					""".formatted(sellerId, REG, price)));
 	}
 
@@ -154,7 +154,7 @@ class TradeMailTest {
 
 	private ResultActions purchase() throws Exception {
 		return mvc.perform(post("/api/v1/trades").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
-			.content("{\"sellerId\":\"%s\",\"regDate\":\"%s\",\"orderQuantity\":2}".formatted(sellerId, REG)));
+			.content("{\"sellerId\":\"%s\",\"regDate\":\"%s\",\"orderQuantity\":2,\"reqDeliDate\":\"2099-12-31\"}".formatted(sellerId, REG)));
 	}
 
 	private String purchaseId() {

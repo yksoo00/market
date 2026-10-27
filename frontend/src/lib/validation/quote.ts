@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { isInt } from "@/lib/validation/listing";
-import { MAX_REMARKS, quantityIssue } from "@/lib/validation/trade";
+import { MAX_REMARKS, quantityIssue, reqDeliDateField } from "@/lib/validation/trade";
 import { trade } from "@/messages/trade";
 
 // 견적 모달. 규칙은 서버 TradeService.requestQuotes 와 같다 (docs/security.md "입력 검증 > 견적")
@@ -17,6 +17,8 @@ export interface QuoteLimits {
   unit: number;
   /** 등록단가 = 희망단가 상한 */
   listedPrice: number;
+  /** 한국 날짜 YYYY-MM-DD — 납품희망일 기준 */
+  today: string;
 }
 
 /** 한 줄 = 한 매물의 규칙 */
@@ -30,6 +32,7 @@ function rowSchema(l: QuoteLimits) {
         .transform(Number)
         .refine((n) => n >= 1 && n <= l.listedPrice, q.priceRange(l.listedPrice)),
       orderQuantity: z.string().min(1, v.required).refine((s) => isInt(s), v.quantityFormat).transform(Number),
+      reqDeliDate: reqDeliDateField(l.today),
       remarks: z
         .string()
         .trim()

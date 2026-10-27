@@ -151,7 +151,7 @@ class TradeApiTest {
 	private String body(int quantity, String reqDeliDate) {
 		return """
 				{"sellerId":"%s","regDate":"%s","orderQuantity":%d%s,"remarks":"빠른 납품 부탁"}
-				""".formatted(sellerId, REG_DATE, quantity, reqDeliDate == null ? "" : ",\"reqDeliDate\":\"" + reqDeliDate + "\"");
+				""".formatted(sellerId, REG_DATE, quantity, ",\"reqDeliDate\":\"" + (reqDeliDate == null ? "2099-12-31" : reqDeliDate) + "\"");
 	}
 
 	private Integer stock() {
@@ -256,23 +256,15 @@ class TradeApiTest {
 	}
 
 	@Test
-	@DisplayName("납품희망일을 비웠는데 매물 납기일이 지났으면 400 '매물 납기일이 지났습니다', 오늘이면 통과")
-	void emptyReqDeliDateWithPastListingDate() throws Exception {
-		listing(1000, 10, 1, 1, "2020-01-01");
-		request(buyer, body(1, null)).andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.fields.reqDeliDate").value("매물 납기일이 지났습니다. 납품희망일을 입력해 주세요."));
-
-		String today = LocalDate.now(ZoneId.of("Asia/Seoul")).toString();
-		jdbc.update("update trd_prod_reg set prov_date = ? where user_id = ?", today, sellerId);
-		request(buyer, body(1, null)).andExpect(status().isCreated());
-	}
-
-	@Test
-	@DisplayName("납품희망일을 비우면 매물 납기일이 들어간다")
-	void reqDeliDateDefaultsToListingDate() throws Exception {
+	@DisplayName("납품희망일 없이 구매하면 400 fields.reqDeliDate — 정의서 NOT NULL, 화면 기본값은 제공가능일 (2026-10-27)")
+	void reqDeliDateRequired() throws Exception {
 		listing(1000, 10, 1, 1, "2099-12-31");
-		request(buyer, body(1, null)).andExpect(status().isCreated())
-			.andExpect(jsonPath("$.data.reqDeliDate").value("2099-12-31"));
+		request(buyer, body(1, "")).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.reqDeliDate").value("납품희망일을 입력해 주세요."));
+		request(buyer, """
+				{"sellerId":"%s","regDate":"%s","orderQuantity":1}
+				""".formatted(sellerId, REG_DATE)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.reqDeliDate").value("납품희망일을 입력해 주세요."));
 	}
 
 	@Test

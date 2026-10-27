@@ -79,9 +79,8 @@ public class TradeService {
 		if (listing.completed()) {
 			throw new ApiException(ErrorCode.LISTING_COMPLETED);
 		}
-		boolean deliDateFromListing = req.reqDeliDate() == null || req.reqDeliDate().isEmpty();
-		String reqDeliDate = deliDateFromListing ? listing.provDate() : req.reqDeliDate();
-		validate(listing, req.orderQuantity(), reqDeliDate, deliDateFromListing);
+		String reqDeliDate = req.reqDeliDate();
+		validate(listing, req.orderQuantity(), reqDeliDate);
 		// 재고는 아래 조건부 UPDATE 가 최종 판정. 여기선 거래ID·락을 잡기 전에 뻔한 초과를 먼저 돌려보낸다
 		if (listing.stockQuantity() == null || req.orderQuantity() > listing.stockQuantity()) {
 			throw new ApiException(ErrorCode.TRADE_OUT_OF_STOCK);
@@ -152,6 +151,10 @@ public class TradeService {
 			if (quantityFailure != null) {
 				failures.put(prefix + "orderQuantity", quantityFailure);
 			}
+			String dateFailure = reqDeliDateFailure(item.reqDeliDate());
+			if (dateFailure != null) {
+				failures.put(prefix + "reqDeliDate", dateFailure);
+			}
 			if (!failures.isEmpty()) {
 				continue;
 			}
@@ -161,7 +164,7 @@ public class TradeService {
 			if (existing != null) {
 				existing.requote(listing.prodId(), listing.prodState(), listing.salesUnitPrice(), listing.stockQuantity(),
 						listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), item.orderUnitPrice(),
-						item.orderQuantity(), remarks);
+						item.orderQuantity(), item.reqDeliDate(), remarks);
 				saved.add(trades.saveAndFlush(existing));
 			}
 			else {
@@ -182,8 +185,7 @@ public class TradeService {
 						.provDate(listing.provDate())
 						.orderUnitPrice(item.orderUnitPrice())
 						.orderQuantity(item.orderQuantity())
-						// TODO(NOT NULL 대응, 2026-10-27): 견적 납품희망일 입력(PR 1 Task 4)이 들어오면 요청 값으로 바꾼다
-						.reqDeliDate(listing.provDate())
+						.reqDeliDate(item.reqDeliDate())
 						.remarks(remarks)
 						.tradeStats(TradeStats.QUOTE_REQUESTED)
 						.build()));
@@ -294,9 +296,8 @@ public class TradeService {
 		if (listing.completed()) {
 			throw new ApiException(ErrorCode.LISTING_COMPLETED);
 		}
-		boolean deliDateFromListing = req.reqDeliDate() == null || req.reqDeliDate().isEmpty();
-		String reqDeliDate = deliDateFromListing ? listing.provDate() : req.reqDeliDate();
-		validate(listing, req.orderQuantity(), reqDeliDate, deliDateFromListing);
+		String reqDeliDate = req.reqDeliDate();
+		validate(listing, req.orderQuantity(), reqDeliDate);
 		if (listing.stockQuantity() == null || req.orderQuantity() > listing.stockQuantity()) {
 			throw new ApiException(ErrorCode.TRADE_OUT_OF_STOCK);
 		}
@@ -419,29 +420,28 @@ public class TradeService {
 			.collect(Collectors.toMap(r -> (String) r[0], r -> (Long) r[1]));
 	}
 
-	/** deliDateFromListing: 구매자가 비워서 매물 납기일을 쓴 경우 — 그 납기일이 지났으면 그렇다고 알려야 고칠 수 있다 */
-	private void validate(ListingTradeSnapshot listing, int quantity, String reqDeliDate, boolean deliDateFromListing) {
+	private void validate(ListingTradeSnapshot listing, int quantity, String reqDeliDate) {
 		Map<String, String> failures = new LinkedHashMap<>();
 		String quantityFailure = quantityFailure(listing, quantity, listing.salesUnitPrice());
 		if (quantityFailure != null) {
 			failures.put("orderQuantity", quantityFailure);
 		}
-		if (reqDeliDate == null) {
-			failures.put("reqDeliDate", "납품희망일을 입력해 주세요.");
-		}
-		else {
-			LocalDate date = KoreanDates.parseIso(reqDeliDate);
-			if (date == null) {
-				failures.put("reqDeliDate", "납품희망일이 올바른 날짜가 아닙니다.");
-			}
-			else if (date.isBefore(KoreanDates.today(clock))) {
-				failures.put("reqDeliDate", deliDateFromListing ? "매물 납기일이 지났습니다. 납품희망일을 입력해 주세요."
-						: "납품희망일은 오늘 이후 날짜로 입력하세요.");
-			}
+		String dateFailure = reqDeliDateFailure(reqDeliDate);
+		if (dateFailure != null) {
+			failures.put("reqDeliDate", dateFailure);
 		}
 		if (!failures.isEmpty()) {
 			throw new ValidationException(failures);
 		}
+	}
+
+	/** 납품희망일 규칙(구매·견적 같음): 필수(빈 값은 DTO 가 먼저 막는다), 실제 날짜, 오늘(한국) 이후. 맞으면 null */
+	private String reqDeliDateFailure(String reqDeliDate) {
+		LocalDate date = KoreanDates.parseIso(reqDeliDate);
+		if (date == null) {
+			return "납품희망일이 올바른 날짜가 아닙니다.";
+		}
+		return date.isBefore(KoreanDates.today(clock)) ? "납품희망일은 오늘 이후 날짜로 입력하세요." : null;
 	}
 
 	/** 주문량 규칙(구매·견적 같음). 금액은 그 거래의 단가(구매 = 등록단가, 견적 = 희망단가)로 본다. 맞으면 null */

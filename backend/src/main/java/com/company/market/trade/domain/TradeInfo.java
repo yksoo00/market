@@ -117,7 +117,7 @@ public class TradeInfo implements Persistable<TradeInfoId> {
 	 */
 	public void requote(String prodId, String prodState, Integer salesUnitPrice, Integer stockQuantity,
 			Integer minOrderQuantity, Integer orderUnit, String provDate, Integer orderUnitPrice, Integer orderQuantity,
-			String remarks) {
+			String reqDeliDate, String remarks) {
 		this.prodId = prodId;
 		this.prodState = prodState;
 		this.salesUnitPrice = salesUnitPrice;
@@ -127,6 +127,7 @@ public class TradeInfo implements Persistable<TradeInfoId> {
 		this.provDate = provDate;
 		this.orderUnitPrice = orderUnitPrice;
 		this.orderQuantity = orderQuantity;
+		this.reqDeliDate = reqDeliDate;
 		this.remarks = remarks;
 		this.tradeStats = TradeStats.QUOTE_REQUESTED;
 	}

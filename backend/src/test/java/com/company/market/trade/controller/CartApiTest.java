@@ -277,12 +277,12 @@ class CartApiTest {
 
 	private ResultActions buy(String regDate, int quantity) throws Exception {
 		return mvc.perform(post("/api/v1/trades").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
-			.content("{\"sellerId\":\"%s\",\"regDate\":\"%s\",\"orderQuantity\":%d}".formatted(sellerId, regDate, quantity)));
+			.content("{\"sellerId\":\"%s\",\"regDate\":\"%s\",\"orderQuantity\":%d,\"reqDeliDate\":\"2099-12-31\"}".formatted(sellerId, regDate, quantity)));
 	}
 
 	private ResultActions quote(String regDate, int price) throws Exception {
 		return mvc.perform(post("/api/v1/trades/quotes").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
-			.content("{\"items\":[{\"sellerId\":\"%s\",\"regDate\":\"%s\",\"orderUnitPrice\":%d,\"orderQuantity\":1}]}"
+			.content("{\"items\":[{\"sellerId\":\"%s\",\"regDate\":\"%s\",\"orderUnitPrice\":%d,\"orderQuantity\":1,\"reqDeliDate\":\"2099-12-31\"}]}"
 				.formatted(sellerId, regDate, price)));
 	}
 
@@ -324,7 +324,7 @@ class CartApiTest {
 		mvc.perform(post("/api/v1/trades/" + quoteId + "/accept").cookie(seller)).andExpect(status().isOk());
 		add(buyer, REG_A).andExpect(status().isOk());
 		mvc.perform(post("/api/v1/trades/" + quoteId + "/purchase").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
-			.content("{\"orderQuantity\":1}")).andExpect(status().isOk());
+			.content("{\"orderQuantity\":1,\"reqDeliDate\":\"2099-12-31\"}")).andExpect(status().isOk());
 		assertThat(cartRows()).isZero();
 	}
 
