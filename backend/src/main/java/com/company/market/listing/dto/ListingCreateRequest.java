@@ -32,6 +32,7 @@ public record ListingCreateRequest(
 		@NotNull @Min(1) @Max(100_000) Integer salesQuantity,
 		@Min(1) @Max(100_000) Integer minOrderQuantity,
 		@Min(1) @Max(100_000) Integer orderUnit,
+		@NotBlank(message = DELIVERY_DATE_REQUIRED)
 		@Pattern(regexp = DELIVERY_DATE_PATTERN, message = DELIVERY_DATE_MESSAGE) String deliveryDate,
 		@Size(max = 200) String description,
 		@Size(max = 100) String listingDataSheet,
@@ -47,9 +48,11 @@ public record ListingCreateRequest(
 
 	public static final String PROD_STATE_MESSAGE = "상품상태는 목록에서 고른 값이어야 합니다 (신품, 신품대비 90~99% … 50% 미만).";
 
-	/** 빈 문자열은 "비우기"(수정) 또는 "없음"(등록) — 파일 칸과 같은 규칙 */
+	/** 형식만 본다. 빈 값은 각 요청이 따로 막는다 (제공가능일은 정의서 NOT NULL 이라 등록·수정 모두 필수, 2026-10-27) */
 	public static final String DELIVERY_DATE_PATTERN = "^(\\d{4}-\\d{2}-\\d{2})?$";
 
 	public static final String DELIVERY_DATE_MESSAGE = "납기일은 YYYY-MM-DD 형식이어야 합니다.";
+
+	public static final String DELIVERY_DATE_REQUIRED = "제공가능일을 입력해 주세요.";
 
 }

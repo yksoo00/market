@@ -10,7 +10,7 @@ const base: ListingEditValues = {
   stockQuantity: "10",
   minOrderQuantity: "1",
   orderUnit: "1",
-  deliveryDate: "",
+  deliveryDate: "2026-10-02",
   description: "",
   photos: [],
   listingDataSheet: "",
@@ -63,8 +63,8 @@ describe("listingEditSchema", () => {
     expect(parse({ prodState: "신품대비 70~79%" }).success).toBe(true);
   });
 
-  it("납기일은 비우기·오늘 이후 통과, 지난 날짜는 오류", () => {
-    expect(parse({ deliveryDate: "" }).success).toBe(true);
+  it("제공가능일은 필수(비우면 오류), 오늘 이후 통과, 지난 날짜는 오류", () => {
+    expect(errorPaths({ deliveryDate: "" })).toEqual(["deliveryDate"]);
     expect(parse({ deliveryDate: "2026-10-02" }).success).toBe(true);
     expect(errorPaths({ deliveryDate: "2026-10-01" })).toEqual(["deliveryDate"]);
     expect(errorPaths({ deliveryDate: "2026-02-30" })).toEqual(["deliveryDate"]);

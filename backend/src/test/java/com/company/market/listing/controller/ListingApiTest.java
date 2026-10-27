@@ -136,6 +136,28 @@ class ListingApiTest {
 	}
 
 	@Test
+	@DisplayName("제공가능일 없이 등록하면 400 fields.deliveryDate — 정의서 NOT NULL (2026-10-27)")
+	void deliveryDateRequiredOnCreate() throws Exception {
+		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"P01-Q01-R001","prodName":"노트북 N","prodBrand":"삼성",
+					 "tradeType":"등록","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					"""))
+			.andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.deliveryDate").value("제공가능일을 입력해 주세요."));
+	}
+
+	@Test
+	@DisplayName("수정에서 제공가능일을 빈 값으로 보내면 400 fields.deliveryDate, 값은 그대로")
+	void deliveryDateCannotBeClearedOnUpdate() throws Exception {
+		String regDate = createListing(authCookie);
+		patchListing(regDate, "{\"deliveryDate\":\"\"}").andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.deliveryDate").value("제공가능일을 입력해 주세요."));
+		assertThat(jdbc.queryForObject("select prov_date from trd_prod_reg where user_id = ? and reg_date = ?", String.class,
+				userId, regDate)).isEqualTo("2099-12-31");
+	}
+
+	@Test
 	@DisplayName("가격이 10억을 넘으면 400 VALIDATION, fields.salesUnitPrice")
 	void priceOverLimit() throws Exception {
 		mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))

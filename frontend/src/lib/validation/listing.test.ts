@@ -11,6 +11,7 @@ const valid: ListingFormInput = {
   prodState: "신품",
   salesUnitPrice: "1000",
   salesQuantity: "1",
+  deliveryDate: "2026-10-02",
   photos: ["public/listings/photos/2026/10/a.jpg"],
 };
 const parse = (over: Partial<ListingFormInput>) => schema.safeParse({ ...valid, ...over });
@@ -83,6 +84,11 @@ describe("listingFormSchema", () => {
     expect(errorPaths({ deliveryDate: "2026-10-01" })).toEqual(["deliveryDate"]);
     expect(errorPaths({ prodMufcDate: "2026-02-30" })).toEqual(["prodMufcDate"]);
     expect(errorPaths({ deliveryDate: "2027-02-30" })).toEqual(["deliveryDate"]);
+  });
+
+  it("제공가능일이 비면 필수 오류 — 정의서 NOT NULL (2026-10-27)", () => {
+    expect(errorPaths({ deliveryDate: "" })).toEqual(["deliveryDate"]);
+    expect(parse({ deliveryDate: "" }).error?.issues[0]?.message).toBe(listing.validation.required);
   });
 
   it("대표 사진(첫 장)이 없으면 오류", () => {

@@ -11,6 +11,7 @@ const output = (over: Partial<ListingFormInput>) => {
     prodState: "신품",
     salesUnitPrice: "1000",
     salesQuantity: "3",
+    deliveryDate: "2026-10-02",
     photos: ["k0"],
     ...over,
   });
@@ -37,6 +38,7 @@ describe("toCreateRequest", () => {
       prodState: "신품",
       salesUnitPrice: 1000,
       salesQuantity: 3,
+      deliveryDate: "2026-10-02",
       photos: ["k0"],
     });
   });
@@ -58,6 +60,7 @@ describe("toCreateRequest", () => {
       prodState: "신품",
       salesUnitPrice: 1000,
       salesQuantity: 3,
+      deliveryDate: "2026-10-02",
     });
   });
 

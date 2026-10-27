@@ -172,6 +172,10 @@ public class ListingService {
 		// 제조일도 저장된 값 그대로면 건너뛴다 (납기일과 같은 이유). 새로 보낸 값만 오늘까지인지 본다
 		String newMufcDate = req.prodMufcDate() == null || req.prodMufcDate().isEmpty()
 				|| req.prodMufcDate().equals(currentProduct.getProdMufcDate()) ? null : req.prodMufcDate();
+		// 제공가능일은 정의서 NOT NULL — 수정에서 비울 수 없다 (null = 안 바꿈)
+		if (req.deliveryDate() != null && req.deliveryDate().isBlank()) {
+			throw new ValidationException(Map.of("deliveryDate", ListingCreateRequest.DELIVERY_DATE_REQUIRED));
+		}
 		validateDates(newMufcDate, Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
 		// 대표 사진 필수(등록 규칙)를 수정에서도 지킨다 — 사진이 있는 매물은 전부 뺄 수 없다.
 		// 사진 없는 옛 매물은 [] 를 보내도 바뀌는 게 없어 막지 않는다
