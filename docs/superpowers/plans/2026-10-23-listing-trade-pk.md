@@ -1,5 +1,7 @@
 # 매물·거래 PK 정리 + 거래 등록일시 Implementation Plan
 
+> **대체됨 → 2026-10-27** `docs/superpowers/plans/2026-10-27-definition-keys.md` (사용자가 정의서 복합키·FK 없음으로 정함). 이 계획은 구현하지 않았다.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** 매물 PK 를 `reg_date` 하나로, 거래정보 PK 를 `trade_id` 하나로 바꾸고, 거래정보 `spare_col` 을 거래 등록일시 `trade_date` 로 바꾼다.
