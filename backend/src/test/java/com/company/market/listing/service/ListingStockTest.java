@@ -115,6 +115,13 @@ class ListingStockTest {
 	}
 
 	@Test
+	@DisplayName("가리키는 매물이 없으면 재고 복원은 LISTING_NOT_FOUND — 복원을 조용히 놓치지 않는다")
+	void releaseStockOfMissingListingFails() {
+		assertThatThrownBy(() -> service.releaseStock(new ListingId(sellerId, REG_DATE, "NOPE000001"), 1))
+			.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.LISTING_NOT_FOUND));
+	}
+
+	@Test
 	@DisplayName("일부만 줄이면 dt_expire 는 비어 있다")
 	void partialReserveKeepsAvailable() {
 		service.reserveStock(new ListingId(sellerId, REG_DATE, "STOCKTEST1"), 3);

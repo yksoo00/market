@@ -396,18 +396,12 @@ public class TradeService {
 
 		Map<ListingId, ListingTradeSnapshot> listingsById = listings.snapshotsForTrades(
 				pageRows.stream().map(t -> t.listingId()).collect(Collectors.toSet()));
-		Set<String> renamed = pageRows.stream()
-			.filter(t -> !sameProduct(t, listingsById.get(t.listingId())))
-			.map(TradeInfo::getProdId)
-			.collect(Collectors.toSet());
-		Map<String, String> oldNames = renamed.isEmpty() ? Map.of() : listings.productNames(renamed);
 		Map<UUID, String> nicknames = userDirectory.nicknamesOf(
 				pageRows.stream().map(t -> asBuyer ? t.getSellerId() : t.getUserId()).collect(Collectors.toSet()));
 		List<TradeResponse> items = pageRows.stream()
 			.map(t -> {
 				ListingTradeSnapshot listing = listingsById.get(t.listingId());
-				String prodName = sameProduct(t, listing) ? listing.prodName() : oldNames.get(t.getProdId());
-				return toResponse(t, t.getTradeStats(), prodName, listing.photo(),
+				return toResponse(t, t.getTradeStats(), listing.prodName(), listing.photo(),
 						nicknames.get(asBuyer ? t.getSellerId() : t.getUserId()));
 			})
 			.toList();
@@ -467,19 +461,12 @@ public class TradeService {
 
 	/**
 	 * 이미 읽은 거래 행으로 응답을 만든다. status 를 따로 받는 이유: 확정·취소는 벌크 UPDATE 라 읽어 둔 엔티티의 상태가 옛 값이다.
-	 * 상품명은 거래에 복사된 상품ID 의 마스터에서(구매 때 이름), 사진은 지금 매물에서 (거래에 사진 칸이 없다)
+	 * 상품명·사진은 지금 매물에서 — 거래 행의 prod_id 는 매물 상품이 바뀌면 같이 바뀐다 (2026-10-27)
 	 */
 	private TradeResponse respond(UUID viewerId, TradeInfo trade, TradeStats status) {
 		ListingTradeSnapshot listing = listings.snapshotForTrade(trade.listingId());
-		String prodName = sameProduct(trade, listing) ? listing.prodName()
-				: listings.productNames(List.of(trade.getProdId())).get(trade.getProdId());
 		UUID counterpart = viewerId.equals(trade.getUserId()) ? trade.getSellerId() : trade.getUserId();
-		return toResponse(trade, status, prodName, listing.photo(), nicknameOf(counterpart));
-	}
-
-	/** 매물이 아직 구매 때 상품을 가리키면 스냅샷의 이름이 곧 구매 때 이름 — 마스터를 다시 읽지 않는다 */
-	private static boolean sameProduct(TradeInfo trade, ListingTradeSnapshot listing) {
-		return trade.getProdId().equals(listing.prodId());
+		return toResponse(trade, status, listing.prodName(), listing.photo(), nicknameOf(counterpart));
 	}
 
 	static TradeResponse toResponse(TradeInfo trade, TradeStats status, String prodName, String photo,

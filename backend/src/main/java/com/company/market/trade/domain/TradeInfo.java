@@ -19,7 +19,8 @@ import org.springframework.data.domain.Persistable;
 /**
  * 거래정보(TRD_TRADE_INFO). 구매요청 1건 = 1행. user_id 는 구매자, (seller_id, prod_reg_date, prod_id) 는 매물(정의서 매물 PK 세 값,
  * FK 없음 2026-10-27). reg_date 는 거래 행을 만든 시각.
- * prod_id ~ prov_date 는 요청 때 매물에서 복사한 값(스냅샷)이라 매물이 나중에 바뀌어도 그대로다.
+ * prod_state ~ prov_date 는 요청 때 매물에서 복사한 값(스냅샷)이라 매물이 나중에 바뀌어도 그대로다. prod_id 만은 매물 PK 의 일부라
+ * 매물 상품이 바뀌면 같이 바뀐다 (2026-10-27, TradeListingCleanup).
  * PK 를 직접 채우므로 Listing 과 같은 이유로 Persistable 이 필요하다 (없으면 save 가 merge 로 가서 중복 키를 덮어쓴다).
  */
 @Entity

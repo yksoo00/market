@@ -73,6 +73,14 @@ public interface ListingRepository extends JpaRepository<Listing, ListingId> {
 	@Query("select l from Listing l where l.userId = :userId and l.regDate = :regDate")
 	Optional<Listing> findForUpdate(@Param("userId") UUID userId, @Param("regDate") String regDate);
 
+	/**
+	 * 견적·장바구니 담기용 — 공유 잠금(FOR SHARE)으로 읽는다. FK 가 있을 땐 거래 행 INSERT 가 매물 행을 잠가 삭제·상품 변경과 차례가
+	 * 정해졌는데, FK 를 없애(2026-10-27) 그 일을 여기서 한다. 공유 잠금끼리는 막지 않아 여러 구매자의 담기는 서로 기다리지 않는다
+	 */
+	@Lock(LockModeType.PESSIMISTIC_READ)
+	@Query("select l from Listing l where l.userId = :userId and l.regDate = :regDate")
+	Optional<Listing> findForShare(@Param("userId") UUID userId, @Param("regDate") String regDate);
+
 	/** 거래 행에서 매물을 잠그고 읽는다 (거래 행의 seller_id, prod_reg_date, prod_id) */
 	@Lock(LockModeType.PESSIMISTIC_WRITE)
 	@Query("select l from Listing l where l.userId = :userId and l.regDate = :regDate and l.prodId = :prodId")

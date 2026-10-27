@@ -65,6 +65,16 @@ class DefinitionKeysMigrationTest {
 					order_unit_price, order_quantity, trade_stats)
 				values (?, '26101510001', '견적조정', ?, '20261015100000', 'MIGTEST001', 900, 1, '견적요청')
 				""", buyer, seller);
+		// 요청 뒤 판매자가 상품을 바꿔 거래의 prod_id(옛 스냅샷)가 매물과 다른 행 — 세 값으로 찾으려면 맞춰야 한다
+		jdbc.update("""
+				insert into migtest.trd_prod_master (prod_id, category_code, prod_name, prod_brand, reg_date)
+				values ('MIGTEST000', 'P01-Q01-R001', '옛 상품', '브랜드', '20261015100000')
+				""");
+		jdbc.update("""
+				insert into migtest.trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
+					order_unit_price, order_quantity, req_deli_date, trade_stats)
+				values (?, '26101510002', '거래', ?, '20261015100000', 'MIGTEST000', 1000, 1, '2099-12-31', '구매요청')
+				""", buyer, seller);
 		jdbc.update("""
 				insert into migtest.trd_trade_history (trade_id, trade_date, prod_id, trade_type, seller_id, buyer_id)
 				values ('26101510001', '20261016100000', 'MIGTEST001', '거래', ?, ?)
@@ -102,6 +112,13 @@ class DefinitionKeysMigrationTest {
 		assertThat(row.get("reg_date")).isEqualTo("20261015100000");
 		assertThat(row.get("prov_date")).isEqualTo("2026-10-15");
 		assertThat(row.get("req_deli_date")).isEqualTo("2026-10-15");
+	}
+
+	@Test
+	@DisplayName("거래 prod_id 가 매물과 다르면(요청 뒤 상품 변경) 매물의 prod_id 로 맞춘다")
+	void tradeProdIdRealigned() {
+		assertThat(jdbc.queryForObject("select prod_id from migtest.trd_trade_info where trade_id = '26101510002'", String.class))
+			.isEqualTo("MIGTEST001");
 	}
 
 	@Test

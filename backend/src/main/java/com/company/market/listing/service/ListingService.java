@@ -44,7 +44,6 @@ import com.company.market.listing.repository.ListingSearchRepository;
 import com.company.market.listing.service.ProductService.ProductDraft;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -139,7 +138,7 @@ public class ListingService {
 			.salesQuantity(req.salesQuantity())
 			.minOrderQuantity(minOrderQuantity)
 			.orderUnit(orderUnit)
-			.deliveryDate(req.deliveryDate() == null || req.deliveryDate().isEmpty() ? null : req.deliveryDate())
+			.deliveryDate(req.deliveryDate())
 			// 등록할 땐 재고 = 판매수량 (사용자 지시 2026-10-19). 재고만 따로 고치는 건 수정 화면에서
 			.stockQuantity(req.salesQuantity())
 			.prodDescription(req.description())
@@ -150,12 +149,8 @@ public class ListingService {
 			.prodImage4(photoAt(photos, 3))
 			.build();
 
-		try {
-			listings.saveAndFlush(listing);
-		}
-		catch (DataIntegrityViolationException e) {
-			throw new ApiException(ErrorCode.LISTING_DUPLICATE_REG_TIME);
-		}
+		// 같은 (user_id, reg_date) 는 위 잠금·확인이 막아 PK 충돌이 나지 않는다
+		listings.saveAndFlush(listing);
 
 		return toResponse(listing, product);
 	}
@@ -354,9 +349,13 @@ public class ListingService {
 		return toSnapshot(listing, products.get(listing.getProdId()));
 	}
 
-	/** 구매요청이 복사해 갈 매물 값 (거래 도메인용) */
+	/**
+	 * 견적·장바구니가 복사해 갈 매물 값 (거래 도메인용). 공유 잠금으로 읽어 그 트랜잭션이 끝날 때까지 매물 삭제·상품 변경이
+	 * 기다린다 — 지워진 매물을 가리키는 거래 행이 생기지 않게 (ListingRepository.findForShare)
+	 */
+	@Transactional
 	public ListingTradeSnapshot snapshotForTrade(UUID sellerId, String regDate) {
-		Listing listing = listings.findByUserIdAndRegDate(sellerId, regDate)
+		Listing listing = listings.findForShare(sellerId, regDate)
 			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
 		return toSnapshot(listing, products.get(listing.getProdId()));
 	}
@@ -389,10 +388,7 @@ public class ListingService {
 		return found.stream().collect(Collectors.toMap(Listing::getId, l -> toSearchItem(l, productsById.get(l.getProdId()))));
 	}
 
-	/**
-	 * 상품ID → 상품명. 거래는 구매 때 상품ID 를 복사해 두므로, 판매자가 나중에 매물의 상품명을 바꿔도(= 다른 마스터를
-	 * 가리킴) 거래 내역은 구매 때 이름을 보여 준다
-	 */
+	/** 상품ID → 상품명 (거래 메일 등, 거래 행의 prod_id 로) */
 	public Map<String, String> productNames(Collection<String> prodIds) {
 		return products.getAll(prodIds).values().stream().collect(Collectors.toMap(Product::getProdId, Product::getProdName));
 	}
@@ -421,7 +417,10 @@ public class ListingService {
 	/** 거래 취소로 재고 복원 + 거래완료일시 지움 */
 	@Transactional
 	public void releaseStock(ListingId id, int quantity) {
-		listings.releaseStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity);
+		// 0행이면 가리키는 매물이 없다 — 조용히 넘어가면 취소는 되고 재고만 사라진다
+		if (listings.releaseStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity) == 0) {
+			throw new ApiException(ErrorCode.LISTING_NOT_FOUND);
+		}
 	}
 
 	public ListingResponse get(UUID userId, String regDate) {
