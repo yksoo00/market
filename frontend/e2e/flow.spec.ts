@@ -112,6 +112,8 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await expect(submit).toBeDisabled();
     // 마지막 필수 칸: blur 없이 입력만 한 상태에서 버튼이 켜져야 한다 (onBlur 모드 때 첫 클릭이 꺼진 버튼에 먹히던 문제)
     await page.locator('input[name="salesQuantity"]').fill("3");
+    // 제공가능일 필수 (2026-10-27)
+    await page.locator('input[name="deliveryDate"]').fill(new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10));
     await expect(submit).toBeEnabled();
     await submit.click();
     await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
@@ -235,6 +237,8 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await page.locator("#prodState").selectOption("신품");
     await page.locator('input[name="salesUnitPrice"]').fill("900000");
     await page.locator('input[name="salesQuantity"]').fill("1");
+    // 제공가능일 필수 (2026-10-27)
+    await page.locator('input[name="deliveryDate"]').fill(new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10));
     const submit = page.getByRole("button", { name: listing.form.submit, exact: true });
     await expect(submit).toBeEnabled();
     await submit.click();
