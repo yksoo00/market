@@ -145,7 +145,7 @@ class ListingSearchApiTest {
 			.prodNo(prodNo).prodBrand(brand).regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(userId).regDate(regDate).prodId(prodId).tradeType("등록")
 			.prodState("양호").salesUnitPrice(price).salesQuantity(Math.max(stock, 1)).minOrderQuantity(1).orderUnit(1)
-			.stockQuantity(stock).deliveryDate(deliveryDate).build());
+			.stockQuantity(stock).deliveryDate(deliveryDate == null ? "2099-12-31" : deliveryDate).build());
 	}
 
 	/** 10-01 검색 결과 프론트 필터 테스트(lib/search.test.ts)의 사례를 옮긴 4건. 최신순 = A, B, C, D */
@@ -156,7 +156,7 @@ class ListingSearchApiTest {
 		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("P01-Q01-R001").prodName(name)
 			.prodBrand("남의것").regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(other).regDate(regDate).prodId(prodId).tradeType("등록")
-			.prodState("신품").salesUnitPrice(1000).salesQuantity(1).minOrderQuantity(1).orderUnit(1).stockQuantity(1).build());
+			.prodState("신품").salesUnitPrice(1000).salesQuantity(1).minOrderQuantity(1).orderUnit(1).stockQuantity(1).deliveryDate("2026-12-31").build());
 		return other;
 	}
 
@@ -370,11 +370,11 @@ class ListingSearchApiTest {
 				.phoneHash(hasher.hash(loginId.equals("searchtieb") ? "01099998888" : "01077776666")).build()).getId();
 			listingRepository.saveAndFlush(Listing.builder().userId(other).regDate(tieDate).prodId("ELEC00019000")
 				.tradeType("등록").prodState("양호").salesUnitPrice(1000).salesQuantity(1).minOrderQuantity(1).orderUnit(1)
-				.build());
+				.deliveryDate("2026-12-31").build());
 		}
 		listingRepository.saveAndFlush(Listing.builder().userId(userId).regDate(tieDate).prodId("ELEC00019000")
 			.tradeType("등록").prodState("양호").salesUnitPrice(1000).salesQuantity(1).minOrderQuantity(1).orderUnit(1)
-			.build());
+			.deliveryDate("2026-12-31").build());
 
 		String first = mvc.perform(get("/api/v1/listings")).andReturn().getResponse().getContentAsString();
 		String second = mvc.perform(get("/api/v1/listings").param("cursor", JsonPath.<String>read(first, "$.data.nextCursor")))
@@ -470,7 +470,7 @@ class ListingSearchApiTest {
 	void hasFiles() throws Exception {
 		saveFour();
 		jdbc.update("update trd_prod_reg set prod_data_sheet = 'd.pdf', prod_photo_2 = 'p.jpg', test_report = 't.pdf' where reg_date = ?", A);
-		jdbc.update("update trd_prod_reg set prod_data_sheet = 'd.pdf', prod_coa = 'c.pdf', replace_prod = 'X' where reg_date = ?", B);
+		jdbc.update("update trd_prod_reg set prod_data_sheet = 'd.pdf', certificate_of_authenticity = 'c.pdf', replace_prod = 'X' where reg_date = ?", B);
 		// 상품마스터 파일은 보지 않는다
 		jdbc.update("update trd_prod_master set prod_data_sheet = 'm.pdf' where prod_id = 'ELEC00010003'");
 		assertThat(regDates("has", "datasheet")).containsExactly(A, B);

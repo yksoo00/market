@@ -17,19 +17,23 @@ import org.springframework.data.repository.query.Param;
 
 public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoId> {
 
-	/** trade_id 는 unique 라 구매자 없이 하나로 찾는다 */
+	/** 거래ID 는 생성기(시간대 + 순번, 잠금)가 겹치지 않게 만들어 구매자 없이 하나로 찾는다 (DB unique 는 2026-10-27 에 뺐다) */
 	Optional<TradeInfo> findByTradeId(String tradeId);
 
 	/** 구매자·매물당 견적 단계 행은 하나(ux_trd_trade_info_one_quote) — 재요청이 덮어쓸 행. 구매 단계로 넘어간 행은 찾지 않는다 */
-	Optional<TradeInfo> findByUserIdAndSellerIdAndRegDateAndTradeTypeAndTradeStatsIn(UUID userId, UUID sellerId,
-			String regDate, TradeType tradeType, Collection<TradeStats> stats);
+	Optional<TradeInfo> findByUserIdAndSellerIdAndProdRegDateAndProdIdAndTradeTypeAndTradeStatsIn(UUID userId,
+			UUID sellerId, String prodRegDate, String prodId, TradeType tradeType, Collection<TradeStats> stats);
 
 	long countByUserIdAndTradeStats(UUID userId, TradeStats stats);
 
 	/** 내 장바구니 — trade_id 내림차순 = 최근에 담은 것부터 */
 	List<TradeInfo> findByUserIdAndTradeStatsOrderByTradeIdDesc(UUID userId, TradeStats stats);
 
-	boolean existsByUserIdAndSellerIdAndRegDateAndTradeStats(UUID userId, UUID sellerId, String regDate, TradeStats stats);
+	boolean existsByUserIdAndSellerIdAndProdRegDateAndProdIdAndTradeStats(UUID userId, UUID sellerId, String prodRegDate,
+			String prodId, TradeStats stats);
+
+	/** 이 매물에 거래 행이 남아 있는지 — 매물 삭제를 막을 때 (FK 가 없어 DB 가 막지 않는다) */
+	boolean existsBySellerIdAndProdRegDateAndProdId(UUID sellerId, String prodRegDate, String prodId);
 
 	/**
 	 * 장바구니 1행. 이미 담겨 있으면(동시에 담은 다른 요청 포함) 아무것도 안 한다 → 0. 예외를 잡아 넘기지 않는 이유:
@@ -37,15 +41,16 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	 */
 	@Modifying
 	@Query(nativeQuery = true, value = """
-			insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id, prod_state,
-				sales_unit_price, stock_quantity, min_order_quantity, order_unit, prov_date, order_unit_price,
-				order_quantity, trade_stats)
-			values (:userId, :tradeId, '구매검토', :sellerId, :regDate, :prodId, :prodState, :salesUnitPrice,
-				:stockQuantity, :minOrderQuantity, :orderUnit, :provDate, :orderUnitPrice, :orderQuantity, '장바구니')
-			on conflict (user_id, seller_id, reg_date) where trade_type = '구매검토' and trade_stats = '장바구니' do nothing
+			insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, reg_date, prod_id,
+				prod_state, sales_unit_price, stock_quantity, min_order_quantity, order_unit, prov_date, order_unit_price,
+				order_quantity, req_deli_date, trade_stats)
+			values (:userId, :tradeId, '구매검토', :sellerId, :prodRegDate, :regDate, :prodId, :prodState, :salesUnitPrice,
+				:stockQuantity, :minOrderQuantity, :orderUnit, :provDate, :orderUnitPrice, :orderQuantity, :provDate, '장바구니')
+			on conflict (user_id, seller_id, prod_reg_date, prod_id) where trade_type = '구매검토' and trade_stats = '장바구니' do nothing
 			""")
 	int insertCartIfAbsent(@Param("userId") UUID userId, @Param("tradeId") String tradeId, @Param("sellerId") UUID sellerId,
-			@Param("regDate") String regDate, @Param("prodId") String prodId, @Param("prodState") String prodState,
+			@Param("prodRegDate") String prodRegDate, @Param("regDate") String regDate, @Param("prodId") String prodId,
+			@Param("prodState") String prodState,
 			@Param("salesUnitPrice") Integer salesUnitPrice, @Param("stockQuantity") Integer stockQuantity,
 			@Param("minOrderQuantity") Integer minOrderQuantity, @Param("orderUnit") Integer orderUnit,
 			@Param("provDate") String provDate, @Param("orderUnitPrice") int orderUnitPrice,
@@ -62,17 +67,23 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	 * 엔티티를 이어서 쓰고, 장바구니 행은 영속성 컨텍스트에 올라와 있지 않다
 	 */
 	@Modifying(flushAutomatically = true)
-	@Query("delete from TradeInfo t where t.userId = :buyerId and t.sellerId = :sellerId and t.regDate = :regDate and t.tradeStats = :stats")
-	int deleteCartRow(@Param("buyerId") UUID buyerId, @Param("sellerId") UUID sellerId, @Param("regDate") String regDate,
-			@Param("stats") TradeStats stats);
+	@Query("""
+			delete from TradeInfo t
+			 where t.userId = :buyerId and t.sellerId = :sellerId and t.prodRegDate = :prodRegDate and t.prodId = :prodId
+			   and t.tradeStats = :stats
+			""")
+	int deleteCartRow(@Param("buyerId") UUID buyerId, @Param("sellerId") UUID sellerId, @Param("prodRegDate") String prodRegDate,
+			@Param("prodId") String prodId, @Param("stats") TradeStats stats);
 
-	/** 매물 삭제 때 그 매물의 견적 단계 행을 모두 지운다 (구매요청·구매확정 행은 그대로 — 남아 있으면 매물 FK 가 삭제를 막는다) */
+	/** 매물 삭제 때 그 매물의 견적 단계 행을 모두 지운다 (구매요청·구매확정 행은 그대로 — 남아 있으면 TradeListingCleanup 이 삭제를 막는다) */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""
 			delete from TradeInfo t
-			 where t.sellerId = :sellerId and t.regDate = :regDate and t.tradeType = :type and t.tradeStats in :stats
+			 where t.sellerId = :sellerId and t.prodRegDate = :prodRegDate and t.prodId = :prodId and t.tradeType = :type
+			   and t.tradeStats in :stats
 			""")
-	int deleteByListingAndTypeAndStats(@Param("sellerId") UUID sellerId, @Param("regDate") String regDate,
+	int deleteByListingAndTypeAndStats(@Param("sellerId") UUID sellerId, @Param("prodRegDate") String prodRegDate,
+			@Param("prodId") String prodId,
 			@Param("type") TradeType type, @Param("stats") Collection<TradeStats> stats);
 
 	/**
@@ -113,19 +124,29 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	/** 내가 판매자인 거래. regDate 가 있으면 그 매물만. hidden 종류(구매검토 = 구매자의 장바구니)는 판매자에게 안 보인다 */
 	@Query("""
 			select t from TradeInfo t
-			 where t.sellerId = :sellerId and t.tradeType <> :hidden and (:regDate is null or t.regDate = :regDate)
+			 where t.sellerId = :sellerId and t.tradeType <> :hidden and (:regDate is null or t.prodRegDate = :regDate)
 			   and (:cursor is null or t.tradeId < :cursor)
 			 order by t.tradeId desc
 			""")
 	List<TradeInfo> findSellerPage(@Param("sellerId") UUID sellerId, @Param("hidden") TradeType hidden,
 			@Param("regDate") String regDate, @Param("cursor") String cursor, Pageable page);
 
-	/** 판매자 매물별 그 상태들 건수 → [regDate, count] */
+	/** 판매자 매물별 그 상태들 건수 → [매물 등록일시, count]. 한 판매자 안에서 등록일시는 매물 하나 (같은 초 등록 409) */
 	@Query("""
-			select t.regDate, count(t) from TradeInfo t
+			select t.prodRegDate, count(t) from TradeInfo t
 			 where t.sellerId = :sellerId and t.tradeStats in :stats
-			 group by t.regDate
+			 group by t.prodRegDate
 			""")
 	List<Object[]> countBySellerGroupByListing(@Param("sellerId") UUID sellerId, @Param("stats") Collection<TradeStats> stats);
+
+
+	/** 매물 수정으로 상품이 바뀌면 그 매물을 가리키는 거래 행도 새 prod_id 로 — 세 값으로 계속 찾게 */
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("""
+			update TradeInfo t set t.prodId = :newProdId
+			 where t.sellerId = :sellerId and t.prodRegDate = :prodRegDate and t.prodId = :oldProdId
+			""")
+	int changeListingProdId(@Param("sellerId") UUID sellerId, @Param("prodRegDate") String prodRegDate,
+			@Param("oldProdId") String oldProdId, @Param("newProdId") String newProdId);
 
 }

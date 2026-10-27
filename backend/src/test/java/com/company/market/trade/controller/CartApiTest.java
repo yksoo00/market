@@ -141,7 +141,7 @@ class CartApiTest {
 	}
 
 	private String cartTradeId(UUID buyer, String regDate) {
-		return jdbc.queryForObject("select trade_id from trd_trade_info where user_id = ? and reg_date = ? and trade_stats = '장바구니'",
+		return jdbc.queryForObject("select trade_id from trd_trade_info where user_id = ? and prod_reg_date = ? and trade_stats = '장바구니'",
 				String.class, buyer, regDate);
 	}
 
@@ -150,7 +150,7 @@ class CartApiTest {
 	void addSeveral() throws Exception {
 		add(buyer, REG_A, REG_B).andExpect(status().isOk()).andExpect(jsonPath("$.data.count").value(2));
 		mvc.perform(get("/api/v1/cart/count").cookie(buyer)).andExpect(status().isOk()).andExpect(jsonPath("$.data.count").value(2));
-		var row = jdbc.queryForMap("select * from trd_trade_info where reg_date = ?", REG_A);
+		var row = jdbc.queryForMap("select * from trd_trade_info where prod_reg_date = ?", REG_A);
 		assertThat(row.get("trade_type")).isEqualTo("구매검토");
 		assertThat(row.get("trade_stats")).isEqualTo("장바구니");
 		assertThat(row.get("order_unit_price")).isEqualTo(1000);
@@ -216,9 +216,9 @@ class CartApiTest {
 			String prod = "CARTFULL%02d".formatted(i);
 			jdbc.update("insert into trd_prod_master (prod_id, category_code, prod_name, prod_brand, reg_date) values (?, 'P01-Q01-R001', ?, 'Dell', ?)",
 					prod, "상품" + i, reg);
-			jdbc.update("insert into trd_prod_reg (user_id, reg_date, prod_id, trade_type, prod_state, sales_unit_price, sales_quantity, stock_quantity) values (?, ?, ?, '등록', '신품', 100, 1, 1)",
+			jdbc.update("insert into trd_prod_reg (user_id, reg_date, prod_id, trade_type, prod_state, sales_unit_price, sales_quantity, stock_quantity, prov_date) values (?, ?, ?, '등록', '신품', 100, 1, 1, '2099-12-31')",
 					sellerId, reg, prod);
-			jdbc.update("insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id, order_unit_price, order_quantity, trade_stats) values (?, ?, '구매검토', ?, ?, ?, 100, 1, '장바구니')",
+			jdbc.update("insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id, order_unit_price, order_quantity, prov_date, req_deli_date, trade_stats) values (?, ?, '구매검토', ?, ?, ?, 100, 1, '2099-12-31', '2099-12-31', '장바구니')",
 					buyerId, "260920%05d".formatted(i), sellerId, reg, prod);
 		}
 		add(buyer, REG_A, REG_B).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("CART_FULL"));

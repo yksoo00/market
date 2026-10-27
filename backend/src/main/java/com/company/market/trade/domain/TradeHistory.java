@@ -15,7 +15,10 @@ import lombok.Builder;
 import lombok.Getter;
 import org.springframework.data.domain.Persistable;
 
-/** 거래이력(TRD_TRADE_HISTORY). 구매확정된 거래만 1줄 — 취소는 쌓지 않는다. PK 직접 채움이라 Persistable (TradeInfo 와 같은 이유) */
+/**
+ * 거래이력(TRD_TRADE_HISTORY). 구매확정된 거래만 1줄 — 취소는 쌓지 않는다. PK 는 정의서 (user_id 구매자, trade_id, trade_date)
+ * (2026-10-27). PK 직접 채움이라 Persistable (TradeInfo 와 같은 이유)
+ */
 @Entity
 @Table(name = "trd_trade_history")
 @IdClass(TradeHistoryId.class)
@@ -25,6 +28,11 @@ public class TradeHistory implements Persistable<TradeHistoryId> {
 	@Transient
 	private boolean isNew = true;
 
+	/** 구매자 */
+	@Id
+	@Column(name = "user_id")
+	private UUID userId;
+
 	@Id
 	@Column(name = "trade_id")
 	private String tradeId;
@@ -33,8 +41,7 @@ public class TradeHistory implements Persistable<TradeHistoryId> {
 	@Column(name = "trade_date")
 	private String tradeDate;
 
-	@Id
-	@Column(name = "prod_id")
+	@Column(nullable = false)
 	private String prodId;
 
 	@Convert(converter = TradeType.DbConverter.class)
@@ -43,9 +50,6 @@ public class TradeHistory implements Persistable<TradeHistoryId> {
 
 	@Column(nullable = false)
 	private UUID sellerId;
-
-	@Column(nullable = false)
-	private UUID buyerId;
 
 	private Integer tradeUnitPrice;
 
@@ -59,14 +63,14 @@ public class TradeHistory implements Persistable<TradeHistoryId> {
 	}
 
 	@Builder
-	private TradeHistory(String tradeId, String tradeDate, String prodId, TradeType tradeType, UUID sellerId,
-			UUID buyerId, Integer tradeUnitPrice, Integer tradeQuantity, Integer tradeAmount) {
+	private TradeHistory(UUID userId, String tradeId, String tradeDate, String prodId, TradeType tradeType, UUID sellerId,
+			Integer tradeUnitPrice, Integer tradeQuantity, Integer tradeAmount) {
+		this.userId = userId;
 		this.tradeId = tradeId;
 		this.tradeDate = tradeDate;
 		this.prodId = prodId;
 		this.tradeType = tradeType;
 		this.sellerId = sellerId;
-		this.buyerId = buyerId;
 		this.tradeUnitPrice = tradeUnitPrice;
 		this.tradeQuantity = tradeQuantity;
 		this.tradeAmount = tradeAmount;
@@ -74,7 +78,7 @@ public class TradeHistory implements Persistable<TradeHistoryId> {
 
 	@Override
 	public TradeHistoryId getId() {
-		return new TradeHistoryId(tradeId, tradeDate, prodId);
+		return new TradeHistoryId(userId, tradeId, tradeDate);
 	}
 
 	@Override

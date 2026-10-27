@@ -1,5 +1,8 @@
 package com.company.market.trade.service;
 
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -40,6 +43,8 @@ public class CartService {
 
 	private final ListingService listings;
 
+	private final Clock clock;
+
 	/**
 	 * 담기. 하나라도 틀리면(내 매물·거래완료·없는 매물·100개 초과) 아무것도 안 담는다 — 다 확인한 뒤에 쓴다.
 	 * 이미 담긴 매물은 건너뛴다. 동시에 담은 두 요청이 같이 100개 확인을 통과하면 조금 넘을 수 있다(감수 — 행 수 상한이
@@ -63,14 +68,16 @@ public class CartService {
 			targets.put(key, listing);
 		}
 		List<ListingTradeSnapshot> fresh = targets.values().stream()
-			.filter(l -> !trades.existsByUserIdAndSellerIdAndRegDateAndTradeStats(buyerId, l.sellerId(), l.regDate(), TradeStats.CART))
+			.filter(l -> !trades.existsByUserIdAndSellerIdAndProdRegDateAndProdIdAndTradeStats(buyerId, l.sellerId(), l.regDate(),
+				l.prodId(), TradeStats.CART))
 			.toList();
 		if (trades.countByUserIdAndTradeStats(buyerId, TradeStats.CART) + fresh.size() > MAX_ITEMS) {
 			throw new ApiException(ErrorCode.CART_FULL);
 		}
+		String now = LocalDateTime.now(clock).format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
 		for (ListingTradeSnapshot l : fresh) {
 			// 화면은 이 값이 아니라 지금 매물 값을 보여 준다. NOT NULL 칸이라 담을 때 값으로 채운다
-			trades.insertCartIfAbsent(buyerId, tradeIds.next(), l.sellerId(), l.regDate(), l.prodId(), l.prodState(),
+			trades.insertCartIfAbsent(buyerId, tradeIds.next(), l.sellerId(), l.regDate(), now, l.prodId(), l.prodState(),
 					l.salesUnitPrice(), l.stockQuantity(), l.minOrderQuantity(), l.orderUnit(), l.provDate(),
 					l.salesUnitPrice() == null ? 0 : l.salesUnitPrice(),
 					l.minOrderQuantity() == null || l.minOrderQuantity() < 1 ? 1 : l.minOrderQuantity());
@@ -82,10 +89,10 @@ public class CartService {
 	public List<CartItemResponse> list(UUID buyerId) {
 		List<TradeInfo> rows = trades.findByUserIdAndTradeStatsOrderByTradeIdDesc(buyerId, TradeStats.CART);
 		Map<ListingId, ListingSearchItemResponse> items = listings
-			.searchItems(rows.stream().map(t -> new ListingId(t.getSellerId(), t.getRegDate())).toList());
+			.searchItems(rows.stream().map(t -> t.listingId()).toList());
 		List<CartItemResponse> result = new ArrayList<>();
 		for (TradeInfo t : rows) {
-			ListingSearchItemResponse item = items.get(new ListingId(t.getSellerId(), t.getRegDate()));
+			ListingSearchItemResponse item = items.get(t.listingId());
 			// 매물 FK 가 걸려 있어 없을 수 없지만, 있어도 목록 전체를 깨지 않는다
 			if (item != null) {
 				result.add(new CartItemResponse(t.getTradeId(), item));

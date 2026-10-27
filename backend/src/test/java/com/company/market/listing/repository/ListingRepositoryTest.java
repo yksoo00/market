@@ -58,25 +58,26 @@ class ListingRepositoryTest {
 	private Listing baseListing(String regDate) {
 		return Listing.builder().userId(userId).regDate(regDate).prodId(product.getProdId())
 			.tradeType("등록").prodState("new").salesUnitPrice(10000).salesQuantity(1)
-			.minOrderQuantity(1).orderUnit(1).build();
+			.minOrderQuantity(1).orderUnit(1).deliveryDate("2026-12-31").build();
 	}
 
 	@Test
-	@DisplayName("(user_id, reg_date) 복합키로 저장·조회된다")
+	@DisplayName("정의서 복합키 (user_id, reg_date, prod_id) 로 저장되고, 매물 주소의 두 값으로도 찾는다")
 	void savesWithCompositeKey() {
 		listings.saveAndFlush(baseListing("20260929120000"));
 
-		assertThat(listings.findById(new ListingId(userId, "20260929120000"))).isPresent();
+		assertThat(listings.findById(new ListingId(userId, "20260929120000", product.getProdId()))).isPresent();
+		assertThat(listings.findByUserIdAndRegDate(userId, "20260929120000")).isPresent();
 	}
 
 	@Test
-	@DisplayName("이미 있는 (user_id, reg_date) 로 다시 save 하면 기존 값을 조용히 덮어쓰지 않고 예외를 던진다")
+	@DisplayName("이미 있는 (user_id, reg_date, prod_id) 로 다시 save 하면 기존 값을 조용히 덮어쓰지 않고 예외를 던진다")
 	void savingDuplicateKeyDoesNotSilentlyOverwrite() {
 		listings.saveAndFlush(baseListing("20260929120000"));
 
 		Listing duplicate = Listing.builder().userId(userId).regDate("20260929120000").prodId(product.getProdId())
 			.tradeType("변경됨").prodState("used").salesUnitPrice(999).salesQuantity(1)
-			.minOrderQuantity(1).orderUnit(1).build();
+			.minOrderQuantity(1).orderUnit(1).deliveryDate("2026-12-31").build();
 
 		assertThatThrownBy(() -> listings.saveAndFlush(duplicate)).isInstanceOf(DataIntegrityViolationException.class);
 	}

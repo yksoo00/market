@@ -2,6 +2,7 @@ package com.company.market.trade.domain;
 
 import java.util.UUID;
 
+import com.company.market.listing.domain.ListingId;
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
@@ -16,7 +17,8 @@ import lombok.Getter;
 import org.springframework.data.domain.Persistable;
 
 /**
- * 거래정보(TRD_TRADE_INFO). 구매요청 1건 = 1행. user_id 는 구매자, (seller_id, reg_date) 는 매물.
+ * 거래정보(TRD_TRADE_INFO). 구매요청 1건 = 1행. user_id 는 구매자, (seller_id, prod_reg_date, prod_id) 는 매물(정의서 매물 PK 세 값,
+ * FK 없음 2026-10-27). reg_date 는 거래 행을 만든 시각.
  * prod_id ~ prov_date 는 요청 때 매물에서 복사한 값(스냅샷)이라 매물이 나중에 바뀌어도 그대로다.
  * PK 를 직접 채우므로 Listing 과 같은 이유로 Persistable 이 필요하다 (없으면 save 가 merge 로 가서 중복 키를 덮어쓴다).
  */
@@ -43,6 +45,10 @@ public class TradeInfo implements Persistable<TradeInfoId> {
 
 	private UUID sellerId;
 
+	@Column(nullable = false)
+	private String prodRegDate;
+
+	/** 거래 등록일시 yyyyMMddHHmmss (한국). 행을 만들 때만 정하고 상태가 바뀌어도 그대로 */
 	private String regDate;
 
 	private String prodId;
@@ -57,6 +63,7 @@ public class TradeInfo implements Persistable<TradeInfoId> {
 
 	private Integer orderUnit;
 
+	@Column(nullable = false)
 	private String provDate;
 
 	@Column(nullable = false)
@@ -80,14 +87,15 @@ public class TradeInfo implements Persistable<TradeInfoId> {
 	}
 
 	@Builder
-	private TradeInfo(UUID userId, String tradeId, TradeType tradeType, UUID sellerId, String regDate, String prodId,
-			String prodState, Integer salesUnitPrice, Integer stockQuantity, Integer minOrderQuantity, Integer orderUnit,
-			String provDate, Integer orderUnitPrice, Integer orderQuantity, String reqDeliDate, String remarks,
-			TradeStats tradeStats) {
+	private TradeInfo(UUID userId, String tradeId, TradeType tradeType, UUID sellerId, String prodRegDate,
+			String regDate, String prodId, String prodState, Integer salesUnitPrice, Integer stockQuantity,
+			Integer minOrderQuantity, Integer orderUnit, String provDate, Integer orderUnitPrice, Integer orderQuantity,
+			String reqDeliDate, String remarks, TradeStats tradeStats) {
 		this.userId = userId;
 		this.tradeId = tradeId;
 		this.tradeType = tradeType;
 		this.sellerId = sellerId;
+		this.prodRegDate = prodRegDate;
 		this.regDate = regDate;
 		this.prodId = prodId;
 		this.prodState = prodState;
@@ -142,6 +150,11 @@ public class TradeInfo implements Persistable<TradeInfoId> {
 		this.reqDeliDate = reqDeliDate;
 		this.remarks = remarks;
 		this.tradeStats = TradeStats.REQUESTED;
+	}
+
+	/** 이 거래가 가리키는 매물의 PK */
+	public ListingId listingId() {
+		return new ListingId(sellerId, prodRegDate, prodId);
 	}
 
 	@Override

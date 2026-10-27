@@ -92,7 +92,8 @@ public class TradeService {
 			.tradeId(tradeIds.next())
 			.tradeType(TradeType.PURCHASE)
 			.sellerId(listing.sellerId())
-			.regDate(listing.regDate())
+			.prodRegDate(listing.regDate())
+			.regDate(LocalDateTime.now(clock).format(TIMESTAMP_FORMAT))
 			.prodId(listing.prodId())
 			.prodState(listing.prodState())
 			.salesUnitPrice(listing.salesUnitPrice())
@@ -106,9 +107,9 @@ public class TradeService {
 			.remarks(req.remarks() == null || req.remarks().isBlank() ? null : req.remarks().trim())
 			.tradeStats(TradeStats.REQUESTED)
 			.build());
-		listings.reserveStock(listing.sellerId(), listing.regDate(), req.orderQuantity());
+		listings.reserveStock(listing.id(), req.orderQuantity());
 		// 구매로 넘어간 매물은 장바구니에서 뺀다 — 어디서 눌렀든(스펙 2026-10-21). 위에서 실패하면 같이 롤백돼 남는다
-		trades.deleteCartRow(buyerId, listing.sellerId(), listing.regDate(), TradeStats.CART);
+		trades.deleteCartRow(buyerId, listing.sellerId(), listing.regDate(), listing.prodId(), TradeStats.CART);
 		mail(Kind.PURCHASE_REQUESTED, trade, buyerId, listing.prodName());
 		return toResponse(trade, TradeStats.REQUESTED, listing.prodName(), listing.photo(), nicknameOf(listing.sellerId()));
 	}
@@ -155,8 +156,8 @@ public class TradeService {
 				continue;
 			}
 			String remarks = item.remarks() == null || item.remarks().isBlank() ? null : item.remarks().trim();
-			TradeInfo existing = trades.findByUserIdAndSellerIdAndRegDateAndTradeTypeAndTradeStatsIn(buyerId,
-					listing.sellerId(), listing.regDate(), TradeType.QUOTE, TradeStats.QUOTE_STAGES).orElse(null);
+			TradeInfo existing = trades.findByUserIdAndSellerIdAndProdRegDateAndProdIdAndTradeTypeAndTradeStatsIn(buyerId,
+					listing.sellerId(), listing.regDate(), listing.prodId(), TradeType.QUOTE, TradeStats.QUOTE_STAGES).orElse(null);
 			if (existing != null) {
 				existing.requote(listing.prodId(), listing.prodState(), listing.salesUnitPrice(), listing.stockQuantity(),
 						listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), item.orderUnitPrice(),
@@ -170,7 +171,8 @@ public class TradeService {
 						.tradeId(tradeIds.next())
 						.tradeType(TradeType.QUOTE)
 						.sellerId(listing.sellerId())
-						.regDate(listing.regDate())
+						.prodRegDate(listing.regDate())
+						.regDate(LocalDateTime.now(clock).format(TIMESTAMP_FORMAT))
 						.prodId(listing.prodId())
 						.prodState(listing.prodState())
 						.salesUnitPrice(listing.salesUnitPrice())
@@ -180,6 +182,8 @@ public class TradeService {
 						.provDate(listing.provDate())
 						.orderUnitPrice(item.orderUnitPrice())
 						.orderQuantity(item.orderQuantity())
+						// TODO(NOT NULL 대응, 2026-10-27): 견적 납품희망일 입력(PR 1 Task 4)이 들어오면 요청 값으로 바꾼다
+						.reqDeliDate(listing.provDate())
 						.remarks(remarks)
 						.tradeStats(TradeStats.QUOTE_REQUESTED)
 						.build()));
@@ -191,7 +195,7 @@ public class TradeService {
 			}
 			snapshots.add(listing);
 			// 견적으로 넘어간 매물은 장바구니에서 뺀다. 뒤 칸에서 실패(400·409)하면 트랜잭션째 롤백돼 남는다
-			trades.deleteCartRow(buyerId, listing.sellerId(), listing.regDate(), TradeStats.CART);
+			trades.deleteCartRow(buyerId, listing.sellerId(), listing.regDate(), listing.prodId(), TradeStats.CART);
 			// 커밋 뒤에만 나가므로 뒤에서 실패(400·409)해 롤백되면 이 메일도 안 간다
 			mail(Kind.QUOTE_REQUESTED, saved.getLast(), buyerId, listing.prodName());
 		}
@@ -225,7 +229,7 @@ public class TradeService {
 			.prodId(trade.getProdId())
 			.tradeType(TradeType.PURCHASE)
 			.sellerId(trade.getSellerId())
-			.buyerId(trade.getUserId())
+			.userId(trade.getUserId())
 			.tradeUnitPrice(trade.getOrderUnitPrice())
 			.tradeQuantity(trade.getOrderQuantity())
 			// 요청 때 int 범위를 넘는 금액은 거절했으므로 넘치지 않는다
@@ -269,7 +273,7 @@ public class TradeService {
 		if (trades.deleteIfStatus(tradeId, TradeStats.REQUESTED) == 0) {
 			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 		}
-		listings.releaseStock(trade.getSellerId(), trade.getRegDate(), trade.getOrderQuantity());
+		listings.releaseStock(trade.listingId(), trade.getOrderQuantity());
 		mail(Kind.PURCHASE_CANCELED, trade, me, productNameOf(trade));
 	}
 
@@ -286,7 +290,7 @@ public class TradeService {
 		if (trade.getTradeType() != TradeType.QUOTE || trade.getTradeStats() != TradeStats.QUOTE_ACCEPTED) {
 			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 		}
-		ListingTradeSnapshot listing = listings.lockForTrade(trade.getSellerId(), trade.getRegDate());
+		ListingTradeSnapshot listing = listings.lockForTrade(trade.listingId());
 		if (listing.completed()) {
 			throw new ApiException(ErrorCode.LISTING_COMPLETED);
 		}
@@ -305,8 +309,8 @@ public class TradeService {
 				listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), req.orderQuantity(), reqDeliDate,
 				req.remarks() == null || req.remarks().isBlank() ? null : req.remarks().trim());
 		trades.saveAndFlush(continued);
-		listings.reserveStock(listing.sellerId(), listing.regDate(), req.orderQuantity());
-		trades.deleteCartRow(buyerId, listing.sellerId(), listing.regDate(), TradeStats.CART);
+		listings.reserveStock(listing.id(), req.orderQuantity());
+		trades.deleteCartRow(buyerId, listing.sellerId(), listing.regDate(), listing.prodId(), TradeStats.CART);
 		mail(Kind.PURCHASE_REQUESTED, continued, buyerId, listing.prodName());
 		return toResponse(continued, TradeStats.REQUESTED, listing.prodName(), listing.photo(), nicknameOf(listing.sellerId()));
 	}
@@ -332,7 +336,7 @@ public class TradeService {
 			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 		}
 		if (accepted) {
-			listings.applyQuotePrice(trade.getSellerId(), trade.getRegDate(), trade.getOrderUnitPrice());
+			listings.applyQuotePrice(trade.listingId(), trade.getOrderUnitPrice());
 		}
 		// 동시 수락·거절·취소 중 하나만 — 지면 단가 변경도 같이 롤백된다
 		TradeStats result = accepted ? TradeStats.QUOTE_ACCEPTED : TradeStats.QUOTE_REJECTED;
@@ -390,9 +394,9 @@ public class TradeService {
 		List<TradeInfo> pageRows = hasMore ? rows.subList(0, PAGE_SIZE) : rows;
 
 		Map<ListingId, ListingTradeSnapshot> listingsById = listings.snapshotsForTrades(
-				pageRows.stream().map(t -> new ListingId(t.getSellerId(), t.getRegDate())).collect(Collectors.toSet()));
+				pageRows.stream().map(t -> t.listingId()).collect(Collectors.toSet()));
 		Set<String> renamed = pageRows.stream()
-			.filter(t -> !sameProduct(t, listingsById.get(new ListingId(t.getSellerId(), t.getRegDate()))))
+			.filter(t -> !sameProduct(t, listingsById.get(t.listingId())))
 			.map(TradeInfo::getProdId)
 			.collect(Collectors.toSet());
 		Map<String, String> oldNames = renamed.isEmpty() ? Map.of() : listings.productNames(renamed);
@@ -400,7 +404,7 @@ public class TradeService {
 				pageRows.stream().map(t -> asBuyer ? t.getSellerId() : t.getUserId()).collect(Collectors.toSet()));
 		List<TradeResponse> items = pageRows.stream()
 			.map(t -> {
-				ListingTradeSnapshot listing = listingsById.get(new ListingId(t.getSellerId(), t.getRegDate()));
+				ListingTradeSnapshot listing = listingsById.get(t.listingId());
 				String prodName = sameProduct(t, listing) ? listing.prodName() : oldNames.get(t.getProdId());
 				return toResponse(t, t.getTradeStats(), prodName, listing.photo(),
 						nicknames.get(asBuyer ? t.getSellerId() : t.getUserId()));
@@ -466,7 +470,7 @@ public class TradeService {
 	 * 상품명은 거래에 복사된 상품ID 의 마스터에서(구매 때 이름), 사진은 지금 매물에서 (거래에 사진 칸이 없다)
 	 */
 	private TradeResponse respond(UUID viewerId, TradeInfo trade, TradeStats status) {
-		ListingTradeSnapshot listing = listings.snapshotForTrade(trade.getSellerId(), trade.getRegDate());
+		ListingTradeSnapshot listing = listings.snapshotForTrade(trade.listingId());
 		String prodName = sameProduct(trade, listing) ? listing.prodName()
 				: listings.productNames(List.of(trade.getProdId())).get(trade.getProdId());
 		UUID counterpart = viewerId.equals(trade.getUserId()) ? trade.getSellerId() : trade.getUserId();
@@ -481,7 +485,7 @@ public class TradeService {
 	static TradeResponse toResponse(TradeInfo trade, TradeStats status, String prodName, String photo,
 			String counterpartNickname) {
 		return new TradeResponse(trade.getTradeId(), trade.getTradeType().code(), status.code(),
-				trade.getSellerId(), trade.getRegDate(), prodName, trade.getOrderQuantity(),
+				trade.getSellerId(), trade.getProdRegDate(), prodName, trade.getOrderQuantity(),
 				trade.getSalesUnitPrice(), trade.getOrderUnitPrice(), (long) trade.getOrderUnitPrice() * trade.getOrderQuantity(),
 				trade.getReqDeliDate(), trade.getRemarks(), counterpartNickname, photo);
 	}

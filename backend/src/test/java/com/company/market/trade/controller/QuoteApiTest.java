@@ -128,7 +128,7 @@ class QuoteApiTest {
 	}
 
 	@Test
-	@DisplayName("여러 매물에 견적 요청: 매물마다 견적조정/견적요청 1행, 재고 그대로, 납품희망일 없음")
+	@DisplayName("여러 매물에 견적 요청: 매물마다 견적조정/견적요청 1행, 재고 그대로, 납품희망일은 매물 제공가능일 (Task 4 전 임시)")
 	void requestQuotesForSeveralListings() throws Exception {
 		quotes(buyer, item(sellerId, REG_A, 900, 2), item(sellerId, REG_B, 450, 10))
 			.andExpect(status().isCreated())
@@ -137,14 +137,14 @@ class QuoteApiTest {
 			.andExpect(jsonPath("$.data[0].tradeStats").value("quoteRequested"))
 			.andExpect(jsonPath("$.data[0].salesUnitPrice").value(1000))
 			.andExpect(jsonPath("$.data[0].orderUnitPrice").value(900))
-			.andExpect(jsonPath("$.data[0].reqDeliDate").doesNotExist());
+			.andExpect(jsonPath("$.data[0].reqDeliDate").value("2099-12-31"));
 
-		var row = jdbc.queryForMap("select * from trd_trade_info where reg_date = ?", REG_A);
+		var row = jdbc.queryForMap("select * from trd_trade_info where prod_reg_date = ?", REG_A);
 		assertThat(row.get("trade_type")).isEqualTo("견적조정");
 		assertThat(row.get("trade_stats")).isEqualTo("견적요청");
 		assertThat(row.get("order_unit_price")).isEqualTo(900);
 		assertThat(row.get("sales_unit_price")).isEqualTo(1000);
-		assertThat(row.get("req_deli_date")).isNull();
+		assertThat(row.get("req_deli_date")).isEqualTo("2099-12-31");
 		assertThat(row.get("remarks")).isEqualTo("단가 조정 부탁");
 		assertThat(jdbc.queryForObject("select stock_quantity from trd_prod_reg where reg_date = ?", Integer.class, REG_A))
 			.isEqualTo(10);
@@ -236,9 +236,9 @@ class QuoteApiTest {
 	@DisplayName("구매요청 행과 견적 행은 따로 — 직접 구매가 있어도 견적은 새 행, 견적을 덮어써도 구매 행은 그대로")
 	void quoteRowIsSeparateFromPurchaseRow() throws Exception {
 		jdbc.update("""
-				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
-					order_unit_price, order_quantity, req_deli_date, trade_stats)
-				values (?, '26102010999', '거래', ?, ?, 'QUOTEAPI01', 1000, 1, '2099-12-31', '구매요청')
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id,
+					order_unit_price, order_quantity, prov_date, req_deli_date, trade_stats)
+				values (?, '26102010999', '거래', ?, ?, 'QUOTEAPI01', 1000, 1, '2099-12-31', '2099-12-31', '구매요청')
 				""", buyerId, sellerId, REG_A);
 		quotes(buyer, item(sellerId, REG_A, 900, 1)).andExpect(status().isCreated());
 		quotes(buyer, item(sellerId, REG_A, 800, 1)).andExpect(status().isCreated());
@@ -257,9 +257,9 @@ class QuoteApiTest {
 
 	private void insertQuoteRow(String tradeId) {
 		jdbc.update("""
-				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
-					order_unit_price, order_quantity, trade_stats)
-				values (?, ?, '견적조정', ?, ?, 'QUOTEAPI01', 900, 1, '견적요청')
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id,
+					order_unit_price, order_quantity, prov_date, req_deli_date, trade_stats)
+				values (?, ?, '견적조정', ?, ?, 'QUOTEAPI01', 900, 1, '2099-12-31', '2099-12-31', '견적요청')
 				""", buyerId, tradeId, sellerId, REG_A);
 	}
 
@@ -267,7 +267,7 @@ class QuoteApiTest {
 
 	private String quoted(String regDate, int price) throws Exception {
 		quotes(buyer, item(sellerId, regDate, price, 1)).andExpect(status().isCreated());
-		return jdbc.queryForObject("select trade_id from trd_trade_info where reg_date = ? and trade_stats = '견적요청'",
+		return jdbc.queryForObject("select trade_id from trd_trade_info where prod_reg_date = ? and trade_stats = '견적요청'",
 				String.class, regDate);
 	}
 
@@ -441,9 +441,9 @@ class QuoteApiTest {
 	@DisplayName("구매요청 거래에는 수락·거절이 없다 — 409")
 	void acceptOnlyQuotes() throws Exception {
 		jdbc.update("""
-				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
-					order_unit_price, order_quantity, req_deli_date, trade_stats)
-				values (?, '26102010999', '거래', ?, ?, 'QUOTEAPI01', 1000, 1, '2099-12-31', '구매요청')
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id,
+					order_unit_price, order_quantity, prov_date, req_deli_date, trade_stats)
+				values (?, '26102010999', '거래', ?, ?, 'QUOTEAPI01', 1000, 1, '2099-12-31', '2099-12-31', '구매요청')
 				""", buyerId, sellerId, REG_A);
 		action(seller, "26102010999", "accept").andExpect(status().isConflict());
 	}
@@ -453,9 +453,9 @@ class QuoteApiTest {
 	void pendingCountsIncludeQuotes() throws Exception {
 		quoted(REG_A, 900);
 		jdbc.update("""
-				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, reg_date, prod_id,
-					order_unit_price, order_quantity, req_deli_date, trade_stats)
-				values (?, '26102010999', '거래', ?, ?, 'QUOTEAPI01', 1000, 1, '2099-12-31', '구매요청')
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id,
+					order_unit_price, order_quantity, prov_date, req_deli_date, trade_stats)
+				values (?, '26102010999', '거래', ?, ?, 'QUOTEAPI01', 1000, 1, '2099-12-31', '2099-12-31', '구매요청')
 				""", buyerId, sellerId, REG_A);
 		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get("/api/v1/trades/pending-counts")
 				.cookie(seller))
