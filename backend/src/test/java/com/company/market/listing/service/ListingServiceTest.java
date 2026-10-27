@@ -27,6 +27,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -63,6 +65,26 @@ class ListingServiceTest {
 		assertThatThrownBy(() -> service.create(UUID.randomUUID(), req))
 			.isInstanceOf(ApiException.class)
 			.extracting(e -> ((ApiException) e).getCode()).isEqualTo(ErrorCode.LISTING_DUPLICATE_REG_TIME);
+	}
+
+	@Test
+	@DisplayName("같은 사용자의 같은 초 매물이 이미 있으면 저장하지 않고 409 LISTING_DUPLICATE_REG_TIME")
+	void rejectsSameSecondBeforeSaving() {
+		Clock clock = Clock.fixed(Instant.parse("2026-09-29T12:00:00Z"), ZoneOffset.UTC);
+		ListingService service = new ListingService(listings, searchRepository, products, categories, uploads, clock, mock(ApplicationEventPublisher.class));
+		UUID userId = UUID.randomUUID();
+		when(categories.existsById("P01-Q01-R001")).thenReturn(true);
+		when(products.findOrCreate(any())).thenReturn(Product.builder().prodId("ELEC00010001").regDate("20260929120000")
+			.categoryCode("P01-Q01-R001").prodName("노트북").prodBrand("삼성").build());
+		when(listings.existsByUserIdAndRegDate(userId, "20260929120000")).thenReturn(true);
+
+		ListingCreateRequest req = new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성", null, null, null,
+			"판매", "신품", 1000, 1, null, null, "2099-12-31", null, null, List.of("p.jpg"));
+
+		assertThatThrownBy(() -> service.create(userId, req))
+			.isInstanceOf(ApiException.class)
+			.extracting(e -> ((ApiException) e).getCode()).isEqualTo(ErrorCode.LISTING_DUPLICATE_REG_TIME);
+		verify(listings, never()).saveAndFlush(any());
 	}
 
 	@Test

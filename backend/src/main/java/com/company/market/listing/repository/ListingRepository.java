@@ -20,6 +20,14 @@ public interface ListingRepository extends JpaRepository<Listing, ListingId> {
 
 	boolean existsByUserIdAndRegDate(UUID userId, String regDate);
 
+	/**
+	 * 사용자별 매물 등록 잠금 (트랜잭션 끝까지). 정의서 PK 가 (user_id, reg_date, prod_id) 라 같은 초 다른 상품은 DB 가 막지 않아,
+	 * 같은 사용자의 등록을 줄 세운 뒤 같은 초 행이 있는지 본다 (탭 두 개 동시 등록)
+	 */
+	@Query(value = "select 1 from (select pg_advisory_xact_lock(hashtext('listing-reg:' || cast(:userId as text)))) l",
+			nativeQuery = true)
+	Integer lockRegistration(@Param("userId") UUID userId);
+
 	/** 이 상품마스터를 쓰는 매물 수 (공유 상품 보호) */
 	long countByProdId(String prodId);
 

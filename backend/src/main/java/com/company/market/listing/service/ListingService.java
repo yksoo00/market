@@ -121,9 +121,17 @@ public class ListingService {
 			photos = List.of(product.getProdPhoto1());
 		}
 
+		// 같은 사용자 같은 초 등록은 409 — 매물 주소(userId, regDate)가 매물 하나를 가리키게. DB unique 대신 잠금인 이유는
+		// ListingRepository.lockRegistration
+		listings.lockRegistration(userId);
+		String regDate = LocalDateTime.now(clock).format(REG_DATE_FORMAT);
+		if (listings.existsByUserIdAndRegDate(userId, regDate)) {
+			throw new ApiException(ErrorCode.LISTING_DUPLICATE_REG_TIME);
+		}
+
 		Listing listing = Listing.builder()
 			.userId(userId)
-			.regDate(LocalDateTime.now(clock).format(REG_DATE_FORMAT))
+			.regDate(regDate)
 			.prodId(product.getProdId())
 			.tradeType(req.tradeType())
 			.prodState(req.prodState())
