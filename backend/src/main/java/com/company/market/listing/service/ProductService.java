@@ -17,12 +17,14 @@ import com.company.market.listing.domain.Product;
 import com.company.market.listing.dto.ProductSearchItemResponse;
 import com.company.market.listing.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-/** 상품마스터: 이름+제조사가 같은 상품이 있으면 재사용, 없으면 채번해서 새로 만든다 (decisions.md 2026-09-29) */
+/**
+ * 상품마스터: 이름·제조사·분류번호·제조일이 모두 같은 상품이 있으면 재사용, 없으면 채번해서 새로 만든다.
+ * 사양은 비교하지 않는다 (2026-10-27 설계 PR 2 — 2026-09-29 의 이름+제조사 재사용을 대체)
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -41,10 +43,23 @@ public class ProductService {
 
 	private final Clock clock;
 
+	/**
+	 * 생성 잠금(트랜잭션 끝까지) 뒤에 찾는다 — 같은 네 값을 동시에 처음 등록해도 하나만 생기고, 개수 기반 채번도 겹치지 않는다.
+	 * 빈 분류번호·제조일은 null 과 같은 "없음"
+	 */
 	@Transactional
 	public Product findOrCreate(ProductDraft draft) {
-		return products.findByProdNameAndProdBrand(draft.prodName(), draft.prodBrand())
-			.orElseGet(() -> createOrReuseOnRace(draft));
+		products.lockCreation();
+		return products.findSame(draft.prodName(), draft.prodBrand(), orEmpty(draft.prodClassNo()), orEmpty(draft.prodMufcDate()))
+			.orElseGet(() -> create(draft));
+	}
+
+	private static String orEmpty(String value) {
+		return value == null ? "" : value.trim();
+	}
+
+	private static String blankToNull(String value) {
+		return value == null || value.isBlank() ? null : value.trim();
 	}
 
 	/** 등록 폼이 고른 마스터. 없으면 호출한 쪽이 400 으로 알린다 */
@@ -59,8 +74,8 @@ public class ProductService {
 		Map<String, String> names = categories.names(found.stream().map(Product::getMinorCategory).filter(Objects::nonNull).distinct().toList());
 		return found.stream()
 			.map(p -> new ProductSearchItemResponse(p.getProdId(), p.getCategoryCode(), p.getMinorCategory() == null ? null : names.get(p.getMinorCategory()),
-					p.getProdName(), p.getProdNo(), p.getProdBrand(), p.getProdMufcDate(), p.getProdSpecInfo(),
-					p.getProdDataSheet(), p.getProdPhoto1()))
+					p.getProdName(), p.getProdNo(), p.getProdBrand(), p.getProdClassNo(), p.getProdMufcDate(), p.getProdSpecInfo(),
+					p.getProdUsefulLife(), p.getWarrantyMethod(), p.getAlterProdName(), p.getProdDataSheet(), p.getProdPhoto1()))
 			.toList();
 	}
 
@@ -72,19 +87,6 @@ public class ProductService {
 	/** 여러 상품을 한 쿼리로 (목록 N+1 방지) */
 	public Map<String, Product> getAll(Collection<String> prodIds) {
 		return products.findAllById(prodIds).stream().collect(Collectors.toMap(Product::getProdId, p -> p));
-	}
-
-	/**
-	 * 동시에 같은 이름+제조사 상품을 처음 등록하면 prod_id 채번(카운트 기반)이 겹치거나
-	 * (prod_name, prod_brand) 유니크 제약에 걸릴 수 있다. 둘 다 "이미 만들어졌다"는 뜻이므로 재조회해 재사용한다.
-	 */
-	private Product createOrReuseOnRace(ProductDraft draft) {
-		try {
-			return create(draft);
-		}
-		catch (DataIntegrityViolationException e) {
-			return products.findByProdNameAndProdBrand(draft.prodName(), draft.prodBrand()).orElseThrow(() -> e);
-		}
 	}
 
 	private Product create(ProductDraft draft) {
@@ -101,7 +103,11 @@ public class ProductService {
 			.prodName(draft.prodName())
 			.prodNo(draft.prodNo())
 			.prodBrand(draft.prodBrand())
-			.prodMufcDate(draft.prodMufcDate())
+			.prodClassNo(blankToNull(draft.prodClassNo()))
+			.prodUsefulLife(draft.prodUsefulLife())
+			.warrantyMethod(blankToNull(draft.warrantyMethod()))
+			.alterProdName(blankToNull(draft.alterProdName()))
+			.prodMufcDate(blankToNull(draft.prodMufcDate()))
 			.prodSpecInfo(draft.prodSpecInfo())
 			.prodDataSheet(draft.prodDataSheet())
 			.prodPhoto1(draft.firstPhoto())
@@ -110,7 +116,8 @@ public class ProductService {
 	}
 
 	public record ProductDraft(CategoryFragments category, String prodName, String prodNo, String prodBrand,
-			String prodMufcDate, String prodSpecInfo, String prodDataSheet, String firstPhoto) {
+			String prodClassNo, String prodMufcDate, String prodSpecInfo, Integer prodUsefulLife, String warrantyMethod,
+			String alterProdName, String prodDataSheet, String firstPhoto) {
 	}
 
 }

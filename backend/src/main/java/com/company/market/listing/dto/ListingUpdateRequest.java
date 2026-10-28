@@ -34,7 +34,7 @@ public record ListingUpdateRequest(
 		// null = 그대로, 번호·제조일·사양은 "" = 비우기. 이름·제조사·카테고리는 보냈다면 비울 수 없다
 		@Pattern(regexp = ".*\\S.*", message = "카테고리는 빈 값일 수 없습니다.") @Size(max = 12) String categoryCode,
 		@Pattern(regexp = ".*\\S.*", message = "상품명은 빈 값일 수 없습니다.") @Size(max = 50) String prodName,
-		@Pattern(regexp = ".*\\S.*", message = "제조사는 빈 값일 수 없습니다.") @Size(max = 50) String prodBrand,
+		@Pattern(regexp = ".*\\S.*", message = "제조사는 빈 값일 수 없습니다.") @Size(max = 40) String prodBrand,
 		@Size(max = 20) String prodNo,
 		@Pattern(regexp = "^(\\d{8})?$", message = "제조일은 yyyyMMdd 형식이어야 합니다.") String prodMufcDate,
 		@Size(max = 100) String prodSpecInfo) {

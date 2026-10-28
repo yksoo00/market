@@ -1135,6 +1135,98 @@ class ListingApiTest {
 		assertThat(jdbc.queryForObject("select prod_part_no from trd_prod_master where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("OLD");
 	}
 
+	// ---- 상품마스터 새 칸·네 값 재사용 (2026-10-27 설계 PR 2) ----
+
+	@Test
+	@DisplayName("제조사는 40자까지 — 41자면 400 fields.prodBrand")
+	void brandOver40Rejected() throws Exception {
+		for (int length : new int[] { 41, 40 }) {
+			ResultActions result = mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"P01-Q01-R001","prodName":"노트북 B%d","prodBrand":"%s",
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					""".formatted(length, "가".repeat(length))));
+			if (length == 41) {
+				result.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.prodBrand").isString());
+			}
+			else {
+				result.andExpect(status().isCreated());
+			}
+		}
+	}
+
+	@Test
+	@DisplayName("보증년수는 개월 수를 목록(3·6·…·60)에서 — 4·0·63 은 400, 3·60 은 등록")
+	void usefulLifeFromList() throws Exception {
+		for (int bad : new int[] { 4, 0, 63 }) {
+			createWithFields("노트북 L" + bad, "\"prodUsefulLife\":" + bad).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.fields.prodUsefulLife").value("보증년수는 목록에서 고른 값이어야 합니다."));
+		}
+		createWithFields("노트북 L3", "\"prodUsefulLife\":3").andExpect(status().isCreated());
+		// 같은 사용자 같은 초 등록은 409 라 끝값은 다른 사용자로 (안 보낸 경우는 다른 등록 테스트 전부)
+		Cookie other = otherUserCookie();
+		mvc.perform(post("/api/v1/listings").cookie(other).with(mainPhoto(other))
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"P01-Q01-R001","prodName":"노트북 L60","prodBrand":"삼성","prodUsefulLife":60,
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					"""))
+			.andExpect(status().isCreated());
+	}
+
+	@Test
+	@DisplayName("직접 입력한 새 칸 4개는 상세 응답에 나온다")
+	void detailHasNewProductFields() throws Exception {
+		MvcResult created = createWithFields("노트북 D1",
+				"\"prodClassNo\":\"43211503\",\"prodUsefulLife\":24,\"warrantyMethod\":\"제조사 보증\",\"alterProdName\":\"노트북 D2\"")
+			.andExpect(status().isCreated()).andReturn();
+		String regDate = created.getResponse().getContentAsString().replaceAll(".*\"regDate\":\"([^\"]+)\".*", "$1");
+
+		mvc.perform(get("/api/v1/listings/" + userId + "/" + regDate))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.prodClassNo").value("43211503"))
+			.andExpect(jsonPath("$.data.prodUsefulLife").value(24))
+			.andExpect(jsonPath("$.data.warrantyMethod").value("제조사 보증"))
+			.andExpect(jsonPath("$.data.alterProdName").value("노트북 D2"));
+	}
+
+	@Test
+	@DisplayName("마스터를 고르면 요청의 새 칸 4개도 무시하고 마스터 값")
+	void pickedMasterIgnoresRequestProductFields() throws Exception {
+		productRepository.saveAndFlush(Product.builder().prodId("KP-2026-900007").majorCategory("P01").middleCategory("Q01")
+			.minorCategory("R001").prodName("마스터 N").prodBrand("마스터사").prodClassNo("M-CLS").prodUsefulLife(36)
+			.warrantyMethod("마스터 보증").alterProdName("마스터 대체").prodPhoto1("public/listings/photos/2026/10/m.jpg")
+			.regDate("20261014120000").build());
+
+		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"prodId":"KP-2026-900007","prodClassNo":"X","prodUsefulLife":3,"warrantyMethod":"W","alterProdName":"A",
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					"""))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.prodId").value("KP-2026-900007"))
+			.andExpect(jsonPath("$.data.prodClassNo").value("M-CLS"))
+			.andExpect(jsonPath("$.data.prodUsefulLife").value(36))
+			.andExpect(jsonPath("$.data.warrantyMethod").value("마스터 보증"))
+			.andExpect(jsonPath("$.data.alterProdName").value("마스터 대체"));
+	}
+
+	@Test
+	@DisplayName("공유 마스터의 제조일을 바꾸면 네 값이 맞는 마스터로 이 매물만 옮긴다 — 남의 매물·옛 마스터는 그대로 (제조일은 재사용 키)")
+	void mufcDateEditMovesOnlyThisListing() throws Exception {
+		Cookie other = otherUserCookie();
+		String otherReg = createProduct(other, "노트북 U", "삼성", null);
+		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
+		String shared = prodIdOf(userId, mine);
+
+		patchListing(mine, "{\"prodMufcDate\":\"20200101\"}").andExpect(status().isOk());
+
+		assertThat(prodIdOf(userId, mine)).isNotEqualTo(shared);
+		assertThat(prodIdOf(userIdOf(other), otherReg)).isEqualTo(shared);
+		assertThat(jdbc.queryForObject("select prod_mufc_date from trd_prod_master where prod_id = ?", String.class, shared)).isNull();
+		assertThat(jdbc.queryForObject("select prod_mufc_date from trd_prod_master where prod_id = ?", String.class,
+				prodIdOf(userId, mine))).isEqualTo("20200101");
+	}
+
 	@Test
 	@DisplayName("상품 칸이 422 로 막히면 같은 요청의 매물 칸(상품상태)도 안 바뀐다")
 	void productRejectionRollsBackListingFields() throws Exception {

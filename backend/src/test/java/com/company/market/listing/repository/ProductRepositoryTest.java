@@ -24,13 +24,15 @@ class ProductRepositoryTest {
 	ProductRepository products;
 
 	@Test
-	@DisplayName("상품명+제조사로 조회된다")
-	void findsByNameAndBrand() {
+	@DisplayName("같은 상품은 이름·제조사·분류번호·제조일로 찾는다 — 없는 칸은 \"\" 로 넘긴다")
+	void findsSameByFourValues() {
 		products.saveAndFlush(Product.builder().prodId("ELEC00010001").majorCategory("P01").middleCategory("Q01").minorCategory("R001")
-			.prodName("노트북 A").prodBrand("삼성").regDate("20260929120000").build());
+			.prodName("노트북 A").prodBrand("삼성").prodClassNo("C-1").regDate("20260929120000").build());
 
-		assertThat(products.findByProdNameAndProdBrand("노트북 A", "삼성")).isPresent();
-		assertThat(products.findByProdNameAndProdBrand("노트북 A", "LG")).isEmpty();
+		assertThat(products.findSame("노트북 A", "삼성", "C-1", "")).isPresent();
+		assertThat(products.findSame("노트북 A", "LG", "C-1", "")).isEmpty();
+		assertThat(products.findSame("노트북 A", "삼성", "", "")).isEmpty();
+		assertThat(products.findSame("노트북 A", "삼성", "C-1", "20260101")).isEmpty();
 	}
 
 	@Test
