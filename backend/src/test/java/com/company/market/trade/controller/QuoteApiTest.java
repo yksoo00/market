@@ -105,7 +105,7 @@ class QuoteApiTest {
 	}
 
 	private void listing(String regDate, String prodId, String name, int price, int stock) {
-		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("P01-Q01-R001")
+		productRepository.saveAndFlush(Product.builder().prodId(prodId).majorCategory("P01").middleCategory("Q01").minorCategory("R001")
 			.prodName(name).prodBrand("Dell").regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(sellerId).regDate(regDate).prodId(prodId)
 			.tradeType("등록").prodState("신품").salesUnitPrice(price).salesQuantity(stock).stockQuantity(stock)

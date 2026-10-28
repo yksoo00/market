@@ -56,7 +56,7 @@ class ProductCategoryApiTest {
 	@Test
 	@DisplayName("상품 검색: 이름으로 찾고 카테고리 이름·파일 키를 준다")
 	void searchReturnsMatches() throws Exception {
-		products.saveAndFlush(Product.builder().prodId("KP-2026-900001").categoryCode("P01-Q01-R001").prodName("PowerEdge R740")
+		products.saveAndFlush(Product.builder().prodId("KP-2026-900001").majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("PowerEdge R740")
 			.prodBrand("Dell").prodNo("R740-4210").prodPhoto1("public/listings/photos/2026/10/m.jpg")
 			.regDate("20261014120000").build());
 
@@ -76,7 +76,7 @@ class ProductCategoryApiTest {
 		mvc.perform(get("/api/v1/products").param("q", "a".repeat(51)).cookie(cookie()))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.q").isString());
-		products.saveAndFlush(Product.builder().prodId("KP-2026-900009").categoryCode("P01-Q01-R001").prodName("아무 상품")
+		products.saveAndFlush(Product.builder().prodId("KP-2026-900009").majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("아무 상품")
 			.prodBrand("A").regDate("20261014120000").build());
 		mvc.perform(get("/api/v1/products").param("q", "  ").cookie(cookie()))
 			.andExpect(status().isOk())

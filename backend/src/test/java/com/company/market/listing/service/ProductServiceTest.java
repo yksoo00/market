@@ -37,7 +37,7 @@ class ProductServiceTest {
 	@Test
 	@DisplayName("이름+제조사가 같은 상품이 이미 있으면 새로 만들지 않고 그 행을 돌려준다")
 	void reusesExisting() {
-		Product existing = products.saveAndFlush(Product.builder().prodId("ELEC00010001").categoryCode("P01-Q01-R001")
+		Product existing = products.saveAndFlush(Product.builder().prodId("ELEC00010001").majorCategory("P01").middleCategory("Q01").minorCategory("R001")
 			.prodName("노트북 A").prodBrand("삼성").regDate("20260929120000").build());
 
 		Product found = service.findOrCreate(new ProductDraft("P01-Q01-R001", "노트북 A", null, "삼성", null, null, null, null));
@@ -49,7 +49,7 @@ class ProductServiceTest {
 	@Test
 	@DisplayName("없는 상품이면 KP-연도-일련번호(6자리)로 채번해 만들고, 대표사진은 넘어온 첫 사진. 옛 형식 ID는 번호에 안 셈")
 	void createsWithGeneratedId() {
-		products.saveAndFlush(Product.builder().prodId("ELEC00010001").categoryCode("P01-Q01-R001")
+		products.saveAndFlush(Product.builder().prodId("ELEC00010001").majorCategory("P01").middleCategory("Q01").minorCategory("R001")
 			.prodName("옛 상품").prodBrand("삼성").regDate("20260929120000").build());
 		ProductService service = at("2026-10-08T03:00:00Z");
 
@@ -83,9 +83,9 @@ class ProductServiceTest {
 	@Test
 	@DisplayName("검색은 이름·제조사·상품번호 어디든 부분 일치, 대소문자 무시, 카테고리 이름을 붙인다")
 	void searchMatchesNameBrandAndNumber() {
-		products.saveAndFlush(Product.builder().prodId("KP-2026-900001").categoryCode("P01-Q01-R001").prodName("PowerEdge R740")
+		products.saveAndFlush(Product.builder().prodId("KP-2026-900001").majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("PowerEdge R740")
 			.prodBrand("Dell").prodNo("R740-4210").regDate("20261014120000").build());
-		products.saveAndFlush(Product.builder().prodId("KP-2026-900002").categoryCode("P01-Q01-R001").prodName("노트북 Z")
+		products.saveAndFlush(Product.builder().prodId("KP-2026-900002").majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("노트북 Z")
 			.prodBrand("삼성").regDate("20261014120000").build());
 
 		assertThat(service.search("poweredge")).extracting("prodId").containsExactly("KP-2026-900001");
@@ -98,9 +98,9 @@ class ProductServiceTest {
 	@Test
 	@DisplayName("검색어의 %·_ 는 문자 그대로 찾는다 — \"%\" 한 글자로 전체가 나오지 않는다")
 	void searchTreatsWildcardsAsLiterals() {
-		products.saveAndFlush(Product.builder().prodId("KP-2026-900003").categoryCode("P01-Q01-R001").prodName("SSD 100%")
+		products.saveAndFlush(Product.builder().prodId("KP-2026-900003").majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("SSD 100%")
 			.prodBrand("A").regDate("20261014120000").build());
-		products.saveAndFlush(Product.builder().prodId("KP-2026-900004").categoryCode("P01-Q01-R001").prodName("HDD")
+		products.saveAndFlush(Product.builder().prodId("KP-2026-900004").majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("HDD")
 			.prodBrand("B").regDate("20261014120000").build());
 
 		assertThat(service.search("%")).extracting("prodId").containsExactly("KP-2026-900003");
@@ -111,7 +111,7 @@ class ProductServiceTest {
 	@DisplayName("검색 결과는 최대 10건")
 	void searchLimitsTo10() {
 		for (int i = 0; i < 12; i++) {
-			products.save(Product.builder().prodId("KP-2026-91%04d".formatted(i)).categoryCode("P01-Q01-R001").prodName("대량 상품 " + i)
+			products.save(Product.builder().prodId("KP-2026-91%04d".formatted(i)).majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("대량 상품 " + i)
 				.prodBrand("대량").regDate("20261014120000").build());
 		}
 		products.flush();

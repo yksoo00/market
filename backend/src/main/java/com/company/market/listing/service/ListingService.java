@@ -26,6 +26,7 @@ import com.company.market.common.storage.UploadRef;
 import com.company.market.common.storage.UploadService;
 import com.company.market.common.time.KoreanDates;
 import com.company.market.listing.domain.Category;
+import com.company.market.listing.domain.CategoryFragments;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.ListingId;
 import com.company.market.listing.domain.Product;
@@ -287,7 +288,7 @@ public class ListingService {
 			changed.keySet().forEach(f -> fields.put(f, ErrorCode.PRODUCT_SHARED.message()));
 			throw new ApiException(ErrorCode.PRODUCT_SHARED, ErrorCode.PRODUCT_SHARED.message(), fields);
 		}
-		current.applyEdit(req.categoryCode(), req.prodNo(), req.prodMufcDate(), req.prodSpecInfo());
+		current.applyEdit(req.categoryCode() == null ? null : CategoryFragments.parse(req.categoryCode()), req.prodNo(), req.prodMufcDate(), req.prodSpecInfo());
 		return current;
 	}
 

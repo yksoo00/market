@@ -56,7 +56,7 @@ class ListingServiceTest {
 		UUID userId = UUID.randomUUID();
 		when(categories.existsById("P01-Q01-R001")).thenReturn(true);
 		when(products.findOrCreate(any())).thenReturn(Product.builder().prodId("ELEC00010001").regDate("20260929120000")
-			.categoryCode("P01-Q01-R001").prodName("노트북").prodBrand("삼성").build());
+			.majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("노트북").prodBrand("삼성").build());
 		when(listings.existsByUserIdAndRegDate(userId, "20260929120000")).thenReturn(true);
 
 		ListingCreateRequest req = new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성", null, null, null,
@@ -75,7 +75,7 @@ class ListingServiceTest {
 		ListingService service = new ListingService(listings, searchRepository, products, categories, uploads, clock, mock(ApplicationEventPublisher.class));
 		when(categories.existsById("P01-Q01-R001")).thenReturn(true);
 		when(products.findOrCreate(any())).thenReturn(Product.builder().prodId("ELEC00010001").regDate("20261001233000")
-			.categoryCode("P01-Q01-R001").prodName("노트북").prodBrand("삼성").build());
+			.majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("노트북").prodBrand("삼성").build());
 
 		service.create(UUID.randomUUID(), new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성", "20261002", null, null,
 				"판매", "신품", 1000, 1, null, null, "2026-10-02", null, null, List.of("p.jpg")));

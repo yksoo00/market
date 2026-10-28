@@ -80,7 +80,7 @@ class SchemaConstraintsTest {
 	@Test
 	@DisplayName("정의서 물리명: trd_prod_master·trd_prod_reg·trd_user_info·trd_trade_info·trd_trade_history 의 정의서 컬럼이 있다")
 	void legacyPhysicalNames() {
-		String[][] columns = { { "trd_prod_master", "prod_mpn" }, { "trd_prod_master", "prod_scan_code" },
+		String[][] columns = { { "trd_prod_master", "prod_part_no" }, { "trd_prod_master", "prod_image" },
 				{ "trd_prod_reg", "prov_date" }, { "trd_prod_reg", "certificate_of_authenticity" },
 				{ "trd_user_info", "uid" }, { "trd_trade_info", "seller_id" }, { "trd_trade_info", "trade_stats" },
 				{ "trd_trade_info", "prod_reg_date" }, { "trd_trade_info", "reg_date" },
@@ -103,6 +103,65 @@ class SchemaConstraintsTest {
 				String.class)).isEqualTo("Q01");
 	}
 
+	/** 컬럼 하나의 "타입(길이) nullable" — 예: "character varying(40) YES" */
+	private String column(String table, String column) {
+		return jdbc.queryForObject("""
+				select data_type || coalesce('(' || character_maximum_length || ')', '') || ' ' || is_nullable
+				  from information_schema.columns
+				 where table_schema = current_schema() and table_name = ? and column_name = ?
+				""", String.class, table, column);
+	}
+
+	@Test
+	@DisplayName("trd_ctgr_master: PK category_code varchar(12), parent_code 만 nullable (정의서 + 사용자 결정 2026-10-27)")
+	void categoryMasterColumns() {
+		assertThat(jdbc.queryForList("""
+				select k.column_name from information_schema.table_constraints c
+				  join information_schema.key_column_usage k on k.constraint_name = c.constraint_name
+				   and k.table_schema = c.table_schema
+				 where c.table_schema = current_schema() and c.table_name = 'trd_ctgr_master'
+				   and c.constraint_type = 'PRIMARY KEY'
+				""", String.class)).containsExactly("category_code");
+		assertThat(column("trd_ctgr_master", "category_code")).isEqualTo("character varying(12) NO");
+		assertThat(column("trd_ctgr_master", "category_name")).isEqualTo("character varying(50) NO");
+		assertThat(column("trd_ctgr_master", "category_depth")).isEqualTo("character varying(2) NO");
+		assertThat(column("trd_ctgr_master", "parent_code")).isEqualTo("character varying(20) YES");
+		assertThat(column("trd_ctgr_master", "is_display")).isEqualTo("character(1) NO");
+		assertThat(column("trd_ctgr_master", "sort_order")).isEqualTo("integer YES");
+		assertThat(column("trd_ctgr_master", "reg_date")).isEqualTo("character varying(14) NO");
+		assertThat(column("trd_ctgr_master", "spare_col")).isEqualTo("character varying(10) YES");
+	}
+
+	@Test
+	@DisplayName("trd_prod_master 정의서 컬럼: 조각 카테고리·새 칸, 제조사 40 nullable, 옛 칸·unique 없음 (2026-10-27 설계 PR 2)")
+	void productMasterDefinitionColumns() {
+		assertThat(column("trd_prod_master", "prod_id")).isEqualTo("character varying(20) NO");
+		assertThat(column("trd_prod_master", "prod_name")).isEqualTo("character varying(50) YES");
+		assertThat(column("trd_prod_master", "prod_part_no")).isEqualTo("character varying(20) YES");
+		assertThat(column("trd_prod_master", "prod_brand")).isEqualTo("character varying(40) YES");
+		assertThat(column("trd_prod_master", "prod_class_no")).isEqualTo("character varying(20) YES");
+		for (String c : new String[] { "major_category", "middle_category", "minor_category", "alter_prod_name" }) {
+			assertThat(column("trd_prod_master", c)).as(c).isEqualTo("character varying(40) YES");
+		}
+		assertThat(column("trd_prod_master", "prod_spec_info")).isEqualTo("character varying(100) YES");
+		assertThat(column("trd_prod_master", "prod_useful_life")).isEqualTo("integer YES");
+		assertThat(column("trd_prod_master", "warranty_method")).isEqualTo("character varying(20) YES");
+		assertThat(column("trd_prod_master", "prod_data_sheet")).isEqualTo("character varying(100) YES");
+		assertThat(column("trd_prod_master", "prod_image")).isEqualTo("character varying(100) YES");
+		assertThat(column("trd_prod_master", "reg_date")).isEqualTo("character varying(14) YES");
+		assertThat(column("trd_prod_master", "prod_mufc_date")).isEqualTo("character varying(14) YES");
+		assertThat(jdbc.queryForList("""
+				select column_name from information_schema.columns
+				 where table_schema = current_schema() and table_name = 'trd_prod_master'
+				   and column_name in ('category_code', 'prod_scan_code', 'prod_mpn', 'prod_photo_1')
+				""", String.class)).isEmpty();
+		assertThat(jdbc.queryForList("""
+				select indexname from pg_indexes
+				 where schemaname = current_schema() and tablename = 'trd_prod_master' and indexdef like '%UNIQUE%'
+				   and indexname <> 'trd_prod_master_pkey'
+				""", String.class)).isEmpty();
+	}
+
 	/** 판매자·매물·구매자 한 벌을 만들고 [구매자 uid, 판매자 uid] 를 돌려준다. 매물 키는 (판매자, '20261015100000') */
 	private UUID[] insertListingAndBuyer() {
 		insertUser("seller01", "seller@example.com", "personal", null);
@@ -110,8 +169,8 @@ class SchemaConstraintsTest {
 		UUID seller = jdbc.queryForObject("select uid from trd_user_info where user_id = 'seller01'", UUID.class);
 		UUID buyer = jdbc.queryForObject("select uid from trd_user_info where user_id = 'buyer01'", UUID.class);
 		jdbc.update("""
-				insert into trd_prod_master (prod_id, category_code, prod_name, prod_brand, reg_date)
-				values ('TRADETEST1', 'P01-Q01-R001', '상품', '브랜드', '20261015100000')
+				insert into trd_prod_master (prod_id, major_category, middle_category, minor_category, prod_name, prod_brand, reg_date)
+				values ('TRADETEST1', 'P01', 'Q01', 'R001', '상품', '브랜드', '20261015100000')
 				""");
 		insertProdReg(seller, "20261015100000", "TRADETEST1");
 		return new UUID[] { buyer, seller };
@@ -153,8 +212,8 @@ class SchemaConstraintsTest {
 	void prodRegPrimaryKeyHasProdId() {
 		UUID[] ids = insertListingAndBuyer();
 		jdbc.update("""
-				insert into trd_prod_master (prod_id, category_code, prod_name, prod_brand, reg_date)
-				values ('TRADETEST2', 'P01-Q01-R001', '상품2', '브랜드', '20261015100000')
+				insert into trd_prod_master (prod_id, major_category, middle_category, minor_category, prod_name, prod_brand, reg_date)
+				values ('TRADETEST2', 'P01', 'Q01', 'R001', '상품2', '브랜드', '20261015100000')
 				""");
 		insertProdReg(ids[1], "20261015100000", "TRADETEST2");
 		assertThatThrownBy(() -> insertProdReg(ids[1], "20261015100000", "TRADETEST2"))

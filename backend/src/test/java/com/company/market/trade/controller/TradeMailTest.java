@@ -119,7 +119,7 @@ class TradeMailTest {
 		buyerId = newUser("mailbuyer", "01033330002");
 		seller = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(sellerId));
 		buyer = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(buyerId));
-		productRepository.saveAndFlush(Product.builder().prodId("MAILAPI01").categoryCode("P01-Q01-R001")
+		productRepository.saveAndFlush(Product.builder().prodId("MAILAPI01").majorCategory("P01").middleCategory("Q01").minorCategory("R001")
 			.prodName("서버 R740").prodBrand("Dell").regDate(REG).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(sellerId).regDate(REG).prodId("MAILAPI01")
 			.tradeType("등록").prodState("신품").salesUnitPrice(1000).salesQuantity(10).stockQuantity(10)

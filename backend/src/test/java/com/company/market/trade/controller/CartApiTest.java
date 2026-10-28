@@ -112,7 +112,7 @@ class CartApiTest {
 	}
 
 	private void listing(String regDate, String prodId, String name, int price, int stock) {
-		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("P01-Q01-R001")
+		productRepository.saveAndFlush(Product.builder().prodId(prodId).majorCategory("P01").middleCategory("Q01").minorCategory("R001")
 			.prodName(name).prodBrand("Dell").regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(sellerId).regDate(regDate).prodId(prodId)
 			.tradeType("등록").prodState("신품").salesUnitPrice(price).salesQuantity(stock).stockQuantity(stock)
@@ -214,7 +214,7 @@ class CartApiTest {
 		for (int i = 0; i < 99; i++) {
 			String reg = "2026102000%04d".formatted(i);
 			String prod = "CARTFULL%02d".formatted(i);
-			jdbc.update("insert into trd_prod_master (prod_id, category_code, prod_name, prod_brand, reg_date) values (?, 'P01-Q01-R001', ?, 'Dell', ?)",
+			jdbc.update("insert into trd_prod_master (prod_id, major_category, middle_category, minor_category, prod_name, prod_brand, reg_date) values (?, 'P01', 'Q01', 'R001', ?, 'Dell', ?)",
 					prod, "상품" + i, reg);
 			jdbc.update("insert into trd_prod_reg (user_id, reg_date, prod_id, trade_type, prod_state, sales_unit_price, sales_quantity, stock_quantity, prov_date) values (?, ?, ?, '등록', '신품', 100, 1, 1, '2099-12-31')",
 					sellerId, reg, prod);

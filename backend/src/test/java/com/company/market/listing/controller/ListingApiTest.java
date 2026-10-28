@@ -132,7 +132,7 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.data.prodId").value(prodId))
 			.andExpect(jsonPath("$.data.photos[0]").value(p1));
 
-		assertThat(jdbc.queryForObject("select prod_photo_1 from trd_prod_master where prod_id = ?", String.class, prodId)).isEqualTo(p1);
+		assertThat(jdbc.queryForObject("select prod_image from trd_prod_master where prod_id = ?", String.class, prodId)).isEqualTo(p1);
 	}
 
 	@Test
@@ -666,7 +666,7 @@ class ListingApiTest {
 	// 상세 화면용 파생 필드 테스트는 등록 API 대신 repository 로 직접 만든다 — 등록 API 의 입력 규칙(파일 키 검사 등)이
 	// 바뀌어도 응답 변환만 검증하게
 	private void saveListing(String prodId, String regDate, String mufcDate, Integer warrantyPeriod) {
-		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("P01-Q01-R001").prodName("상세 " + prodId)
+		productRepository.saveAndFlush(Product.builder().prodId(prodId).majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("상세 " + prodId)
 			.prodBrand("삼성").prodMufcDate(mufcDate).prodDataSheet("p-sheet.pdf").prodPhoto1("p-photo.jpg")
 			.regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(userId).regDate(regDate).prodId(prodId).tradeType("등록")
@@ -755,7 +755,7 @@ class ListingApiTest {
 	@Test
 	@DisplayName("목록은 등록일시 내림차순, 21번째부터는 nextCursor로 다음 페이지")
 	void listIsCursorPaginated() throws Exception {
-		Product product = productRepository.saveAndFlush(Product.builder().prodId("ELEC00010001").categoryCode("P01-Q01-R001")
+		Product product = productRepository.saveAndFlush(Product.builder().prodId("ELEC00010001").majorCategory("P01").middleCategory("Q01").minorCategory("R001")
 			.prodName("노트북 목록용").prodBrand("삼성").regDate("20260929120000").build());
 		for (int i = 0; i < 21; i++) {
 			String regDate = String.format("202609291200%02d", i);
@@ -1092,7 +1092,7 @@ class ListingApiTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.prodNo").value("N-1"));
 
-		assertThat(jdbc.queryForObject("select prod_mpn from trd_prod_master where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("N-1");
+		assertThat(jdbc.queryForObject("select prod_part_no from trd_prod_master where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("N-1");
 		assertThat(jdbc.queryForObject("select prod_spec_info from trd_prod_master where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("16GB");
 	}
 
@@ -1107,7 +1107,7 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.code").value("PRODUCT_SHARED"))
 			.andExpect(jsonPath("$.fields.prodNo").isString());
 
-		assertThat(jdbc.queryForObject("select prod_mpn from trd_prod_master where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("OLD");
+		assertThat(jdbc.queryForObject("select prod_part_no from trd_prod_master where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("OLD");
 	}
 
 	@Test
@@ -1150,7 +1150,7 @@ class ListingApiTest {
 	void renameDoesNotCopyOldProductFiles() throws Exception {
 		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
 		String oldProduct = prodIdOf(userId, mine);
-		jdbc.update("update trd_prod_master set prod_data_sheet = 'private/listings/datasheets/2026/10/other.pdf', prod_photo_1 = 'public/listings/photos/2026/10/other.jpg' where prod_id = ?", oldProduct);
+		jdbc.update("update trd_prod_master set prod_data_sheet = 'private/listings/datasheets/2026/10/other.pdf', prod_image = 'public/listings/photos/2026/10/other.jpg' where prod_id = ?", oldProduct);
 
 		patchListing(mine, "{\"prodName\":\"완전 새 상품\"}").andExpect(status().isOk());
 
@@ -1161,7 +1161,7 @@ class ListingApiTest {
 		String ownFirstPhoto = jdbc.queryForObject("select prod_photo_1 from trd_prod_reg where user_id = ? and reg_date = ?", String.class,
 				userId, mine);
 		assertThat(ownFirstPhoto).isNotNull();
-		assertThat(jdbc.queryForObject("select prod_photo_1 from trd_prod_master where prod_id = ?", String.class, created))
+		assertThat(jdbc.queryForObject("select prod_image from trd_prod_master where prod_id = ?", String.class, created))
 			.isEqualTo(ownFirstPhoto);
 	}
 
@@ -1182,7 +1182,7 @@ class ListingApiTest {
 	// ---- 상품마스터에서 고르기 (스펙 2026-10-14-listing-from-master) ----
 
 	private Product master(String prodId, String name, String photo, String dataSheet) {
-		return productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("P01-Q01-R001").prodName(name)
+		return productRepository.saveAndFlush(Product.builder().prodId(prodId).majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName(name)
 			.prodNo("MASTER-1").prodBrand("마스터사").prodSpecInfo("마스터 사양").prodPhoto1(photo).prodDataSheet(dataSheet)
 			.regDate("20261014120000").build());
 	}
@@ -1225,7 +1225,7 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.data.photos[0]").value(photo))
 			.andExpect(jsonPath("$.data.listingDataSheet").value(sheet));
 
-		assertThat(jdbc.queryForObject("select prod_photo_1 from trd_prod_master where prod_id = 'KP-2026-900001'", String.class))
+		assertThat(jdbc.queryForObject("select prod_image from trd_prod_master where prod_id = 'KP-2026-900001'", String.class))
 			.isEqualTo("public/listings/photos/2026/10/m.jpg");
 	}
 

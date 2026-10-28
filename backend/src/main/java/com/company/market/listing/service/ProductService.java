@@ -12,6 +12,7 @@ import java.util.stream.Collectors;
 
 import com.company.market.common.time.KoreanDates;
 import com.company.market.listing.domain.Category;
+import com.company.market.listing.domain.CategoryFragments;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.dto.ProductSearchItemResponse;
 import com.company.market.listing.repository.CategoryRepository;
@@ -94,10 +95,13 @@ public class ProductService {
 		String prefix = PROD_ID_PREFIX + KoreanDates.today(clock).getYear() + "-";
 		long sequence = products.countByProdIdStartingWith(prefix) + 1;
 		String prodId = prefix + String.format("%06d", sequence);
+		CategoryFragments category = CategoryFragments.parse(draft.categoryCode());
 
 		return products.saveAndFlush(Product.builder()
 			.prodId(prodId)
-			.categoryCode(draft.categoryCode())
+			.majorCategory(category.major())
+			.middleCategory(category.middle())
+			.minorCategory(category.minor())
 			.prodName(draft.prodName())
 			.prodNo(draft.prodNo())
 			.prodBrand(draft.prodBrand())

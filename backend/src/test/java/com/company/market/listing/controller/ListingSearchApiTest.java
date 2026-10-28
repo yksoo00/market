@@ -141,7 +141,7 @@ class ListingSearchApiTest {
 
 	private void save(String prodId, String regDate, String name, String prodNo, String brand, int price, int stock,
 			String deliveryDate) {
-		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("P01-Q01-R001").prodName(name)
+		productRepository.saveAndFlush(Product.builder().prodId(prodId).majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName(name)
 			.prodNo(prodNo).prodBrand(brand).regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(userId).regDate(regDate).prodId(prodId).tradeType("등록")
 			.prodState("양호").salesUnitPrice(price).salesQuantity(Math.max(stock, 1)).minOrderQuantity(1).orderUnit(1)
@@ -153,7 +153,7 @@ class ListingSearchApiTest {
 		UUID other = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("searchother")
 			.passwordHash("$2a$12$hash").nickname("searchother").email("searchother@example.com")
 			.name("김철수").phone("01012340009").phoneHash(hasher.hash("01012340009")).build()).getId();
-		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("P01-Q01-R001").prodName(name)
+		productRepository.saveAndFlush(Product.builder().prodId(prodId).majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName(name)
 			.prodBrand("남의것").regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(other).regDate(regDate).prodId(prodId).tradeType("등록")
 			.prodState("신품").salesUnitPrice(1000).salesQuantity(1).minOrderQuantity(1).orderUnit(1).stockQuantity(1).deliveryDate("2026-12-31").build());
@@ -361,7 +361,7 @@ class ListingSearchApiTest {
 					null);
 		}
 		String tieDate = "20261001090100";
-		productRepository.saveAndFlush(Product.builder().prodId("ELEC00019000").categoryCode("P01-Q01-R001").prodName("부품 동률")
+		productRepository.saveAndFlush(Product.builder().prodId("ELEC00019000").majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("부품 동률")
 			.prodBrand("삼성").regDate(tieDate).build());
 		for (String loginId : List.of("searchtieb", "searchtiec")) {
 			UUID other = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
@@ -420,7 +420,7 @@ class ListingSearchApiTest {
 	@DisplayName("카테고리는 고른 대·중·소 코드와 그 아래 전부 (P01 은 P01-Q01-R001 포함, P011 은 아님)")
 	void categoryPrefix() throws Exception {
 		saveFour();
-		jdbc.update("update trd_prod_master set category_code = 'E01-F01-G001' where prod_id = 'ELEC00010002'");
+		jdbc.update("update trd_prod_master set major_category = 'E01', middle_category = 'F01', minor_category = 'G001' where prod_id = 'ELEC00010002'");
 		assertThat(regDates("category", "P01")).containsExactly(A, C, D);
 		assertThat(regDates("category", "P01-Q01")).containsExactly(A, C, D);
 		assertThat(regDates("category", "P01-Q01-R001")).containsExactly(A, C, D);
@@ -483,7 +483,7 @@ class ListingSearchApiTest {
 	@DisplayName("사진·데이터시트 표시는 매물 값만 본다 — 상품마스터 파일은 다른 판매자의 것")
 	void fileFlagsIgnoreProductMaster() throws Exception {
 		saveFour();
-		jdbc.update("update trd_prod_master set prod_photo_1 = 'p.jpg', prod_data_sheet = 'p.pdf' where prod_id = 'ELEC00010001'");
+		jdbc.update("update trd_prod_master set prod_image = 'p.jpg', prod_data_sheet = 'p.pdf' where prod_id = 'ELEC00010001'");
 		mvc.perform(get("/api/v1/listings").param("q", "LM324AD"))
 			.andExpect(jsonPath("$.data.items[0].hasDataSheet").value(false))
 			.andExpect(jsonPath("$.data.items[0].hasPhoto").value(false));
