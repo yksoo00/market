@@ -17,7 +17,7 @@
 - `trd_ctgr_code` 는 바꾸지 않는다. `GET /categories` 는 계속 `trd_ctgr_code`.
 - 자바 필드·JSON 이름은 유지하고 컬럼 매핑만 바꾼다 (PR 1 `certificateOfAuthen` 과 같은 방식): `prodNo` ↔ `prod_part_no`, `prodPhoto1` ↔ `prod_image`. API 의 `categoryCode` 도 그대로(경로 코드).
 - 새 칸 이름(자바·JSON): `prodClassNo`, `prodUsefulLife`, `warrantyMethod`, `alterProdName`.
-- 입력 수치(프론트 zod·백엔드 Bean Validation 같은 값, `docs/security.md` 가 원본): 제조사 1~40자(직접 입력 필수), 물품분류번호 ≤20, 보증년수 정수 0~50(선택, 설계서 가정 3), 정품보증방법 ≤20, 대체상품명 ≤40.
+- 입력 수치(프론트 zod·백엔드 Bean Validation 같은 값, `docs/security.md` 가 원본): 제조사 1~40자(직접 입력 필수), 물품분류번호 ≤20, 보증년수는 **개월 수**를 목록에서 고름: 3·6·9·…·60 (3개월 단위, 20개), 안 고르면 null (사용자 2026-10-28 "3 6 9 12 ~", 개월 단위 — 설계서 가정 3 대체. 끝값 60 은 내 가정), 정품보증방법 ≤20, 대체상품명 ≤40.
 - 오류 문구는 `frontend/src/messages/listing.ts` 에. 카테고리 오류는 기존 문구 `"없는 카테고리 코드입니다."` 그대로.
 - UTF-8, 한글 파일은 국소 수정. 공개 저장소 — 실제 주소 쓰지 않는다.
 
@@ -137,13 +137,13 @@ Expected: `long_brand = 0`. 0 이 아니면 멈추고 사용자에게 그 행을
     - `newFieldsSaved`: 새 마스터에 분류번호·보증년수·정품보증방법·대체상품명 저장.
   - ListingApiTest:
     - `brandOver40Rejected`: 제조사 41자 → 400 `fields.prodBrand`. 40자 → 201.
-    - `usefulLifeRange`: 51·-1 → 400 `fields.prodUsefulLife`, 0·50 → 201.
+    - `usefulLifeFromList`: 4·0·63 → 400 `fields.prodUsefulLife` (`"보증년수는 목록에서 고른 값이어야 합니다."`), 3·60·null → 201.
     - `pickedMasterIgnoresRequestProductFields`: `prodId` 와 함께 `prodClassNo "X"` 등을 보내도 상세 응답은 마스터 값.
     - `detailHasNewProductFields`: 상세 응답에 새 칸 4개.
     - `mufcDateEditMovesOnlyThisListing`: 두 판매자가 같은 마스터를 쓸 때 한쪽이 제조일을 바꾸면 그 매물만 다른 `prodId`, 다른 매물·옛 마스터 값은 그대로 (지금의 422 테스트가 있으면 이걸로 바꾼다).
 - [ ] **Step 2: 실행 — 실패 확인** (`--tests "*ProductServiceTest" --tests "*ProductRepositoryTest" --tests "*ListingApiTest"`).
 - [ ] **Step 3: 구현**
-  - `ListingCreateRequest`: `@Size(max = 40) prodBrand`, `@Size(max = 20) prodClassNo`, `@Min(0) @Max(50) Integer prodUsefulLife` (문구 `"보증년수는 0~50 사이로 입력하세요."`), `@Size(max = 20) warrantyMethod`, `@Size(max = 40) alterProdName`. `ListingUpdateRequest` 제조사 `@Size(max = 40)`.
+  - `ListingCreateRequest`: `@Size(max = 40) prodBrand`, `@Size(max = 20) prodClassNo`, `Integer prodUsefulLife` (목록 검사는 서비스 — `ListingService.USEFUL_LIFE_MONTHS` = 3..60 3 단위, `WARRANTY_DAYS` 와 같은 방식), `@Size(max = 20) warrantyMethod`, `@Size(max = 40) alterProdName`. `ListingUpdateRequest` 제조사 `@Size(max = 40)`.
   - `ProductService.findOrCreate`: `lockCreation()` → `findSame` → 없으면 `create`. 빈 문자열 칸은 null 로 저장. try/catch 재조회 삭제, 클래스 주석의 재사용 규칙을 네 값으로.
   - `ListingService.applyProductFields`: 이름·제조사·제조일 중 하나라도 바뀌면 `findOrCreate`(분류번호·새 칸은 지금 마스터 값 이어받음); 번호·사양·카테고리만 바뀌면 기존 공유 검사 흐름. `putIfChanged` 목록에서 `prodMufcDate` 를 뺀다.
 - [ ] **Step 4: 실행 — 통과.** `./gradlew test --tests "*Listing*" --tests "*Product*" --tests "*Cart*" --tests "*Quote*" --tests "*Trade*"` → PASS.
@@ -160,12 +160,12 @@ Expected: `long_brand = 0`. 0 이 아니면 멈추고 사용자에게 그 행을
 - Produces: 폼 칸 `prodClassNo`, `prodUsefulLife`, `warrantyMethod`, `alterProdName` (상품 칸 — `ProductPicker.productFields` 에 넣어 마스터 고르면 채우고 잠그고, 직접 입력이면 비워 연다).
 
 - [ ] **Step 1: 실패 테스트**
-  - `validation/listing.test.ts`: 제조사 41자 → `v.prodBrand` 오류; 보증년수 `"51"`·`"-1"`·`"1.5"` → `v.prodUsefulLife`, `""`·`"0"`·`"50"` 통과; 분류번호 21자·정품보증방법 21자·대체상품명 41자 → 각 오류.
+  - `validation/listing.test.ts`: 제조사 41자 → `v.prodBrand` 오류; 보증년수 `"4"`·`"0"`·`"63"` → `v.prodUsefulLife`, `""`·`"3"`·`"60"` 통과; 분류번호 21자·정품보증방법 21자·대체상품명 41자 → 각 오류.
   - `rowEdit.test.ts`: 제조사 41자 오류.
   - `listingForm.test.ts`: 직접 입력이면 새 칸 4개를 요청에 담고(보증년수는 숫자, 빈 칸은 빼기), 마스터를 골랐으면 안 담는다.
-  - `listingDetail.test.ts`: `infoRows` 에 `classNo`·`usefulLife`(`"N년"`)·`warrantyMethod`·`alterProdName` 줄, 값 없으면 `t.empty`.
+  - `listingDetail.test.ts`: `infoRows` 에 `classNo`·`usefulLife`(`"N개월"`)·`warrantyMethod`·`alterProdName` 줄, 값 없으면 `t.empty`.
 - [ ] **Step 2: 실행 — 실패 확인** `pnpm exec vitest run src/lib` → 새 테스트 FAIL.
-- [ ] **Step 3: 구현** — 스키마는 `optionalText(20|20|40, …)`, `optionalInt(0, 50, v.prodUsefulLife)`, 제조사 `requiredText(40, …)`. 문구(messages/listing.ts): 라벨 `물품분류번호`·`보증년수`·`정품보증방법`·`대체상품명`, 오류 `"제조사는 40자 이하로 입력하세요"`, `"물품분류번호는 20자 이하로 입력하세요"`, `"보증년수는 0~50 사이 정수로 입력하세요"`, `"정품보증방법은 20자 이하로 입력하세요"`, `"대체상품명은 40자 이하로 입력하세요"`. 입력칸은 기존 `prodNo` 칸과 같은 `FormField` 모양으로 사양 칸 다음에. 마스터 고를 때 `ProductPicker.pickMaster` 가 네 칸을 채운다(null 은 `""`, 보증년수는 문자열로).
+- [ ] **Step 3: 구현** — 스키마는 `optionalText(20|20|40, …)`, 보증년수는 `USEFUL_LIFE_MONTHS`(3..60, 3 단위) 중 하나 또는 빈 값, 제조사 `requiredText(40, …)`. 문구(messages/listing.ts): 라벨 `물품분류번호`·`보증년수`·`정품보증방법`·`대체상품명`, 오류 `"제조사는 40자 이하로 입력하세요"`, `"물품분류번호는 20자 이하로 입력하세요"`, `"보증년수는 목록에서 고른 값이어야 합니다"`, `"정품보증방법은 20자 이하로 입력하세요"`, `"대체상품명은 40자 이하로 입력하세요"`. 입력칸은 사양 칸 다음에. 글 칸은 기존 `prodNo` 칸과 같은 `FormField`, 보증년수는 기존 보증기간 선택과 같은 모양의 목록(옵션 "N개월" + 선택 안 함). 마스터 고를 때 `ProductPicker.pickMaster` 가 네 칸을 채운다(null 은 `""`, 보증년수는 문자열로).
 - [ ] **Step 4: 실행 — 통과** `pnpm exec vitest run src/lib && pnpm typecheck && pnpm lint`.
 - [ ] **Step 5: 커밋** — `feat(frontend): 등록 폼 상품 새 칸·제조사 40자·상세 표시`
 
