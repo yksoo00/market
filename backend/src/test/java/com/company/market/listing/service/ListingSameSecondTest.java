@@ -12,7 +12,6 @@ import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.crypto.PiiHasher;
 import com.company.market.common.storage.UploadService;
 import com.company.market.listing.dto.ListingCreateRequest;
-import com.company.market.listing.repository.CategoryRepository;
 import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.repository.ListingSearchRepository;
 import com.company.market.user.domain.User;
@@ -54,7 +53,7 @@ class ListingSameSecondTest {
 	ProductService products;
 
 	@Autowired
-	CategoryRepository categories;
+	CategoryService categories;
 
 	@Autowired
 	ApplicationEventPublisher events;

@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
@@ -293,6 +294,30 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.data.prodName").value("노트북 G"))
 			.andExpect(jsonPath("$.data.category").value("P01-Q01-R001"))
 			.andExpect(jsonPath("$.data.categoryPath").value("PC주요부품 > CPU/프로세서 > 인텔 CPU"));
+	}
+
+	@Test
+	@DisplayName("등록한 카테고리 경로는 상품마스터에 대·중·소 조각으로 저장된다 (2026-10-27 설계 PR 2)")
+	void createStoresCategoryFragments() throws Exception {
+		String regDate = createListing(authCookie);
+		assertThat(jdbc.queryForMap("""
+				select m.major_category, m.middle_category, m.minor_category from trd_prod_master m
+				  join trd_prod_reg l on l.prod_id = m.prod_id where l.user_id = ? and l.reg_date = ?
+				""", userId, regDate)).isEqualTo(Map.of("major_category", "P01", "middle_category", "Q01", "minor_category", "R001"));
+	}
+
+	@Test
+	@DisplayName("부모가 안 맞는 경로(P01-Q02-R001)나 소분류가 아닌 코드(P01)로 등록하면 400 fields.categoryCode — 카테고리 마스터의 부모 관계로 확인")
+	void createRejectsMismatchedCategoryPath() throws Exception {
+		for (String code : new String[] { "P01-Q02-R001", "P01", "P01-Q01" }) {
+			mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
+					.contentType(MediaType.APPLICATION_JSON).content("""
+						{"categoryCode":"%s","prodName":"노트북 C2","prodBrand":"삼성",
+						 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+						""".formatted(code)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.fields.categoryCode").value("없는 카테고리 코드입니다."));
+		}
 	}
 
 	@Test

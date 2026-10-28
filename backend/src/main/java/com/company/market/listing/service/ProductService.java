@@ -7,15 +7,14 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
 import com.company.market.common.time.KoreanDates;
-import com.company.market.listing.domain.Category;
 import com.company.market.listing.domain.CategoryFragments;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.dto.ProductSearchItemResponse;
-import com.company.market.listing.repository.CategoryRepository;
 import com.company.market.listing.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -38,7 +37,7 @@ public class ProductService {
 
 	private final ProductRepository products;
 
-	private final CategoryRepository categories;
+	private final CategoryService categories;
 
 	private final Clock clock;
 
@@ -57,11 +56,9 @@ public class ProductService {
 	public List<ProductSearchItemResponse> search(String query) {
 		String escaped = query.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
 		List<Product> found = products.search("%" + escaped + "%", PageRequest.of(0, SEARCH_LIMIT));
-		Map<String, String> names = categories.findAllById(found.stream().map(Product::getCategoryCode).distinct().toList())
-			.stream()
-			.collect(Collectors.toMap(Category::getCategoryCode, Category::getCategoryName));
+		Map<String, String> names = categories.names(found.stream().map(Product::getMinorCategory).filter(Objects::nonNull).distinct().toList());
 		return found.stream()
-			.map(p -> new ProductSearchItemResponse(p.getProdId(), p.getCategoryCode(), names.get(p.getCategoryCode()),
+			.map(p -> new ProductSearchItemResponse(p.getProdId(), p.getCategoryCode(), p.getMinorCategory() == null ? null : names.get(p.getMinorCategory()),
 					p.getProdName(), p.getProdNo(), p.getProdBrand(), p.getProdMufcDate(), p.getProdSpecInfo(),
 					p.getProdDataSheet(), p.getProdPhoto1()))
 			.toList();
@@ -95,13 +92,12 @@ public class ProductService {
 		String prefix = PROD_ID_PREFIX + KoreanDates.today(clock).getYear() + "-";
 		long sequence = products.countByProdIdStartingWith(prefix) + 1;
 		String prodId = prefix + String.format("%06d", sequence);
-		CategoryFragments category = CategoryFragments.parse(draft.categoryCode());
 
 		return products.saveAndFlush(Product.builder()
 			.prodId(prodId)
-			.majorCategory(category.major())
-			.middleCategory(category.middle())
-			.minorCategory(category.minor())
+			.majorCategory(draft.category().major())
+			.middleCategory(draft.category().middle())
+			.minorCategory(draft.category().minor())
 			.prodName(draft.prodName())
 			.prodNo(draft.prodNo())
 			.prodBrand(draft.prodBrand())
@@ -113,7 +109,7 @@ public class ProductService {
 			.build());
 	}
 
-	public record ProductDraft(String categoryCode, String prodName, String prodNo, String prodBrand,
+	public record ProductDraft(CategoryFragments category, String prodName, String prodNo, String prodBrand,
 			String prodMufcDate, String prodSpecInfo, String prodDataSheet, String firstPhoto) {
 	}
 

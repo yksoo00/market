@@ -6,7 +6,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -15,7 +14,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import com.company.market.common.exception.ApiException;
@@ -25,7 +23,6 @@ import com.company.market.common.storage.UploadKind;
 import com.company.market.common.storage.UploadRef;
 import com.company.market.common.storage.UploadService;
 import com.company.market.common.time.KoreanDates;
-import com.company.market.listing.domain.Category;
 import com.company.market.listing.domain.CategoryFragments;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.ListingId;
@@ -39,7 +36,6 @@ import com.company.market.listing.dto.ListingSearchCondition;
 import com.company.market.listing.dto.ListingSearchItemResponse;
 import com.company.market.listing.dto.ListingTradeSnapshot;
 import com.company.market.listing.dto.ListingUpdateRequest;
-import com.company.market.listing.repository.CategoryRepository;
 import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.repository.ListingSearchRepository;
 import com.company.market.listing.service.ProductService.ProductDraft;
@@ -66,7 +62,7 @@ public class ListingService {
 
 	private final ProductService products;
 
-	private final CategoryRepository categories;
+	private final CategoryService categories;
 
 	private final UploadService uploads;
 
@@ -96,10 +92,7 @@ public class ListingService {
 			throw new ValidationException(Map.of("photos", "대표 사진을 올려 주세요."));
 		}
 		validateDates(master == null ? req.prodMufcDate() : null, req.deliveryDate());
-		String categoryCode = master == null ? req.categoryCode().trim() : null;
-		if (master == null) {
-			requireCategory(categoryCode);
-		}
+		CategoryFragments category = master == null ? categories.resolveMinor(req.categoryCode()) : null;
 
 		// 입력 검사(Redis 조회)를 상품마스터 채번·INSERT 보다 먼저 — 잘못된 키 요청이 DB 작업을 하지 않게
 		List<UploadRef> files = new ArrayList<>();
@@ -110,7 +103,7 @@ public class ListingService {
 		}
 		uploads.claim(userId, files);
 
-		Product product = master != null ? master : products.findOrCreate(new ProductDraft(categoryCode, req.prodName().trim(),
+		Product product = master != null ? master : products.findOrCreate(new ProductDraft(category, req.prodName().trim(),
 				req.prodNo(), req.prodBrand().trim(), req.prodMufcDate(), req.prodSpecInfo(),
 				// 새 마스터의 데이터시트는 이 판매자가 올린 것 (productDataSheet 칸은 폼이 안 보낸다)
 				hasText(req.productDataSheet()) ? req.productDataSheet() : req.listingDataSheet(), firstPhoto));
@@ -190,7 +183,7 @@ public class ListingService {
 		}
 
 		if (req.categoryCode() != null) {
-			requireCategory(req.categoryCode().trim());
+			categories.resolveMinor(req.categoryCode());
 		}
 
 		// 상품 칸은 매물 칸보다 먼저 — 422 면 아무것도 바뀌지 않고, 업로드 키도 건드리지 않는다
@@ -244,13 +237,6 @@ public class ListingService {
 		return s != null && !s.isBlank();
 	}
 
-	/** 카테고리는 trd_ctgr_code 에 있는 코드만. FK 위반(500)이 되기 전에 필드 오류로 알린다 */
-	private void requireCategory(String code) {
-		if (!categories.existsById(code)) {
-			throw new ValidationException(Map.of("categoryCode", "없는 카테고리 코드입니다."));
-		}
-	}
-
 	/**
 	 * 상품 칸 규칙 (스펙 2026-10-06-my-listings). 상품마스터는 (이름, 제조사)가 유일하고 다른 판매자 매물과 공유한다.
 	 * 이름·제조사가 바뀌면 등록과 같은 findOrCreate 로 그 이름의 상품을 찾아 이 매물만 옮긴다 (있으면 그 상품 값, 없으면 새로 만든다).
@@ -263,7 +249,8 @@ public class ListingService {
 		String name = req.prodName() == null ? current.getProdName() : req.prodName().trim();
 		String brand = req.prodBrand() == null ? current.getProdBrand() : req.prodBrand().trim();
 		if (!name.equals(current.getProdName()) || !brand.equals(current.getProdBrand())) {
-			String category = req.categoryCode() == null ? current.getCategoryCode() : req.categoryCode().trim();
+			// 카테고리는 update() 가 이미 확인했다
+			CategoryFragments category = req.categoryCode() == null ? current.category() : CategoryFragments.parse(req.categoryCode());
 			// 안 보낸 칸은 옛 상품 값을 이어받는다 (이름만 바꿔도 번호·제조일이 사라지지 않게)
 			Product target = products.findOrCreate(new ProductDraft(category, name,
 					textOrCurrent(req.prodNo(), current.getProdNo()), brand,
@@ -571,25 +558,10 @@ public class ListingService {
 				listing.getDeliveryDate(), listing.getStockQuantity(), listing.getProdDescription(), listing.getProdDataSheet(), photos,
 				listing.getWarrantyPeriod(), listing.getWarrantyCoverage(), listing.getReplaceProd(), listing.getTestReport(),
 				listing.getCertificateOfAuthen(), listing.getDtUpdate(), listing.getDtExpire(), product.getCategoryCode(),
-				categoryPath(product.getCategoryCode()),
+				categories.namePath(product),
 				product.mufcDateIso(),
 				listing.tradeStatus(),
 				listing.warrantyUntil());
-	}
-
-	/**
-	 * 카테고리 코드의 "대 > 중 > 소" 이름. 소분류 이름만으론 "가전 기타"처럼 겹쳐서 경로를 다 보여 준다 (사용자 지시 2026-10-19).
-	 * 부모는 코드 앞부분으로 찾는다(parent_code 는 조각). 목록에 없는 옛 코드면 null — 화면은 코드를 그대로 보여 준다
-	 */
-	private String categoryPath(String code) {
-		String[] parts = code.split("-");
-		List<String> codes = IntStream.rangeClosed(1, parts.length)
-			.mapToObj(i -> String.join("-", Arrays.copyOf(parts, i)))
-			.toList();
-		Map<String, String> names = categories.findAllById(codes).stream()
-			.collect(Collectors.toMap(Category::getCategoryCode, Category::getCategoryName));
-		String path = codes.stream().map(names::get).filter(Objects::nonNull).collect(Collectors.joining(" > "));
-		return path.isEmpty() ? null : path;
 	}
 
 }

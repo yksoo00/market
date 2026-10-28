@@ -124,10 +124,14 @@ public class ListingSearchRepository {
 	/** 상세 필터 (2026-10-19). 값은 검증된 키뿐이고 조각은 위 상수에서만 고른다 — 사용자 입력은 바인딩으로만 */
 	private static void appendDetailConditions(StringBuilder jpql, Map<String, Object> params, ListingSearchCondition c) {
 		if (c.category() != null) {
-			// 'P01' 은 P01 자신과 'P01-…' 만 (P011 같은 다른 코드는 아님). 코드는 글자 제한이라 like 이스케이프 불필요
-			jpql.append(" and (p.categoryCode = :cat or p.categoryCode like :catPrefix)");
-			params.put("cat", c.category());
-			params.put("catPrefix", c.category() + "-%");
+			// 상품마스터의 대·중·소 조각과 하나씩 비교 — 'P01' 은 그 대분류 전부, 'P01-Q01' 은 그 중분류 전부 (2026-10-27 설계 PR 2).
+			// 조각 수는 요청 검증(최대 3)이 막는다
+			String[] parts = c.category().split("-");
+			String[] columns = { "p.majorCategory", "p.middleCategory", "p.minorCategory" };
+			for (int i = 0; i < parts.length; i++) {
+				jpql.append(" and ").append(columns[i]).append(" = :cat").append(i);
+				params.put("cat" + i, parts[i]);
+			}
 		}
 		if (c.state() != null) {
 			jpql.append(" and l.prodState in :states");

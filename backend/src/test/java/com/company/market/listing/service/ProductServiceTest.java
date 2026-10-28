@@ -5,8 +5,8 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 
 import com.company.market.TestInfraConfiguration;
+import com.company.market.listing.domain.CategoryFragments;
 import com.company.market.listing.domain.Product;
-import com.company.market.listing.repository.CategoryRepository;
 import com.company.market.listing.repository.ProductRepository;
 import com.company.market.listing.service.ProductService.ProductDraft;
 import org.junit.jupiter.api.DisplayName;
@@ -32,7 +32,7 @@ class ProductServiceTest {
 	ProductRepository products;
 
 	@Autowired
-	CategoryRepository categories;
+	CategoryService categories;
 
 	@Test
 	@DisplayName("이름+제조사가 같은 상품이 이미 있으면 새로 만들지 않고 그 행을 돌려준다")
@@ -40,7 +40,7 @@ class ProductServiceTest {
 		Product existing = products.saveAndFlush(Product.builder().prodId("ELEC00010001").majorCategory("P01").middleCategory("Q01").minorCategory("R001")
 			.prodName("노트북 A").prodBrand("삼성").regDate("20260929120000").build());
 
-		Product found = service.findOrCreate(new ProductDraft("P01-Q01-R001", "노트북 A", null, "삼성", null, null, null, null));
+		Product found = service.findOrCreate(new ProductDraft(CategoryFragments.parse("P01-Q01-R001"), "노트북 A", null, "삼성", null, null, null, null));
 
 		assertThat(found.getProdId()).isEqualTo(existing.getProdId());
 		assertThat(products.count()).isEqualTo(1);
@@ -53,7 +53,7 @@ class ProductServiceTest {
 			.prodName("옛 상품").prodBrand("삼성").regDate("20260929120000").build());
 		ProductService service = at("2026-10-08T03:00:00Z");
 
-		Product created = service.findOrCreate(new ProductDraft("P01-Q01-R001", "노트북 B", "MODEL-1", "LG", null, null, null, "photo-1.jpg"));
+		Product created = service.findOrCreate(new ProductDraft(CategoryFragments.parse("P01-Q01-R001"), "노트북 B", "MODEL-1", "LG", null, null, null, "photo-1.jpg"));
 
 		assertThat(created.getProdId()).isEqualTo("KP-2026-000001");
 		assertThat(created.getProdPhoto1()).isEqualTo("photo-1.jpg");
@@ -63,9 +63,9 @@ class ProductServiceTest {
 	@DisplayName("같은 해에 두 번째로 새로 만들면 일련번호가 000002 — 카테고리가 달라도 이어진다")
 	void incrementsSequenceWithinYear() {
 		ProductService service = at("2026-10-08T03:00:00Z");
-		service.findOrCreate(new ProductDraft("P01-Q01-R001", "노트북 C", null, "삼성", null, null, null, null));
+		service.findOrCreate(new ProductDraft(CategoryFragments.parse("P01-Q01-R001"), "노트북 C", null, "삼성", null, null, null, null));
 
-		Product second = service.findOrCreate(new ProductDraft("P01-Q01-R002", "노트북 D", null, "삼성", null, null, null, null));
+		Product second = service.findOrCreate(new ProductDraft(CategoryFragments.parse("P01-Q01-R002"), "노트북 D", null, "삼성", null, null, null, null));
 
 		assertThat(second.getProdId()).isEqualTo("KP-2026-000002");
 	}
@@ -73,9 +73,9 @@ class ProductServiceTest {
 	@Test
 	@DisplayName("일련번호는 해마다 1부터. 연도는 한국 날짜 기준 (UTC 12/31 15:00 = 한국 1/1 0시)")
 	void restartsSequenceEachKoreanYear() {
-		at("2026-12-31T14:59:59Z").findOrCreate(new ProductDraft("P01-Q01-R001", "노트북 F", null, "삼성", null, null, null, null));
+		at("2026-12-31T14:59:59Z").findOrCreate(new ProductDraft(CategoryFragments.parse("P01-Q01-R001"), "노트북 F", null, "삼성", null, null, null, null));
 
-		Product next = at("2026-12-31T15:00:00Z").findOrCreate(new ProductDraft("P01-Q01-R001", "노트북 G", null, "삼성", null, null, null, null));
+		Product next = at("2026-12-31T15:00:00Z").findOrCreate(new ProductDraft(CategoryFragments.parse("P01-Q01-R001"), "노트북 G", null, "삼성", null, null, null, null));
 
 		assertThat(next.getProdId()).isEqualTo("KP-2027-000001");
 	}

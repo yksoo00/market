@@ -64,6 +64,7 @@ class ProductCategoryApiTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.length()").value(1))
 			.andExpect(jsonPath("$.data[0].prodId").value("KP-2026-900001"))
+			.andExpect(jsonPath("$.data[0].categoryCode").value("P01-Q01-R001"))
 			.andExpect(jsonPath("$.data[0].categoryName").value("인텔 CPU"))
 			.andExpect(jsonPath("$.data[0].prodNo").value("R740-4210"))
 			.andExpect(jsonPath("$.data[0].prodPhoto1").value("public/listings/photos/2026/10/m.jpg"));

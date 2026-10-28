@@ -426,6 +426,7 @@ class ListingSearchApiTest {
 		assertThat(regDates("category", "P01-Q01-R001")).containsExactly(A, C, D);
 		assertThat(regDates("category", "E01")).containsExactly(B);
 		assertThat(regDates("category", "P0")).isEmpty();
+		assertThat(regDates("category", "P01-Q02")).isEmpty();
 	}
 
 	@Test
