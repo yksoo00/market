@@ -64,6 +64,18 @@ describe("toCreateRequest", () => {
     });
   });
 
+  it("직접 입력이면 상품 새 칸 4개를 보내고(보증년수는 숫자, 빈 칸은 빼기), 마스터를 골랐으면 안 보낸다", () => {
+    const manual = toCreateRequest(output({ prodClassNo: "43211503", prodUsefulLife: "24", warrantyMethod: "제조사 보증", alterProdName: "" }));
+    expect(manual).toMatchObject({ prodClassNo: "43211503", prodUsefulLife: 24, warrantyMethod: "제조사 보증" });
+    expect("alterProdName" in manual).toBe(false);
+    const picked = toCreateRequest(
+      output({ prodId: "KP-2026-000001", masterPhoto: "m.jpg", prodClassNo: "X", prodUsefulLife: "3", warrantyMethod: "W", alterProdName: "A" }),
+    );
+    for (const key of ["prodClassNo", "prodUsefulLife", "warrantyMethod", "alterProdName"]) {
+      expect(key in picked).toBe(false);
+    }
+  });
+
   it("상품마스터를 고르지 않으면 prodId 없이 상품 칸을 보낸다", () => {
     expect("prodId" in toCreateRequest(output({}))).toBe(false);
   });

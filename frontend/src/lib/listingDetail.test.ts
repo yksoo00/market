@@ -50,6 +50,10 @@ const base: ListingDetail = {
   category: "ELEC0001",
   categoryPath: null,
   mufcDate: "2026-09-10",
+  prodClassNo: null,
+  prodUsefulLife: null,
+  warrantyMethod: null,
+  alterProdName: null,
   tradeStatus: "available",
   warrantyUntil: null,
 };
@@ -131,6 +135,10 @@ describe("infoRows", () => {
       "카테고리",
       "거래종류",
       "제조일",
+      "물품분류번호",
+      "보증년수",
+      "정품보증방법",
+      "대체상품명",
       "최소주문수량",
       "주문단위",
       "등록수량",
@@ -146,6 +154,17 @@ describe("infoRows", () => {
     expect(value({ ...base, salesUnitPrice: 3_500_000 }, "단가")).toBe("3,500,000원");
     expect(value(base, "수량")).toBe("1,200");
     expect(value(base, "등록일")).toBe("2026-10-01 09:15");
+  });
+
+  it("상품 새 칸: 보증년수는 N개월, 없으면 –", () => {
+    const value = (d: ListingDetail, label: string) => infoRows(d).find((r) => r.label === label)?.value;
+    const full = { ...base, prodClassNo: "43211503", prodUsefulLife: 24, warrantyMethod: "제조사 보증", alterProdName: "LM324B" };
+    expect(value(full, "물품분류번호")).toBe("43211503");
+    expect(value(full, "보증년수")).toBe("24개월");
+    expect(value(full, "정품보증방법")).toBe("제조사 보증");
+    expect(value(full, "대체상품명")).toBe("LM324B");
+    expect(value(base, "보증년수")).toBe("–");
+    expect(value(base, "물품분류번호")).toBe("–");
   });
 
   it("빈 값은 – 로, 상품코드는 mono", () => {

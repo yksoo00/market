@@ -12,6 +12,11 @@ export interface ListingCreateRequest {
   /** yyyyMMdd */
   prodMufcDate?: string;
   prodSpecInfo?: string;
+  prodClassNo?: string;
+  /** 보증년수 — 개월 수 (USEFUL_LIFE_MONTHS) */
+  prodUsefulLife?: number;
+  warrantyMethod?: string;
+  alterProdName?: string;
   productDataSheet?: string;
   tradeType: string;
   /** 드롭다운 구간 값 (lib/validation/listing PROD_STATES) */
@@ -92,6 +97,11 @@ export interface ListingDetail {
   prodBrand: string;
   prodNo: string | null;
   prodSpecInfo: string | null;
+  prodClassNo: string | null;
+  /** 보증년수 — 개월 수 */
+  prodUsefulLife: number | null;
+  warrantyMethod: string | null;
+  alterProdName: string | null;
   tradeType: string;
   prodState: string;
   salesUnitPrice: number;
@@ -180,6 +190,11 @@ export interface ProductSearchItem {
   /** yyyyMMdd */
   prodMufcDate: string | null;
   prodSpecInfo: string | null;
+  prodClassNo: string | null;
+  /** 보증년수 — 개월 수 */
+  prodUsefulLife: number | null;
+  warrantyMethod: string | null;
+  alterProdName: string | null;
   prodDataSheet: string | null;
   prodPhoto1: string | null;
 }
