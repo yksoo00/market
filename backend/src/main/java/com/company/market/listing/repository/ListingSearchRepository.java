@@ -1,10 +1,12 @@
 package com.company.market.listing.repository;
 
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import com.company.market.listing.domain.ListingId;
 import com.company.market.listing.dto.ListingSearchCondition;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
@@ -21,11 +23,15 @@ public class ListingSearchRepository {
 
 	private final EntityManager em;
 
-	/** 각 행은 [Listing, Product]. ownerId 가 있으면 그 사용자 글만, after* 가 있으면 그 커서 다음부터 */
-	public List<Object[]> findPage(ListingSearchCondition c, UUID ownerId, String afterRegDate, UUID afterUserId, int limit) {
+	/**
+	 * 각 행은 [Listing, Product]. ownerId 가 있으면 그 사용자 글만, keys 가 있으면 그 매물들만(내 구매 범위 — 빈 목록이면 결과 없음),
+	 * after* 가 있으면 그 커서 다음부터
+	 */
+	public List<Object[]> findPage(ListingSearchCondition c, UUID ownerId, Collection<ListingId> keys, String afterRegDate,
+			UUID afterUserId, int limit) {
 		Map<String, Object> params = new HashMap<>();
 		StringBuilder jpql = new StringBuilder("select l, p from Listing l join Product p on p.prodId = l.prodId where 1=1");
-		appendConditions(jpql, params, c, ownerId);
+		appendConditions(jpql, params, c, ownerId, keys);
 		if (afterRegDate != null) {
 			jpql.append(" and (l.regDate < :cr or (l.regDate = :cr and l.userId < :cu))");
 			params.put("cr", afterRegDate);
@@ -52,16 +58,34 @@ public class ListingSearchRepository {
 		return query.setMaxResults(limit).getResultList();
 	}
 
-	public long count(ListingSearchCondition c, UUID ownerId) {
+	public long count(ListingSearchCondition c, UUID ownerId, Collection<ListingId> keys) {
 		Map<String, Object> params = new HashMap<>();
 		StringBuilder jpql = new StringBuilder("select count(l) from Listing l join Product p on p.prodId = l.prodId where 1=1");
-		appendConditions(jpql, params, c, ownerId);
+		appendConditions(jpql, params, c, ownerId, keys);
 		TypedQuery<Long> query = em.createQuery(jpql.toString(), Long.class);
 		params.forEach(query::setParameter);
 		return query.getSingleResult();
 	}
 
-	private static void appendConditions(StringBuilder jpql, Map<String, Object> params, ListingSearchCondition c, UUID ownerId) {
+	private static void appendConditions(StringBuilder jpql, Map<String, Object> params, ListingSearchCondition c, UUID ownerId,
+			Collection<ListingId> keys) {
+		// keys 는 거래 도메인이 내 거래 행에서 모은 값 — 값마다 파라미터 바인딩. 같은 사용자의 regDate 는 유일해 두 값이면 매물이 하나다
+		if (keys != null) {
+			if (keys.isEmpty()) {
+				jpql.append(" and 1=0");
+			}
+			else {
+				jpql.append(" and (");
+				int i = 0;
+				for (ListingId key : keys) {
+					jpql.append(i == 0 ? "" : " or ").append("(l.userId = :ku").append(i).append(" and l.regDate = :kr").append(i).append(")");
+					params.put("ku" + i, key.getUserId());
+					params.put("kr" + i, key.getRegDate());
+					i++;
+				}
+				jpql.append(")");
+			}
+		}
 		// ownerId 가 있으면 그 사용자 글만 (mine=true — id 는 인증 정보에서 온 값이라 파라미터 바인딩만 한다)
 		if (ownerId != null) {
 			jpql.append(" and l.userId = :owner");

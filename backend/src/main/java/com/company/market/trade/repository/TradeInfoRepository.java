@@ -140,6 +140,18 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			""")
 	List<Object[]> countBySellerGroupByListing(@Param("sellerId") UUID sellerId, @Param("stats") Collection<TradeStats> stats);
 
+	/** 내가 구매자인 거래 중 hidden 종류(구매검토)가 아닌 행이 있나 (검색 "내 구매" 탭 판정) */
+	boolean existsByUserIdAndTradeTypeNot(UUID userId, TradeType hidden);
+
+	/** 내가 구매자인 거래(hidden 종류 제외)의 매물 → [판매자 id, 매물 등록일시], 최신 거래부터. 같은 매물은 한 번 (내 구매 범위) */
+	@Query("""
+			select t.sellerId, t.prodRegDate, max(t.tradeId) from TradeInfo t
+			 where t.userId = :buyerId and t.tradeType <> :hidden
+			 group by t.sellerId, t.prodRegDate
+			 order by max(t.tradeId) desc
+			""")
+	List<Object[]> findPurchasedListings(@Param("buyerId") UUID buyerId, @Param("hidden") TradeType hidden, Pageable page);
+
 
 	/** 매물 수정으로 상품이 바뀌면 그 매물을 가리키는 거래 행도 새 prod_id 로 — 세 값으로 계속 찾게 */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)

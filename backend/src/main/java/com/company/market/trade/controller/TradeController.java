@@ -8,11 +8,16 @@ import java.util.stream.Collectors;
 import com.company.market.common.api.ApiResponse;
 import com.company.market.common.auth.AuthenticatedUser;
 import com.company.market.common.idempotency.IdempotencyGuard;
+import com.company.market.listing.dto.ListingPageResponse;
+import com.company.market.listing.dto.ListingSearchCondition;
 import com.company.market.trade.dto.QuoteCreateRequest;
 import com.company.market.trade.dto.QuotePurchaseRequest;
 import com.company.market.trade.dto.TradeCreateRequest;
+import com.company.market.trade.dto.TradeHistoryPageResponse;
 import com.company.market.trade.dto.TradePageResponse;
 import com.company.market.trade.dto.TradeResponse;
+import com.company.market.trade.dto.TradeScopesResponse;
+import com.company.market.trade.service.TradeActivityService;
 import com.company.market.trade.service.TradeService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -20,6 +25,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -34,6 +40,8 @@ import org.springframework.web.bind.annotation.RestController;
 public class TradeController {
 
 	private final TradeService trades;
+
+	private final TradeActivityService activity;
 
 	private final IdempotencyGuard idempotency;
 
@@ -99,6 +107,26 @@ public class TradeController {
 			@RequestParam(required = false) String role, @RequestParam(required = false) String reg,
 			@RequestParam(required = false) String cursor) {
 		return ApiResponse.of(trades.list(me.id(), role, reg, cursor));
+	}
+
+	/** 내 거래이력(구매확정만). side = all(기본) | buy | sell. 본인 id 는 인증 정보에서만 */
+	@GetMapping("/history")
+	public ApiResponse<TradeHistoryPageResponse> history(@AuthenticationPrincipal AuthenticatedUser me,
+			@RequestParam(required = false) String side, @RequestParam(required = false) String cursor) {
+		return ApiResponse.of(activity.history(me.id(), side, cursor));
+	}
+
+	/** 검색 범위 탭 판정 { sales, purchases } */
+	@GetMapping("/scopes")
+	public ApiResponse<TradeScopesResponse> scopes(@AuthenticationPrincipal AuthenticatedUser me) {
+		return ApiResponse.of(activity.scopes(me.id()));
+	}
+
+	/** 내가 거래한 매물 검색(검색 "내 구매" 범위). 조건·응답은 GET /api/v1/listings 와 같다 */
+	@GetMapping("/listings")
+	public ApiResponse<ListingPageResponse> purchasedListings(@AuthenticationPrincipal AuthenticatedUser me,
+			@Valid @ModelAttribute ListingSearchCondition condition) {
+		return ApiResponse.of(activity.purchasedListings(me.id(), condition));
 	}
 
 	/** 내 매물별 구매요청 건수 { regDate: n } — 내 판매글 표. 매물 검색 응답에 넣지 않는 이유: 매물 → 거래 역참조(순환 의존) */
