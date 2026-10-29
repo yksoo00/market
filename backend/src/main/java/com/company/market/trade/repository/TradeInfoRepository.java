@@ -116,21 +116,27 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	 */
 	@Query("""
 			select t from TradeInfo t
-			 where t.userId = :buyerId and t.tradeType <> :hidden and (:cursor is null or t.tradeId < :cursor)
+			 where t.userId = :buyerId and t.tradeType <> :hidden and t.tradeStats in :stats
+			   and (:cursor is null or t.tradeId < :cursor)
 			 order by t.tradeId desc
 			""")
 	List<TradeInfo> findBuyerPage(@Param("buyerId") UUID buyerId, @Param("hidden") TradeType hidden,
-			@Param("cursor") String cursor, Pageable page);
+			@Param("stats") Collection<TradeStats> stats, @Param("cursor") String cursor, Pageable page);
 
-	/** 내가 판매자인 거래. regDate 가 있으면 그 매물만. hidden 종류(구매검토 = 구매자의 장바구니)는 판매자에게 안 보인다 */
+	/**
+	 * 내가 판매자인 거래. regDate 가 있으면 그 매물만. hidden 종류(구매검토 = 구매자의 장바구니)는 판매자에게 안 보인다.
+	 * stats 는 보일 거래상태 (내 활동내역은 진행 중만)
+	 */
 	@Query("""
 			select t from TradeInfo t
-			 where t.sellerId = :sellerId and t.tradeType <> :hidden and (:regDate is null or t.prodRegDate = :regDate)
+			 where t.sellerId = :sellerId and t.tradeType <> :hidden and t.tradeStats in :stats
+			   and (:regDate is null or t.prodRegDate = :regDate)
 			   and (:cursor is null or t.tradeId < :cursor)
 			 order by t.tradeId desc
 			""")
 	List<TradeInfo> findSellerPage(@Param("sellerId") UUID sellerId, @Param("hidden") TradeType hidden,
-			@Param("regDate") String regDate, @Param("cursor") String cursor, Pageable page);
+			@Param("stats") Collection<TradeStats> stats, @Param("regDate") String regDate, @Param("cursor") String cursor,
+			Pageable page);
 
 	/** 판매자 매물별 그 상태들 건수 → [매물 등록일시, count]. 한 판매자 안에서 등록일시는 매물 하나 (같은 초 등록 409) */
 	@Query("""

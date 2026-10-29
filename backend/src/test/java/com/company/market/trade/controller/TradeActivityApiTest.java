@@ -252,6 +252,25 @@ class TradeActivityApiTest {
 			.andExpect(jsonPath("$.fields.cursor").exists());
 	}
 
+	// ---- 내 활동내역: 진행 중만 ----
+
+	@Test
+	@DisplayName("active=true: 구매자는 견적요청·견적수락·견적거절·구매요청만, 판매자는 견적요청·구매요청만. 구매확정은 뺀다")
+	void activeStatesOnly() throws Exception {
+		String confirmed = buy(buyerId, REG_A, 1);
+		complete(buyer, confirmed);
+		String requested = buy(buyerId, REG_B, 1);
+		// 견적수락·견적거절 상태 행을 직접 만든다 (구매자 화면에는 보이고 판매자 화면에는 안 보여야 한다)
+		jdbc.update("update trd_trade_info set trade_stats = '견적수락', trade_type = '견적조정' where trade_id = ?", requested);
+
+		mvc.perform(get("/api/v1/trades?role=buyer").cookie(buyer)).andExpect(jsonPath("$.data.items", hasSize(2)));
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true").cookie(buyer)).andExpect(jsonPath("$.data.items", hasSize(1)))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value(requested));
+		mvc.perform(get("/api/v1/trades?role=seller").cookie(seller)).andExpect(jsonPath("$.data.items", hasSize(2)));
+		// 견적수락은 판매자가 이미 처리한 것 → 판매자 요청 탭에서 빠진다
+		mvc.perform(get("/api/v1/trades?role=seller&active=true").cookie(seller)).andExpect(jsonPath("$.data.items", hasSize(0)));
+	}
+
 	// ---- 내 구매 매물 검색 ----
 
 	@Test
