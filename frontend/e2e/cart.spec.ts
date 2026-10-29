@@ -7,7 +7,7 @@ import { search } from "@/messages/search";
 import { signup } from "@/messages/signup";
 import { trade } from "@/messages/trade";
 
-// 장바구니 흐름 (스펙 2026-10-21): 판매자 매물 2개 → 구매자 검색 결과에서 둘 다 [장바구니] → 헤더 숫자 2
+// 장바구니 흐름 (스펙 2026-10-21, 2026-10-29 담기 입력): 판매자 매물 2개 → 구매자 검색 결과에서 둘 다 체크(선택 줄 칩) → [장바구니] 모달 → 헤더 숫자 2
 // → 장바구니에서 하나 [구매] → 그 줄은 빠지고 내 구매목록에 구매요청, 헤더 1 → 남은 하나 [빼기] → 빈 장바구니, 배지 없음
 const password = "Test1234!@";
 
@@ -99,7 +99,16 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     await page.goto(`/search?q=${encodeURIComponent(word)}`);
     await rowOf(nameA).getByRole("checkbox", { name: search.result.selectRow(nameA) }).check();
     await rowOf(nameB).getByRole("checkbox", { name: search.result.selectRow(nameB) }).check();
+    // 체크한 상품은 목록 위 "선택한 상품" 줄에 칩으로 보인다 (2026-10-29)
+    const bar = page.getByRole("region", { name: cart.selection.title(2) });
+    await expect(bar).toBeVisible();
+    await expect(bar.getByText(nameA)).toBeVisible();
     await page.getByRole("button", { name: cart.add.button, exact: true }).first().click();
+    // 수량·납품희망일(기본 제공가능일)을 정하는 담기 모달 — 기본값 그대로 담는다
+    const addDialog = page.getByRole("dialog", { name: cart.add.dialog.title });
+    await expect(addDialog).toBeVisible();
+    await expect(addDialog.locator('input[name="items.0.reqDeliDate"]')).not.toHaveValue("");
+    await addDialog.getByRole("button", { name: cart.add.dialog.submit(2), exact: true }).click();
     const done = page.getByRole("dialog", { name: cart.add.doneTitle });
     await expect(done).toBeVisible();
     // 모달이 열린 동안엔 바깥이 aria-hidden — 닫고 헤더를 본다
@@ -118,6 +127,9 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     await page.getByRole("button", { name: search.result.buy, exact: true }).first().click();
     const dialog = page.getByRole("dialog", { name: trade.purchase.title });
     await expect(dialog).toBeVisible();
+    // 담을 때 입력한 값이 채워져 열린다 (2026-10-29)
+    await expect(dialog.locator('input[name="orderQuantity"]')).toHaveValue("1");
+    await expect(dialog.locator('input[name="reqDeliDate"]')).not.toHaveValue("");
     await dialog.locator('input[name="orderQuantity"]').fill("1");
     await dialog.locator('input[name="reqDeliDate"]').fill(
       new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(Date.now() + 7 * 86_400_000)),
@@ -147,6 +159,7 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     const row = other.getByRole("table").getByRole("row").filter({ hasText: nameB });
     await row.getByRole("checkbox", { name: search.result.selectRow(nameB) }).check();
     await other.getByRole("button", { name: cart.add.button, exact: true }).first().click();
+    await other.getByRole("dialog", { name: cart.add.dialog.title }).getByRole("button", { name: cart.add.dialog.submit(1), exact: true }).click();
     await expect(other.getByRole("dialog", { name: cart.add.doneTitle })).toBeVisible();
     await expect(rowOf(nameB)).toHaveCount(1);
     await expect(cartLink(1)).toBeVisible();
