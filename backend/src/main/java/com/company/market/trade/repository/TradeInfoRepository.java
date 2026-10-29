@@ -70,6 +70,15 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	int deleteCartRow(@Param("buyerId") UUID buyerId, @Param("sellerId") UUID sellerId, @Param("prodRegDate") String prodRegDate,
 			@Param("prodId") String prodId, @Param("stats") TradeStats stats);
 
+	/** 내 구매검토 행 중 그 거래상태(비교용) 전부 삭제 — 비교는 누를 때마다 목록을 바꾼다 */
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("delete from TradeInfo t where t.userId = :buyerId and t.tradeType = :type and t.tradeStats = :stats")
+	int deleteByUserAndTypeAndStats(@Param("buyerId") UUID buyerId, @Param("type") TradeType type, @Param("stats") TradeStats stats);
+
+	/** 구매자별 비교 목록 교체를 줄 세운다 (트랜잭션 끝까지) — 지우고 담는 사이에 같은 구매자의 다른 요청이 끼지 않게 */
+	@Query(value = "select 1 from (select pg_advisory_xact_lock(hashtext('compare:' || cast(:userId as text)))) l", nativeQuery = true)
+	Integer lockCompare(@Param("userId") UUID userId);
+
 	/** 매물 삭제 때 그 매물의 견적 단계 행을 모두 지운다 (구매요청·구매확정 행은 그대로 — 남아 있으면 TradeListingCleanup 이 삭제를 막는다) */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("""

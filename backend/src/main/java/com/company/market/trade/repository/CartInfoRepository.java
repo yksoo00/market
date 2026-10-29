@@ -21,6 +21,13 @@ public interface CartInfoRepository extends JpaRepository<CartInfo, CartInfoId> 
 	/** 최근에 담은 것부터 — trade_id 내림차순 (11자 고정 길이라 문자열 순서 = 시간 순서) */
 	List<CartInfo> findByUserIdAndCartTypeOrderByTradeIdDesc(UUID userId, CartType cartType);
 
+	/** 담은 순서 (일렬번호 오름차순) — 비교 화면의 열 순서 */
+	List<CartInfo> findByUserIdAndCartTypeOrderBySerNo(UUID userId, CartType cartType);
+
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("delete from CartInfo c where c.userId = :userId and c.cartType = :type")
+	int deleteByUserAndType(@Param("userId") UUID userId, @Param("type") CartType type);
+
 	long countByUserIdAndCartType(UUID userId, CartType cartType);
 
 	/** 이 매물이 이미 그 구분(장바구니|비교용)으로 담겨 있나 */

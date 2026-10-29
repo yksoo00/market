@@ -1,0 +1,109 @@
+package com.company.market.trade.service;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+import com.company.market.common.exception.ApiException;
+import com.company.market.common.exception.ErrorCode;
+import com.company.market.listing.dto.ListingTradeSnapshot;
+import com.company.market.listing.service.ListingService;
+import com.company.market.trade.domain.CartType;
+import com.company.market.trade.domain.TradeStats;
+import com.company.market.trade.domain.TradeType;
+import com.company.market.trade.dto.CartItemResponse;
+import com.company.market.trade.dto.CompareRequest;
+import com.company.market.trade.repository.CartInfoRepository;
+import com.company.market.trade.repository.TradeInfoRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+/**
+ * 비교 (설계 2026-10-27 PR 3, 사용자 결정 2026-10-29). [비교]를 누를 때마다 내 비교용 행(trd_trade_info 구매검토/비교용 +
+ * trd_cart_info)을 이번 선택으로 바꾼다 — 같은 소분류 2~4개. 입력은 없다: 수량 = 최소주문량, 납품희망일 = 제공가능일.
+ * 거래완료 매물도 비교할 수 있다(보기만). 재고·메일 없음
+ */
+@Service
+@RequiredArgsConstructor
+public class CompareService {
+
+	public static final int MIN_ITEMS = 2;
+
+	public static final int MAX_ITEMS = 4;
+
+	private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
+
+	private final TradeInfoRepository trades;
+
+	private final CartInfoRepository cartInfos;
+
+	private final TradeIdGenerator tradeIds;
+
+	private final CartService cart;
+
+	private final ListingService listings;
+
+	private final Clock clock;
+
+	/**
+	 * 비교 목록 교체. 확인(개수·내 매물·없는 매물·소분류)이 모두 끝난 뒤에만 이전 목록을 지운다 — 틀리면 이전 목록 그대로.
+	 * 구매자별 잠금으로 지우고 담는 사이에 같은 구매자의 다른 요청이 끼지 않게 한다
+	 */
+	@Transactional
+	public int replace(UUID buyerId, CompareRequest req) {
+		Map<String, CompareRequest.Item> unique = new LinkedHashMap<>();
+		for (CompareRequest.Item item : req.items()) {
+			unique.putIfAbsent(item.sellerId() + "/" + item.regDate(), item);
+		}
+		if (unique.size() < MIN_ITEMS || unique.size() > MAX_ITEMS) {
+			throw new ApiException(ErrorCode.COMPARE_COUNT);
+		}
+		trades.lockCompare(buyerId);
+		List<ListingTradeSnapshot> targets = unique.values().stream().map(i -> listings.snapshotForTrade(i.sellerId(), i.regDate())).toList();
+		for (ListingTradeSnapshot l : targets) {
+			if (buyerId.equals(l.sellerId())) {
+				throw new ApiException(ErrorCode.TRADE_OWN_LISTING);
+			}
+		}
+		if (targets.stream().map(ListingTradeSnapshot::categoryCode).distinct().count() > 1) {
+			throw new ApiException(ErrorCode.COMPARE_CATEGORY_MISMATCH);
+		}
+		trades.deleteByUserAndTypeAndStats(buyerId, TradeType.REVIEW, TradeStats.COMPARE);
+		cartInfos.deleteByUserAndType(buyerId, CartType.COMPARE);
+		String now = LocalDateTime.now(clock).format(TIMESTAMP_FORMAT);
+		for (ListingTradeSnapshot l : targets) {
+			int quantity = l.minOrderQuantity() == null || l.minOrderQuantity() < 1 ? 1 : l.minOrderQuantity();
+			int unitPrice = l.salesUnitPrice() == null ? 0 : l.salesUnitPrice();
+			String tradeId = tradeIds.next();
+			trades.insertReviewIfAbsent(buyerId, tradeId, l.sellerId(), l.regDate(), now, l.prodId(), l.prodState(),
+					l.salesUnitPrice(), l.stockQuantity(), l.minOrderQuantity(), l.orderUnit(), l.provDate(), unitPrice, quantity,
+					l.provDate(), null, TradeStats.COMPARE.label());
+			cartInfos.save(cart.cartInfo(buyerId, tradeId, CartType.COMPARE, l, unitPrice, quantity, l.provDate(), null, now));
+		}
+		return targets.size();
+	}
+
+	/** 담은 순서. 매물 값은 지금 값 */
+	@Transactional(readOnly = true)
+	public List<CartItemResponse> list(UUID buyerId) {
+		return cart.items(cartInfos.findByUserIdAndCartTypeOrderBySerNo(buyerId, CartType.COMPARE));
+	}
+
+	/** 한 열 빼기. 내 비교 행이 아닌 게 하나라도 있으면 404 로 전부 되돌린다 */
+	@Transactional
+	public void remove(UUID buyerId, List<String> tradeIds) {
+		Set<String> ids = new LinkedHashSet<>(tradeIds);
+		if (trades.deleteCartRows(buyerId, ids, TradeStats.COMPARE) != ids.size()) {
+			throw new ApiException(ErrorCode.TRADE_NOT_FOUND);
+		}
+		cartInfos.deleteByUserAndTradeIds(buyerId, ids);
+	}
+
+}
