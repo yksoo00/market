@@ -58,6 +58,20 @@ public class ListingSearchRepository {
 		return query.setMaxResults(limit).getResultList();
 	}
 
+	/**
+	 * 같은 조건의 정렬 키만 전부, findPage 와 같은 순서로 [regDate, userId]. 페이지 번호의 경계와 전체 건수를 한 번에 구한다
+	 * (PageKeys — 조건에 맞는 행의 키를 전부 훑는 비용은 설계 2026-10-27 PR 5 에서 감수)
+	 */
+	public List<Object[]> findKeys(ListingSearchCondition c, UUID ownerId, Collection<ListingId> keys) {
+		Map<String, Object> params = new HashMap<>();
+		StringBuilder jpql = new StringBuilder("select l.regDate, l.userId from Listing l join Product p on p.prodId = l.prodId where 1=1");
+		appendConditions(jpql, params, c, ownerId, keys);
+		jpql.append(" order by l.regDate desc, l.userId desc");
+		TypedQuery<Object[]> query = em.createQuery(jpql.toString(), Object[].class);
+		params.forEach(query::setParameter);
+		return query.getResultList();
+	}
+
 	public long count(ListingSearchCondition c, UUID ownerId, Collection<ListingId> keys) {
 		Map<String, Object> params = new HashMap<>();
 		StringBuilder jpql = new StringBuilder("select count(l) from Listing l join Product p on p.prodId = l.prodId where 1=1");

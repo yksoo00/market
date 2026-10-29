@@ -20,6 +20,7 @@ import java.util.stream.Stream;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.exception.ValidationException;
+import com.company.market.common.paging.PageKeys;
 import com.company.market.common.storage.UploadKind;
 import com.company.market.common.storage.UploadRef;
 import com.company.market.common.storage.UploadService;
@@ -443,7 +444,12 @@ public class ListingService {
 		if (condition.minPrice() != null && condition.maxPrice() != null && condition.minPrice() > condition.maxPrice()) {
 			throw new ValidationException(Map.of("maxPrice", "최대 가격은 최소 가격보다 크거나 같아야 합니다."));
 		}
-		Optional<Cursor> cursor = decodeCursor(condition.cursor());
+		// 페이지 번호 방식: 같은 조건의 정렬 키로 경계를 구해, 그 페이지의 앞 줄 키 다음부터 키셋으로 읽는다
+		PageKeys<Object[]> pageKeys = condition.page() == null ? null
+				: PageKeys.of(searchRepository.findKeys(condition, ownerId, keys), condition.page(), PAGE_SIZE);
+		Optional<Cursor> cursor = pageKeys != null
+				? Optional.ofNullable(pageKeys.after()).map(k -> new Cursor((String) k[0], (UUID) k[1]))
+				: decodeCursor(condition.cursor());
 		List<Object[]> rows = searchRepository.findPage(condition, ownerId, keys, cursor.map(Cursor::regDate).orElse(null),
 				cursor.map(Cursor::userId).orElse(null), PAGE_SIZE + 1);
 		boolean hasMore = rows.size() > PAGE_SIZE;
@@ -451,7 +457,10 @@ public class ListingService {
 
 		List<ListingSearchItemResponse> items = page.stream().map(r -> toSearchItem((Listing) r[0], (Product) r[1])).toList();
 		String nextCursor = hasMore ? encodeCursor((Listing) page.get(page.size() - 1)[0]) : null;
-		return new ListingPageResponse(items, nextCursor, searchRepository.count(condition, ownerId, keys));
+		if (pageKeys != null) {
+			return new ListingPageResponse(items, nextCursor, pageKeys.total(), pageKeys.page(), pageKeys.totalPages());
+		}
+		return new ListingPageResponse(items, nextCursor, searchRepository.count(condition, ownerId, keys), null, null);
 	}
 
 	/**

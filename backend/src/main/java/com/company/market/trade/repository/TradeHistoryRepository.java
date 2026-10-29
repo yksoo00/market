@@ -28,4 +28,12 @@ public interface TradeHistoryRepository extends JpaRepository<TradeHistory, Trad
 	List<TradeHistory> findPage(@Param("me") UUID me, @Param("buy") boolean buy, @Param("sell") boolean sell,
 			@Param("cursorDate") String cursorDate, @Param("cursorId") String cursorId, Pageable page);
 
+	/** findPage 와 같은 조건·순서의 [확정일시, 거래ID] 만 전부 — 페이지 번호의 경계와 전체 건수 (PageKeys) */
+	@Query("""
+			select h.tradeDate, h.tradeId from TradeHistory h
+			 where ((:buy = true and h.userId = :me) or (:sell = true and h.sellerId = :me))
+			 order by h.tradeDate desc, h.tradeId desc
+			""")
+	List<Object[]> findKeys(@Param("me") UUID me, @Param("buy") boolean buy, @Param("sell") boolean sell);
+
 }
