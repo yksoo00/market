@@ -37,7 +37,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 
 	/**
 	 * 장바구니 1행. 이미 담겨 있으면(동시에 담은 다른 요청 포함) 아무것도 안 한다 → 0. 예외를 잡아 넘기지 않는 이유:
-	 * Postgres 는 실패한 문장 뒤로 그 트랜잭션을 못 쓴다. where 절은 ux_trd_trade_info_one_cart(V202610211300)와 같아야 한다
+	 * Postgres 는 실패한 문장 뒤로 그 트랜잭션을 못 쓴다. where 절은 ux_trd_trade_info_one_cart(V202610291000)와 같아야 한다
 	 */
 	@Modifying
 	@Query(nativeQuery = true, value = """
@@ -46,7 +46,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 				order_quantity, req_deli_date, trade_stats)
 			values (:userId, :tradeId, '구매검토', :sellerId, :prodRegDate, :regDate, :prodId, :prodState, :salesUnitPrice,
 				:stockQuantity, :minOrderQuantity, :orderUnit, :provDate, :orderUnitPrice, :orderQuantity, :provDate, '장바구니')
-			on conflict (user_id, seller_id, prod_reg_date, prod_id) where trade_type = '구매검토' and trade_stats = '장바구니' do nothing
+			on conflict (user_id, seller_id, prod_reg_date, prod_id, trade_stats) where trade_type = '구매검토' do nothing
 			""")
 	int insertCartIfAbsent(@Param("userId") UUID userId, @Param("tradeId") String tradeId, @Param("sellerId") UUID sellerId,
 			@Param("prodRegDate") String prodRegDate, @Param("regDate") String regDate, @Param("prodId") String prodId,
