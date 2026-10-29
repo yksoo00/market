@@ -5,14 +5,17 @@ import { useState, type MouseEvent, type ReactNode } from "react";
 import { Icon } from "@/components/common/Icon";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
+import { SelectionBar } from "@/components/search/SelectionBar";
+import { CartDialog, type CartTarget } from "@/components/trade/CartDialog";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog, type QuoteTarget } from "@/components/trade/QuoteDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cartApi } from "@/lib/api/cart";
 import { cartActionable, notifyCartChanged } from "@/lib/cart";
-import { compareBlock, compareHref, MAX_COMPARE, MIN_COMPARE } from "@/lib/compare";
+import { COMPARE_HREF, compareBlock, MAX_COMPARE, MIN_COMPARE } from "@/lib/compare";
 import { formatPrice } from "@/lib/format";
 import { isOwner } from "@/lib/listingDetail";
+import { selection, selectionKey, useSelection } from "@/lib/selection";
 import { pendingLabel, salesHref } from "@/lib/tradeCounts";
 import { MAX_CART_ADD } from "@/lib/validation/cart";
 import { MAX_QUOTE_ITEMS } from "@/lib/validation/quote";
@@ -22,12 +25,14 @@ import { compare } from "@/messages/compare";
 import { my } from "@/messages/my";
 import { search as t } from "@/messages/search";
 import { trade } from "@/messages/trade";
+import type { CartAddResult } from "@/types/cart";
 import type { ListingSearchItem } from "@/types/listing";
+import type { CartDefaults } from "@/components/trade/QuoteDialog";
 import type { PendingCounts } from "@/types/trade";
 
 const r = t.result;
 const p = trade.purchase;
-const keyOf = (i: ListingSearchItem) => `${i.userId}/${i.regDate}`;
+const keyOf = selectionKey;
 const qty = new Intl.NumberFormat("ko-KR");
 // 체크박스·링크 클릭이 행 클릭(상세 이동)으로 번지지 않게
 const stop = (e: MouseEvent) => e.stopPropagation();
@@ -86,10 +91,12 @@ interface Props {
   pendingCounts?: PendingCounts | null;
   /** 구매요청 성공 — 목록이 그 매물 행을 다시 읽게 */
   onPurchased?: (key: { userId: string; regDate: string }) => void;
+  /** cart: 담을 때 입력한 값 (키 = userId/regDate) — 구매·견적 모달의 기본값 */
+  cartDefaults?: ReadonlyMap<string, CartDefaults>;
 }
 
 // 선택 상태는 결과 집합마다 새로 시작한다 — 페이지에서 key={buildSearchHref(query)}로 다시 마운트
-export function ResultList({ items, query, total, scope = "search", onEdit, ownerId = null, pendingCounts = null, onPurchased, onRemove, removing = false }: Props) {
+export function ResultList({ items, query, total, scope = "search", onEdit, ownerId = null, pendingCounts = null, onPurchased, onRemove, removing = false, cartDefaults }: Props) {
   const openTile = useTileOpen();
   const mine = scope === "mine";
   const inCart = scope === "cart";
@@ -113,9 +120,13 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
       </button>
     );
   };
-  const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
-  // 장바구니는 다른 칸에서 바뀌면 표를 새로 그리지 않고 줄만 바꾼다 — 사라진 줄의 선택은 여기서 걸러 센다
-  const picked: ReadonlySet<string> = new Set(items.map(keyOf).filter((k) => selected.has(k)));
+  // 검색 목록의 선택은 모듈 저장소(lib/selection)에 둔다 — 검색어·필터를 바꿔 목록이 다시 만들어져도 남고, 목록 위 "선택한 상품" 줄이 보여 준다.
+  // 장바구니 화면은 다른 칸에서 바뀌면 표를 새로 그리지 않고 줄만 바꾸므로 자기 상태로 두고, 사라진 줄의 선택은 걸러 센다
+  const shared = scope === "search";
+  const stored = useSelection();
+  const [local, setLocal] = useState<ReadonlySet<string>>(new Set());
+  const picked: ReadonlySet<string> = shared ? new Set(stored.keys()) : new Set(items.map(keyOf).filter((k) => local.has(k)));
+  const visiblePicked = items.filter((i) => picked.has(keyOf(i))).length;
   // seq: 같은 문구가 연달아 나와도 알림 요소를 새로 그려 스크린리더가 다시 읽게 한다 (key 로 사용)
   const [notice, setNotice] = useState<{ seq: number; text: string } | null>(null);
   // [구매] 모달 대상(체크한 매물 1개)과 성공 안내
@@ -124,52 +135,63 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   // [견적 요청] 모달 대상(체크한 매물 1~20개)과 성공 안내
   const [quoting, setQuoting] = useState<QuoteTarget[] | null>(null);
   const [quoted, setQuoted] = useState(false);
-  // [장바구니] 보내는 중(버튼 비활성)과 성공 안내
-  const [adding, setAdding] = useState(false);
-  const [added, setAdded] = useState(false);
+  // [장바구니] 담기 모달 대상(체크한 매물 1~20개)과 성공 안내
+  const [cartTargets, setCartTargets] = useState<CartTarget[] | null>(null);
+  const [added, setAdded] = useState<CartAddResult | null>(null);
+  // [비교] 저장 중 — 두 번 보내지 않게 버튼을 막는다
+  const [comparing, setComparing] = useState(false);
 
-  const toggle = (key: string) =>
-    setSelected((prev) => {
+  const toggle = (item: ListingSearchItem) => {
+    if (shared) {
+      selection.toggle(item);
+      return;
+    }
+    const key = keyOf(item);
+    setLocal((prev) => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key);
       else next.add(key);
       return next;
     });
-  const allChecked = items.length > 0 && picked.size === items.length;
-  const headerChecked = allChecked ? true : picked.size > 0 ? "indeterminate" : false;
-  const toggleAll = () => setSelected(allChecked ? new Set() : new Set(items.map(keyOf)));
+  };
+  const allChecked = items.length > 0 && visiblePicked === items.length;
+  const headerChecked = allChecked ? true : visiblePicked > 0 ? "indeterminate" : false;
+  const toggleAll = () => {
+    if (shared) {
+      if (allChecked) selection.removeAll(items);
+      else selection.addAll(items);
+    } else {
+      setLocal(allChecked ? new Set() : new Set(items.map(keyOf)));
+    }
+  };
+  // 체크한 매물. 검색은 목록에 안 보이는 것까지(저장소), 장바구니는 지금 줄 중에서
+  const chosenItems = (): ListingSearchItem[] => (shared ? [...stored.values()] : items.filter((i) => picked.has(keyOf(i))));
   const showNotice = (text: string) => setNotice((prev) => ({ seq: (prev?.seq ?? 0) + 1, text }));
   // 장바구니엔 거래완료 매물이 남아 있을 수 있다 — 견적·구매 대상에서 빼고 알린다 (빼기만 된다)
   const chosenForTrade = () => {
-    const chosen = items.filter((i) => picked.has(keyOf(i)));
+    const chosen = chosenItems();
     if (!inCart) return chosen;
     const actionable = chosen.filter(cartActionable);
     if (actionable.length < chosen.length) showNotice(cart.page.completedSkipped);
     return actionable;
   };
+  // 장바구니에서 열면 담을 때 입력한 값이 기본값 (설계 2026-10-27 PR 3 판정 5)
+  const cartDefaultsOf = (i: ListingSearchItem) => (inCart ? cartDefaults?.get(keyOf(i)) : undefined);
   // 견적은 여러 매물을 한 번에 (서버 한도 20개)
   const quoteSelected = () => {
     const chosen = chosenForTrade();
     if (chosen.length === 0) return;
     if (chosen.length > MAX_QUOTE_ITEMS) showNotice(trade.quote.tooMany(MAX_QUOTE_ITEMS));
-    else setQuoting(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
+    else setQuoting(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate, defaults: cartDefaultsOf(i) })));
   };
-  // 장바구니는 모달 없이 바로 담는다 (서버 한도 20개). 하나라도 틀리면 서버가 아무것도 안 담고 이유를 돌려준다
-  const addSelected = async () => {
-    const chosen = items.filter((i) => picked.has(keyOf(i)));
+  // 장바구니는 수량·납품희망일·요청사항을 받는 모달로 담는다 (서버 한도 20개). 하나라도 틀리면 서버가 아무것도 안 담고 이유를 돌려준다
+  const addSelected = () => {
+    const chosen = chosenItems();
     if (chosen.length > MAX_CART_ADD) {
       showNotice(cart.add.tooMany(MAX_CART_ADD));
       return;
     }
-    setAdding(true);
-    const res = await cartApi.add(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
-    setAdding(false);
-    if (res.ok) {
-      notifyCartChanged();
-      setAdded(true);
-    } else {
-      showNotice(trade.errors[res.code] ?? res.message);
-    }
+    setCartTargets(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
   };
   // 구매 모달은 매물 1개용 — 여러 개를 체크했으면 하나만 고르라고 알린다 (계획 2026-10-15 "스펙과 달라진 점")
   const buySelected = () => {
@@ -177,20 +199,37 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
     if (chosen.length === 1) setBuying(chosen[0]);
     else if (chosen.length > 1) showNotice(p.oneAtATime);
   };
-  // 비교는 같은 소분류 2~4개. 거래완료도 볼 수 있어 거르지 않는다 (비교 화면이 버튼만 숨김). 장바구니(주기능) 옆 보조 칸에 연다
-  const compareSelected = () => {
-    const chosen = items.filter((i) => picked.has(keyOf(i)));
+  // 비교는 같은 소분류 2~4개. 거래완료도 볼 수 있어 거르지 않는다 (비교 화면이 버튼만 숨김).
+  // 누르면 서버의 내 비교 목록이 이 선택으로 바뀌고, 비교 화면을 옆 보조 칸에 연다 (사용자 결정 2026-10-29)
+  const compareSelected = async () => {
+    const chosen = chosenItems();
     const block = compareBlock(chosen);
     if (block === "tooMany") showNotice(compare.tooMany(MAX_COMPARE));
     else if (block === "category") showNotice(compare.otherCategory);
-    else if (block === null) openTile(compareHref(chosen), false);
+    else if (block === null) {
+      setComparing(true);
+      const res = await cartApi.replaceCompare(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
+      setComparing(false);
+      if (res.ok) openTile(COMPARE_HREF, false);
+      else showNotice(trade.errors[res.code] ?? compare.failed);
+    }
   };
+  const selectionBar = shared ? (
+    <SelectionBar items={[...stored.values()]} onRemove={(key) => selection.remove(key)} onClear={() => selection.clear()} />
+  ) : null;
   // router.push 는 타일 큐를 안 거쳐, iframe 칸에서 누르면 그 칸이 닫히고 2분할이 된다. 이름 링크와 같은 규칙(칸 규칙)으로 연다.
   // 내 판매글도 검색처럼 상세를 보조 칸에 연다 — 전체 화면(reset)으로 열던 예외는 이 화면만 2분할이 돼 뺐다 (decisions.md 2026-10-19)
   const go = (item: ListingSearchItem) => openTile(listingHref(item), false);
 
   // 장바구니의 빈 화면은 CartView 가 그린다
-  if (items.length === 0) return inCart ? null : <Empty query={query} scope={scope} />;
+  if (items.length === 0) {
+    return inCart ? null : (
+      <div className="flex flex-col gap-2.5">
+        {selectionBar}
+        <Empty query={query} scope={scope} />
+      </div>
+    );
+  }
 
   const actions = (size: string) => (
     <>
@@ -198,17 +237,17 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
         <button
           type="button"
           disabled={picked.size === 0 || removing}
-          onClick={() => onRemove?.(items.filter((i) => picked.has(keyOf(i))))}
+          onClick={() => onRemove?.(chosenItems())}
           className={`${size} px-3 rounded-md border border-line text-ink-2 text-sm font-medium hover:bg-bg disabled:opacity-40 disabled:pointer-events-none`}
         >
           {cart.page.remove}
         </button>
       )}
-      {inCart && (
+      {scope === "search" && (
         <button
           type="button"
-          disabled={picked.size < MIN_COMPARE || removing}
-          onClick={compareSelected}
+          disabled={picked.size < MIN_COMPARE || comparing}
+          onClick={() => void compareSelected()}
           className={`${size} px-3 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft disabled:opacity-40 disabled:pointer-events-none`}
         >
           {compare.button}
@@ -217,7 +256,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
       {scope === "search" && (
         <button
           type="button"
-          disabled={picked.size === 0 || adding}
+          disabled={picked.size === 0}
           onClick={addSelected}
           className={`${size} px-3 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft disabled:opacity-40 disabled:pointer-events-none`}
         >
@@ -261,17 +300,33 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
         {!mine && <div className="hidden @min-[36rem]:flex gap-2">{actions("h-8.5")}</div>}
       </div>
 
+      {selectionBar}
+
       {!mine && buying && (
         <PurchaseDialog
           sellerId={buying.userId}
           regDate={buying.regDate}
           open
+          defaultQuantity={cartDefaultsOf(buying)?.orderQuantity}
+          defaultReqDeliDate={cartDefaultsOf(buying)?.reqDeliDate}
+          defaultRemarks={cartDefaultsOf(buying)?.remarks ?? undefined}
           onOpenChange={(open) => !open && setBuying(null)}
           onPurchased={() => {
             // 서버가 그 매물을 장바구니에서 지웠다 (어디서 샀든) — 헤더 숫자를 맞춘다
             notifyCartChanged();
             setPurchased(true);
             onPurchased?.({ userId: buying.userId, regDate: buying.regDate });
+          }}
+        />
+      )}
+      {!mine && cartTargets && (
+        <CartDialog
+          targets={cartTargets}
+          open
+          onOpenChange={(open) => !open && setCartTargets(null)}
+          onAdded={(result) => {
+            notifyCartChanged();
+            setAdded(result);
           }}
         />
       )}
@@ -311,16 +366,17 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
         onClose={() => setPurchased(false)}
       />
       <ResultDialog
-        open={added}
+        open={added !== null}
         tone="success"
         title={cart.add.doneTitle}
-        message={cart.add.doneMessage}
+        message={added && added.skipped > 0 ? `${cart.add.doneMessage}
+${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
         actionLabel={cart.add.toCart}
         onAction={() => {
-          setAdded(false);
+          setAdded(null);
           openTile("/my/cart", false);
         }}
-        onClose={() => setAdded(false)}
+        onClose={() => setAdded(null)}
       />
 
       {!mine && notice !== null && (
@@ -386,7 +442,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
                 >
                   {!mine && (
                     <td className="sticky left-0 z-10 bg-surface group-hover:bg-bg pl-3" onClick={stop}>
-                      <Checkbox checked={picked.has(key)} onCheckedChange={() => toggle(key)} aria-label={r.selectRow(item.prodName)} />
+                      <Checkbox checked={picked.has(key)} onCheckedChange={() => toggle(item)} aria-label={r.selectRow(item.prodName)} />
                     </td>
                   )}
                   <td className={`sticky ${mine ? "left-0 pl-3" : "left-10"} z-10 bg-surface group-hover:bg-bg px-2 truncate font-medium border-r border-line-2`} title={item.prodName}>
@@ -433,7 +489,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
             >
               {!mine && (
                 <div className="pt-0.5" onClick={stop}>
-                  <Checkbox checked={picked.has(key)} onCheckedChange={() => toggle(key)} aria-label={r.selectRow(item.prodName)} />
+                  <Checkbox checked={picked.has(key)} onCheckedChange={() => toggle(item)} aria-label={r.selectRow(item.prodName)} />
                 </div>
               )}
               <div className="min-w-0 grow flex flex-col gap-1">

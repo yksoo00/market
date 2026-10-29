@@ -23,9 +23,17 @@ import type { ListingDetail } from "@/types/listing";
 const t = trade.quote;
 const n = (v: number) => v.toLocaleString("ko-KR");
 
+/** 장바구니에서 연 모달의 기본값 — 담을 때 입력한 값 (설계 2026-10-27 PR 3 판정 5) */
+export interface CartDefaults {
+  orderQuantity: number;
+  reqDeliDate: string;
+  remarks: string | null;
+}
+
 export interface QuoteTarget {
   sellerId: string;
   regDate: string;
+  defaults?: CartDefaults;
 }
 
 interface Props {
@@ -130,12 +138,14 @@ function QuoteBody({ targets, onClose, onRequested }: Omit<Props, "open" | "onOp
     const r = reasons[i];
     return r !== null && r !== "login" ? [{ detail: d, reason: r }] : [];
   });
-  return <QuoteForm sendable={sendable} skipped={skipped} onClose={onClose} onRequested={onRequested} />;
+  const defaultsByKey = new Map(targets.map((x) => [`${x.sellerId}/${x.regDate}`, x.defaults]));
+  return <QuoteForm sendable={sendable} skipped={skipped} defaultsByKey={defaultsByKey} onClose={onClose} onRequested={onRequested} />;
 }
 
 interface FormProps {
   sendable: ListingDetail[];
   skipped: { detail: ListingDetail; reason: Exclude<PurchaseBlock, "login"> }[];
+  defaultsByKey: ReadonlyMap<string, CartDefaults | undefined>;
   onClose: () => void;
   onRequested: () => void;
 }
@@ -143,7 +153,7 @@ interface FormProps {
 /** 서버 fields 키 items[i].칸 → 폼 경로 items.i.칸 */
 const toFormPath = (key: string) => key.replace(/\[(\d+)\]/, ".$1");
 
-function QuoteForm({ sendable, skipped, onClose, onRequested }: FormProps) {
+function QuoteForm({ sendable, skipped, defaultsByKey, onClose, onRequested }: FormProps) {
   // 날짜 기준은 폼을 연 동안 고정 (구매 모달과 같음)
   const [today] = useState(() => todayInSeoul());
   const [idempotencyKey] = useState(() => crypto.randomUUID());
@@ -157,12 +167,15 @@ function QuoteForm({ sendable, skipped, onClose, onRequested }: FormProps) {
     reValidateMode: "onChange",
     defaultValues: {
       // 납품희망일 기본값은 매물 제공가능일 (2026-10-27), 바꿀 수 있다
-      items: sendable.map((d) => ({
-        orderUnitPrice: String(d.salesUnitPrice),
-        orderQuantity: String(d.minOrderQuantity),
-        reqDeliDate: d.deliveryDate ?? "",
-        remarks: "",
-      })),
+      items: sendable.map((d) => {
+        const c = defaultsByKey.get(`${d.userId}/${d.regDate}`);
+        return {
+          orderUnitPrice: String(d.salesUnitPrice),
+          orderQuantity: String(c?.orderQuantity ?? d.minOrderQuantity),
+          reqDeliDate: c?.reqDeliDate ?? d.deliveryDate ?? "",
+          remarks: c?.remarks ?? "",
+        };
+      }),
     } as QuoteFormInput,
   });
   const {

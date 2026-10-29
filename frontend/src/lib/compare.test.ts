@@ -1,9 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { compareBlock, compareHref, compareRows, parseCompareItems, withoutItem } from "./compare";
+import { COMPARE_HREF, compareBlock, compareRows } from "./compare";
 import type { ListingDetail, ListingSearchItem } from "@/types/listing";
 
 const U1 = "11111111-1111-1111-1111-111111111111";
-const U2 = "22222222-2222-2222-2222-222222222222";
 const REG = (n: number) => `2026102210000${n}`;
 
 const searchItem = (regDate: string, category = "P01-Q01-R001"): ListingSearchItem =>
@@ -66,36 +65,9 @@ describe("compareBlock", () => {
   });
 });
 
-describe("compareHref · parseCompareItems", () => {
-  const keys = [
-    { userId: U1, regDate: REG(1) },
-    { userId: U2, regDate: REG(2) },
-  ];
-
-  it("주소로 갔다가 그대로 돌아온다", () => {
-    const href = compareHref(keys);
-    expect(href).toBe(`/my/cart/compare?items=${U1}_${REG(1)},${U2}_${REG(2)}`);
-    expect(parseCompareItems(new URL(href, "http://x").searchParams.get("items"))).toEqual(keys);
-  });
-
-  it("형식·개수·중복이 틀리면 null", () => {
-    expect(parseCompareItems(null)).toBeNull();
-    expect(parseCompareItems("")).toBeNull();
-    expect(parseCompareItems(`${U1}_${REG(1)},${U1}_${REG(1)}`)).toBeNull();
-    // 같은 매물을 대소문자만 바꿔 넣어도 중복
-    const upper = "AAAAAAAA-1111-1111-1111-111111111111";
-    expect(parseCompareItems(`${upper.toLowerCase()}_${REG(1)},${upper}_${REG(1)}`)).toBeNull();
-    expect(parseCompareItems(`nope_${REG(1)},${U2}_${REG(2)}`)).toBeNull();
-    expect(parseCompareItems(`${U1}_2026,${U2}_${REG(2)}`)).toBeNull();
-    expect(parseCompareItems([1, 2, 3, 4, 5].map((n) => `${U1}_${REG(n)}`).join(","))).toBeNull();
-  });
-
-  it("1개는 받는다 — 빼고 하나 남은 주소를 새로고침해도 화면이 '2개 이상' 안내", () => {
-    expect(parseCompareItems(`${U1}_${REG(1)}`)).toEqual([{ userId: U1, regDate: REG(1) }]);
-  });
-
-  it("빼기 뒤 남은 것만", () => {
-    expect(withoutItem(keys, keys[0])).toEqual([keys[1]]);
+describe("COMPARE_HREF", () => {
+  it("비교 화면 주소는 고정이다 — 고른 상품은 서버(내 비교 목록)가 들고 있어 주소에 안 싣는다", () => {
+    expect(COMPARE_HREF).toBe("/my/cart/compare");
   });
 });
 

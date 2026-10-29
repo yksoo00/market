@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { Icon } from "@/components/common/Icon";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
@@ -9,8 +9,8 @@ import { QuoteDialog, type QuoteTarget } from "@/components/trade/QuoteDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cartApi } from "@/lib/api/cart";
 import { listingsApi } from "@/lib/api/listings";
-import { notifyCartChanged, onCartChanged } from "@/lib/cart";
-import { compareHref, compareRows, MIN_COMPARE, parseCompareItems, sameKey, withoutItem, type CompareKey } from "@/lib/compare";
+import { notifyCartChanged } from "@/lib/cart";
+import { compareRows, MIN_COMPARE, sameKey } from "@/lib/compare";
 import { fileUrl } from "@/lib/files";
 import { mainPhoto } from "@/lib/listingDetail";
 import { listingHref } from "@/lib/search";
@@ -23,25 +23,20 @@ import type { ListingDetail } from "@/types/listing";
 type State =
   | { kind: "loading" }
   | { kind: "error" }
-  | { kind: "invalid" }
-  | { kind: "ready"; details: ListingDetail[]; skipped: boolean };
+  | { kind: "ready"; items: CartItem[]; details: ListingDetail[]; skipped: boolean };
 
 const p = trade.purchase;
 const outline = "h-8 px-2.5 rounded-md border text-[13px] font-medium disabled:opacity-40 disabled:pointer-events-none";
 
 /**
- * 장바구니 비교 (계획 2026-10-22-cart-compare). 고른 상품은 주소(items)에만 있다 — 서버에 비교 목록을 남기지 않는다.
- * 매물은 상세 API 로 하나씩(2~4개), 장바구니는 [빼기]에 쓸 tradeId 를 알려고 따로 읽는다.
- * 장바구니가 바뀌면(다른 칸 포함) 장바구니만, 견적·구매 뒤엔 재고가 바뀌니 매물도 다시 읽는다
+ * 비교 (설계 2026-10-27 PR 3, 사용자 결정 2026-10-29). 검색 목록의 [비교]가 서버에 저장한 내 비교 목록을 읽어 나란히 보인다.
+ * 매물은 상세 API 로 하나씩(1~4개), 열마다 [빼기]는 비교 행의 거래ID 로. 견적·구매 뒤엔 재고가 바뀌니 매물을 다시 읽는다.
+ * 1개만 남아도 열과 [빼기]를 보인다(마지막 하나를 뺄 수 있게) — 위에 "2개 이상이어야 비교" 안내만 더한다
  */
-export function CompareView({ raw }: { raw: string | null }) {
+export function CompareView() {
   const openTile = useTileOpen();
-  const [keys, setKeys] = useState<CompareKey[] | null>(() => parseCompareItems(raw));
-  const [state, setState] = useState<State>(() => (keys ? { kind: "loading" } : { kind: "invalid" }));
+  const [state, setState] = useState<State>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
-  const [cartItems, setCartItems] = useState<CartItem[] | null>(null);
-  const [cartAttempt, setCartAttempt] = useState(0);
-  const [cartFailed, setCartFailed] = useState(false);
   const [onlyDiff, setOnlyDiff] = useState(false);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
@@ -50,44 +45,33 @@ export function CompareView({ raw }: { raw: string | null }) {
   const [quoting, setQuoting] = useState<QuoteTarget[] | null>(null);
   const [quoted, setQuoted] = useState(false);
 
-  // 빼기는 열만 줄이고 다시 읽지 않는다. 다시 읽을 땐(견적·구매 뒤·재시도) 지금 남은 상품만 — 빼기가 ref 도 같이 줄인다
-  const keysRef = useRef(keys);
   useEffect(() => {
-    const current = keysRef.current;
-    if (!current) return;
     let alive = true;
-    void Promise.all(current.map((k) => listingsApi.get(k.userId, k.regDate))).then((results) => {
+    void (async () => {
+      const list = await cartApi.listCompare();
       if (!alive) return;
-      // 그새 지워진 매물만 빼고, 다른 실패는 처음 읽기만 오류 화면 (다시 읽기 실패는 보이던 표 그대로)
+      if (!list.ok) {
+        // 다시 읽기가 실패하면 보이던 표는 그대로 둔다 (처음 읽기만 오류 화면)
+        setState((prev) => (prev.kind === "ready" ? prev : { kind: "error" }));
+        return;
+      }
+      const items = list.data.items;
+      const results = await Promise.all(items.map((i) => listingsApi.get(i.listing.userId, i.listing.regDate)));
+      if (!alive) return;
+      // 그새 지워진 매물만 빼고, 다른 실패는 처음 읽기만 오류 화면
       if (results.some((res) => !res.ok && res.code !== "LISTING_NOT_FOUND")) {
         setState((prev) => (prev.kind === "ready" ? prev : { kind: "error" }));
         return;
       }
       const details = results.flatMap((res) => (res.ok ? [res.data] : []));
-      setState({ kind: "ready", details, skipped: details.length < results.length });
-    });
+      setState({ kind: "ready", items, details, skipped: details.length < results.length });
+    })();
     return () => {
       alive = false;
     };
   }, [attempt]);
 
-  useEffect(() => {
-    let alive = true;
-    void cartApi.list().then((res) => {
-      if (!alive) return;
-      // 못 읽으면 [빼기]만 숨기고 알린다 (비교는 매물 값만으로 된다)
-      setCartItems(res.ok ? res.data.items : null);
-      setCartFailed(!res.ok);
-    });
-    return () => {
-      alive = false;
-    };
-  }, [cartAttempt]);
-
-  useEffect(() => onCartChanged(() => setCartAttempt((n) => n + 1)), []);
-
   if (state.kind === "loading") return <div className="h-96 rounded-md bg-line-2 animate-pulse" aria-busy="true" />;
-  if (state.kind === "invalid") return <Message text={t.page.invalid} action={t.page.toCart} onAction={() => openTile("/my/cart", false)} />;
   if (state.kind === "error") {
     return (
       <Message
@@ -101,35 +85,34 @@ export function CompareView({ raw }: { raw: string | null }) {
     );
   }
 
-  const details = state.details.filter((d) => keys?.some((k) => sameKey(k, d)));
-  if (details.length < MIN_COMPARE) return <Message text={t.page.tooFew} action={t.page.toCart} onAction={() => openTile("/my/cart", false)} />;
-  // 장바구니 [비교]가 막지만 주소를 손으로 고칠 수 있다
+  const { details, items } = state;
+  if (details.length === 0) return <Message text={t.page.empty} action={t.page.toSearch} onAction={() => openTile("/search", false)} />;
+  // 서버가 같은 소분류만 저장하지만, 그새 매물 카테고리가 바뀌었을 수 있어 방어한다
   if (new Set(details.map((d) => d.category)).size > 1) {
-    return <Message text={t.otherCategory} action={t.page.toCart} onAction={() => openTile("/my/cart", false)} />;
+    return <Message text={t.otherCategory} action={t.page.toSearch} onAction={() => openTile("/search", false)} />;
   }
 
   const rows = compareRows(details);
   const shown = onlyDiff ? rows.filter((r) => r.differs) : rows;
-  const tradeIdOf = (d: ListingDetail) => cartItems?.find((i) => sameKey(i.listing, d))?.tradeId ?? null;
+  const tradeIdOf = (d: ListingDetail) => items.find((i) => sameKey(i.listing, d))?.tradeId ?? null;
 
   const remove = async (d: ListingDetail, tradeId: string) => {
     setRemoving(true);
     setRemoveError(null);
-    const res = await cartApi.remove([tradeId]);
+    const res = await cartApi.removeCompare([tradeId]);
     setRemoving(false);
-    // 실패(다른 칸에서 이미 뺐거나 견적·구매로 넘어감)해도 장바구니를 다시 읽는다. 신호가 이 칸에도 와서 다시 읽는다
-    notifyCartChanged();
     if (!res.ok) {
       setRemoveError(trade.errors[res.code] ?? res.message);
       return;
     }
-    const next = withoutItem(keys ?? [], d);
-    keysRef.current = next;
-    setKeys(next);
-    // 같은 화면 안 주소만 바꾼다 — 새로고침·칸 복원이 남은 상품으로 열리게 (Next 가 history.replaceState 를 따라간다)
-    window.history.replaceState(null, "", compareHref(next));
+    // 빼기는 열만 줄이고 다시 읽지 않는다 (남은 열의 값은 그대로)
+    setState((prev) =>
+      prev.kind === "ready"
+        ? { ...prev, items: prev.items.filter((i) => i.tradeId !== tradeId), details: prev.details.filter((x) => !sameKey(x, d)) }
+        : prev,
+    );
   };
-  // 견적·구매는 서버가 그 매물을 장바구니에서 지운다. 재고도 바뀌니 매물까지 다시 읽는다
+  // 견적·구매는 서버가 그 매물의 장바구니 행을 바꾼다(비교 행은 그대로). 재고도 바뀌니 매물까지 다시 읽는다
   const traded = () => {
     notifyCartChanged();
     setAttempt((n) => n + 1);
@@ -144,17 +127,14 @@ export function CompareView({ raw }: { raw: string | null }) {
           {t.page.onlyDiff}
         </label>
       </div>
+      {details.length < MIN_COMPARE && (
+        <p role="status" className="text-[13px] text-ink-2">
+          {t.page.tooFew}
+        </p>
+      )}
       {state.skipped && (
         <p role="status" className="text-[13px] text-ink-2">
           {t.page.removedSkipped}
-        </p>
-      )}
-      {cartFailed && (
-        <p role="alert" className="flex flex-wrap items-center gap-2 text-[13px] text-down">
-          {t.page.cartFailed}
-          <button type="button" onClick={() => setCartAttempt((n) => n + 1)} className="text-primary font-medium hover:underline">
-            {t.page.retry}
-          </button>
         </p>
       )}
       {removeError && (
