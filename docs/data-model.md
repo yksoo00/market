@@ -149,7 +149,7 @@
 
 | trade_type | trade_stats 흐름 |
 |---|---|
-| `구매검토` | `장바구니` — 구매자·매물당 하나(`ux_trd_trade_info_one_cart`, V202610211300). 빼기·견적·구매로 넘어가거나 매물이 지워지면 행 삭제. 내 구매목록·판매자 화면에 안 나온다. 단가·수량 칸은 NOT NULL 이라 담을 때 등록단가·최소주문량으로 채우고 화면엔 지금 매물 값을 보인다. `비교용` (안 씀 — 장바구니 비교는 화면만, 행을 만들지 않는다. decisions.md 2026-10-22) |
+| `구매검토` | `장바구니`/`비교용` — 구매자·매물·거래상태당 하나(`ux_trd_trade_info_one_cart`, V202610291000). `trd_cart_info` 행과 짝(위). 빼기·매물 삭제는 두 행 삭제, 구매·견적은 장바구니 행을 같은 거래ID 로 바꿔 쓴다(2026-10-29). 내 구매목록·판매자 화면에 안 나온다. 단가는 담을 때 등록단가, 수량·납품희망일·요청사항은 담을 때 입력(장바구니) 또는 최소주문량·제공가능일(비교)이고, 화면엔 지금 매물 값을 보인다. |
 | `견적조정` | `견적요청` → `견적수락` 또는 `견적거절` (판매자 수락·거절. 거절 뒤 구매자 재요청은 같은 행이 `견적요청`으로 돌아간다). 수락된 견적에서 [구매]하면 같은 행이 `구매요청` → `구매확정`으로 이어진다(TYPE 은 그대로, 사용자 결정 2026-10-21). 구매자·매물당 견적 단계(`견적요청`·`견적수락`·`견적거절`) 행은 하나(`ux_trd_trade_info_one_quote`, V202610211200) |
 | `거래` | `구매요청` → `구매확정` |
 
@@ -178,6 +178,33 @@
 | spare_col | varchar(100) | | |
 
 인덱스: `ix_trd_trade_info_listing (seller_id, prod_reg_date, prod_id)` (판매자 목록·매물별 요청 건수). `ix_trd_trade_info_trade_id (trade_id)` — 거래ID 로만 찾는 조회용 일반 인덱스(중복 금지 아님, 정의서 밖, 2026-10-27 사용자 승인). 부분 unique `ux_trd_trade_info_one_quote`·`ux_trd_trade_info_one_cart` 도 `(user_id, seller_id, prod_reg_date, prod_id)`. 외래키 없음 — 매물 삭제 때 남은 거래 행이 있으면 서버가 409 `LISTING_HAS_TRADES`. 구매자 목록은 PK 앞부분 `user_id`.
+
+### trd_cart_info (TRD_CART_INFO — 장바구니 정보)
+
+> 구현: `V202610291000__create_cart_info.sql`. 장바구니·비교 한 건 = `trd_trade_info` 1행(`구매검토`, 거래상태 `장바구니`|`비교용`) + 이 테이블 1행(같은 거래ID). 외래키 없음. 결정: decisions.md 2026-10-29.
+
+| 컬럼 | 타입 | 제약 | 비고 |
+|---|---|---|---|
+| user_id | uuid | PK(복합), not null | 구매자. 정의서 varchar(20) → uuid(`trd_user_info.uid`) |
+| trade_id | varchar(20) | PK(복합), not null | 같은 거래ID 의 `trd_trade_info` 행이 있다 |
+| ser_no | integer | PK(복합), not null | 그 구매자 행 중 최대 + 1 |
+| cart_type | varchar(10) | | `장바구니` / `비교용` (정의서 설명 "방바구니/비교용바구니"는 오타) |
+| seller_id | uuid | | 판매자 |
+| prod_date | varchar(14) | not null | 상품등록일시 = 매물 `reg_date` (정의서 물리명 REG_DATE 가 셋이라 이름을 나눔) |
+| prod_name | varchar(50) | not null | 담을 때 상품마스터에서 복사 |
+| prod_no | varchar(20) | not null | 상품고유ID(`prod_id`). 매물은 `seller_id` + `prod_date` + `prod_no` 로 찾는다. 매물 상품이 바뀌면 따라간다 |
+| manufacturer | varchar(50) | | 제조사(`prod_brand`) |
+| mufc_date | varchar(14) | | 제조일시 |
+| prod_spec_info | varchar(100) | not null | 사양. 비면 `''` |
+| prod_state | varchar(20) | not null | |
+| prov_date | varchar(10) | not null | 제공가능일 |
+| order_unit_price | integer | not null | 담을 때 등록단가 |
+| order_quantity | integer | not null | 장바구니: 담을 때 입력, 비교: 최소주문량 |
+| req_deli_date | varchar(10) | not null | 장바구니: 담을 때 입력(기본 제공가능일), 비교: 제공가능일 |
+| remarks | varchar(100) | | 요청사항 |
+| reg_date | varchar(14) | not null | 담은 시각 |
+
+장바구니 → 구매·견적: 이 테이블 행을 지우고 같은 `trd_trade_info` 행이 `거래`/`구매요청` 또는 `견적조정`/`견적요청` 으로 바뀐다(같은 거래ID). 같은 매물의 견적 행이 이미 있으면 그 행을 덮어쓰고 장바구니 두 행만 지운다. 비교 행은 구매·견적과 무관하게 남는다. 비교는 [비교]를 누를 때마다 내 `비교용` 행(두 테이블)을 지우고 이번 선택(같은 소분류 2~4개)으로 새로 담는다. `ux_trd_trade_info_one_cart` 는 `(user_id, seller_id, prod_reg_date, prod_id, trade_stats) where trade_type='구매검토'` — 한 매물이 장바구니와 비교에 각각 1줄.
 
 ### trd_trade_history (TRD_TRADE_HISTORY — 거래이력)
 

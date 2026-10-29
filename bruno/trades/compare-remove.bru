@@ -1,0 +1,23 @@
+meta {
+  name: 비교 빼기
+  type: http
+  seq: 17
+}
+
+post {
+  url: {{baseUrl}}/api/v1/cart/compare/remove
+  body: json
+  auth: none
+}
+
+body:json {
+  { "tradeIds": ["26102910001"] }
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  로그인(login.bru) 먼저. 204. 내 비교 행이 아닌 거래ID 가 섞이면 404 TRADE_NOT_FOUND 이고 아무것도 안 지운다 (비교 목록에서 받은 tradeId).
+}

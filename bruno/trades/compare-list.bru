@@ -1,0 +1,19 @@
+meta {
+  name: 비교 목록
+  type: http
+  seq: 16
+}
+
+get {
+  url: {{baseUrl}}/api/v1/cart/compare
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  로그인(login.bru) 먼저. 200 { ok, data: { items: [{ tradeId, orderQuantity, reqDeliDate, remarks, listing }] } } — 담은 순서, listing 은 검색 결과와 같은 칸(지금 매물 값).
+}

@@ -13,7 +13,13 @@ post {
 body:json {
   {
     "items": [
-      { "sellerId": "00000000-0000-0000-0000-000000000000", "regDate": "20261021100000" }
+      {
+        "sellerId": "00000000-0000-0000-0000-000000000000",
+        "regDate": "20261021100000",
+        "orderQuantity": 3,
+        "reqDeliDate": "2099-12-31",
+        "remarks": "빠른 납품 부탁드려요"
+      }
     ]
   }
 }
@@ -24,6 +30,7 @@ vars:pre-request {
 
 docs {
   로그인(login.bru) 먼저. 구매자는 인증 정보에서만. sellerId·regDate 는 매물 키(자리표시).
-  items 1~20개. 200 { ok, data: { count } } — 담은 뒤 장바구니 합계. 이미 담긴 매물은 건너뛴다. 재고·메일 없음.
-  하나라도 틀리면 아무것도 안 담음: 403 TRADE_OWN_LISTING(내 매물), 404 LISTING_NOT_FOUND, 409 LISTING_COMPLETED, 409 CART_FULL(합계 100개 초과), 400 개수.
+  items 1~20개, 매물마다 orderQuantity(최소주문량 이상·주문단위 배수)·reqDeliDate(필수, 오늘 이후)·remarks(선택, 100자). 재고는 안 본다.
+  200 { ok, data: { count, added, skipped } } — 담은 뒤 합계, 새로 담은 수, 이미 담겨 있어 건너뛴 수(처음 값 유지). 메일 없음.
+  하나라도 틀리면 아무것도 안 담음: 403 TRADE_OWN_LISTING(내 매물), 404 LISTING_NOT_FOUND, 409 LISTING_COMPLETED, 409 CART_FULL(합계 100개 초과), 400 fields["items[i].orderQuantity"|"items[i].reqDeliDate"].
 }

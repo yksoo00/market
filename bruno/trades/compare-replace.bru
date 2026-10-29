@@ -1,0 +1,30 @@
+meta {
+  name: 비교 (내 비교 목록 바꾸기)
+  type: http
+  seq: 15
+}
+
+put {
+  url: {{baseUrl}}/api/v1/cart/compare
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "items": [
+      { "sellerId": "00000000-0000-0000-0000-000000000000", "regDate": "20261021100000" },
+      { "sellerId": "00000000-0000-0000-0000-000000000000", "regDate": "20261021100001" }
+    ]
+  }
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  로그인(login.bru) 먼저. [비교]를 누를 때마다 내 비교용 행을 이 매물들로 바꾼다. 입력 없음(수량 = 최소주문량, 납품희망일 = 제공가능일).
+  200 { ok, data: { count } } — 저장한 개수.
+  400 COMPARE_COUNT(2~4개 아님), 400 COMPARE_CATEGORY_MISMATCH(소분류가 섞임), 403 TRADE_OWN_LISTING, 404 LISTING_NOT_FOUND. 틀리면 이전 비교 목록은 그대로. 거래완료 매물도 된다.
+}
