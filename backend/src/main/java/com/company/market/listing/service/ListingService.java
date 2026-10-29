@@ -6,7 +6,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -25,7 +24,7 @@ import com.company.market.common.storage.UploadKind;
 import com.company.market.common.storage.UploadRef;
 import com.company.market.common.storage.UploadService;
 import com.company.market.common.time.KoreanDates;
-import com.company.market.listing.domain.Category;
+import com.company.market.listing.domain.CategoryFragments;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.ListingId;
 import com.company.market.listing.domain.Product;
@@ -38,7 +37,6 @@ import com.company.market.listing.dto.ListingSearchCondition;
 import com.company.market.listing.dto.ListingSearchItemResponse;
 import com.company.market.listing.dto.ListingTradeSnapshot;
 import com.company.market.listing.dto.ListingUpdateRequest;
-import com.company.market.listing.repository.CategoryRepository;
 import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.repository.ListingSearchRepository;
 import com.company.market.listing.service.ProductService.ProductDraft;
@@ -59,13 +57,16 @@ public class ListingService {
 	/** 판매정보 추가등록 보증기간 드롭다운(없음·1·3·6·12·24·36개월 × 30일). 자유 숫자를 받으면 365·360 처럼 같은 뜻의 값이 흩어진다 (decisions.md 2026-10-06) */
 	static final Set<Integer> WARRANTY_DAYS = Set.of(0, 30, 90, 180, 360, 720, 1080);
 
+	/** 보증년수(prod_useful_life) 목록 — 개월 수 3·6·…·60 (사용자 결정 2026-10-28 "3 6 9 12 ~", 끝값 60 은 가정) */
+	static final Set<Integer> USEFUL_LIFE_MONTHS = IntStream.rangeClosed(1, 20).map(i -> i * 3).boxed().collect(Collectors.toUnmodifiableSet());
+
 	private final ListingRepository listings;
 
 	private final ListingSearchRepository searchRepository;
 
 	private final ProductService products;
 
-	private final CategoryRepository categories;
+	private final CategoryService categories;
 
 	private final UploadService uploads;
 
@@ -95,10 +96,10 @@ public class ListingService {
 			throw new ValidationException(Map.of("photos", "대표 사진을 올려 주세요."));
 		}
 		validateDates(master == null ? req.prodMufcDate() : null, req.deliveryDate());
-		String categoryCode = master == null ? req.categoryCode().trim() : null;
-		if (master == null) {
-			requireCategory(categoryCode);
+		if (master == null && req.prodUsefulLife() != null && !USEFUL_LIFE_MONTHS.contains(req.prodUsefulLife())) {
+			throw new ValidationException(Map.of("prodUsefulLife", "보증년수는 목록에서 고른 값이어야 합니다."));
 		}
+		CategoryFragments category = master == null ? categories.resolveMinor(req.categoryCode()) : null;
 
 		// 입력 검사(Redis 조회)를 상품마스터 채번·INSERT 보다 먼저 — 잘못된 키 요청이 DB 작업을 하지 않게
 		List<UploadRef> files = new ArrayList<>();
@@ -109,8 +110,9 @@ public class ListingService {
 		}
 		uploads.claim(userId, files);
 
-		Product product = master != null ? master : products.findOrCreate(new ProductDraft(categoryCode, req.prodName().trim(),
-				req.prodNo(), req.prodBrand().trim(), req.prodMufcDate(), req.prodSpecInfo(),
+		Product product = master != null ? master : products.findOrCreate(new ProductDraft(category, req.prodName().trim(),
+				req.prodNo(), req.prodBrand().trim(), req.prodClassNo(), req.prodMufcDate(), req.prodSpecInfo(), req.prodUsefulLife(),
+				req.warrantyMethod(), req.alterProdName(),
 				// 새 마스터의 데이터시트는 이 판매자가 올린 것 (productDataSheet 칸은 폼이 안 보낸다)
 				hasText(req.productDataSheet()) ? req.productDataSheet() : req.listingDataSheet(), firstPhoto));
 
@@ -189,7 +191,7 @@ public class ListingService {
 		}
 
 		if (req.categoryCode() != null) {
-			requireCategory(req.categoryCode().trim());
+			categories.resolveMinor(req.categoryCode());
 		}
 
 		// 상품 칸은 매물 칸보다 먼저 — 422 면 아무것도 바뀌지 않고, 업로드 키도 건드리지 않는다
@@ -243,17 +245,11 @@ public class ListingService {
 		return s != null && !s.isBlank();
 	}
 
-	/** 카테고리는 trd_ctgr_code 에 있는 코드만. FK 위반(500)이 되기 전에 필드 오류로 알린다 */
-	private void requireCategory(String code) {
-		if (!categories.existsById(code)) {
-			throw new ValidationException(Map.of("categoryCode", "없는 카테고리 코드입니다."));
-		}
-	}
-
 	/**
-	 * 상품 칸 규칙 (스펙 2026-10-06-my-listings). 상품마스터는 (이름, 제조사)가 유일하고 다른 판매자 매물과 공유한다.
-	 * 이름·제조사가 바뀌면 등록과 같은 findOrCreate 로 그 이름의 상품을 찾아 이 매물만 옮긴다 (있으면 그 상품 값, 없으면 새로 만든다).
-	 * 그대로이고 번호·제조일·사양·카테고리만 바뀌면 이 매물만 쓰는 상품일 때만 고친다 — 공유 중이면 남의 매물까지 바뀌므로 422.
+	 * 상품 칸 규칙 (스펙 2026-10-06-my-listings). 상품마스터는 이름·제조사·분류번호·제조일이 같으면 같은 상품이고 다른 판매자 매물과 공유한다.
+	 * 이름·제조사·제조일이 바뀌면 등록과 같은 findOrCreate 로 네 값이 맞는 상품을 찾아 이 매물만 옮긴다 (있으면 그 상품 값, 없으면 새로 만든다).
+	 * 분류번호는 수정 화면에 없어 지금 상품 값을 이어받는다 (2026-10-27 설계 PR 2).
+	 * 그대로이고 번호·사양·카테고리만 바뀌면 이 매물만 쓰는 상품일 때만 고친다 — 공유 중이면 남의 매물까지 바뀌므로 422.
 	 */
 	private Product applyProductFields(Listing listing, Product current, ListingUpdateRequest req) {
 		if (!req.hasProductFields()) {
@@ -261,13 +257,16 @@ public class ListingService {
 		}
 		String name = req.prodName() == null ? current.getProdName() : req.prodName().trim();
 		String brand = req.prodBrand() == null ? current.getProdBrand() : req.prodBrand().trim();
-		if (!name.equals(current.getProdName()) || !brand.equals(current.getProdBrand())) {
-			String category = req.categoryCode() == null ? current.getCategoryCode() : req.categoryCode().trim();
+		String mufcDate = textOrCurrent(req.prodMufcDate(), current.getProdMufcDate());
+		if (!name.equals(current.getProdName()) || !brand.equals(current.getProdBrand())
+				|| !Objects.equals(mufcDate, current.getProdMufcDate())) {
+			// 카테고리는 update() 가 이미 확인했다
+			CategoryFragments category = req.categoryCode() == null ? current.category() : CategoryFragments.parse(req.categoryCode());
 			// 안 보낸 칸은 옛 상품 값을 이어받는다 (이름만 바꿔도 번호·제조일이 사라지지 않게)
 			Product target = products.findOrCreate(new ProductDraft(category, name,
-					textOrCurrent(req.prodNo(), current.getProdNo()), brand,
-					textOrCurrent(req.prodMufcDate(), current.getProdMufcDate()),
-					textOrCurrent(req.prodSpecInfo(), current.getProdSpecInfo()),
+					textOrCurrent(req.prodNo(), current.getProdNo()), brand, current.getProdClassNo(), mufcDate,
+					textOrCurrent(req.prodSpecInfo(), current.getProdSpecInfo()), current.getProdUsefulLife(),
+					current.getWarrantyMethod(), current.getAlterProdName(),
 					// 옛 상품의 데이터시트·사진은 처음 등록한 다른 판매자의 파일일 수 있어 물려주지 않는다. 사진은 이 매물의 첫 사진
 					null, firstPhoto(listing)));
 			// 매물의 prod_id(PK) 는 update() 가 다른 칸을 저장한 뒤 바꾼다
@@ -277,7 +276,6 @@ public class ListingService {
 		Map<String, String> changed = new LinkedHashMap<>();
 		putIfChanged(changed, "categoryCode", req.categoryCode() == null ? null : req.categoryCode().trim(), current.getCategoryCode());
 		putIfChanged(changed, "prodNo", req.prodNo(), current.getProdNo());
-		putIfChanged(changed, "prodMufcDate", req.prodMufcDate(), current.getProdMufcDate());
 		putIfChanged(changed, "prodSpecInfo", req.prodSpecInfo(), current.getProdSpecInfo());
 		if (changed.isEmpty()) {
 			return current;
@@ -287,7 +285,7 @@ public class ListingService {
 			changed.keySet().forEach(f -> fields.put(f, ErrorCode.PRODUCT_SHARED.message()));
 			throw new ApiException(ErrorCode.PRODUCT_SHARED, ErrorCode.PRODUCT_SHARED.message(), fields);
 		}
-		current.applyEdit(req.categoryCode(), req.prodNo(), req.prodMufcDate(), req.prodSpecInfo());
+		current.applyEdit(req.categoryCode() == null ? null : CategoryFragments.parse(req.categoryCode()), req.prodNo(), req.prodMufcDate(), req.prodSpecInfo());
 		return current;
 	}
 
@@ -565,30 +563,16 @@ public class ListingService {
 			.filter(Objects::nonNull)
 			.toList();
 		return new ListingResponse(listing.getUserId(), listing.getRegDate(), listing.getProdId(), product.getProdName(),
-				product.getProdBrand(), product.getProdNo(), product.getProdSpecInfo(), listing.getTradeType(), listing.getProdState(),
+				product.getProdBrand(), product.getProdNo(), product.getProdSpecInfo(), product.getProdClassNo(), product.getProdUsefulLife(),
+				product.getWarrantyMethod(), product.getAlterProdName(), listing.getTradeType(), listing.getProdState(),
 				listing.getSalesUnitPrice(), listing.getSalesQuantity(), listing.getMinOrderQuantity(), listing.getOrderUnit(),
 				listing.getDeliveryDate(), listing.getStockQuantity(), listing.getProdDescription(), listing.getProdDataSheet(), photos,
 				listing.getWarrantyPeriod(), listing.getWarrantyCoverage(), listing.getReplaceProd(), listing.getTestReport(),
 				listing.getCertificateOfAuthen(), listing.getDtUpdate(), listing.getDtExpire(), product.getCategoryCode(),
-				categoryPath(product.getCategoryCode()),
+				categories.namePath(product),
 				product.mufcDateIso(),
 				listing.tradeStatus(),
 				listing.warrantyUntil());
-	}
-
-	/**
-	 * 카테고리 코드의 "대 > 중 > 소" 이름. 소분류 이름만으론 "가전 기타"처럼 겹쳐서 경로를 다 보여 준다 (사용자 지시 2026-10-19).
-	 * 부모는 코드 앞부분으로 찾는다(parent_code 는 조각). 목록에 없는 옛 코드면 null — 화면은 코드를 그대로 보여 준다
-	 */
-	private String categoryPath(String code) {
-		String[] parts = code.split("-");
-		List<String> codes = IntStream.rangeClosed(1, parts.length)
-			.mapToObj(i -> String.join("-", Arrays.copyOf(parts, i)))
-			.toList();
-		Map<String, String> names = categories.findAllById(codes).stream()
-			.collect(Collectors.toMap(Category::getCategoryCode, Category::getCategoryName));
-		String path = codes.stream().map(names::get).filter(Objects::nonNull).collect(Collectors.joining(" > "));
-		return path.isEmpty() ? null : path;
 	}
 
 }

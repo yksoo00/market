@@ -49,6 +49,14 @@ const optionalInt = (min: number, max: number, message: string) =>
     .refine((s) => s === "" || (isInt(s) && Number(s) >= min && Number(s) <= max), message)
     .transform((s) => (s === "" ? undefined : Number(s)));
 
+/** 보증년수 목록 — 개월 수 3·6·…·60. 백엔드 ListingService.USEFUL_LIFE_MONTHS 와 같은 값 (사용자 결정 2026-10-28) */
+export const USEFUL_LIFE_MONTHS = Array.from({ length: 20 }, (_, i) => (i + 1) * 3);
+
+const optionalUsefulLife = z
+  .string()
+  .refine((s) => s === "" || (isInt(s) && USEFUL_LIFE_MONTHS.includes(Number(s))), v.prodUsefulLife)
+  .transform((s) => (s === "" ? undefined : Number(s)));
+
 const optionalDate = z
   .string()
   .refine((s) => s === "" || isValidDate(s), v.date)
@@ -70,10 +78,14 @@ export function listingFormSchema(today: string) {
       masterDataSheet: z.string(),
       categoryCode: requiredText(12, v.categoryCode),
       prodName: requiredText(50, v.prodName),
-      prodBrand: requiredText(50, v.prodBrand),
+      prodBrand: requiredText(40, v.prodBrand),
       prodNo: optionalText(20, v.prodNo),
       prodMufcDate: optionalDate,
       prodSpecInfo: optionalText(100, v.prodSpecInfo),
+      prodClassNo: optionalText(20, v.prodClassNo),
+      prodUsefulLife: optionalUsefulLife,
+      warrantyMethod: optionalText(20, v.warrantyMethod),
+      alterProdName: optionalText(40, v.alterProdName),
       prodState: z.string().refine((s) => (PROD_STATES as readonly string[]).includes(s), v.prodState),
       salesUnitPrice: requiredInt(0, MAX_PRICE, v.salesUnitPrice),
       salesQuantity: requiredInt(1, MAX_QUANTITY, v.salesQuantity),
@@ -118,6 +130,10 @@ export const emptyListingForm: ListingFormInput = {
   prodNo: "",
   prodMufcDate: "",
   prodSpecInfo: "",
+  prodClassNo: "",
+  prodUsefulLife: "",
+  warrantyMethod: "",
+  alterProdName: "",
   prodState: "",
   salesUnitPrice: "",
   salesQuantity: "",

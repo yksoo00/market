@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Map;
 import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
@@ -132,7 +133,7 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.data.prodId").value(prodId))
 			.andExpect(jsonPath("$.data.photos[0]").value(p1));
 
-		assertThat(jdbc.queryForObject("select prod_photo_1 from trd_prod_master where prod_id = ?", String.class, prodId)).isEqualTo(p1);
+		assertThat(jdbc.queryForObject("select prod_image from trd_prod_master where prod_id = ?", String.class, prodId)).isEqualTo(p1);
 	}
 
 	@Test
@@ -293,6 +294,30 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.data.prodName").value("노트북 G"))
 			.andExpect(jsonPath("$.data.category").value("P01-Q01-R001"))
 			.andExpect(jsonPath("$.data.categoryPath").value("PC주요부품 > CPU/프로세서 > 인텔 CPU"));
+	}
+
+	@Test
+	@DisplayName("등록한 카테고리 경로는 상품마스터에 대·중·소 조각으로 저장된다 (2026-10-27 설계 PR 2)")
+	void createStoresCategoryFragments() throws Exception {
+		String regDate = createListing(authCookie);
+		assertThat(jdbc.queryForMap("""
+				select m.major_category, m.middle_category, m.minor_category from trd_prod_master m
+				  join trd_prod_reg l on l.prod_id = m.prod_id where l.user_id = ? and l.reg_date = ?
+				""", userId, regDate)).isEqualTo(Map.of("major_category", "P01", "middle_category", "Q01", "minor_category", "R001"));
+	}
+
+	@Test
+	@DisplayName("부모가 안 맞는 경로(P01-Q02-R001)나 소분류가 아닌 코드(P01)로 등록하면 400 fields.categoryCode — 카테고리 마스터의 부모 관계로 확인")
+	void createRejectsMismatchedCategoryPath() throws Exception {
+		for (String code : new String[] { "P01-Q02-R001", "P01", "P01-Q01" }) {
+			mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
+					.contentType(MediaType.APPLICATION_JSON).content("""
+						{"categoryCode":"%s","prodName":"노트북 C2","prodBrand":"삼성",
+						 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+						""".formatted(code)))
+				.andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.fields.categoryCode").value("없는 카테고리 코드입니다."));
+		}
 	}
 
 	@Test
@@ -666,7 +691,7 @@ class ListingApiTest {
 	// 상세 화면용 파생 필드 테스트는 등록 API 대신 repository 로 직접 만든다 — 등록 API 의 입력 규칙(파일 키 검사 등)이
 	// 바뀌어도 응답 변환만 검증하게
 	private void saveListing(String prodId, String regDate, String mufcDate, Integer warrantyPeriod) {
-		productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("P01-Q01-R001").prodName("상세 " + prodId)
+		productRepository.saveAndFlush(Product.builder().prodId(prodId).majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("상세 " + prodId)
 			.prodBrand("삼성").prodMufcDate(mufcDate).prodDataSheet("p-sheet.pdf").prodPhoto1("p-photo.jpg")
 			.regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(userId).regDate(regDate).prodId(prodId).tradeType("등록")
@@ -755,7 +780,7 @@ class ListingApiTest {
 	@Test
 	@DisplayName("목록은 등록일시 내림차순, 21번째부터는 nextCursor로 다음 페이지")
 	void listIsCursorPaginated() throws Exception {
-		Product product = productRepository.saveAndFlush(Product.builder().prodId("ELEC00010001").categoryCode("P01-Q01-R001")
+		Product product = productRepository.saveAndFlush(Product.builder().prodId("ELEC00010001").majorCategory("P01").middleCategory("Q01").minorCategory("R001")
 			.prodName("노트북 목록용").prodBrand("삼성").regDate("20260929120000").build());
 		for (int i = 0; i < 21; i++) {
 			String regDate = String.format("202609291200%02d", i);
@@ -1092,7 +1117,7 @@ class ListingApiTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.prodNo").value("N-1"));
 
-		assertThat(jdbc.queryForObject("select prod_mpn from trd_prod_master where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("N-1");
+		assertThat(jdbc.queryForObject("select prod_part_no from trd_prod_master where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("N-1");
 		assertThat(jdbc.queryForObject("select prod_spec_info from trd_prod_master where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("16GB");
 	}
 
@@ -1107,7 +1132,99 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.code").value("PRODUCT_SHARED"))
 			.andExpect(jsonPath("$.fields.prodNo").isString());
 
-		assertThat(jdbc.queryForObject("select prod_mpn from trd_prod_master where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("OLD");
+		assertThat(jdbc.queryForObject("select prod_part_no from trd_prod_master where prod_id = ?", String.class, prodIdOf(userId, mine))).isEqualTo("OLD");
+	}
+
+	// ---- 상품마스터 새 칸·네 값 재사용 (2026-10-27 설계 PR 2) ----
+
+	@Test
+	@DisplayName("제조사는 40자까지 — 41자면 400 fields.prodBrand")
+	void brandOver40Rejected() throws Exception {
+		for (int length : new int[] { 41, 40 }) {
+			ResultActions result = mvc.perform(post("/api/v1/listings").cookie(authCookie).with(mainPhoto(authCookie))
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"P01-Q01-R001","prodName":"노트북 B%d","prodBrand":"%s",
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					""".formatted(length, "가".repeat(length))));
+			if (length == 41) {
+				result.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.prodBrand").isString());
+			}
+			else {
+				result.andExpect(status().isCreated());
+			}
+		}
+	}
+
+	@Test
+	@DisplayName("보증년수는 개월 수를 목록(3·6·…·60)에서 — 4·0·63 은 400, 3·60 은 등록")
+	void usefulLifeFromList() throws Exception {
+		for (int bad : new int[] { 4, 0, 63 }) {
+			createWithFields("노트북 L" + bad, "\"prodUsefulLife\":" + bad).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.fields.prodUsefulLife").value("보증년수는 목록에서 고른 값이어야 합니다."));
+		}
+		createWithFields("노트북 L3", "\"prodUsefulLife\":3").andExpect(status().isCreated());
+		// 같은 사용자 같은 초 등록은 409 라 끝값은 다른 사용자로 (안 보낸 경우는 다른 등록 테스트 전부)
+		Cookie other = otherUserCookie();
+		mvc.perform(post("/api/v1/listings").cookie(other).with(mainPhoto(other))
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"categoryCode":"P01-Q01-R001","prodName":"노트북 L60","prodBrand":"삼성","prodUsefulLife":60,
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					"""))
+			.andExpect(status().isCreated());
+	}
+
+	@Test
+	@DisplayName("직접 입력한 새 칸 4개는 상세 응답에 나온다")
+	void detailHasNewProductFields() throws Exception {
+		MvcResult created = createWithFields("노트북 D1",
+				"\"prodClassNo\":\"43211503\",\"prodUsefulLife\":24,\"warrantyMethod\":\"제조사 보증\",\"alterProdName\":\"노트북 D2\"")
+			.andExpect(status().isCreated()).andReturn();
+		String regDate = created.getResponse().getContentAsString().replaceAll(".*\"regDate\":\"([^\"]+)\".*", "$1");
+
+		mvc.perform(get("/api/v1/listings/" + userId + "/" + regDate))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.prodClassNo").value("43211503"))
+			.andExpect(jsonPath("$.data.prodUsefulLife").value(24))
+			.andExpect(jsonPath("$.data.warrantyMethod").value("제조사 보증"))
+			.andExpect(jsonPath("$.data.alterProdName").value("노트북 D2"));
+	}
+
+	@Test
+	@DisplayName("마스터를 고르면 요청의 새 칸 4개도 무시하고 마스터 값")
+	void pickedMasterIgnoresRequestProductFields() throws Exception {
+		productRepository.saveAndFlush(Product.builder().prodId("KP-2026-900007").majorCategory("P01").middleCategory("Q01")
+			.minorCategory("R001").prodName("마스터 N").prodBrand("마스터사").prodClassNo("M-CLS").prodUsefulLife(36)
+			.warrantyMethod("마스터 보증").alterProdName("마스터 대체").prodPhoto1("public/listings/photos/2026/10/m.jpg")
+			.regDate("20261014120000").build());
+
+		mvc.perform(post("/api/v1/listings").cookie(authCookie)
+				.contentType(MediaType.APPLICATION_JSON).content("""
+					{"prodId":"KP-2026-900007","prodClassNo":"X","prodUsefulLife":3,"warrantyMethod":"W","alterProdName":"A",
+					 "tradeType":"등록","deliveryDate":"2099-12-31","prodState":"신품","salesUnitPrice":1000,"salesQuantity":1}
+					"""))
+			.andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.prodId").value("KP-2026-900007"))
+			.andExpect(jsonPath("$.data.prodClassNo").value("M-CLS"))
+			.andExpect(jsonPath("$.data.prodUsefulLife").value(36))
+			.andExpect(jsonPath("$.data.warrantyMethod").value("마스터 보증"))
+			.andExpect(jsonPath("$.data.alterProdName").value("마스터 대체"));
+	}
+
+	@Test
+	@DisplayName("공유 마스터의 제조일을 바꾸면 네 값이 맞는 마스터로 이 매물만 옮긴다 — 남의 매물·옛 마스터는 그대로 (제조일은 재사용 키)")
+	void mufcDateEditMovesOnlyThisListing() throws Exception {
+		Cookie other = otherUserCookie();
+		String otherReg = createProduct(other, "노트북 U", "삼성", null);
+		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
+		String shared = prodIdOf(userId, mine);
+
+		patchListing(mine, "{\"prodMufcDate\":\"20200101\"}").andExpect(status().isOk());
+
+		assertThat(prodIdOf(userId, mine)).isNotEqualTo(shared);
+		assertThat(prodIdOf(userIdOf(other), otherReg)).isEqualTo(shared);
+		assertThat(jdbc.queryForObject("select prod_mufc_date from trd_prod_master where prod_id = ?", String.class, shared)).isNull();
+		assertThat(jdbc.queryForObject("select prod_mufc_date from trd_prod_master where prod_id = ?", String.class,
+				prodIdOf(userId, mine))).isEqualTo("20200101");
 	}
 
 	@Test
@@ -1150,7 +1267,7 @@ class ListingApiTest {
 	void renameDoesNotCopyOldProductFiles() throws Exception {
 		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
 		String oldProduct = prodIdOf(userId, mine);
-		jdbc.update("update trd_prod_master set prod_data_sheet = 'private/listings/datasheets/2026/10/other.pdf', prod_photo_1 = 'public/listings/photos/2026/10/other.jpg' where prod_id = ?", oldProduct);
+		jdbc.update("update trd_prod_master set prod_data_sheet = 'private/listings/datasheets/2026/10/other.pdf', prod_image = 'public/listings/photos/2026/10/other.jpg' where prod_id = ?", oldProduct);
 
 		patchListing(mine, "{\"prodName\":\"완전 새 상품\"}").andExpect(status().isOk());
 
@@ -1161,7 +1278,7 @@ class ListingApiTest {
 		String ownFirstPhoto = jdbc.queryForObject("select prod_photo_1 from trd_prod_reg where user_id = ? and reg_date = ?", String.class,
 				userId, mine);
 		assertThat(ownFirstPhoto).isNotNull();
-		assertThat(jdbc.queryForObject("select prod_photo_1 from trd_prod_master where prod_id = ?", String.class, created))
+		assertThat(jdbc.queryForObject("select prod_image from trd_prod_master where prod_id = ?", String.class, created))
 			.isEqualTo(ownFirstPhoto);
 	}
 
@@ -1182,7 +1299,7 @@ class ListingApiTest {
 	// ---- 상품마스터에서 고르기 (스펙 2026-10-14-listing-from-master) ----
 
 	private Product master(String prodId, String name, String photo, String dataSheet) {
-		return productRepository.saveAndFlush(Product.builder().prodId(prodId).categoryCode("P01-Q01-R001").prodName(name)
+		return productRepository.saveAndFlush(Product.builder().prodId(prodId).majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName(name)
 			.prodNo("MASTER-1").prodBrand("마스터사").prodSpecInfo("마스터 사양").prodPhoto1(photo).prodDataSheet(dataSheet)
 			.regDate("20261014120000").build());
 	}
@@ -1225,7 +1342,7 @@ class ListingApiTest {
 			.andExpect(jsonPath("$.data.photos[0]").value(photo))
 			.andExpect(jsonPath("$.data.listingDataSheet").value(sheet));
 
-		assertThat(jdbc.queryForObject("select prod_photo_1 from trd_prod_master where prod_id = 'KP-2026-900001'", String.class))
+		assertThat(jdbc.queryForObject("select prod_image from trd_prod_master where prod_id = 'KP-2026-900001'", String.class))
 			.isEqualTo("public/listings/photos/2026/10/m.jpg");
 	}
 

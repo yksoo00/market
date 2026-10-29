@@ -17,6 +17,10 @@ const detail: ListingDetail = {
   prodBrand: "Dell",
   prodNo: "R740-A",
   prodSpecInfo: null,
+  prodClassNo: null,
+  prodUsefulLife: null,
+  warrantyMethod: null,
+  alterProdName: null,
   tradeType: "등록",
   prodState: "신품대비 70%",
   salesUnitPrice: 1000,
@@ -45,6 +49,11 @@ const detail: ListingDetail = {
 const initial: RowEditValues = rowEditInitialValues(detail);
 
 describe("rowEditInitialValues", () => {
+  it("제조사는 40자까지 (정의서, 2026-10-27 설계 PR 2)", () => {
+    expect(validateRowEdit(initial, { ...initial, prodBrand: "가".repeat(41) }, "2026-10-02")).toHaveProperty("prodBrand");
+    expect(validateRowEdit(initial, { ...initial, prodBrand: "가".repeat(40) }, "2026-10-02")).not.toHaveProperty("prodBrand");
+  });
+
   it("상품 칸은 문자열(없으면 빈 문자열), 상태는 구간, 보증은 개월", () => {
     expect(initial).toMatchObject({
       prodName: "R740",

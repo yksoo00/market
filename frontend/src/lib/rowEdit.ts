@@ -76,7 +76,7 @@ export function diffToRowPatch(initial: RowEditValues, current: RowEditValues): 
 const rowEditSchema = (today: string) =>
   z.object({
     prodName: z.string().trim().min(1, v.required).max(50, v.prodName),
-    prodBrand: z.string().trim().min(1, v.required).max(50, v.prodBrand),
+    prodBrand: z.string().trim().min(1, v.required).max(40, v.prodBrand),
     prodNo: z.string().trim().max(20, v.prodNo),
     // 비우기("")는 통과. YYYY-MM-DD 문자열은 사전순 = 날짜순
     prodMufcDate: z.string().superRefine((s, ctx) => {

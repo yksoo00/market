@@ -63,7 +63,7 @@ class ListingStockTest {
 			.passwordHash("$2a$12$hash").nickname("stocktester").email("stocktester@example.com")
 			.name("홍길동").phone("01012345678").phoneHash(hasher.hash("01012345678")).build());
 		sellerId = seller.getId();
-		products.saveAndFlush(Product.builder().prodId("STOCKTEST1").categoryCode("P01-Q01-R001")
+		products.saveAndFlush(Product.builder().prodId("STOCKTEST1").majorCategory("P01").middleCategory("Q01").minorCategory("R001")
 			.prodName("노트북 S").prodBrand("삼성").regDate(REG_DATE).build());
 		listings.saveAndFlush(Listing.builder().userId(sellerId).regDate(REG_DATE).prodId("STOCKTEST1")
 			.tradeType("등록").prodState("신품").salesUnitPrice(1000).salesQuantity(5).stockQuantity(5)

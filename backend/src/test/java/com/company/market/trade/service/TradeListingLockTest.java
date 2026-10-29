@@ -77,7 +77,7 @@ class TradeListingLockTest {
 		cleanUp();
 		sellerId = user("locktestseller", "01011110001");
 		buyerId = user("locktestbuyer", "01011110002");
-		products.saveAndFlush(Product.builder().prodId("LOCKTEST01").categoryCode("P01-Q01-R001")
+		products.saveAndFlush(Product.builder().prodId("LOCKTEST01").majorCategory("P01").middleCategory("Q01").minorCategory("R001")
 			.prodName("노트북 L").prodBrand("삼성").regDate(REG_DATE).build());
 		listings.saveAndFlush(Listing.builder().userId(sellerId).regDate(REG_DATE).prodId("LOCKTEST01")
 			.tradeType("등록").prodState("신품").salesUnitPrice(1000).salesQuantity(10).stockQuantity(10)

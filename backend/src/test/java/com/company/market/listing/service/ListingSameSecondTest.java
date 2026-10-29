@@ -12,7 +12,6 @@ import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.crypto.PiiHasher;
 import com.company.market.common.storage.UploadService;
 import com.company.market.listing.dto.ListingCreateRequest;
-import com.company.market.listing.repository.CategoryRepository;
 import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.repository.ListingSearchRepository;
 import com.company.market.user.domain.User;
@@ -54,7 +53,7 @@ class ListingSameSecondTest {
 	ProductService products;
 
 	@Autowired
-	CategoryRepository categories;
+	CategoryService categories;
 
 	@Autowired
 	ApplicationEventPublisher events;
@@ -94,7 +93,7 @@ class ListingSameSecondTest {
 	}
 
 	private ListingCreateRequest request(String prodName) {
-		return new ListingCreateRequest(null, "P01-Q01-R001", prodName, null, "삼성", null, null, null, "판매", "신품", 1000, 1,
+		return new ListingCreateRequest(null, "P01-Q01-R001", prodName, null, "삼성", null, null, null, null, null, null, null, "판매", "신품", 1000, 1,
 				null, null, "2099-12-31", null, null, List.of("public/listings/photos/2026/10/a.jpg"));
 	}
 

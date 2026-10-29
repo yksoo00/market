@@ -137,7 +137,7 @@ class TradeApiTest {
 
 	/** 판매자 매물: 단가·재고·최소주문량·주문단위·납기일(null 이면 없음) */
 	private void listing(int price, int stock, int minOrder, int unit, String deliveryDate) {
-		productRepository.saveAndFlush(Product.builder().prodId("TRADEAPI01").categoryCode("P01-Q01-R001")
+		productRepository.saveAndFlush(Product.builder().prodId("TRADEAPI01").majorCategory("P01").middleCategory("Q01").minorCategory("R001")
 			.prodName("서버 R740").prodBrand("Dell").regDate(REG_DATE).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(sellerId).regDate(REG_DATE).prodId("TRADEAPI01")
 			.tradeType("등록").prodState("신품대비 90%").salesUnitPrice(price).salesQuantity(stock).stockQuantity(stock)
@@ -570,7 +570,7 @@ class TradeApiTest {
 	static final String REG_DATE_2 = "20261015100001";
 
 	private void secondListing() {
-		productRepository.saveAndFlush(Product.builder().prodId("TRADEAPI02").categoryCode("P01-Q01-R001")
+		productRepository.saveAndFlush(Product.builder().prodId("TRADEAPI02").majorCategory("P01").middleCategory("Q01").minorCategory("R001")
 			.prodName("스위치 C9300").prodBrand("Cisco").regDate(REG_DATE_2).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(sellerId).regDate(REG_DATE_2).prodId("TRADEAPI02")
 			.tradeType("등록").prodState("신품").salesUnitPrice(500).salesQuantity(100).stockQuantity(100)

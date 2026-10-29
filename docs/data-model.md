@@ -62,6 +62,21 @@
 | reg_date | varchar(14) | not null | yyyyMMddHHmmss |
 | spare_col | varchar(10) | null | |
 
+### trd_ctgr_master (TRD_CTGR_MASTER — 카테고리 마스터)
+
+> 구현: `V202610281000__create_ctgr_master.sql`. `trd_ctgr_code` 239행을 조각 코드로 옮겨 채운다. 상품마스터의 대·중·소 조각을 확인(부모 관계)하고 이름 경로를 만든다. 카테고리 패널은 계속 `trd_ctgr_code`. 결정: decisions.md 2026-10-28.
+
+| 컬럼 | 타입 | 제약 | 비고 |
+|---|---|---|---|
+| category_code | varchar(12) | PK | 조각 코드(`R001`). 정의서 4 — 나중에 코드 체계가 바뀔 수 있어 12 (사용자 결정) |
+| category_name | varchar(50) | not null | |
+| category_depth | varchar(2) | not null | 분류레벨 대/중/소 (`trd_ctgr_code.category_class` 값) |
+| parent_code | varchar(20) | null | 부모 조각, 대분류는 null (정의서 NOT NULL, 사용자 결정) |
+| is_display | char(1) | not null default 'Y' | |
+| sort_order | integer | null | |
+| reg_date | varchar(14) | not null | yyyyMMddHHmmss |
+| spare_col | varchar(10) | null | |
+
 ### trd_prod_master (TRD_PROD_MASTER — 상품마스터)
 
 > 개발용 샘플 50건(`KP-2026-000001~050`)은 `db/seed/R__seed_dev_prod_master.sql`. 로컬 `FLYWAY_LOCATIONS` 에 `db/seed` 가 있을 때만 들어간다 (decisions.md 2026-10-19).
@@ -69,17 +84,22 @@
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
 | prod_id | varchar(20) | PK | 레거시 비즈니스 키를 그대로 PK로 씀 (uuid 서로게이트 없음, 2026-09-29 지시). 자동생성: `KP-연도-일련번호6자리`(예 `KP-2026-000001`), 일련번호는 한국 날짜 기준 해마다 1부터 (2026-10-08). 그 전에 만든 행은 옛 형식(카테고리 8자+4자리) 그대로 |
-| category_code | varchar(12) | not null | 카테고리 코드 목록에 있는 값만 — 등록·수정 API 가 검사 (외래키는 2026-10-27 에 없앰) |
-| prod_name | varchar(50) | not null | |
-| prod_mpn | varchar(20) | | 제조사 번호(코드) |
-| prod_scan_code | varchar(20) | | 상품 스캔 코드 (정의서). 아직 채우지 않음 |
-| prod_brand | varchar(50) | not null | |
-| prod_mufc_date | varchar(14) | | 제조일시 |
+| prod_name | varchar(50) | null | 정의서 nullable. 직접 입력 등록은 필수(서버 검사) |
+| prod_part_no | varchar(20) | | 파트넘버 (2026-10-28 `prod_mpn` 에서 이름 변경). API 이름은 `prodNo` |
+| prod_brand | varchar(40) | null | 정의서 40·nullable. 직접 입력 등록은 필수(서버 검사) |
+| prod_class_no | varchar(20) | | 물품분류번호 |
+| major_category, middle_category, minor_category | varchar(40) | | 카테고리 조각(`P01`·`Q01`·`R001`). 등록·수정 API 가 `trd_ctgr_master` 부모 관계로 검사. API 의 `categoryCode` 는 세 조각을 `-` 로 이은 경로 (2026-10-28, 옛 `category_code` 를 나눠 채움) |
 | prod_spec_info | varchar(100) | | 제조사 제공 자유 기재 |
-| prod_data_sheet | varchar(100) | | 경로정보 |
-| prod_photo_1 | varchar(100) | | 경로정보. 상품 처음 등록 시 그 매물의 첫 사진 키를 그대로 씀 (파일 공유) |
-| reg_date | varchar(14) | not null | 등록일시 |
+| prod_useful_life | integer | | 보증년수 — 값은 개월 수, 목록 3·6·…·60 (사용자 결정 2026-10-28) |
+| warranty_method | varchar(20) | | 정품보증방법 |
+| alter_prod_name | varchar(40) | | 대체상품명 |
+| prod_mufc_date | varchar(14) | | 제조일시. 정의서에 없지만 유지 (재사용 키, 사용자 결정) |
+| prod_data_sheet | varchar(100) | | 경로정보 (정의서 40, 저장 키 길이로 100) |
+| prod_image | varchar(100) | | 경로정보 (2026-10-28 `prod_photo_1` 에서 이름 변경, 정의서 40 → 100). 상품 처음 등록 시 그 매물의 첫 사진 키를 그대로 씀 (파일 공유). API 이름은 `prodPhoto1` |
+| reg_date | varchar(14) | null | 등록일시 (정의서 nullable, 서버는 항상 채움) |
 | spare_col | varchar(100) | | 예비 컬럼 |
+
+같은 상품 = 이름·제조사·분류번호·제조일이 모두 같음(사양은 안 봄). 직접 입력 등록은 같은 상품이 있으면 재사용, 없으면 새로 만든다. 동시 생성은 `pg_advisory_xact_lock(hashtext('prod-master'))` 로 줄 세운다(unique 대신, 2026-10-28).
 
 ### trd_prod_reg (TRD_PROD_REG — 상품등록 정보)
 
@@ -111,10 +131,10 @@
 
 경로정보 컬럼(사진·데이터시트·대체품·테스트리포트·정품인증서)은 URL이 아니라 **저장소 키** — `POST /api/v1/uploads`가 돌려준 `public|private/listings/<종류>/yyyy/MM/<uuid>.<ext>` (최대 80자). 파일은 `GET /api/v1/files/{key}`로 연다 (security.md "파일 업로드", decisions.md 2026-10-02).
 
-인덱스: `U (prod_name, prod_brand)` on trd_prod_master (동시 등록 경합 시 재사용 판단의 근거 — 코드리뷰 지적으로 추가, 2026-09-29), `(prod_id)`·`(reg_date)` on trd_prod_reg (목록 조회용). 외래키는 없다 (2026-10-27 — 정의서 FOREIGN KEY 표는 의미상 관계, 정합은 서버가 지킨다).
+인덱스: trd_prod_master 는 PK 만 (unique(이름, 제조사)는 2026-10-28 에 없앰), `(prod_id)`·`(reg_date)` on trd_prod_reg (목록 조회용). 외래키는 없다 (2026-10-27 — 정의서 FOREIGN KEY 표는 의미상 관계, 정합은 서버가 지킨다).
 제약: `trd_prod_master`·`trd_prod_reg` 엔티티는 PK를 직접 채우므로(uuid `@GeneratedValue` 없음) `Persistable` 구현 필수 — 없으면 Spring Data가 항상 `merge`(UPDATE)를 타서 중복 키를 조용히 덮어쓴다(코드리뷰로 발견, 2026-09-29 수정). 매물 목록 커서는 `reg_date` 단독이 아니라 `reg_date_userId` 복합값 — 같은 초에 다른 사용자가 등록하면 reg_date만으로는 페이지 경계에서 소실될 수 있어서.
 
-검색(`GET /api/v1/listings`, 2026-10-02): 상품명·상품번호·제조사(`trd_prod_master`)에 낱말별 `lower(...) like`, 거래상태는 `trd_prod_reg.dt_expire` 유무, 가격·재고·납기일은 `trd_prod_reg` 컬럼. 검색용 인덱스는 없다 — 느린 게 측정되면 pg_trgm 등 검토. 카테고리 필터는 아직 없음 (마스터 테이블은 있음).
+검색(`GET /api/v1/listings`, 2026-10-02): 상품명·상품번호·제조사(`trd_prod_master`)에 낱말별 `lower(...) like`, 거래상태는 `trd_prod_reg.dt_expire` 유무, 가격·재고·납기일은 `trd_prod_reg` 컬럼. 검색용 인덱스는 없다 — 느린 게 측정되면 pg_trgm 등 검토. 카테고리 필터는 상품마스터의 대·중·소 조각을 하나씩 비교 (2026-10-28).
 
 ## 거래: `trd_trade_info`, `trd_trade_history`
 

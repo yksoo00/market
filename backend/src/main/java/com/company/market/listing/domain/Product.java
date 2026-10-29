@@ -32,17 +32,28 @@ public class Product implements Persistable<String> {
 	@Column(name = "prod_id")
 	private String prodId;
 
-	@Column(nullable = false)
-	private String categoryCode;
+	/** 카테고리 조각(대·중·소). 이름·부모는 trd_ctgr_master */
+	private String majorCategory;
 
-	@Column(nullable = false)
+	private String middleCategory;
+
+	private String minorCategory;
+
 	private String prodName;
 
-	@Column(name = "prod_mpn")
+	@Column(name = "prod_part_no")
 	private String prodNo;
 
-	@Column(nullable = false)
 	private String prodBrand;
+
+	private String prodClassNo;
+
+	/** 보증년수 — 값은 개월 수 (사용자 결정 2026-10-28, 목록 3·6·…·60) */
+	private Integer prodUsefulLife;
+
+	private String warrantyMethod;
+
+	private String alterProdName;
 
 	private String prodMufcDate;
 
@@ -50,10 +61,9 @@ public class Product implements Persistable<String> {
 
 	private String prodDataSheet;
 
-	@Column(name = "prod_photo_1")
+	@Column(name = "prod_image")
 	private String prodPhoto1;
 
-	@Column(nullable = false)
 	private String regDate;
 
 	private String spareCol;
@@ -62,14 +72,21 @@ public class Product implements Persistable<String> {
 	}
 
 	@Builder
-	private Product(String prodId, String categoryCode, String prodName, String prodNo, String prodBrand,
-			String prodMufcDate, String prodSpecInfo, String prodDataSheet, String prodPhoto1, String regDate,
-			String spareCol) {
+	private Product(String prodId, String majorCategory, String middleCategory, String minorCategory,
+			String prodName, String prodNo, String prodBrand, String prodClassNo, Integer prodUsefulLife,
+			String warrantyMethod, String alterProdName, String prodMufcDate, String prodSpecInfo, String prodDataSheet,
+			String prodPhoto1, String regDate, String spareCol) {
 		this.prodId = prodId;
-		this.categoryCode = categoryCode;
+		this.majorCategory = majorCategory;
+		this.middleCategory = middleCategory;
+		this.minorCategory = minorCategory;
 		this.prodName = prodName;
 		this.prodNo = prodNo;
 		this.prodBrand = prodBrand;
+		this.prodClassNo = prodClassNo;
+		this.prodUsefulLife = prodUsefulLife;
+		this.warrantyMethod = warrantyMethod;
+		this.alterProdName = alterProdName;
 		this.prodMufcDate = prodMufcDate;
 		this.prodSpecInfo = prodSpecInfo;
 		this.prodDataSheet = prodDataSheet;
@@ -78,10 +95,12 @@ public class Product implements Persistable<String> {
 		this.spareCol = spareCol;
 	}
 
-	/** null 이 아닌 칸만 반영. 번호·제조일·사양은 "" = 비우기. 이 상품을 쓰는 매물이 하나뿐일 때만 서비스가 부른다 */
-	public void applyEdit(String categoryCode, String prodNo, String prodMufcDate, String prodSpecInfo) {
-		if (categoryCode != null) {
-			this.categoryCode = categoryCode.trim();
+	/** null 이 아닌 칸만 반영. 카테고리는 확인된 조각(CategoryService). 번호·제조일·사양은 "" = 비우기. 이 상품을 쓰는 매물이 하나뿐일 때만 서비스가 부른다 */
+	public void applyEdit(CategoryFragments category, String prodNo, String prodMufcDate, String prodSpecInfo) {
+		if (category != null) {
+			this.majorCategory = category.major();
+			this.middleCategory = category.middle();
+			this.minorCategory = category.minor();
 		}
 		if (prodNo != null) {
 			this.prodNo = prodNo.isEmpty() ? null : prodNo;
@@ -92,6 +111,15 @@ public class Product implements Persistable<String> {
 		if (prodSpecInfo != null) {
 			this.prodSpecInfo = prodSpecInfo.isEmpty() ? null : prodSpecInfo;
 		}
+	}
+
+	public CategoryFragments category() {
+		return new CategoryFragments(majorCategory, middleCategory, minorCategory);
+	}
+
+	/** 화면·API 의 카테고리 코드 = 조각을 '-' 로 이은 경로 (P01-Q01-R001) */
+	public String getCategoryCode() {
+		return category().code();
 	}
 
 	/** 제조일을 YYYY-MM-DD 로. 등록 API 가 형식을 검사하지 않아, 날짜로 읽히지 않는 값은 버리지 않고 원문 그대로 둔다 */

@@ -45,6 +45,24 @@ describe("listingFormSchema", () => {
     expect(parse({ prodName: "가".repeat(50), description: "A".repeat(200) }).success).toBe(true);
   });
 
+  it("상품 새 칸: 제조사 40자, 물품분류번호 20, 정품보증방법 20, 대체상품명 40 (정의서, 2026-10-27 설계 PR 2)", () => {
+    expect(errorPaths({ prodBrand: "가".repeat(41) })).toEqual(["prodBrand"]);
+    expect(parse({ prodBrand: "가".repeat(40) }).success).toBe(true);
+    expect(errorPaths({ prodClassNo: "A".repeat(21) })).toEqual(["prodClassNo"]);
+    expect(errorPaths({ warrantyMethod: "A".repeat(21) })).toEqual(["warrantyMethod"]);
+    expect(errorPaths({ alterProdName: "가".repeat(41) })).toEqual(["alterProdName"]);
+    expect(parse({ prodClassNo: " ", warrantyMethod: "", alterProdName: "" }).data?.prodClassNo).toBeUndefined();
+  });
+
+  it("보증년수는 개월 목록(3·6·…·60)에서 — 목록 밖은 오류, 안 고르면 없음 (사용자 결정 2026-10-28)", () => {
+    for (const bad of ["4", "0", "63", "1.5", "-3"]) {
+      expect(errorPaths({ prodUsefulLife: bad })).toEqual(["prodUsefulLife"]);
+    }
+    expect(parse({ prodUsefulLife: "" }).data?.prodUsefulLife).toBeUndefined();
+    expect(parse({ prodUsefulLife: "3" }).data?.prodUsefulLife).toBe(3);
+    expect(parse({ prodUsefulLife: "60" }).data?.prodUsefulLife).toBe(60);
+  });
+
   it("단가 0~10억, 수량 1~100,000 정수", () => {
     expect(parse({ salesUnitPrice: "0" }).data?.salesUnitPrice).toBe(0);
     expect(parse({ salesUnitPrice: "1000000000" }).data?.salesUnitPrice).toBe(1_000_000_000);
