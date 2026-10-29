@@ -17,8 +17,8 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           <SearchScopeTabs query={query} />
           <SearchForm key={`form-${key}`} query={query} />
           <FilterBar key={`filter-${key}`} query={query} />
-          {/* 내 판매는 로그인 필요 (서버도 mine=true 를 401 로 막는다). 비로그인이면 로그인 화면으로 */}
-          {query.mine ? (
+          {/* 내 판매·내 구매는 로그인 필요 (서버도 401 로 막는다). 비로그인이면 로그인 화면으로 */}
+          {query.mine || query.purchased ? (
             <RequireLogin>
               <SearchResults key={key} query={query} />
             </RequireLogin>

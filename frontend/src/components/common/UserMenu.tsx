@@ -84,13 +84,10 @@ export function UserMenu({ nickname, kind, onLoggedOut }: Props) {
           <Link href="/my">{t.myPage}</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild onClick={() => setOpen(false)}>
-          <Link href="/my/listings">{t.myListings}</Link>
+          <Link href="/my/activity">{t.myActivity}</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild onClick={() => setOpen(false)}>
-          <Link href="/my/sales">{t.mySales}</Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild onClick={() => setOpen(false)}>
-          <Link href="/my/purchases">{t.myPurchases}</Link>
+          <Link href="/my/history">{t.myHistory}</Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         {/* 실패하면 오류를 보여 줘야 하므로 선택해도 메뉴를 닫지 않는다 (성공하면 헤더가 바뀌며 사라진다) */}

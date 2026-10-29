@@ -59,3 +59,28 @@ export interface TradePage {
 
 /** GET /api/v1/trades/pending-counts — { 매물 regDate: 판매자가 처리할 견적요청 + 구매요청 건수 } */
 export type PendingCounts = Record<string, number>;
+
+/** 백엔드 TradeHistoryItemResponse — 내 거래이력 한 줄. side = 내가 구매자(buy)냐 판매자(sell)냐, 확정일시 tradeDate 는 yyyyMMddHHmmss */
+export interface TradeHistoryItem {
+  tradeId: string;
+  tradeDate: string;
+  side: "buy" | "sell";
+  prodName: string | null;
+  counterpartNickname: string | null;
+  unitPrice: number | null;
+  quantity: number | null;
+  amount: number | null;
+}
+
+export interface TradeHistoryPage {
+  items: TradeHistoryItem[];
+  nextCursor: string | null;
+}
+
+export type HistorySide = "all" | "buy" | "sell";
+
+/** GET /api/v1/trades/scopes — 검색 화면에 [내 판매]·[내 구매] 탭을 보일지 */
+export interface TradeScopes {
+  sales: boolean;
+  purchases: boolean;
+}

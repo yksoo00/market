@@ -120,7 +120,7 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
   });
 
   await test.step("내 구매목록 — 구매요청 → [거래완료] → 구매확정", async () => {
-    await page.goto("/my/purchases");
+    await page.goto("/my/activity?tab=purchases");
     const row = page.getByRole("table").getByRole("row").filter({ hasText: prodName });
     await expect(row.getByText(t.stats.requested)).toBeVisible();
     await page.getByRole("button", { name: t.completeAria(prodName) }).click();
@@ -128,26 +128,37 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     await expect(page.getByRole("button", { name: t.completeAria(prodName) })).toHaveCount(0);
   });
 
+  await test.step("확정된 거래 — 내 활동내역에선 빠지고 내 거래이력에 남고, 검색 [내 구매]에서 그 매물이 보인다", async () => {
+    await page.goto("/my/activity?tab=purchases");
+    await expect(page.getByText(my.purchases.emptyTitle)).toBeVisible();
+    await page.goto("/my/history?tab=buy");
+    await expect(page.getByRole("table").getByRole("row").filter({ hasText: prodName })).toBeVisible();
+    await page.goto("/search");
+    await page.getByRole("link", { name: search.scope.purchased }).click();
+    await expect(page).toHaveURL(/purchased=1/);
+    await expect(page.getByRole("table").getByRole("row").filter({ hasText: prodName })).toBeVisible();
+  });
+
   await test.step("다시 1개 요청 → 판매자 내 판매글에 1건 → 받은 구매요청에서 [취소]", async () => {
     await requestPurchase(page, listingPath, "1");
     await logOut(page);
     await logIn(page, seller);
-    await page.goto("/my/listings");
+    await page.goto("/my/activity?tab=sales");
     const listingRow = page.getByRole("table").getByRole("row").filter({ hasText: prodName });
-    // 건수를 누르면 받은 구매요청이 그 매물로 걸러져 옆 칸(반반)에 열린다 — 같은 판매 그룹
+    // 건수를 누르면 요청 탭이 그 매물로 걸러져 같은 칸에서 열린다 — 내 활동내역은 한 화면이라 칸을 더 쌓지 않는다
     await listingRow.getByRole("button", { name: trade.pending.aria(prodName, 1) }).click();
-    await expect(page.locator('iframe[src^="/my/sales?reg="]')).toBeVisible();
-    await expect(page.frameLocator('iframe[src^="/my/sales?reg="]').getByText(my.sales.filtered)).toBeVisible();
+    await expect(page).toHaveURL(/\/my\/activity\?tab=requests&reg=\d{14}$/);
+    await expect(page.getByText(my.sales.filtered)).toBeVisible();
 
-    await page.goto("/my/sales");
+    await page.goto("/my/activity?tab=requests");
     const pendingRow = page.getByRole("table").getByRole("row").filter({ hasText: t.stats.requested });
     await expect(pendingRow).toHaveCount(1);
     // 판매자는 [거래완료]가 없고 [취소]만
     await expect(page.getByRole("button", { name: t.completeAria(prodName) })).toHaveCount(0);
     await page.getByRole("button", { name: t.cancelAria(prodName) }).click();
-    // 취소하면 거래 행이 지워진다 (2026-10-20) — 구매요청 줄은 사라지고 확정된 줄만 남는다
+    // 취소하면 거래 행이 지워진다 (2026-10-20) — 구매요청 줄은 사라진다. 내 활동내역은 진행 중만이라 확정된 줄은 원래 없다(내 거래이력에서)
     await expect(pendingRow).toHaveCount(0);
-    await expect(page.getByRole("table").getByText(t.stats.confirmed)).toBeVisible();
+    await expect(page.getByText(my.sales.emptyTitle)).toBeVisible();
   });
 
   // 넓은 화면 표에는 재고 열이 없다 — 재고가 0이 되는 구매로 행이 바로 "거래완료"가 되는지 본다

@@ -22,9 +22,9 @@ describe("decideOpen — 홈 칸·헤더에서 열기 (새 주기능)", () => {
   });
 
   it("홈 칸에서 다른 기능을 열면 보조까지 지우고 새 주기능", () => {
-    expect(decideOpen([P("a", "/search"), P("b", DETAIL)], HOME_KEY, "/my/listings", wide)).toEqual({
+    expect(decideOpen([P("a", "/search"), P("b", DETAIL)], HOME_KEY, "/listings/extra", wide)).toEqual({
       kind: "main",
-      path: "/my/listings",
+      path: "/listings/extra",
     });
   });
 
@@ -33,7 +33,7 @@ describe("decideOpen — 홈 칸·헤더에서 열기 (새 주기능)", () => {
   });
 
   it("관련 없는 화면이어도 헤더에서 열면 새 주기능 (예: 판매 등록 중 내 구매목록)", () => {
-    expect(decideOpen([P("a", "/listings/new")], HOME_KEY, "/my/purchases", wide)).toEqual({ kind: "main", path: "/my/purchases" });
+    expect(decideOpen([P("a", "/listings/new")], HOME_KEY, "/my/cart", wide)).toEqual({ kind: "main", path: "/my/cart" });
   });
 
   it("홈 칸에서 홈은 아무것도 안 함", () => {
@@ -47,7 +47,7 @@ describe("decideOpen — 주기능·보조 칸에서 열기", () => {
   });
 
   it("내 판매글에서 상세도 보조 자리 → 홈 | 내 판매글 | 상세", () => {
-    expect(decideOpen([P("a", "/my/listings")], "a", DETAIL, wide)).toEqual({ kind: "sub", path: DETAIL });
+    expect(decideOpen([P("a", "/listings/extra")], "a", DETAIL, wide)).toEqual({ kind: "sub", path: DETAIL });
   });
 
   it("보조가 있어도 연관 화면이면 보조만 바뀐다", () => {
@@ -55,7 +55,7 @@ describe("decideOpen — 주기능·보조 칸에서 열기", () => {
   });
 
   it("보조 칸에서 연관 화면을 열어도 보조만 바뀐다", () => {
-    expect(decideOpen([P("a", "/my/listings"), P("b", DETAIL)], "b", "/listings/new", wide)).toEqual({
+    expect(decideOpen([P("a", "/listings/extra"), P("b", DETAIL)], "b", "/listings/new", wide)).toEqual({
       kind: "sub",
       path: "/listings/new",
     });
@@ -69,14 +69,14 @@ describe("decideOpen — 주기능·보조 칸에서 열기", () => {
   });
 
   it("마이페이지 바로가기는 마이페이지 칸을 바꾼다 — 주기능이면 홈 | 내 판매글", () => {
-    expect(decideOpen([P("a", "/my")], "a", "/my/listings", wide)).toEqual({ kind: "inPlace", paneKey: "a", path: "/my/listings" });
+    expect(decideOpen([P("a", "/my")], "a", "/listings/extra", wide)).toEqual({ kind: "inPlace", paneKey: "a", path: "/listings/extra" });
   });
 
   it("마이페이지가 보조 칸이면 보조만 바뀐다 — 홈 | 주기능 | 내 구매목록", () => {
-    expect(decideOpen([P("a", "/listings/new"), P("b", "/my")], "b", "/my/purchases", wide)).toEqual({
+    expect(decideOpen([P("a", "/listings/new"), P("b", "/my")], "b", "/my/cart", wide)).toEqual({
       kind: "inPlace",
       paneKey: "b",
-      path: "/my/purchases",
+      path: "/my/cart",
     });
   });
 

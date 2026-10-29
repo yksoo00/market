@@ -11,7 +11,7 @@ function filterHiddenFields(query: SearchQuery, scope: SearchScope): [string, st
 
 export function SearchForm({ query, scope = "search" }: { query: SearchQuery; scope?: SearchScope }) {
   return (
-    <Form action={scope === "mine" ? "/my/listings" : "/search"} role="search" className="w-full">
+    <Form action={scope === "mine" ? "/my/activity" : "/search"} role="search" className="w-full">
       <label htmlFor="search-q" className="sr-only">
         {t.form.label}
       </label>

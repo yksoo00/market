@@ -2,9 +2,8 @@ import Link from "next/link";
 import { my } from "@/messages/my";
 
 const cards = [
-  { href: "/my/listings", title: my.menu.myListings, desc: my.hub.listingsDesc },
-  { href: "/my/sales", title: my.menu.mySales, desc: my.hub.salesDesc },
-  { href: "/my/purchases", title: my.menu.myPurchases, desc: my.hub.purchasesDesc },
+  { href: "/my/activity", title: my.menu.myActivity, desc: my.hub.activityDesc },
+  { href: "/my/history", title: my.menu.myHistory, desc: my.hub.historyDesc },
 ];
 
 /** 마이페이지 바로가기. 항목이 늘면 카드를 더한다 */

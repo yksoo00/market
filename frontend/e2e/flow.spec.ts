@@ -130,20 +130,22 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await expect(page.locator("iframe")).toHaveCount(1);
   });
 
-  await test.step("마이페이지 바로가기 — 마이페이지 칸이 그 화면으로 바뀐다 (홈 | 내 판매글, 3분할 아님)", async () => {
-    await page.getByRole("main").getByRole("link", { name: my.menu.myListings }).click();
-    await expect(page).toHaveURL(/\/my\/listings$/);
+  await test.step("마이페이지 바로가기 — 마이페이지 칸이 그 화면으로 바뀐다 (홈 | 내 활동내역, 3분할 아님) — 판매 탭은 같은 칸에서 바뀐다", async () => {
+    await page.getByRole("main").getByRole("link", { name: my.menu.myActivity }).click();
+    await expect(page).toHaveURL(/\/my\/activity$/);
+    await page.getByRole("link", { name: my.activity.tabs.sales, exact: true }).click();
+    await expect(page).toHaveURL(/\/my\/activity\?tab=sales$/);
     await expect(rowOf(page, prodName)).toBeVisible();
     await expect(page.locator("iframe")).toHaveCount(1);
   });
 
-  await test.step("내 판매글 — 검색 화면 모양으로 방금 글이 보이고, 행 안에서 상품상태를 고친다", async () => {
+  await test.step("내 활동내역 판매 탭 — 검색 화면 모양으로 방금 글이 보이고, 행 안에서 상품상태를 고친다", async () => {
     await page.getByRole("button", { name: my.menu.label }).click();
-    await page.getByRole("menuitem", { name: my.menu.myListings }).click();
+    await page.getByRole("menuitem", { name: my.menu.myActivity }).click();
     await expect(page.getByRole("menu")).toBeHidden();
-    await expect(page).toHaveURL(/\/my\/listings$/);
+    await expect(page).toHaveURL(/\/my\/activity/);
     // 행 안 수정은 칸이 넓은 전체 화면에서 확인한다
-    await page.goto("/my/listings");
+    await page.goto("/my/activity?tab=sales");
     // 표와 모바일 카드가 둘 다 그려지므로(하나는 CSS 로 숨김) 표 안에서 찾는다
     await expect(rowOf(page, prodName)).toBeVisible();
 
@@ -206,11 +208,11 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
   });
 
   await test.step("내 판매글에서 상세 — 다른 화면처럼 보조 칸 (홈 | 내 판매글 | 상세)", async () => {
-    // 앞 단계가 검색 [내 판매](/search?mine=1)에 머문 채라 내 판매글 화면(/my/listings)으로 다시 간다 — 그 화면의 주소가 기대값이다
-    await page.goto("/my/listings");
+    // 앞 단계가 검색 [내 판매](/search?mine=1)에 머문 채라 내 활동내역 판매 탭(/my/activity?tab=sales)으로 다시 간다 — 그 화면의 주소가 기대값이다
+    await page.goto("/my/activity?tab=sales");
     await rowOf(page, prodName).getByRole("link", { name: prodName }).click();
     await expect(page.locator('iframe[src^="/listings/"]')).toBeVisible();
-    await expect(page).toHaveURL(/\/my\/listings$/);
+    await expect(page).toHaveURL(/\/my\/activity\?tab=sales$/);
   });
 
   await test.step("로그아웃 후 주소창 칸(/login 전체 화면)에서 로그인해도 홈 전체 화면", async () => {

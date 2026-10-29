@@ -115,7 +115,7 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     await page.keyboard.press("Escape");
     await expect(cartLink(2)).toBeVisible();
     // 장바구니는 내 구매목록에 섞이지 않는다
-    await page.goto("/my/purchases");
+    await page.goto("/my/activity?tab=purchases");
     await expect(page.getByText(nameA)).toHaveCount(0);
   });
 
@@ -140,7 +140,7 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     await expect(cartLink(1)).toBeVisible();
     await expect(rowOf(nameA)).toHaveCount(0);
     await expect(rowOf(nameB)).toHaveCount(1);
-    await page.goto("/my/purchases");
+    await page.goto("/my/activity?tab=purchases");
     await expect(rowOf(nameA).getByText(trade.list.stats.requested)).toBeVisible();
   });
 

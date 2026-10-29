@@ -24,8 +24,10 @@ export interface SearchQuery {
   /** 대·중·소 카테고리 코드(`P01`, `P01-Q01`, `P01-Q01-R001`). 고른 분류와 그 아래 전부. 빈 값 = 전체 */
   category: string;
   status: StatusFilter;
-  /** 검색 화면의 [전체 / 내 판매]. 필터가 아니라 범위 — 필터 개수에 안 세고 초기화해도 남는다. 내 판매글 화면(scope mine)은 늘 내 글이라 false */
+  /** 검색 화면의 [전체 / 내 판매 / 내 구매] 범위 중 내 판매. 필터가 아니라 범위 — 필터 개수에 안 세고 초기화해도 남는다. 내 판매글 화면(scope mine)은 늘 내 글이라 false */
   mine: boolean;
+  /** 범위 중 내 구매 (내가 거래한 매물만, GET /api/v1/trades/listings). mine 과 함께 켜지지 않는다 */
+  purchased: boolean;
   minStock?: number;
   minPrice?: number;
   maxPrice?: number;
@@ -44,7 +46,7 @@ export interface SearchQuery {
 }
 
 /**
- * search = 전체 검색(/search), mine = 내 판매글(/my/listings). 같은 화면 부품을 쓰고 경로·거래상태 기본값·API 의 mine 만 다르다.
+ * search = 전체 검색(/search), mine = 내 판매글(내 활동내역 판매 탭 /my/activity?tab=sales). 같은 화면 부품을 쓰고 경로·거래상태 기본값·API 의 mine 만 다르다.
  * 내 글은 거래완료한 것도 보여야 해서 거래상태 기본값이 "전체"다 (검색은 "거래 가능").
  */
 export type SearchScope = "search" | "mine";
@@ -95,6 +97,8 @@ export function parseSearchParams(raw: RawSearchParams, scope: SearchScope = "se
     category: CATEGORY_PATTERN.test(first(raw.category)) ? first(raw.category) : "",
     status: STATUSES.includes(status) ? status : defaultStatus(scope),
     mine: scope === "search" && first(raw.mine) === "1",
+    // 내 판매와 내 구매가 같이 오면 내 판매 (손으로 고친 주소)
+    purchased: scope === "search" && first(raw.mine) !== "1" && first(raw.purchased) === "1",
     has: HAS_ITEMS.filter((h) => first(raw.has).split(",").includes(h)),
   };
   const minStock = intInRange(first(raw.minStock), MAX_STOCK);
@@ -130,9 +134,11 @@ export function buildSearchHref(query: SearchQuery, scope: SearchScope = "search
   if (query.status !== defaultStatus(scope)) p.set("status", query.status);
   setFilterParams(p, query);
   if (scope === "search" && query.mine) p.set("mine", "1");
+  if (scope === "search" && query.purchased) p.set("purchased", "1");
+  // 내 판매글은 내 활동내역의 판매 탭 (설계 2026-10-27 PR 4) — tab 이 맨 앞
+  if (scope === "mine") return `/my/activity?${new URLSearchParams({ tab: "sales" })}${p.size > 0 ? `&${p}` : ""}`;
   const s = p.toString();
-  const path = scope === "mine" ? "/my/listings" : "/search";
-  return s ? `${path}?${s}` : path;
+  return s ? `/search?${s}` : "/search";
 }
 
 /** 거래상태 말고 필터 칸 전부. URL·API 이름이 같다 */
@@ -189,7 +195,7 @@ export function activeFilterCount(query: SearchQuery, scope: SearchScope = "sear
 }
 
 export function clearFilters(query: SearchQuery, scope: SearchScope = "search"): SearchQuery {
-  return { q: query.q, field: query.field, category: "", status: defaultStatus(scope), mine: query.mine, has: [] };
+  return { q: query.q, field: query.field, category: "", status: defaultStatus(scope), mine: query.mine, purchased: query.purchased, has: [] };
 }
 
 export function listingHref(item: Pick<ListingSearchItem, "userId" | "regDate">): string {
