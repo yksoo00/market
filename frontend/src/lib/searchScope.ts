@@ -21,7 +21,7 @@ export function tabOf(query: Pick<SearchQuery, "mine" | "purchased">): ScopeTab 
 
 /** 범위만 바꾼 검색 조건 (검색어·필터는 그대로). 거래상태를 안 건드렸으면 새 범위의 기본값으로 따라간다 — 내 구매는 지난 거래도 보여야 해서 "전체" */
 export function withScope(query: SearchQuery, tab: ScopeTab): SearchQuery {
-  const next = { ...query, mine: tab === "mine", purchased: tab === "purchased" };
+  const next = { ...query, mine: tab === "mine", purchased: tab === "purchased", page: 1 };
   const untouched = query.status === defaultStatus("search", query.purchased);
   return untouched ? { ...next, status: defaultStatus("search", next.purchased) } : next;
 }

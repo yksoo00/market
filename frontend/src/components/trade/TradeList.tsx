@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { cn } from "cn";
+import { Pager } from "@/components/common/Pager";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog } from "@/components/trade/QuoteDialog";
 import { tradesApi } from "@/lib/api/trades";
 import { notifyCartChanged } from "@/lib/cart";
 import { formatPrice } from "@/lib/format";
+import { tabPageHref } from "@/lib/myTabs";
 import { listingHref } from "@/lib/search";
 import { rowActions, type RowAction } from "@/lib/tradeActions";
 import { my } from "@/messages/my";
@@ -19,7 +21,7 @@ const t = trade.list;
 const c = t.columns;
 const qty = new Intl.NumberFormat("ko-KR");
 
-type Load = { kind: "loading" } | { kind: "error" } | { kind: "ready"; items: Trade[]; nextCursor: string | null };
+type Load = { kind: "loading" } | { kind: "error" } | { kind: "ready"; items: Trade[]; page: number; totalPages: number; total: number };
 
 interface Props {
   /** buyer = 내 구매목록, seller = 받은 구매요청 */
@@ -28,18 +30,22 @@ interface Props {
   active?: boolean;
   /** seller 일 때 이 매물(regDate)의 요청만 */
   reg?: string;
+  /** 보는 페이지 (1부터). 주소 ?page= 에서 부모가 읽어 넘긴다 */
+  page: number;
+  /** 번호 줄 링크의 경로·쿼리 (서버 화면에서 클라이언트로 함수는 못 넘겨서 값으로 받는다) */
+  pagePath: string;
+  pageParams: Record<string, string | undefined>;
 }
 
 /**
  * 거래 목록 (스펙 2026-10-15-purchase-design.md·2026-10-20-quote-request-design.md "화면"). 구매자·판매자 화면이 같이 쓴다.
  * 줄마다 누를 수 있는 버튼은 lib/tradeActions. 취소하면 행이 지워져 줄을 뺀다. 상대가 먼저 처리했으면(409·404) 목록을 다시 읽는다.
  */
-export function TradeList({ role, reg, active }: Props) {
+export function TradeList({ role, reg, active, page, pagePath, pageParams }: Props) {
+  const hrefFor = (n: number) => tabPageHref(pagePath, pageParams, n);
   const [load, setLoad] = useState<Load>({ kind: "loading" });
-  // 올리면 첫 페이지부터 다시 읽는다
+  // 올리면 지금 페이지를 다시 읽는다
   const [attempt, setAttempt] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [moreFailed, setMoreFailed] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   // seq: 같은 문구가 연달아 나와도 알림을 새로 그려 스크린리더가 다시 읽게 (key)
   const [message, setMessage] = useState<{ seq: number; text: string } | null>(null);
@@ -53,34 +59,18 @@ export function TradeList({ role, reg, active }: Props) {
 
   useEffect(() => {
     let alive = true;
-    void tradesApi.list(role, { reg, active }).then((res) => {
+    void tradesApi.list(role, { reg, active, page }).then((res) => {
       if (!alive) return;
-      setLoad(res.ok ? { kind: "ready", items: res.data.items, nextCursor: res.data.nextCursor } : { kind: "error" });
+      setLoad(res.ok ? { kind: "ready", ...res.data } : { kind: "error" });
     });
     return () => {
       alive = false;
     };
-  }, [role, reg, active, attempt]);
+  }, [role, reg, active, page, attempt]);
 
   const reload = () => {
     setLoad({ kind: "loading" });
     setAttempt((n) => n + 1);
-  };
-
-  const loadMore = async () => {
-    if (load.kind !== "ready" || !load.nextCursor) return;
-    setLoadingMore(true);
-    setMoreFailed(false);
-    const res = await tradesApi.list(role, { reg, active, cursor: load.nextCursor });
-    setLoadingMore(false);
-    if (!res.ok) {
-      setMoreFailed(true);
-      return;
-    }
-    // 기다리는 동안 [거래완료]·[취소]로 바뀐 행을 잃지 않게 지금 상태에 붙인다 (요청 전 load 가 아니라)
-    setLoad((prev) =>
-      prev.kind === "ready" ? { kind: "ready", items: [...prev.items, ...res.data.items], nextCursor: res.data.nextCursor } : prev,
-    );
   };
 
   const confirmText: Record<Exclude<RowAction, "buy" | "requote">, (item: Trade) => string> = {
@@ -133,7 +123,7 @@ export function TradeList({ role, reg, active }: Props) {
           {message.text}
         </p>
       )}
-      <Body load={load} asBuyer={asBuyer} busy={busy} onAct={act} onRetry={reload} />
+      <Body load={load} asBuyer={asBuyer} busy={busy} onAct={act} onRetry={reload} firstPageHref={page > 1 ? hrefFor(1) : null} />
       {buying && (
         <PurchaseDialog
           sellerId={buying.sellerId}
@@ -183,23 +173,7 @@ export function TradeList({ role, reg, active }: Props) {
         onAction={() => setPurchased(false)}
         onClose={() => setPurchased(false)}
       />
-      {load.kind === "ready" && load.nextCursor && (
-        <div className="flex flex-col items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => void loadMore()}
-            disabled={loadingMore}
-            className="h-9 px-5 rounded-md border border-line text-sm font-medium text-ink-2 hover:bg-bg disabled:opacity-40"
-          >
-            {loadingMore ? t.loading : t.more}
-          </button>
-          {moreFailed && (
-            <p role="alert" className="text-[13px] text-down">
-              {t.loadFailed}
-            </p>
-          )}
-        </div>
-      )}
+      {load.kind === "ready" && <Pager page={load.page} totalPages={load.totalPages} total={load.total} hrefFor={hrefFor} />}
     </section>
   );
 }
@@ -210,9 +184,11 @@ interface BodyProps {
   busy: string | null;
   onAct: (item: Trade, what: RowAction) => void;
   onRetry: () => void;
+  /** 2페이지 이후를 못 읽었을 때(건수가 줄어 범위 밖이 된 경우 등) 1페이지로 가는 주소 */
+  firstPageHref: string | null;
 }
 
-function Body({ load, asBuyer, busy, onAct, onRetry }: BodyProps) {
+function Body({ load, asBuyer, busy, onAct, onRetry, firstPageHref }: BodyProps) {
   if (load.kind === "loading") {
     return (
       <div className="py-16 text-center text-[13px] text-ink-2" aria-busy="true">
@@ -227,6 +203,11 @@ function Body({ load, asBuyer, busy, onAct, onRetry }: BodyProps) {
         <button type="button" onClick={onRetry} className="h-8.5 px-4 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft">
           {t.retry}
         </button>
+        {firstPageHref && (
+          <Link href={firstPageHref} className="text-[13px] text-primary font-medium hover:underline">
+            {t.firstPage}
+          </Link>
+        )}
       </div>
     );
   }

@@ -28,6 +28,8 @@ export interface SearchQuery {
   mine: boolean;
   /** 범위 중 내 구매 (내가 거래한 매물만, GET /api/v1/trades/listings). mine 과 함께 켜지지 않는다 */
   purchased: boolean;
+  /** 페이지 번호 (1부터, 설계 2026-10-27 PR 5). 주소 ?page=N, 1이면 생략. 검색어·필터·범위가 바뀌면 1로 돌아간다 */
+  page: number;
   minStock?: number;
   minPrice?: number;
   maxPrice?: number;
@@ -62,6 +64,8 @@ export const MAX_STOCK = 100_000;
 export const MAX_PRICE = 1_000_000_000;
 export const MAX_BRAND = 50;
 export const MAX_MIN_ORDER = 100_000;
+/** 서버 ListingSearchCondition.page 와 같은 상한 */
+export const MAX_PAGE = 1_000_000;
 /** 서버 ListingSearchCondition.category 와 같은 형식 (대 `P01` · 중 `P01-Q01` · 소 `P01-Q01-R001`) */
 const CATEGORY_PATTERN = /^[A-Z0-9]{1,4}(-[A-Z0-9]{1,4}){0,2}$/;
 const WARRANTY_DAYS: readonly number[] = WARRANTY_FILTER_MONTHS.map((m) => m * 30);
@@ -101,6 +105,7 @@ export function parseSearchParams(raw: RawSearchParams, scope: SearchScope = "se
     status: STATUSES.includes(status) ? status : defaultStatus(scope, purchased),
     mine: scope === "search" && first(raw.mine) === "1",
     purchased,
+    page: intInRange(first(raw.page), MAX_PAGE) || 1,
     has: HAS_ITEMS.filter((h) => first(raw.has).split(",").includes(h)),
   };
   const minStock = intInRange(first(raw.minStock), MAX_STOCK);
@@ -137,6 +142,7 @@ export function buildSearchHref(query: SearchQuery, scope: SearchScope = "search
   setFilterParams(p, query);
   if (scope === "search" && query.mine) p.set("mine", "1");
   if (scope === "search" && query.purchased) p.set("purchased", "1");
+  if (query.page > 1) p.set("page", String(query.page));
   // 내 판매글은 내 활동내역의 판매 탭 (설계 2026-10-27 PR 4) — tab 이 맨 앞
   if (scope === "mine") return `/my/activity?${new URLSearchParams({ tab: "sales" })}${p.size > 0 ? `&${p}` : ""}`;
   const s = p.toString();
@@ -159,7 +165,7 @@ function setFilterParams(p: URLSearchParams, query: SearchQuery) {
 }
 
 /** 검색 API(GET /api/v1/listings) 쿼리 문자열. status 는 API 기본값(all)과 화면 기본값이 달라 항상 보낸다 */
-export function searchApiParams(query: SearchQuery, cursor?: string, scope: SearchScope = "search"): string {
+export function searchApiParams(query: SearchQuery, scope: SearchScope = "search"): string {
   const p = new URLSearchParams();
   // 서버가 인증 정보로 본인 글만 거른다 (본인 id 를 보내지 않는다)
   if (scope === "mine" || query.mine) p.set("mine", "true");
@@ -167,7 +173,7 @@ export function searchApiParams(query: SearchQuery, cursor?: string, scope: Sear
   if (query.field !== "all") p.set("field", query.field);
   p.set("status", query.status);
   setFilterParams(p, query);
-  if (cursor) p.set("cursor", cursor);
+  p.set("page", String(query.page));
   return p.toString();
 }
 
@@ -197,7 +203,7 @@ export function activeFilterCount(query: SearchQuery, scope: SearchScope = "sear
 }
 
 export function clearFilters(query: SearchQuery, scope: SearchScope = "search"): SearchQuery {
-  return { q: query.q, field: query.field, category: "", status: defaultStatus(scope, query.purchased), mine: query.mine, purchased: query.purchased, has: [] };
+  return { q: query.q, field: query.field, category: "", status: defaultStatus(scope, query.purchased), mine: query.mine, purchased: query.purchased, page: 1, has: [] };
 }
 
 export function listingHref(item: Pick<ListingSearchItem, "userId" | "regDate">): string {

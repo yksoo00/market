@@ -5,7 +5,7 @@ import { search as t } from "@/messages/search";
 
 // 다시 검색해도 걸어 둔 필터는 유지한다 (보이는 칸은 검색어·구분뿐, 나머지는 hidden)
 function filterHiddenFields(query: SearchQuery, scope: SearchScope): [string, string][] {
-  const href = buildSearchHref({ ...query, q: "", field: "all" }, scope);
+  const href = buildSearchHref({ ...query, q: "", field: "all", page: 1 }, scope);
   return [...new URLSearchParams(href.split("?")[1] ?? "")];
 }
 

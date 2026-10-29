@@ -23,3 +23,18 @@ export function parseReg(raw: string | string[] | undefined): string | undefined
   const value = first(raw);
   return /^\d{14}$/.test(value) ? value : undefined;
 }
+
+/** 주소의 ?page= (1부터). 없거나 틀린 값은 1페이지 */
+export function parsePage(raw: string | string[] | undefined): number {
+  const value = first(raw);
+  const n = /^\d{1,7}$/.test(value) ? Number(value) : 1;
+  return n >= 1 ? n : 1;
+}
+
+/** 탭 화면의 n 페이지 주소. 1페이지는 page 를 생략한다 */
+export function tabPageHref(path: string, params: Record<string, string | undefined>, page: number): string {
+  const p = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v) p.set(k, v);
+  if (page > 1) p.set("page", String(page));
+  return `${path}?${p}`;
+}

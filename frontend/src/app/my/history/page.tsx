@@ -3,7 +3,7 @@ import { RequireLogin } from "@/components/auth/RequireLogin";
 import { MobileTabBar } from "@/components/common/MobileTabBar";
 import { HistoryList } from "@/components/my/HistoryList";
 import { MyTabs } from "@/components/my/MyTabs";
-import { HISTORY_TABS, parseHistoryTab } from "@/lib/myTabs";
+import { HISTORY_TABS, parseHistoryTab, parsePage } from "@/lib/myTabs";
 import type { RawSearchParams } from "@/lib/search";
 import { my } from "@/messages/my";
 
@@ -11,7 +11,9 @@ export const metadata: Metadata = { title: my.history.title };
 
 // 내 거래이력: 구매확정된 거래 기록 (trd_trade_history). 구매 = 내가 구매자, 판매 = 내가 판매자. 탭은 ?tab= (기본 all)
 export default async function MyHistoryPage({ searchParams }: { searchParams: Promise<RawSearchParams> }) {
-  const tab = parseHistoryTab((await searchParams).tab);
+  const raw = await searchParams;
+  const tab = parseHistoryTab(raw.tab);
+  const page = parsePage(raw.page);
 
   return (
     <>
@@ -24,7 +26,7 @@ export default async function MyHistoryPage({ searchParams }: { searchParams: Pr
             tabs={HISTORY_TABS.map((k) => ({ key: k, label: my.history.tabs[k], href: `/my/history?tab=${k}` }))}
           />
           <RequireLogin>
-            <HistoryList key={tab} side={tab} />
+            <HistoryList key={tab} side={tab} page={page} />
           </RequireLogin>
         </div>
       </main>

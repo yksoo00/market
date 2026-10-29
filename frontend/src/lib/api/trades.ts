@@ -26,18 +26,16 @@ export const tradesApi = {
   /** 취소 = 행 삭제 → 204 (돌려줄 거래 없음) */
   cancel: (tradeId: string) => api<null>(`/api/v1/trades/${encodeURIComponent(tradeId)}/cancel`, { method: "POST" }),
   /** active: 내 활동내역 — 진행 중 거래만 (구매자 견적요청·견적수락·견적거절·구매요청, 판매자 견적요청·구매요청) */
-  list: (role: TradeRole, opts: { reg?: string; cursor?: string; active?: boolean } = {}) => {
-    const q = new URLSearchParams({ role });
+  list: (role: TradeRole, opts: { reg?: string; page?: number; active?: boolean } = {}) => {
+    const q = new URLSearchParams({ role, page: String(opts.page ?? 1) });
     if (opts.reg) q.set("reg", opts.reg);
-    if (opts.cursor) q.set("cursor", opts.cursor);
     if (opts.active) q.set("active", "true");
     return api<TradePage>(`/api/v1/trades?${q}`, { cache: "no-store" });
   },
   pendingCounts: () => api<PendingCounts>("/api/v1/trades/pending-counts", { cache: "no-store" }),
-  /** 내 거래이력(구매확정만). cursor 는 응답의 nextCursor */
-  history: (side: HistorySide, cursor?: string) => {
-    const q = new URLSearchParams({ side });
-    if (cursor) q.set("cursor", cursor);
+  /** 내 거래이력(구매확정만), 페이지 번호 방식 */
+  history: (side: HistorySide, page = 1) => {
+    const q = new URLSearchParams({ side, page: String(page) });
     return api<TradeHistoryPage>(`/api/v1/trades/history?${q}`, { cache: "no-store" });
   },
   /** 검색 범위 탭 판정. 비로그인이면 401 — 호출하는 쪽이 탭 없음으로 본다 */

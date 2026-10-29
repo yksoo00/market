@@ -83,8 +83,10 @@ export interface ListingSearchItem {
 /** 검색 API 한 페이지. total 은 같은 조건의 전체 개수(커서와 무관) */
 export interface ListingSearchPage {
   items: ListingSearchItem[];
-  nextCursor: string | null;
   total: number;
+  /** 페이지 번호 방식 응답 (요청에 page 를 항상 보낸다, 설계 2026-10-27 PR 5) */
+  page: number;
+  totalPages: number;
 }
 
 /** 매물 상세. 백엔드 ListingResponse 와 1:1 */

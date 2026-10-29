@@ -111,7 +111,7 @@ export const trade = {
     loading: "불러오는 중…",
     loadFailed: "목록을 불러오지 못했어요.",
     retry: "다시 시도",
-    more: "더 보기",
+    firstPage: "1페이지로",
     columns: {
       product: "상품명",
       seller: "판매자",
