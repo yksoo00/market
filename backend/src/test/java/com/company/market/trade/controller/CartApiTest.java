@@ -400,12 +400,93 @@ class CartApiTest {
 	}
 
 	@Test
-	@DisplayName("매물을 지우면 그 매물의 장바구니 행도 지워진다")
+	@DisplayName("담긴 매물을 구매하면 새 행을 만들지 않고 그 행이 구매요청이 된다 — 같은 거래ID, 장바구니 정보 행은 삭제")
+	void purchaseConvertsCartRow() throws Exception {
+		addItems(buyer, item(REG_A, 2, "2099-11-01", "담을 때")).andExpect(status().isOk());
+		String id = cartTradeId(buyerId, REG_A);
+		buy(REG_A, 3).andExpect(status().isCreated());
+		var row = jdbc.queryForMap("select * from trd_trade_info where trade_id = ?", id);
+		assertThat(row).containsEntry("trade_type", "거래").containsEntry("trade_stats", "구매요청")
+			.containsEntry("order_quantity", 3).containsEntry("req_deli_date", "2099-12-31");
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info where user_id = ?", Integer.class, buyerId)).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select count(*) from trd_cart_info", Integer.class)).isZero();
+		assertThat(jdbc.queryForObject("select stock_quantity from trd_prod_reg where reg_date = ?", Integer.class, REG_A)).isEqualTo(7);
+	}
+
+	@Test
+	@DisplayName("담지 않은 매물 구매는 지금처럼 새 행")
+	void purchaseWithoutCartRowCreatesNewRow() throws Exception {
+		buy(REG_A, 1).andExpect(status().isCreated());
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info where user_id = ?", Integer.class, buyerId)).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select count(*) from trd_cart_info", Integer.class)).isZero();
+	}
+
+	@Test
+	@DisplayName("담긴 매물을 견적 요청하면 그 행이 견적요청이 된다 — 같은 거래ID")
+	void quoteConvertsCartRow() throws Exception {
+		add(buyer, REG_A).andExpect(status().isOk());
+		String id = cartTradeId(buyerId, REG_A);
+		quote(REG_A, 900).andExpect(status().isCreated());
+		var row = jdbc.queryForMap("select * from trd_trade_info where trade_id = ?", id);
+		assertThat(row).containsEntry("trade_type", "견적조정").containsEntry("trade_stats", "견적요청").containsEntry("order_unit_price", 900);
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info where user_id = ?", Integer.class, buyerId)).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select count(*) from trd_cart_info", Integer.class)).isZero();
+	}
+
+	@Test
+	@DisplayName("같은 매물의 견적 행이 이미 있으면 그 행을 덮어쓰고 장바구니 두 행만 지운다")
+	void quoteWithExistingQuoteDeletesCartRowsOnly() throws Exception {
+		quote(REG_A, 900).andExpect(status().isCreated());
+		String quoteId = jdbc.queryForObject("select trade_id from trd_trade_info where trade_type = '견적조정'", String.class);
+		add(buyer, REG_A).andExpect(status().isOk());
+		quote(REG_A, 800).andExpect(status().isCreated());
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info where user_id = ?", Integer.class, buyerId)).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select order_unit_price from trd_trade_info where trade_id = ?", Integer.class, quoteId)).isEqualTo(800);
+		assertThat(jdbc.queryForObject("select count(*) from trd_cart_info", Integer.class)).isZero();
+	}
+
+	@Test
+	@DisplayName("구매·견적을 해도 같은 매물의 비교 행(두 테이블)은 그대로")
+	void compareRowSurvivesPurchaseAndQuote() throws Exception {
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/cart/compare").cookie(buyer)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"items\":[{\"sellerId\":\"%s\",\"regDate\":\"%s\"},{\"sellerId\":\"%s\",\"regDate\":\"%s\"}]}"
+				.formatted(sellerId, REG_A, sellerId, REG_B)))
+			.andExpect(status().isOk());
+		buy(REG_A, 1).andExpect(status().isCreated());
+		quote(REG_B, 400).andExpect(status().isCreated());
+		assertThat(cartInfoRows("비교용")).isEqualTo(2);
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info where trade_stats = '비교용'", Integer.class)).isEqualTo(2);
+	}
+
+	@Test
+	@DisplayName("매물 상품을 바꾸면 거래 행과 장바구니 정보 행의 상품 번호가 새 값 — 목록이 계속 그 행을 찾는다")
+	void productChangeFollowsCartInfo() throws Exception {
+		add(buyer, REG_A).andExpect(status().isOk());
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
+			.patch("/api/v1/listings/" + sellerId + "/" + REG_A).cookie(seller).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"prodName\":\"완전 새 상품\"}")).andExpect(status().isOk());
+		String newProdId = jdbc.queryForObject("select prod_id from trd_prod_reg where reg_date = ?", String.class, REG_A);
+		assertThat(newProdId).isNotEqualTo("CARTAPI001");
+		assertThat(jdbc.queryForObject("select prod_no from trd_cart_info", String.class)).isEqualTo(newProdId);
+		assertThat(jdbc.queryForObject("select prod_id from trd_trade_info where trade_stats = '장바구니'", String.class)).isEqualTo(newProdId);
+		mvc.perform(get("/api/v1/cart").cookie(buyer)).andExpect(jsonPath("$.data.items", hasSize(1)));
+	}
+
+	@Test
+	@DisplayName("매물을 지우면 그 매물의 장바구니·비교 행도 두 테이블에서 지워진다")
 	void listingDeleteRemovesCartRows() throws Exception {
 		add(buyer, REG_A).andExpect(status().isOk());
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/cart/compare").cookie(buyer)
+			.contentType(MediaType.APPLICATION_JSON)
+			.content("{\"items\":[{\"sellerId\":\"%s\",\"regDate\":\"%s\"},{\"sellerId\":\"%s\",\"regDate\":\"%s\"}]}".formatted(sellerId, REG_A, sellerId, REG_B)))
+			.andExpect(status().isOk());
 		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders
 			.delete("/api/v1/listings/" + sellerId + "/" + REG_A).cookie(seller)).andExpect(status().isNoContent());
 		assertThat(cartRows()).isZero();
+		assertThat(cartInfoRows("장바구니")).isZero();
+		assertThat(cartInfoRows("비교용")).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info where trade_stats = '비교용'", Integer.class)).isEqualTo(1);
 	}
 
 	@Test

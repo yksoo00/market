@@ -154,6 +154,26 @@ public class TradeInfo implements Persistable<TradeInfoId> {
 		this.tradeStats = TradeStats.REQUESTED;
 	}
 
+	/**
+	 * 장바구니 행을 구매요청으로 — 새 행을 만들지 않고 같은 행이 구매요청이 된다 (설계 2026-10-27 PR 3). 거래종류도 거래로 바뀐다.
+	 * 등록일시(reg_date)는 담은 시각 그대로, 매물 스냅샷은 지금 값으로 다시 복사하고 단가는 등록단가
+	 */
+	public void convertCartToPurchase(String prodId, String prodState, Integer salesUnitPrice, Integer stockQuantity,
+			Integer minOrderQuantity, Integer orderUnit, String provDate, Integer orderQuantity, String reqDeliDate, String remarks) {
+		this.tradeType = TradeType.PURCHASE;
+		continueAsPurchase(prodId, prodState, salesUnitPrice, stockQuantity, minOrderQuantity, orderUnit, provDate, orderQuantity,
+				reqDeliDate, remarks);
+	}
+
+	/** 장바구니 행을 견적요청으로 — 같은 행이 견적조정/견적요청이 된다 */
+	public void convertCartToQuote(String prodId, String prodState, Integer salesUnitPrice, Integer stockQuantity,
+			Integer minOrderQuantity, Integer orderUnit, String provDate, Integer orderUnitPrice, Integer orderQuantity,
+			String reqDeliDate, String remarks) {
+		this.tradeType = TradeType.QUOTE;
+		requote(prodId, prodState, salesUnitPrice, stockQuantity, minOrderQuantity, orderUnit, provDate, orderUnitPrice,
+				orderQuantity, reqDeliDate, remarks);
+	}
+
 	/** 이 거래가 가리키는 매물의 PK */
 	public ListingId listingId() {
 		return new ListingId(sellerId, prodRegDate, prodId);

@@ -57,18 +57,15 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	int deleteCartRows(@Param("buyerId") UUID buyerId, @Param("tradeIds") Collection<String> tradeIds,
 			@Param("stats") TradeStats stats);
 
-	/**
-	 * 견적·구매로 넘어간 매물을 내 장바구니에서 지운다 (없으면 0). clear 는 하지 않는다 — 호출자가 방금 저장한 거래
-	 * 엔티티를 이어서 쓰고, 장바구니 행은 영속성 컨텍스트에 올라와 있지 않다
-	 */
-	@Modifying(flushAutomatically = true)
+	/** 이 매물의 내 장바구니 거래 행 (구매·견적이 이 행을 바꿔 쓴다). 구매자·매물당 장바구니 행은 하나 */
 	@Query("""
-			delete from TradeInfo t
+			select t from TradeInfo t
 			 where t.userId = :buyerId and t.sellerId = :sellerId and t.prodRegDate = :prodRegDate and t.prodId = :prodId
-			   and t.tradeStats = :stats
+			   and t.tradeType = :type and t.tradeStats = :stats
 			""")
-	int deleteCartRow(@Param("buyerId") UUID buyerId, @Param("sellerId") UUID sellerId, @Param("prodRegDate") String prodRegDate,
-			@Param("prodId") String prodId, @Param("stats") TradeStats stats);
+	Optional<TradeInfo> findReviewRow(@Param("buyerId") UUID buyerId, @Param("sellerId") UUID sellerId,
+			@Param("prodRegDate") String prodRegDate, @Param("prodId") String prodId, @Param("type") TradeType type,
+			@Param("stats") TradeStats stats);
 
 	/** 내 구매검토 행 중 그 거래상태(비교용) 전부 삭제 — 비교는 누를 때마다 목록을 바꾼다 */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
