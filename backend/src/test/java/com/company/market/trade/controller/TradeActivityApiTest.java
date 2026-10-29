@@ -1,0 +1,304 @@
+package com.company.market.trade.controller;
+
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.UUID;
+
+import com.company.market.TestInfraConfiguration;
+import com.company.market.common.auth.AuthCookies;
+import com.company.market.common.auth.JwtProvider;
+import com.company.market.common.crypto.PiiHasher;
+import com.company.market.listing.domain.Listing;
+import com.company.market.listing.domain.Product;
+import com.company.market.listing.repository.ListingRepository;
+import com.company.market.listing.repository.ProductRepository;
+import com.company.market.trade.dto.TradeCreateRequest;
+import com.company.market.trade.service.TradeService;
+import com.company.market.user.domain.User;
+import com.company.market.user.domain.UserKind;
+import com.company.market.user.repository.UserRepository;
+import jakarta.servlet.http.Cookie;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.web.servlet.MockMvc;
+
+import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+/** 내 거래이력 · 검색 범위 판정 · 내 구매 매물 검색 (설계 2026-10-27 PR 4) */
+@Import(TestInfraConfiguration.class)
+@SpringBootTest
+@AutoConfigureMockMvc
+@ActiveProfiles("test")
+class TradeActivityApiTest {
+
+	static final String REG_A = "20261015100000";
+
+	static final String REG_B = "20261015110000";
+
+	@Autowired
+	MockMvc mvc;
+
+	@Autowired
+	JdbcTemplate jdbc;
+
+	@Autowired
+	UserRepository users;
+
+	@Autowired
+	PiiHasher hasher;
+
+	@Autowired
+	JwtProvider jwtProvider;
+
+	@Autowired
+	ListingRepository listingRepository;
+
+	@Autowired
+	ProductRepository productRepository;
+
+	@Autowired
+	TradeService tradeService;
+
+	UUID sellerId;
+
+	UUID buyerId;
+
+	UUID strangerId;
+
+	Cookie seller;
+
+	Cookie buyer;
+
+	Cookie stranger;
+
+	@BeforeEach
+	void setUp() {
+		cleanUp();
+		sellerId = newUser("actseller", "01012350001");
+		buyerId = newUser("actbuyer", "01012350002");
+		strangerId = newUser("actstranger", "01012350003");
+		seller = cookie(sellerId);
+		buyer = cookie(buyerId);
+		stranger = cookie(strangerId);
+		listing("ACTAPI01", REG_A, "서버 R740", "Dell");
+		listing("ACTAPI02", REG_B, "스위치 C9300", "Cisco");
+	}
+
+	@AfterEach
+	void cleanUp() {
+		jdbc.update("delete from trd_trade_history");
+		jdbc.update("delete from trd_cart_info");
+		jdbc.update("delete from trd_trade_info");
+		jdbc.update("delete from trd_prod_reg");
+		jdbc.update("delete from trd_prod_master");
+		jdbc.update("delete from trd_user_info");
+	}
+
+	private Cookie cookie(UUID id) {
+		return new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(id));
+	}
+
+	private UUID newUser(String loginId, String phone) {
+		return users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
+			.nickname(loginId).nicknameUsage("Y").email(loginId + "@example.com").name("홍길동").phone(phone)
+			.phoneHash(hasher.hash(phone)).build()).getId();
+	}
+
+	private void listing(String prodId, String regDate, String name, String brand) {
+		productRepository.saveAndFlush(Product.builder().prodId(prodId).majorCategory("P01").middleCategory("Q01").minorCategory("R001")
+			.prodName(name).prodBrand(brand).regDate(regDate).build());
+		listingRepository.saveAndFlush(Listing.builder().userId(sellerId).regDate(regDate).prodId(prodId)
+			.tradeType("등록").prodState("신품").salesUnitPrice(1000).salesQuantity(100).stockQuantity(100)
+			.minOrderQuantity(1).orderUnit(1).deliveryDate("2099-12-31").build());
+	}
+
+	private String future() {
+		return LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(7).toString();
+	}
+
+	private String buy(UUID who, String regDate, int quantity) {
+		return tradeService.request(who, new TradeCreateRequest(sellerId, regDate, quantity, future(), null)).tradeId();
+	}
+
+	private void addToCart(Cookie who, String regDate) throws Exception {
+		mvc.perform(post("/api/v1/cart").cookie(who).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"items\":[{\"sellerId\":\"%s\",\"regDate\":\"%s\",\"orderQuantity\":1,\"reqDeliDate\":\"%s\"}]}"
+				.formatted(sellerId, regDate, future())))
+			.andExpect(status().isOk());
+	}
+
+	private void complete(Cookie who, String tradeId) throws Exception {
+		mvc.perform(post("/api/v1/trades/" + tradeId + "/complete").cookie(who)).andExpect(status().isOk());
+	}
+
+	// ---- 범위 판정 ----
+
+	@Test
+	@DisplayName("범위: 판매만 / 구매만 / 둘 다 / 둘 다 없음")
+	void scopes() throws Exception {
+		// 판매자: 매물이 있고 구매는 없다
+		mvc.perform(get("/api/v1/trades/scopes").cookie(seller)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sales").value(true)).andExpect(jsonPath("$.data.purchases").value(false));
+		// 장바구니만 담은 구매자: 구매검토는 구매 거래가 아니다 → 둘 다 없음
+		addToCart(buyer, REG_A);
+		mvc.perform(get("/api/v1/trades/scopes").cookie(buyer)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sales").value(false)).andExpect(jsonPath("$.data.purchases").value(false));
+		// 구매요청을 하면 구매만
+		buy(buyerId, REG_B, 1);
+		mvc.perform(get("/api/v1/trades/scopes").cookie(buyer)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sales").value(false)).andExpect(jsonPath("$.data.purchases").value(true));
+		// 매물도 올린 구매자: 둘 다
+		listingRepository.saveAndFlush(Listing.builder().userId(buyerId).regDate("20261016100000").prodId("ACTAPI01")
+			.tradeType("등록").prodState("신품").salesUnitPrice(1).salesQuantity(1).stockQuantity(1)
+			.minOrderQuantity(1).orderUnit(1).deliveryDate("2099-12-31").build());
+		mvc.perform(get("/api/v1/trades/scopes").cookie(buyer)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sales").value(true)).andExpect(jsonPath("$.data.purchases").value(true));
+		mvc.perform(get("/api/v1/trades/scopes").cookie(stranger)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.sales").value(false)).andExpect(jsonPath("$.data.purchases").value(false));
+	}
+
+	@Test
+	@DisplayName("범위: 거래 행이 없어도 거래이력이 있으면 구매 범위")
+	void scopesByHistoryOnly() throws Exception {
+		jdbc.update("""
+				insert into trd_trade_history (user_id, trade_id, trade_date, prod_id, trade_type, seller_id)
+				values (?, '20261015001', '20261015120000', 'ACTAPI01', '거래', ?)
+				""", strangerId, sellerId);
+		mvc.perform(get("/api/v1/trades/scopes").cookie(stranger)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.purchases").value(true));
+	}
+
+	@Test
+	@DisplayName("범위·이력·내 구매 검색은 로그인이 필요하다")
+	void requiresAuth() throws Exception {
+		mvc.perform(get("/api/v1/trades/scopes")).andExpect(status().isUnauthorized());
+		mvc.perform(get("/api/v1/trades/history")).andExpect(status().isUnauthorized());
+		mvc.perform(get("/api/v1/trades/listings")).andExpect(status().isUnauthorized());
+	}
+
+	// ---- 거래이력 ----
+
+	@Test
+	@DisplayName("이력: 구매 탭은 내가 구매자인 줄, 판매 탭은 내가 판매자인 줄, 전체는 둘 다. 남의 이력은 안 보인다")
+	void historyTabs() throws Exception {
+		String tradeId = buy(buyerId, REG_A, 3);
+		complete(buyer, tradeId);
+
+		mvc.perform(get("/api/v1/trades/history?side=buy").cookie(buyer)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items", hasSize(1)))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value(tradeId))
+			.andExpect(jsonPath("$.data.items[0].side").value("buy"))
+			.andExpect(jsonPath("$.data.items[0].prodName").value("서버 R740"))
+			.andExpect(jsonPath("$.data.items[0].counterpartNickname").value("actseller"))
+			.andExpect(jsonPath("$.data.items[0].unitPrice").value(1000))
+			.andExpect(jsonPath("$.data.items[0].quantity").value(3))
+			.andExpect(jsonPath("$.data.items[0].amount").value(3000))
+			.andExpect(jsonPath("$.data.items[0].email").doesNotExist())
+			.andExpect(jsonPath("$.data.nextCursor").doesNotExist());
+		mvc.perform(get("/api/v1/trades/history?side=sell").cookie(buyer)).andExpect(jsonPath("$.data.items", hasSize(0)));
+		mvc.perform(get("/api/v1/trades/history?side=sell").cookie(seller)).andExpect(jsonPath("$.data.items", hasSize(1)))
+			.andExpect(jsonPath("$.data.items[0].side").value("sell"))
+			.andExpect(jsonPath("$.data.items[0].counterpartNickname").value("actbuyer"));
+		mvc.perform(get("/api/v1/trades/history?side=buy").cookie(seller)).andExpect(jsonPath("$.data.items", hasSize(0)));
+		mvc.perform(get("/api/v1/trades/history").cookie(seller)).andExpect(jsonPath("$.data.items", hasSize(1)));
+		mvc.perform(get("/api/v1/trades/history").cookie(stranger)).andExpect(jsonPath("$.data.items", hasSize(0)));
+	}
+
+	@Test
+	@DisplayName("이력: 구매확정 전(구매요청)은 이력에 없다")
+	void historyOnlyConfirmed() throws Exception {
+		buy(buyerId, REG_A, 1);
+		mvc.perform(get("/api/v1/trades/history").cookie(buyer)).andExpect(jsonPath("$.data.items", hasSize(0)));
+	}
+
+	@Test
+	@DisplayName("이력: 20줄씩, 커서로 다음 장 (같은 확정일시여도 거래ID 로 이어진다)")
+	void historyPaging() throws Exception {
+		for (int i = 1; i <= 21; i++) {
+			jdbc.update("""
+					insert into trd_trade_history (user_id, trade_id, trade_date, prod_id, trade_type, seller_id, trade_unit_price, trade_quantity, trade_amount)
+					values (?, ?, '20261015120000', 'ACTAPI01', '거래', ?, 100, 1, 100)
+					""", buyerId, "202610150%02d".formatted(i), sellerId);
+		}
+		mvc.perform(get("/api/v1/trades/history?side=buy").cookie(buyer)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items", hasSize(20)))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value("20261015021"))
+			.andExpect(jsonPath("$.data.nextCursor").value("2026101512000020261015002"));
+		mvc.perform(get("/api/v1/trades/history?side=buy&cursor=2026101512000020261015002").cookie(buyer))
+			.andExpect(jsonPath("$.data.items", hasSize(1)))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value("20261015001"))
+			.andExpect(jsonPath("$.data.nextCursor").doesNotExist());
+	}
+
+	@Test
+	@DisplayName("이력: 잘못된 side·cursor 는 400")
+	void historyValidation() throws Exception {
+		mvc.perform(get("/api/v1/trades/history?side=x").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.side").exists());
+		mvc.perform(get("/api/v1/trades/history?cursor=abc").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.cursor").exists());
+	}
+
+	// ---- 내 활동내역: 진행 중만 ----
+
+	@Test
+	@DisplayName("active=true: 구매자는 견적요청·견적수락·견적거절·구매요청만, 판매자는 견적요청·구매요청만. 구매확정은 뺀다")
+	void activeStatesOnly() throws Exception {
+		String confirmed = buy(buyerId, REG_A, 1);
+		complete(buyer, confirmed);
+		String requested = buy(buyerId, REG_B, 1);
+		// 견적수락·견적거절 상태 행을 직접 만든다 (구매자 화면에는 보이고 판매자 화면에는 안 보여야 한다)
+		jdbc.update("update trd_trade_info set trade_stats = '견적수락', trade_type = '견적조정' where trade_id = ?", requested);
+
+		mvc.perform(get("/api/v1/trades?role=buyer").cookie(buyer)).andExpect(jsonPath("$.data.items", hasSize(2)));
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true").cookie(buyer)).andExpect(jsonPath("$.data.items", hasSize(1)))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value(requested));
+		mvc.perform(get("/api/v1/trades?role=seller").cookie(seller)).andExpect(jsonPath("$.data.items", hasSize(2)));
+		// 견적수락은 판매자가 이미 처리한 것 → 판매자 요청 탭에서 빠진다
+		mvc.perform(get("/api/v1/trades?role=seller&active=true").cookie(seller)).andExpect(jsonPath("$.data.items", hasSize(0)));
+	}
+
+	// ---- 내 구매 매물 검색 ----
+
+	@Test
+	@DisplayName("내 구매 검색: 거래한 매물(진행 중·구매확정)만, 장바구니만 담은 매물·남의 거래는 제외")
+	void purchasedListings() throws Exception {
+		String tradeId = buy(buyerId, REG_A, 1);
+		addToCart(buyer, REG_B);
+		mvc.perform(get("/api/v1/trades/listings").cookie(buyer)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.total").value(1))
+			.andExpect(jsonPath("$.data.items", hasSize(1)))
+			.andExpect(jsonPath("$.data.items[0].regDate").value(REG_A));
+		complete(buyer, tradeId);
+		mvc.perform(get("/api/v1/trades/listings").cookie(buyer)).andExpect(jsonPath("$.data.total").value(1));
+		mvc.perform(get("/api/v1/trades/listings").cookie(stranger)).andExpect(jsonPath("$.data.total").value(0))
+			.andExpect(jsonPath("$.data.items", hasSize(0)));
+	}
+
+	@Test
+	@DisplayName("내 구매 검색: 같은 필터가 거래한 매물 안에서만 걸리고, 한 매물을 두 번 사도 한 줄")
+	void purchasedListingsFilter() throws Exception {
+		buy(buyerId, REG_A, 1);
+		buy(buyerId, REG_B, 1);
+		mvc.perform(get("/api/v1/trades/listings?q=스위치").cookie(buyer))
+			.andExpect(jsonPath("$.data.total").value(1))
+			.andExpect(jsonPath("$.data.items[0].regDate").value(REG_B));
+		mvc.perform(get("/api/v1/trades/listings?q=없는이름").cookie(buyer)).andExpect(jsonPath("$.data.total").value(0));
+		buy(buyerId, REG_A, 1);
+		mvc.perform(get("/api/v1/trades/listings").cookie(buyer)).andExpect(jsonPath("$.data.total").value(2));
+	}
+
+}

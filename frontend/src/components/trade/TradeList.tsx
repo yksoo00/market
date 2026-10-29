@@ -24,6 +24,8 @@ type Load = { kind: "loading" } | { kind: "error" } | { kind: "ready"; items: Tr
 interface Props {
   /** buyer = 내 구매목록, seller = 받은 구매요청 */
   role: TradeRole;
+  /** 진행 중인 거래만 (내 활동내역). 생략하면 확정된 것까지 전부 */
+  active?: boolean;
   /** seller 일 때 이 매물(regDate)의 요청만 */
   reg?: string;
 }
@@ -32,7 +34,7 @@ interface Props {
  * 거래 목록 (스펙 2026-10-15-purchase-design.md·2026-10-20-quote-request-design.md "화면"). 구매자·판매자 화면이 같이 쓴다.
  * 줄마다 누를 수 있는 버튼은 lib/tradeActions. 취소하면 행이 지워져 줄을 뺀다. 상대가 먼저 처리했으면(409·404) 목록을 다시 읽는다.
  */
-export function TradeList({ role, reg }: Props) {
+export function TradeList({ role, reg, active }: Props) {
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   // 올리면 첫 페이지부터 다시 읽는다
   const [attempt, setAttempt] = useState(0);
@@ -51,14 +53,14 @@ export function TradeList({ role, reg }: Props) {
 
   useEffect(() => {
     let alive = true;
-    void tradesApi.list(role, { reg }).then((res) => {
+    void tradesApi.list(role, { reg, active }).then((res) => {
       if (!alive) return;
       setLoad(res.ok ? { kind: "ready", items: res.data.items, nextCursor: res.data.nextCursor } : { kind: "error" });
     });
     return () => {
       alive = false;
     };
-  }, [role, reg, attempt]);
+  }, [role, reg, active, attempt]);
 
   const reload = () => {
     setLoad({ kind: "loading" });
@@ -69,7 +71,7 @@ export function TradeList({ role, reg }: Props) {
     if (load.kind !== "ready" || !load.nextCursor) return;
     setLoadingMore(true);
     setMoreFailed(false);
-    const res = await tradesApi.list(role, { reg, cursor: load.nextCursor });
+    const res = await tradesApi.list(role, { reg, active, cursor: load.nextCursor });
     setLoadingMore(false);
     if (!res.ok) {
       setMoreFailed(true);
@@ -121,7 +123,7 @@ export function TradeList({ role, reg }: Props) {
       {reg && (
         <div className="flex items-center gap-3 text-[13px] text-ink-2">
           <span className="grow">{my.sales.filtered}</span>
-          <Link href="/my/sales" className="shrink-0 text-primary font-medium hover:underline">
+          <Link href="/my/activity?tab=requests" className="shrink-0 text-primary font-medium hover:underline">
             {my.sales.showAll}
           </Link>
         </div>

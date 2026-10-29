@@ -349,7 +349,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
         actionLabel={p.toPurchases}
         onAction={() => {
           setQuoted(false);
-          openTile("/my/purchases", false);
+          openTile("/my/activity?tab=purchases", false);
         }}
         onClose={() => setQuoted(false)}
       />
@@ -361,7 +361,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
         actionLabel={p.toPurchases}
         onAction={() => {
           setPurchased(false);
-          openTile("/my/purchases", false);
+          openTile("/my/activity?tab=purchases", false);
         }}
         onClose={() => setPurchased(false)}
       />

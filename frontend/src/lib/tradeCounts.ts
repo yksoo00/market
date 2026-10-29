@@ -10,5 +10,5 @@ export function pendingLabel(counts: PendingCounts | null, regDate: string): str
 
 /** 받은 구매요청을 그 매물로 걸러 연다 */
 export function salesHref(regDate: string): string {
-  return `/my/sales?reg=${regDate}`;
+  return `/my/activity?tab=requests&reg=${regDate}`;
 }

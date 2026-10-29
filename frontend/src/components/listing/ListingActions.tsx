@@ -172,7 +172,7 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
         actionLabel={p.toPurchases}
         onAction={() => {
           setQuoted(false);
-          openTile("/my/purchases", false);
+          openTile("/my/activity?tab=purchases", false);
         }}
         onClose={() => setQuoted(false)}
       />
@@ -184,7 +184,7 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
         actionLabel={p.toPurchases}
         onAction={() => {
           setPurchased(false);
-          openTile("/my/purchases", false);
+          openTile("/my/activity?tab=purchases", false);
         }}
         onClose={() => setPurchased(false)}
       />

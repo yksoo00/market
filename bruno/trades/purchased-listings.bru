@@ -1,0 +1,19 @@
+meta {
+  name: 내 구매 매물 검색
+  type: http
+  seq: 22
+}
+
+get {
+  url: {{baseUrl}}/api/v1/trades/listings?q=
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  로그인(login.bru) 먼저. 내가 거래한 매물(진행 중 + 구매확정) 안에서 GET /api/v1/listings 와 같은 조건으로 검색.
+}

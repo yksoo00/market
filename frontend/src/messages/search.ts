@@ -7,7 +7,7 @@ export const search = {
     button: "검색",
   },
   // 검색 화면 맨 위 범위 전환 (SearchScopeTabs)
-  scope: { label: "검색 범위", all: "전체", mine: "내 판매" },
+  scope: { label: "검색 범위", all: "전체", mine: "내 판매", purchased: "내 구매" },
   filter: {
     title: "필터",
     status: "거래상태",

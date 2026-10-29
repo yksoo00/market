@@ -12,6 +12,6 @@ describe("pendingLabel", () => {
 
 describe("salesHref", () => {
   it("받은 구매요청을 그 매물로 걸러 연다", () => {
-    expect(salesHref("20261015100000")).toBe("/my/sales?reg=20261015100000");
+    expect(salesHref("20261015100000")).toBe("/my/activity?tab=requests&reg=20261015100000");
   });
 });

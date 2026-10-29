@@ -108,7 +108,7 @@ test("견적 요청 → 판매자 수락(매물 단가 변경) → 구매자 [�
   });
 
   await test.step("구매자 내 구매목록: 견적요청 줄 (등록단가 → 희망단가), [취소] 만", async () => {
-    await page.goto("/my/purchases");
+    await page.goto("/my/activity?tab=purchases");
     const row = page.getByRole("table").getByRole("row").filter({ hasText: prodName });
     await expect(row.getByText(t.stats.quoteRequested)).toBeVisible();
     await expect(row).toContainText("9,000");
@@ -119,7 +119,7 @@ test("견적 요청 → 판매자 수락(매물 단가 변경) → 구매자 [�
 
   await test.step("판매자 받은 구매요청: [수락] → 매물 단가 9000", async () => {
     await logIn(page, seller);
-    await page.goto("/my/sales");
+    await page.goto("/my/activity?tab=requests");
     await page.getByRole("button", { name: t.acceptAria(prodName) }).click();
     const row = page.getByRole("table").getByRole("row").filter({ hasText: prodName });
     await expect(row.getByText(t.stats.quoteAccepted)).toBeVisible();
@@ -132,7 +132,7 @@ test("견적 요청 → 판매자 수락(매물 단가 변경) → 구매자 [�
 
   await test.step("구매자: 회신 완료 줄의 [구매] → 구매 모달 → 구매요청", async () => {
     await logIn(page, buyer);
-    await page.goto("/my/purchases");
+    await page.goto("/my/activity?tab=purchases");
     await page.getByRole("button", { name: t.buyAria(prodName) }).click();
     const dialog = page.getByRole("dialog", { name: trade.purchase.title });
     await expect(dialog).toBeVisible();
@@ -162,7 +162,7 @@ test("견적 요청 → 판매자 거절 → 구매자 [재요청] → 다시 �
 
   const sellerRejects = async () => {
     await logIn(page, seller);
-    await page.goto("/my/sales");
+    await page.goto("/my/activity?tab=requests");
     await page.getByRole("button", { name: t.rejectAria(prodName) }).click();
     await expect(buyerRow().getByText(t.stats.quoteRejected)).toBeVisible();
     // 답한 뒤엔 판매자에게 버튼이 없다
@@ -217,7 +217,7 @@ test("견적 요청 → 판매자 거절 → 구매자 [재요청] → 다시 �
 
   await test.step("구매자: 거절됨 줄은 [재요청]·[취소]만, [구매] 없음", async () => {
     await logIn(page, buyer);
-    await page.goto("/my/purchases");
+    await page.goto("/my/activity?tab=purchases");
     await expect(buyerRow().getByText(t.stats.quoteRejected)).toBeVisible();
     await expect(page.getByRole("button", { name: t.requoteAria(prodName) })).toBeVisible();
     await expect(page.getByRole("button", { name: t.cancelAria(prodName) })).toBeVisible();
@@ -241,7 +241,7 @@ test("견적 요청 → 판매자 거절 → 구매자 [재요청] → 다시 �
 
   await test.step("구매자 [취소] → 줄이 지워진다", async () => {
     await logIn(page, buyer);
-    await page.goto("/my/purchases");
+    await page.goto("/my/activity?tab=purchases");
     await page.getByRole("button", { name: t.cancelAria(prodName) }).click();
     await expect(buyerRow()).toHaveCount(0);
   });

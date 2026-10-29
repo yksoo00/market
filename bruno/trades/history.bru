@@ -1,0 +1,19 @@
+meta {
+  name: 내 거래이력
+  type: http
+  seq: 20
+}
+
+get {
+  url: {{baseUrl}}/api/v1/trades/history?side=all
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  로그인(login.bru) 먼저. 구매확정된 거래만. side = all(기본) | buy(내가 구매자) | sell(내가 판매자). nextCursor 를 cursor 로 넘기면 다음 20줄.
+}

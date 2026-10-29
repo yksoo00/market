@@ -428,20 +428,30 @@ public class ListingService {
 		return toResponse(listing, products.get(listing.getProdId()));
 	}
 
+	/** 내 매물이 하나라도 있나 — 거래 도메인이 검색 범위 탭을 정할 때 부른다 */
+	public boolean hasListings(UUID userId) {
+		return listings.existsByUserId(userId);
+	}
+
 	/** ownerId = null 이면 전체, 있으면 그 사용자 글만 (컨트롤러가 mine=true 일 때 인증 정보에서 넣는다) */
 	public ListingPageResponse search(ListingSearchCondition condition, UUID ownerId) {
+		return search(condition, ownerId, null);
+	}
+
+	/** keys = null 이면 매물 제한 없음, 있으면 그 매물들 안에서만 (내 구매 범위 — 거래 도메인이 키를 넘긴다) */
+	public ListingPageResponse search(ListingSearchCondition condition, UUID ownerId, Collection<ListingId> keys) {
 		if (condition.minPrice() != null && condition.maxPrice() != null && condition.minPrice() > condition.maxPrice()) {
 			throw new ValidationException(Map.of("maxPrice", "최대 가격은 최소 가격보다 크거나 같아야 합니다."));
 		}
 		Optional<Cursor> cursor = decodeCursor(condition.cursor());
-		List<Object[]> rows = searchRepository.findPage(condition, ownerId, cursor.map(Cursor::regDate).orElse(null),
+		List<Object[]> rows = searchRepository.findPage(condition, ownerId, keys, cursor.map(Cursor::regDate).orElse(null),
 				cursor.map(Cursor::userId).orElse(null), PAGE_SIZE + 1);
 		boolean hasMore = rows.size() > PAGE_SIZE;
 		List<Object[]> page = hasMore ? rows.subList(0, PAGE_SIZE) : rows;
 
 		List<ListingSearchItemResponse> items = page.stream().map(r -> toSearchItem((Listing) r[0], (Product) r[1])).toList();
 		String nextCursor = hasMore ? encodeCursor((Listing) page.get(page.size() - 1)[0]) : null;
-		return new ListingPageResponse(items, nextCursor, searchRepository.count(condition, ownerId));
+		return new ListingPageResponse(items, nextCursor, searchRepository.count(condition, ownerId, keys));
 	}
 
 	/**

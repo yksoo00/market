@@ -398,8 +398,14 @@ public class TradeService {
 			.map(trade -> respond(viewerId, trade, trade.getTradeStats()));
 	}
 
-	/** role = buyer(내 구매) | seller(받은 구매요청, regDate 로 한 매물만). 최신순 20개 + 커서 */
-	public TradePageResponse list(UUID me, String role, String regDate, String cursor) {
+	/** 내 활동내역에 보이는 진행 중 상태 — 구매자: 보낸 견적·구매중, 판매자: 처리할 견적요청·구매요청 (설계 2026-10-27 PR 4) */
+	private static final List<TradeStats> BUYER_ACTIVE = List.of(TradeStats.QUOTE_REQUESTED, TradeStats.QUOTE_ACCEPTED,
+			TradeStats.QUOTE_REJECTED, TradeStats.REQUESTED);
+
+	private static final List<TradeStats> SELLER_ACTIVE = List.of(TradeStats.QUOTE_REQUESTED, TradeStats.REQUESTED);
+
+	/** role = buyer(내 구매) | seller(받은 구매요청, regDate 로 한 매물만). active 면 진행 중 상태만. 최신순 20개 + 커서 */
+	public TradePageResponse list(UUID me, String role, String regDate, String cursor, boolean active) {
 		if (cursor != null && !cursor.isEmpty() && !cursor.matches("\\d{11}")) {
 			throw new ValidationException(Map.of("cursor", "커서 형식이 올바르지 않습니다."));
 		}
@@ -409,11 +415,12 @@ public class TradeService {
 		List<TradeInfo> rows;
 		if ("buyer".equals(role)) {
 			asBuyer = true;
-			rows = trades.findBuyerPage(me, TradeType.REVIEW, after, page);
+			rows = trades.findBuyerPage(me, TradeType.REVIEW, active ? BUYER_ACTIVE : List.of(TradeStats.values()), after, page);
 		}
 		else if ("seller".equals(role)) {
 			asBuyer = false;
-			rows = trades.findSellerPage(me, TradeType.REVIEW, regDate == null || regDate.isBlank() ? null : regDate, after, page);
+			rows = trades.findSellerPage(me, TradeType.REVIEW, active ? SELLER_ACTIVE : List.of(TradeStats.values()),
+					regDate == null || regDate.isBlank() ? null : regDate, after, page);
 		}
 		else {
 			throw new ValidationException(Map.of("role", "role 은 buyer 또는 seller 여야 합니다."));

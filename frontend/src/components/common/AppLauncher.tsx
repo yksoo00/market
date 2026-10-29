@@ -22,9 +22,9 @@ const t = home.quick;
 const routes = {
   sellManual: "/listings/new",
   sellExtra: "/listings/extra",
-  sellQuote: "/my/sales",
+  sellQuote: "/my/activity?tab=requests",
   buyRequest: "/search",
-  buyQuotes: "/my/purchases",
+  buyQuotes: "/my/activity?tab=purchases",
 };
 
 type Tone = "sell" | "buy";

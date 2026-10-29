@@ -6,7 +6,8 @@ const path = (userId: string, regDate: string) => `/api/v1/listings/${userId}/${
 
 export const listingsApi = {
   search: (query: SearchQuery, cursor?: string, scope: SearchScope = "search") =>
-    api<ListingSearchPage>(`/api/v1/listings?${searchApiParams(query, cursor, scope)}`, { cache: "no-store" }),
+    // 내 구매 범위는 거래 도메인이 내 거래 매물 안에서 같은 조건으로 찾는다 (응답 모양은 같다)
+    api<ListingSearchPage>(`${query.purchased ? "/api/v1/trades/listings" : "/api/v1/listings"}?${searchApiParams(query, cursor, scope)}`, { cache: "no-store" }),
   get: (userId: string, regDate: string) => api<ListingDetail>(path(userId, regDate), { cache: "no-store" }),
   /** idempotencyKey: 폼을 연 동안 같은 값. 응답이 유실돼 다시 보내도 서버가 매물을 두 번 만들지 않게 (security.md "중복 생성 방지") */
   create: (req: ListingCreateRequest, idempotencyKey: string) =>
