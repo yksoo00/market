@@ -268,18 +268,30 @@ describe("검색 화면의 [내 구매] (purchased=1)", () => {
   it("주소에 purchased=1, 기본값(전체)은 생략", () => {
     const query = parseSearchParams({ purchased: "1", q: "R740" });
     expect(buildSearchHref(query)).toBe("/search?q=R740&purchased=1");
-    expect(buildSearchHref({ ...query, purchased: false })).toBe("/search?q=R740");
+    expect(buildSearchHref({ ...query, purchased: false, status: "available" })).toBe("/search?q=R740");
   });
 
   it("API 쿼리에는 mine 을 싣지 않는다 — 다른 주소(trades/listings)로 간다", () => {
     const p = new URLSearchParams(searchApiParams(parseSearchParams({ purchased: "1" })));
     expect(p.has("mine")).toBe(false);
-    expect(p.get("status")).toBe("available");
+    expect(p.get("status")).toBe("all");
   });
 
   it("필터가 아니라 개수에 안 세고, 초기화해도 남는다", () => {
     const query = parseSearchParams({ purchased: "1", minStock: "3" });
     expect(activeFilterCount(query)).toBe(1);
     expect(clearFilters(query).purchased).toBe(true);
+  });
+});
+
+describe("내 구매의 거래상태 기본값", () => {
+  it("내 구매는 지난 거래도 보여야 해서 기본값이 전체, 주소에는 기본값이면 status 를 안 싣는다", () => {
+    const query = parseSearchParams({ purchased: "1" });
+    expect(query.status).toBe("all");
+    expect(buildSearchHref(query)).toBe("/search?purchased=1");
+    expect(buildSearchHref({ ...query, status: "available" })).toBe("/search?status=available&purchased=1");
+    expect(activeFilterCount(query)).toBe(0);
+    expect(new URLSearchParams(searchApiParams(query)).get("status")).toBe("all");
+    expect(clearFilters({ ...query, status: "available" }).status).toBe("all");
   });
 });

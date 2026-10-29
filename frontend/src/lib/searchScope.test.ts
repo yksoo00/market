@@ -32,3 +32,28 @@ describe("tabOf · withScope", () => {
     expect(withScope(bought, "all")).toMatchObject({ mine: false, purchased: false });
   });
 });
+
+describe("scopeTabs — 지금 보는 범위는 항상 탭에 있다", () => {
+  it("주소로 바로 왔거나 조회 전·실패여도 내 구매 탭과 [전체]가 보인다", () => {
+    expect(scopeTabs(null, "purchased")).toEqual(["all", "purchased"]);
+    expect(scopeTabs({ sales: false, purchases: false }, "mine")).toEqual(["all", "mine"]);
+    expect(scopeTabs({ sales: true, purchases: false }, "purchased")).toEqual(["all", "mine", "purchased"]);
+  });
+});
+
+describe("withScope — 거래상태 기본값", () => {
+  it("건드리지 않은 거래상태는 내 구매에서 전체, 다시 전체 검색으로 오면 거래 가능으로 따라간다", () => {
+    const search = parseSearchParams({ q: "R740" });
+    expect(search.status).toBe("available");
+    const bought = withScope(search, "purchased");
+    expect(bought.status).toBe("all");
+    expect(withScope(bought, "all").status).toBe("available");
+  });
+
+  it("사용자가 고른 거래상태는 범위를 바꿔도 그대로", () => {
+    const picked = parseSearchParams({ status: "completed" });
+    expect(withScope(picked, "purchased").status).toBe("completed");
+    const boughtPicked = parseSearchParams({ purchased: "1", status: "available" });
+    expect(withScope(boughtPicked, "all").status).toBe("available");
+  });
+});

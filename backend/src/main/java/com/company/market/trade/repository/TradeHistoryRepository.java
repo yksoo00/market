@@ -12,7 +12,7 @@ import org.springframework.data.repository.query.Param;
 
 public interface TradeHistoryRepository extends JpaRepository<TradeHistory, TradeHistoryId> {
 
-	/** 내가 구매자거나 판매자인 이력이 하나라도 있나 (검색 "내 구매" 탭 판정) */
+	/** 내가 구매자인 이력이 하나라도 있나 (검색 "내 구매" 탭 판정) */
 	boolean existsByUserId(UUID userId);
 
 	/**

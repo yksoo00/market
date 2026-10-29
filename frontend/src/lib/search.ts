@@ -51,7 +51,8 @@ export interface SearchQuery {
  */
 export type SearchScope = "search" | "mine";
 
-const defaultStatus = (scope: SearchScope): StatusFilter => (scope === "mine" ? "all" : "available");
+/** 내 판매글과 내 구매는 지나간(거래완료) 매물도 보여야 해서 거래상태 기본값이 "전체"다 */
+export const defaultStatus = (scope: SearchScope, purchased = false): StatusFilter => (scope === "mine" || purchased ? "all" : "available");
 
 export type RawSearchParams = Record<string, string | string[] | undefined>;
 
@@ -89,16 +90,17 @@ function intInRange(s: string, max: number): number | undefined {
 export function parseSearchParams(raw: RawSearchParams, scope: SearchScope = "search"): SearchQuery {
   const field = first(raw.field) as SearchField;
   const status = first(raw.status) as StatusFilter;
+  // 내 판매와 내 구매가 같이 오면 내 판매 (손으로 고친 주소)
+  const purchased = scope === "search" && first(raw.mine) !== "1" && first(raw.purchased) === "1";
   const query: SearchQuery = {
     // 넘치는 검색어를 그대로 보내면 서버 400 이 [다시 시도]로도 안 풀린다 → 잘라서 쓴다
     q: first(raw.q).trim().slice(0, MAX_QUERY).trim(),
     field: FIELDS.includes(field) ? field : "all",
     // 형식이 틀린 코드를 보내면 서버 400 이 [다시 시도]로도 안 풀린다 → 버린다
     category: CATEGORY_PATTERN.test(first(raw.category)) ? first(raw.category) : "",
-    status: STATUSES.includes(status) ? status : defaultStatus(scope),
+    status: STATUSES.includes(status) ? status : defaultStatus(scope, purchased),
     mine: scope === "search" && first(raw.mine) === "1",
-    // 내 판매와 내 구매가 같이 오면 내 판매 (손으로 고친 주소)
-    purchased: scope === "search" && first(raw.mine) !== "1" && first(raw.purchased) === "1",
+    purchased,
     has: HAS_ITEMS.filter((h) => first(raw.has).split(",").includes(h)),
   };
   const minStock = intInRange(first(raw.minStock), MAX_STOCK);
@@ -131,7 +133,7 @@ export function buildSearchHref(query: SearchQuery, scope: SearchScope = "search
   const p = new URLSearchParams();
   if (query.q) p.set("q", query.q);
   if (query.field !== "all") p.set("field", query.field);
-  if (query.status !== defaultStatus(scope)) p.set("status", query.status);
+  if (query.status !== defaultStatus(scope, query.purchased)) p.set("status", query.status);
   setFilterParams(p, query);
   if (scope === "search" && query.mine) p.set("mine", "1");
   if (scope === "search" && query.purchased) p.set("purchased", "1");
@@ -185,7 +187,7 @@ export function detailFilterCount(query: SearchQuery): number {
 export function activeFilterCount(query: SearchQuery, scope: SearchScope = "search"): number {
   return (
     [
-      query.status !== defaultStatus(scope),
+      query.status !== defaultStatus(scope, query.purchased),
       query.category !== "",
       query.minStock !== undefined,
       query.minPrice !== undefined,
@@ -195,7 +197,7 @@ export function activeFilterCount(query: SearchQuery, scope: SearchScope = "sear
 }
 
 export function clearFilters(query: SearchQuery, scope: SearchScope = "search"): SearchQuery {
-  return { q: query.q, field: query.field, category: "", status: defaultStatus(scope), mine: query.mine, purchased: query.purchased, has: [] };
+  return { q: query.q, field: query.field, category: "", status: defaultStatus(scope, query.purchased), mine: query.mine, purchased: query.purchased, has: [] };
 }
 
 export function listingHref(item: Pick<ListingSearchItem, "userId" | "regDate">): string {

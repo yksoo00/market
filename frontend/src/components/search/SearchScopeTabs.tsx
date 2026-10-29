@@ -26,9 +26,9 @@ export function SearchScopeTabs({ query }: { query: SearchQuery }) {
     };
   }, []);
 
-  const tabs = scopeTabs(scopes);
-  if (tabs.length === 0) return null;
   const current = tabOf(query);
+  const tabs = scopeTabs(scopes, current);
+  if (tabs.length === 0) return null;
   return (
     <nav aria-label={t.label} className="self-start flex h-8.5 rounded-md border border-line bg-surface overflow-hidden">
       {tabs.map((tab, i) => (
