@@ -5,15 +5,16 @@ import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { ResultDialog } from "@/components/common/ResultDialog";
+import { CartDialog } from "@/components/trade/CartDialog";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog } from "@/components/trade/QuoteDialog";
-import { cartApi } from "@/lib/api/cart";
 import { listingsApi } from "@/lib/api/listings";
 import { notifyCartChanged } from "@/lib/cart";
 import { cartBlocked, ownerActions, purchaseBlockReason } from "@/lib/listingDetail";
 import { cart } from "@/messages/cart";
 import { listing } from "@/messages/listing";
 import { trade } from "@/messages/trade";
+import type { CartAddResult } from "@/types/cart";
 import type { ListingDetail } from "@/types/listing";
 
 const t = listing.detail;
@@ -45,9 +46,8 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
   const [purchased, setPurchased] = useState(false);
   const [quoting, setQuoting] = useState(false);
   const [quoted, setQuoted] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const [added, setAdded] = useState(false);
-  const [cartError, setCartError] = useState<string | null>(null);
+  const [cartOpen, setCartOpen] = useState(false);
+  const [added, setAdded] = useState<CartAddResult | null>(null);
 
   const block = purchaseBlockReason(detail, meId);
   const mine = ownerActions(detail);
@@ -62,20 +62,6 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
     open();
   };
   const buy = () => openIfLoggedIn(() => setBuying(true));
-  // 장바구니는 모달 없이 바로 담는다. 이미 담겨 있어도 성공
-  const addToCart = async () => {
-    setAdding(true);
-    setCartError(null);
-    const res = await cartApi.add([{ sellerId: detail.userId, regDate: detail.regDate }]);
-    setAdding(false);
-    if (res.ok) {
-      notifyCartChanged();
-      setAdded(true);
-    } else {
-      setCartError(trade.errors[res.code] ?? res.message);
-    }
-  };
-
   const remove = async () => {
     if (!window.confirm(t.confirmDelete)) return;
     setDeleting(true);
@@ -121,8 +107,8 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
               {/* 견적도 구매와 같은 이유(거래완료·재고 부족)로 막는다. 장바구니는 거래완료·내 매물만 (cartBlocked) */}
               <button
                 type="button"
-                onClick={() => openIfLoggedIn(() => void addToCart())}
-                disabled={cartBlocked(detail, meId) || adding}
+                onClick={() => openIfLoggedIn(() => setCartOpen(true))}
+                disabled={cartBlocked(detail, meId)}
                 className={outline}
               >
                 {cart.add.button}
@@ -139,11 +125,6 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
                 {t.buy}
               </button>
               {block !== null && block !== "login" && <span className="text-[13px] text-ink-2">{p.blocked[block]}</span>}
-              {cartError && (
-                <span role="alert" className="text-[13px] text-down">
-                  {cartError}
-                </span>
-              )}
             </>
           )}
         </div>
@@ -158,6 +139,17 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
             notifyCartChanged();
             setPurchased(true);
             onPurchased?.();
+          }}
+        />
+      )}
+      {!owner && cartOpen && (
+        <CartDialog
+          targets={[{ sellerId: detail.userId, regDate: detail.regDate }]}
+          open
+          onOpenChange={setCartOpen}
+          onAdded={(result) => {
+            notifyCartChanged();
+            setAdded(result);
           }}
         />
       )}
@@ -197,16 +189,17 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
         onClose={() => setPurchased(false)}
       />
       <ResultDialog
-        open={added}
+        open={added !== null}
         tone="success"
         title={cart.add.doneTitle}
-        message={cart.add.doneMessage}
+        message={added && added.skipped > 0 ? `${cart.add.doneMessage}
+${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
         actionLabel={cart.add.toCart}
         onAction={() => {
-          setAdded(false);
+          setAdded(null);
           openTile("/my/cart", false);
         }}
-        onClose={() => setAdded(false)}
+        onClose={() => setAdded(null)}
       />
     </div>
   );

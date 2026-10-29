@@ -36,13 +36,16 @@ interface Props {
   quoteTradeId?: string;
   /** 견적에서 연 모달의 주문량 기본값(견적 수량). 없으면 최소주문량 */
   defaultQuantity?: number;
+  /** 장바구니에서 연 모달의 기본값(담을 때 입력한 값). 없으면 제공가능일·빈 요청사항 */
+  defaultReqDeliDate?: string;
+  defaultRemarks?: string;
 }
 
 /**
  * 구매요청 모달 (스펙 2026-10-15-purchase-design.md "구매 모달"). 상세·검색 결과가 같이 쓴다.
  * 열 때마다 매물을 다시 읽는다 — 검색 결과엔 최소주문량·주문단위가 없고, 재고는 최신이어야 해서.
  */
-export function PurchaseDialog({ sellerId, regDate, open, onOpenChange, onPurchased, quoteTradeId, defaultQuantity }: Props) {
+export function PurchaseDialog({ sellerId, regDate, open, onOpenChange, onPurchased, quoteTradeId, defaultQuantity, defaultReqDeliDate, defaultRemarks }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* 3분할 아래 칸(iframe)은 창 높이의 절반도 안 된다 — 낮은 칸에선 여백을 줄이고, 그래도 넘치면 모달 안에서 스크롤 (dialog.tsx max-h) */}
@@ -58,6 +61,8 @@ export function PurchaseDialog({ sellerId, regDate, open, onOpenChange, onPurcha
             regDate={regDate}
             quoteTradeId={quoteTradeId}
             defaultQuantity={defaultQuantity}
+            defaultReqDeliDate={defaultReqDeliDate}
+            defaultRemarks={defaultRemarks}
             onClose={() => onOpenChange(false)}
             onPurchased={onPurchased}
           />
@@ -72,7 +77,7 @@ type Load =
   | { kind: "error" }
   | { kind: "ready"; detail: ListingDetail; meId: string | null; anonymous: boolean; version: number };
 
-function PurchaseBody({ sellerId, regDate, quoteTradeId, defaultQuantity, onClose, onPurchased }: Omit<Props, "open" | "onOpenChange"> & { onClose: () => void }) {
+function PurchaseBody({ sellerId, regDate, quoteTradeId, defaultQuantity, defaultReqDeliDate, defaultRemarks, onClose, onPurchased }: Omit<Props, "open" | "onOpenChange"> & { onClose: () => void }) {
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const pathname = usePathname();
   const [notice, setNotice] = useState<string | null>(null);
@@ -156,6 +161,8 @@ function PurchaseBody({ sellerId, regDate, quoteTradeId, defaultQuantity, onClos
       detail={load.detail}
       quoteTradeId={quoteTradeId}
       defaultQuantity={defaultQuantity}
+      defaultReqDeliDate={defaultReqDeliDate}
+      defaultRemarks={defaultRemarks}
       notice={notice}
       onStockChanged={() => {
         setNotice(t.stockRefreshed);
@@ -171,13 +178,15 @@ interface FormProps {
   detail: ListingDetail;
   quoteTradeId?: string;
   defaultQuantity?: number;
+  defaultReqDeliDate?: string;
+  defaultRemarks?: string;
   notice: string | null;
   onStockChanged: () => void;
   onClose: () => void;
   onPurchased: (created: Trade) => void;
 }
 
-function PurchaseForm({ detail, quoteTradeId, defaultQuantity, notice, onStockChanged, onClose, onPurchased }: FormProps) {
+function PurchaseForm({ detail, quoteTradeId, defaultQuantity, defaultReqDeliDate, defaultRemarks, notice, onStockChanged, onClose, onPurchased }: FormProps) {
   // 날짜 기준·중복 방지 키는 폼을 연 동안 고정
   const [today] = useState(() => todayInSeoul());
   const [idempotencyKey] = useState(() => crypto.randomUUID());
@@ -193,7 +202,11 @@ function PurchaseForm({ detail, quoteTradeId, defaultQuantity, notice, onStockCh
     ),
     mode: "onTouched",
     reValidateMode: "onChange",
-    defaultValues: { orderQuantity: String(defaultQuantity ?? detail.minOrderQuantity), reqDeliDate: detail.deliveryDate ?? "", remarks: "" },
+    defaultValues: {
+      orderQuantity: String(defaultQuantity ?? detail.minOrderQuantity),
+      reqDeliDate: defaultReqDeliDate ?? detail.deliveryDate ?? "",
+      remarks: defaultRemarks ?? "",
+    },
   });
   const {
     control,

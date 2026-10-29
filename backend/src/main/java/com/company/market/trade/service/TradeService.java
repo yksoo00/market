@@ -1,7 +1,6 @@
 package com.company.market.trade.service;
 
 import java.time.Clock;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -31,6 +30,7 @@ import com.company.market.trade.service.TradeMailEvent.Kind;
 import com.company.market.trade.dto.TradeCreateRequest;
 import com.company.market.trade.dto.TradePageResponse;
 import com.company.market.trade.dto.TradeResponse;
+import com.company.market.trade.repository.CartInfoRepository;
 import com.company.market.trade.repository.TradeHistoryRepository;
 import com.company.market.trade.repository.TradeInfoRepository;
 import com.company.market.user.service.UserDirectory;
@@ -65,6 +65,10 @@ public class TradeService {
 
 	private final UserDirectory userDirectory;
 
+	private final TradeInputRules rules;
+
+	private final CartInfoRepository cartInfos;
+
 	private final Clock clock;
 
 	/** 메일 이벤트 — 커밋 뒤 TradeMailListener 가 보낸다 */
@@ -80,35 +84,46 @@ public class TradeService {
 			throw new ApiException(ErrorCode.LISTING_COMPLETED);
 		}
 		String reqDeliDate = req.reqDeliDate();
-		validate(listing, req.orderQuantity(), reqDeliDate);
+		rules.validate(listing, req.orderQuantity(), reqDeliDate);
 		// 재고는 아래 조건부 UPDATE 가 최종 판정. 여기선 거래ID·락을 잡기 전에 뻔한 초과를 먼저 돌려보낸다
 		if (listing.stockQuantity() == null || req.orderQuantity() > listing.stockQuantity()) {
 			throw new ApiException(ErrorCode.TRADE_OUT_OF_STOCK);
 		}
 
-		TradeInfo trade = trades.saveAndFlush(TradeInfo.builder()
-			.userId(buyerId)
-			.tradeId(tradeIds.next())
-			.tradeType(TradeType.PURCHASE)
-			.sellerId(listing.sellerId())
-			.prodRegDate(listing.regDate())
-			.regDate(LocalDateTime.now(clock).format(TIMESTAMP_FORMAT))
-			.prodId(listing.prodId())
-			.prodState(listing.prodState())
-			.salesUnitPrice(listing.salesUnitPrice())
-			.stockQuantity(listing.stockQuantity())
-			.minOrderQuantity(listing.minOrderQuantity())
-			.orderUnit(listing.orderUnit())
-			.provDate(listing.provDate())
-			.orderUnitPrice(listing.salesUnitPrice())
-			.orderQuantity(req.orderQuantity())
-			.reqDeliDate(reqDeliDate)
-			.remarks(req.remarks() == null || req.remarks().isBlank() ? null : req.remarks().trim())
-			.tradeStats(TradeStats.REQUESTED)
-			.build());
+		String remarks = req.remarks() == null || req.remarks().isBlank() ? null : req.remarks().trim();
+		// 담아 둔 매물이면 새 행을 만들지 않고 그 장바구니 행이 구매요청이 된다 — 어디서 눌렀든(설계 2026-10-27 PR 3).
+		// 아래에서 실패하면 같이 롤백돼 장바구니 두 행이 남는다
+		TradeInfo cartRow = cartRowOf(buyerId, listing);
+		TradeInfo trade;
+		if (cartRow != null) {
+			cartRow.convertCartToPurchase(listing.prodId(), listing.prodState(), listing.salesUnitPrice(), listing.stockQuantity(),
+					listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), req.orderQuantity(), reqDeliDate, remarks);
+			trade = trades.saveAndFlush(cartRow);
+			cartInfos.deleteByTradeId(trade.getTradeId());
+		}
+		else {
+			trade = trades.saveAndFlush(TradeInfo.builder()
+				.userId(buyerId)
+				.tradeId(tradeIds.next())
+				.tradeType(TradeType.PURCHASE)
+				.sellerId(listing.sellerId())
+				.prodRegDate(listing.regDate())
+				.regDate(LocalDateTime.now(clock).format(TIMESTAMP_FORMAT))
+				.prodId(listing.prodId())
+				.prodState(listing.prodState())
+				.salesUnitPrice(listing.salesUnitPrice())
+				.stockQuantity(listing.stockQuantity())
+				.minOrderQuantity(listing.minOrderQuantity())
+				.orderUnit(listing.orderUnit())
+				.provDate(listing.provDate())
+				.orderUnitPrice(listing.salesUnitPrice())
+				.orderQuantity(req.orderQuantity())
+				.reqDeliDate(reqDeliDate)
+				.remarks(remarks)
+				.tradeStats(TradeStats.REQUESTED)
+				.build());
+		}
 		listings.reserveStock(listing.id(), req.orderQuantity());
-		// 구매로 넘어간 매물은 장바구니에서 뺀다 — 어디서 눌렀든(스펙 2026-10-21). 위에서 실패하면 같이 롤백돼 남는다
-		trades.deleteCartRow(buyerId, listing.sellerId(), listing.regDate(), listing.prodId(), TradeStats.CART);
 		mail(Kind.PURCHASE_REQUESTED, trade, buyerId, listing.prodName());
 		return toResponse(trade, TradeStats.REQUESTED, listing.prodName(), listing.photo(), nicknameOf(listing.sellerId()));
 	}
@@ -144,14 +159,14 @@ public class TradeService {
 			if (item.orderUnitPrice() > listing.salesUnitPrice()) {
 				failures.put(prefix + "orderUnitPrice", "희망단가는 등록단가(%d원) 이하로 입력해 주세요.".formatted(listing.salesUnitPrice()));
 			}
-			String quantityFailure = quantityFailure(listing, item.orderQuantity(), item.orderUnitPrice());
+			String quantityFailure = rules.quantityFailure(listing, item.orderQuantity(), item.orderUnitPrice());
 			if (quantityFailure == null && (listing.stockQuantity() == null || item.orderQuantity() > listing.stockQuantity())) {
 				quantityFailure = "현재 재고(%d)보다 많이 요청할 수 없습니다.".formatted(listing.stockQuantity() == null ? 0 : listing.stockQuantity());
 			}
 			if (quantityFailure != null) {
 				failures.put(prefix + "orderQuantity", quantityFailure);
 			}
-			String dateFailure = reqDeliDateFailure(item.reqDeliDate());
+			String dateFailure = rules.reqDeliDateFailure(item.reqDeliDate());
 			if (dateFailure != null) {
 				failures.put(prefix + "reqDeliDate", dateFailure);
 			}
@@ -161,11 +176,20 @@ public class TradeService {
 			String remarks = item.remarks() == null || item.remarks().isBlank() ? null : item.remarks().trim();
 			TradeInfo existing = trades.findByUserIdAndSellerIdAndProdRegDateAndProdIdAndTradeTypeAndTradeStatsIn(buyerId,
 					listing.sellerId(), listing.regDate(), listing.prodId(), TradeType.QUOTE, TradeStats.QUOTE_STAGES).orElse(null);
+			TradeInfo cartRow = existing == null ? cartRowOf(buyerId, listing) : null;
 			if (existing != null) {
 				existing.requote(listing.prodId(), listing.prodState(), listing.salesUnitPrice(), listing.stockQuantity(),
 						listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), item.orderUnitPrice(),
 						item.orderQuantity(), item.reqDeliDate(), remarks);
 				saved.add(trades.saveAndFlush(existing));
+			}
+			else if (cartRow != null) {
+				// 담아 둔 매물이면 그 장바구니 행이 견적요청이 된다 (설계 2026-10-27 PR 3)
+				cartRow.convertCartToQuote(listing.prodId(), listing.prodState(), listing.salesUnitPrice(), listing.stockQuantity(),
+						listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), item.orderUnitPrice(),
+						item.orderQuantity(), item.reqDeliDate(), remarks);
+				saved.add(trades.saveAndFlush(cartRow));
+				cartInfos.deleteByTradeId(cartRow.getTradeId());
 			}
 			else {
 				try {
@@ -196,8 +220,11 @@ public class TradeService {
 				}
 			}
 			snapshots.add(listing);
-			// 견적으로 넘어간 매물은 장바구니에서 뺀다. 뒤 칸에서 실패(400·409)하면 트랜잭션째 롤백돼 남는다
-			trades.deleteCartRow(buyerId, listing.sellerId(), listing.regDate(), listing.prodId(), TradeStats.CART);
+			// 이미 견적 행이 있어 그 행을 덮어쓴 경우엔 장바구니 두 행을 지운다(장바구니 행을 견적으로 바꾸면 견적 행이 둘이 된다).
+			// 뒤 칸에서 실패(400·409)하면 트랜잭션째 롤백돼 남는다
+			if (existing != null) {
+				dropCartRow(buyerId, listing);
+			}
 			// 커밋 뒤에만 나가므로 뒤에서 실패(400·409)해 롤백되면 이 메일도 안 간다
 			mail(Kind.QUOTE_REQUESTED, saved.getLast(), buyerId, listing.prodName());
 		}
@@ -297,7 +324,7 @@ public class TradeService {
 			throw new ApiException(ErrorCode.LISTING_COMPLETED);
 		}
 		String reqDeliDate = req.reqDeliDate();
-		validate(listing, req.orderQuantity(), reqDeliDate);
+		rules.validate(listing, req.orderQuantity(), reqDeliDate);
 		if (listing.stockQuantity() == null || req.orderQuantity() > listing.stockQuantity()) {
 			throw new ApiException(ErrorCode.TRADE_OUT_OF_STOCK);
 		}
@@ -311,7 +338,7 @@ public class TradeService {
 				req.remarks() == null || req.remarks().isBlank() ? null : req.remarks().trim());
 		trades.saveAndFlush(continued);
 		listings.reserveStock(listing.id(), req.orderQuantity());
-		trades.deleteCartRow(buyerId, listing.sellerId(), listing.regDate(), listing.prodId(), TradeStats.CART);
+		dropCartRow(buyerId, listing);
 		mail(Kind.PURCHASE_REQUESTED, continued, buyerId, listing.prodName());
 		return toResponse(continued, TradeStats.REQUESTED, listing.prodName(), listing.photo(), nicknameOf(listing.sellerId()));
 	}
@@ -414,45 +441,19 @@ public class TradeService {
 			.collect(Collectors.toMap(r -> (String) r[0], r -> (Long) r[1]));
 	}
 
-	private void validate(ListingTradeSnapshot listing, int quantity, String reqDeliDate) {
-		Map<String, String> failures = new LinkedHashMap<>();
-		String quantityFailure = quantityFailure(listing, quantity, listing.salesUnitPrice());
-		if (quantityFailure != null) {
-			failures.put("orderQuantity", quantityFailure);
-		}
-		String dateFailure = reqDeliDateFailure(reqDeliDate);
-		if (dateFailure != null) {
-			failures.put("reqDeliDate", dateFailure);
-		}
-		if (!failures.isEmpty()) {
-			throw new ValidationException(failures);
-		}
+	/** 이 매물의 내 장바구니 거래 행 (없으면 null) — 구매·견적이 이 행을 바꿔 쓴다 */
+	private TradeInfo cartRowOf(UUID buyerId, ListingTradeSnapshot listing) {
+		return trades.findReviewRow(buyerId, listing.sellerId(), listing.regDate(), listing.prodId(), TradeType.REVIEW, TradeStats.CART)
+			.orElse(null);
 	}
 
-	/** 납품희망일 규칙(구매·견적 같음): 필수(빈 값은 DTO 가 먼저 막는다), 실제 날짜, 오늘(한국) 이후. 맞으면 null */
-	private String reqDeliDateFailure(String reqDeliDate) {
-		LocalDate date = KoreanDates.parseIso(reqDeliDate);
-		if (date == null) {
-			return "납품희망일이 올바른 날짜가 아닙니다.";
+	/** 이 매물의 내 장바구니 두 행(거래·장바구니 정보)을 지운다 — 바꿔 쓸 수 없을 때(이미 견적 행이 있음, 수락된 견적에서 구매) */
+	private void dropCartRow(UUID buyerId, ListingTradeSnapshot listing) {
+		TradeInfo cartRow = cartRowOf(buyerId, listing);
+		if (cartRow != null) {
+			trades.deleteCartRows(buyerId, List.of(cartRow.getTradeId()), TradeStats.CART);
+			cartInfos.deleteByTradeId(cartRow.getTradeId());
 		}
-		return date.isBefore(KoreanDates.today(clock)) ? "납품희망일은 오늘 이후 날짜로 입력하세요." : null;
-	}
-
-	/** 주문량 규칙(구매·견적 같음). 금액은 그 거래의 단가(구매 = 등록단가, 견적 = 희망단가)로 본다. 맞으면 null */
-	private static String quantityFailure(ListingTradeSnapshot listing, int quantity, long unitPrice) {
-		int minOrder = listing.minOrderQuantity() == null ? 1 : listing.minOrderQuantity();
-		int unit = listing.orderUnit() == null ? 1 : listing.orderUnit();
-		if (quantity < minOrder) {
-			return "최소주문량(%d) 이상 주문해 주세요.".formatted(minOrder);
-		}
-		if (quantity % unit != 0) {
-			return "주문단위(%d)의 배수로 주문해 주세요.".formatted(unit);
-		}
-		// 거래이력 금액(trade_amount)이 int 라 넘는 주문은 받지 않는다 (정의서 타입 유지, 사용자 결정)
-		if (unitPrice * quantity > Integer.MAX_VALUE) {
-			return "한 번에 주문할 수 있는 금액을 넘었습니다.";
-		}
-		return null;
 	}
 
 	private String nicknameOf(UUID userId) {

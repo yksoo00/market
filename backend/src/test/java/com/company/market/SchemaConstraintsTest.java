@@ -27,6 +27,7 @@ class SchemaConstraintsTest {
 
 	@AfterEach
 	void cleanUp() {
+		jdbc.update("delete from trd_cart_info");
 		jdbc.update("delete from trd_trade_history");
 		jdbc.update("delete from trd_trade_info");
 		jdbc.update("delete from trd_prod_reg");
@@ -235,6 +236,31 @@ class SchemaConstraintsTest {
 			.isInstanceOf(DataIntegrityViolationException.class);
 		assertThatThrownBy(() -> jdbc.update(sql, ids[0], ids[1], "20261015100000", "2026-10-20", null)).as("req_deli_date")
 			.isInstanceOf(DataIntegrityViolationException.class);
+	}
+
+	@Test
+	@DisplayName("trd_cart_info: PK (user_id, trade_id, ser_no), 정의서 NOT NULL·길이 (2026-10-29 설계 PR 3)")
+	void cartInfoColumns() {
+		assertThat(jdbc.queryForList("""
+				select k.column_name from information_schema.table_constraints c
+				  join information_schema.key_column_usage k on k.constraint_name = c.constraint_name
+				   and k.table_schema = c.table_schema
+				 where c.table_schema = current_schema() and c.table_name = 'trd_cart_info'
+				   and c.constraint_type = 'PRIMARY KEY'
+				 order by k.ordinal_position
+				""", String.class)).containsExactly("user_id", "trade_id", "ser_no");
+		String[][] expected = { { "user_id", "uuid NO" }, { "trade_id", "character varying(20) NO" }, { "ser_no", "integer NO" },
+				{ "cart_type", "character varying(10) YES" }, { "seller_id", "uuid YES" },
+				{ "prod_date", "character varying(14) NO" }, { "prod_name", "character varying(50) NO" },
+				{ "prod_no", "character varying(20) NO" }, { "manufacturer", "character varying(50) YES" },
+				{ "mufc_date", "character varying(14) YES" }, { "prod_spec_info", "character varying(100) NO" },
+				{ "prod_state", "character varying(20) NO" }, { "prov_date", "character varying(10) NO" },
+				{ "order_unit_price", "integer NO" }, { "order_quantity", "integer NO" },
+				{ "req_deli_date", "character varying(10) NO" }, { "remarks", "character varying(100) YES" },
+				{ "reg_date", "character varying(14) NO" } };
+		for (String[] c : expected) {
+			assertThat(column("trd_cart_info", c[0])).as(c[0]).isEqualTo(c[1]);
+		}
 	}
 
 	@Test

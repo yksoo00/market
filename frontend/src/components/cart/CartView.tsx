@@ -81,6 +81,10 @@ export function CartView() {
   }
 
   const tradeIdByKey = new Map(items.map((i) => [keyOf(i.listing), i.tradeId]));
+  // 구매·견적 모달의 기본값 = 담을 때 입력한 값
+  const cartDefaults = new Map(
+    items.map((i) => [keyOf(i.listing), { orderQuantity: i.orderQuantity, reqDeliDate: i.reqDeliDate, remarks: i.remarks }] as const),
+  );
   const remove = async (chosen: ListingSearchItem[]) => {
     setRemoving(true);
     setRemoveError(null);
@@ -107,6 +111,7 @@ export function CartView() {
         scope="cart"
         onRemove={(chosen) => void remove(chosen)}
         removing={removing}
+        cartDefaults={cartDefaults}
       />
     </div>
   );

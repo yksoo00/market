@@ -8,6 +8,7 @@ import com.company.market.listing.service.ListingDeletingEvent;
 import com.company.market.listing.service.ListingProductChangedEvent;
 import com.company.market.trade.domain.TradeStats;
 import com.company.market.trade.domain.TradeType;
+import com.company.market.trade.repository.CartInfoRepository;
 import com.company.market.trade.repository.TradeInfoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.event.EventListener;
@@ -25,12 +26,15 @@ class TradeListingCleanup {
 
 	private final TradeInfoRepository trades;
 
+	private final CartInfoRepository cartInfos;
+
 	@EventListener
 	void onListingDeleting(ListingDeletingEvent event) {
 		trades.deleteByListingAndTypeAndStats(event.sellerId(), event.regDate(), event.prodId(), TradeType.QUOTE,
 				TradeStats.QUOTE_STAGES);
 		trades.deleteByListingAndTypeAndStats(event.sellerId(), event.regDate(), event.prodId(), TradeType.REVIEW,
-				List.of(TradeStats.CART));
+				List.of(TradeStats.CART, TradeStats.COMPARE));
+		cartInfos.deleteByListing(event.sellerId(), event.regDate(), event.prodId());
 		if (trades.existsBySellerIdAndProdRegDateAndProdId(event.sellerId(), event.regDate(), event.prodId())) {
 			throw new ApiException(ErrorCode.LISTING_HAS_TRADES);
 		}
@@ -39,6 +43,7 @@ class TradeListingCleanup {
 	@EventListener
 	void onListingProductChanged(ListingProductChangedEvent event) {
 		trades.changeListingProdId(event.sellerId(), event.regDate(), event.oldProdId(), event.newProdId());
+		cartInfos.changeProdNo(event.sellerId(), event.regDate(), event.oldProdId(), event.newProdId());
 	}
 
 }

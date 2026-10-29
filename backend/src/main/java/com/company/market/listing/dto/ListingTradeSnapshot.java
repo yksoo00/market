@@ -20,7 +20,13 @@ public record ListingTradeSnapshot(
 		Integer orderUnit,
 		String provDate,
 		boolean completed,
-		String photo) {
+		String photo,
+		/** 장바구니·비교 행에 복사하는 상품마스터 값 (trd_cart_info) */
+		String manufacturer,
+		String mufcDate,
+		String prodSpecInfo,
+		/** 상품마스터 대-중-소 경로 코드 — 비교는 이 값이 같은 매물끼리만 */
+		String categoryCode) {
 
 	/** 이 매물의 PK — 거래 행이 매물을 다시 찾을 때 쓰는 세 값 */
 	public ListingId id() {

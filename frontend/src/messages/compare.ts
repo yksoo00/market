@@ -1,23 +1,24 @@
-// 장바구니 비교 문구 — 장바구니의 [비교], /my/cart/compare (계획 2026-10-22-cart-compare)
+// 비교 문구 — 검색 목록의 [비교], /my/cart/compare (2026-10-29 부터 서버에 저장하는 내 비교 목록)
 export const compare = {
   button: "비교",
   tooMany: (n: number) => `한 번에 ${n}개까지 비교할 수 있어요.`,
-  otherCategory: "같은 소분류 상품끼리만 비교할 수 있어요.",
+  otherCategory: "같은 카테고리(소분류) 상품끼리만 비교할 수 있어요.",
+  // [비교] 를 눌렀는데 서버가 거절(예: 다른 칸에서 매물이 사라짐)했을 때 알림은 서버 문구를 쓴다
+  failed: "비교할 상품을 저장하지 못했어요. 잠시 후 다시 시도해 주세요.",
   page: {
     title: "상품 비교",
     count: (n: number) => `비교 상품 ${n}개`,
     onlyDiff: "다른 항목만 보기",
     noDiff: "모든 항목이 같아요.",
     item: "항목",
-    invalid: "비교할 상품을 장바구니에서 다시 골라 주세요.",
-    tooFew: "비교할 상품이 2개 이상 있어야 해요.",
+    empty: "비교할 상품이 없어요. 검색 결과에서 같은 카테고리 상품을 2~4개 체크하고 [비교]를 눌러 주세요.",
+    tooFew: "2개 이상이어야 비교할 수 있어요. 검색 결과에서 상품을 더 골라 [비교]를 눌러 주세요.",
     removedSkipped: "지워진 상품은 빼고 보여 줘요.",
     loadFailed: "비교할 상품을 불러오지 못했어요.",
-    cartFailed: "장바구니를 불러오지 못해 [빼기]를 숨겼어요.",
     retry: "다시 시도",
-    toCart: "장바구니로",
+    toSearch: "상품 검색",
     remove: "빼기",
-    removeAria: (name: string) => `${name} 장바구니에서 빼기`,
+    removeAria: (name: string) => `${name} 비교에서 빼기`,
     detailAria: (name: string) => `${name} 상세 보기`,
   },
   rows: {

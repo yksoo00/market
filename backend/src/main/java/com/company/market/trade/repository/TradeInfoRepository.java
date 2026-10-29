@@ -24,37 +24,32 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	Optional<TradeInfo> findByUserIdAndSellerIdAndProdRegDateAndProdIdAndTradeTypeAndTradeStatsIn(UUID userId,
 			UUID sellerId, String prodRegDate, String prodId, TradeType tradeType, Collection<TradeStats> stats);
 
-	long countByUserIdAndTradeStats(UUID userId, TradeStats stats);
-
-	/** 내 장바구니 — trade_id 내림차순 = 최근에 담은 것부터 */
-	List<TradeInfo> findByUserIdAndTradeStatsOrderByTradeIdDesc(UUID userId, TradeStats stats);
-
-	boolean existsByUserIdAndSellerIdAndProdRegDateAndProdIdAndTradeStats(UUID userId, UUID sellerId, String prodRegDate,
-			String prodId, TradeStats stats);
-
 	/** 이 매물에 거래 행이 남아 있는지 — 매물 삭제를 막을 때 (FK 가 없어 DB 가 막지 않는다) */
 	boolean existsBySellerIdAndProdRegDateAndProdId(UUID sellerId, String prodRegDate, String prodId);
 
 	/**
-	 * 장바구니 1행. 이미 담겨 있으면(동시에 담은 다른 요청 포함) 아무것도 안 한다 → 0. 예외를 잡아 넘기지 않는 이유:
-	 * Postgres 는 실패한 문장 뒤로 그 트랜잭션을 못 쓴다. where 절은 ux_trd_trade_info_one_cart(V202610211300)와 같아야 한다
+	 * 구매검토 1행 — 장바구니(거래상태 '장바구니')나 비교용('비교용'). 이미 있으면(동시에 담은 다른 요청 포함) 아무것도 안 한다 → 0.
+	 * 예외를 잡아 넘기지 않는 이유: Postgres 는 실패한 문장 뒤로 그 트랜잭션을 못 쓴다.
+	 * on conflict 절은 ux_trd_trade_info_one_cart(V202610291000)와 같아야 한다
 	 */
 	@Modifying
 	@Query(nativeQuery = true, value = """
 			insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, reg_date, prod_id,
 				prod_state, sales_unit_price, stock_quantity, min_order_quantity, order_unit, prov_date, order_unit_price,
-				order_quantity, req_deli_date, trade_stats)
+				order_quantity, req_deli_date, remarks, trade_stats)
 			values (:userId, :tradeId, '구매검토', :sellerId, :prodRegDate, :regDate, :prodId, :prodState, :salesUnitPrice,
-				:stockQuantity, :minOrderQuantity, :orderUnit, :provDate, :orderUnitPrice, :orderQuantity, :provDate, '장바구니')
-			on conflict (user_id, seller_id, prod_reg_date, prod_id) where trade_type = '구매검토' and trade_stats = '장바구니' do nothing
+				:stockQuantity, :minOrderQuantity, :orderUnit, :provDate, :orderUnitPrice, :orderQuantity, :reqDeliDate, cast(:remarks as varchar),
+				:tradeStats)
+			on conflict (user_id, seller_id, prod_reg_date, prod_id, trade_stats) where trade_type = '구매검토' do nothing
 			""")
-	int insertCartIfAbsent(@Param("userId") UUID userId, @Param("tradeId") String tradeId, @Param("sellerId") UUID sellerId,
+	int insertReviewIfAbsent(@Param("userId") UUID userId, @Param("tradeId") String tradeId, @Param("sellerId") UUID sellerId,
 			@Param("prodRegDate") String prodRegDate, @Param("regDate") String regDate, @Param("prodId") String prodId,
 			@Param("prodState") String prodState,
 			@Param("salesUnitPrice") Integer salesUnitPrice, @Param("stockQuantity") Integer stockQuantity,
 			@Param("minOrderQuantity") Integer minOrderQuantity, @Param("orderUnit") Integer orderUnit,
 			@Param("provDate") String provDate, @Param("orderUnitPrice") int orderUnitPrice,
-			@Param("orderQuantity") int orderQuantity);
+			@Param("orderQuantity") int orderQuantity, @Param("reqDeliDate") String reqDeliDate,
+			@Param("remarks") String remarks, @Param("tradeStats") String tradeStats);
 
 	/** 장바구니 빼기 — 내 행만 지운다. 지운 수가 요청 수보다 적으면 호출자가 404 로 되돌린다 */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
@@ -62,18 +57,24 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	int deleteCartRows(@Param("buyerId") UUID buyerId, @Param("tradeIds") Collection<String> tradeIds,
 			@Param("stats") TradeStats stats);
 
-	/**
-	 * 견적·구매로 넘어간 매물을 내 장바구니에서 지운다 (없으면 0). clear 는 하지 않는다 — 호출자가 방금 저장한 거래
-	 * 엔티티를 이어서 쓰고, 장바구니 행은 영속성 컨텍스트에 올라와 있지 않다
-	 */
-	@Modifying(flushAutomatically = true)
+	/** 이 매물의 내 장바구니 거래 행 (구매·견적이 이 행을 바꿔 쓴다). 구매자·매물당 장바구니 행은 하나 */
 	@Query("""
-			delete from TradeInfo t
+			select t from TradeInfo t
 			 where t.userId = :buyerId and t.sellerId = :sellerId and t.prodRegDate = :prodRegDate and t.prodId = :prodId
-			   and t.tradeStats = :stats
+			   and t.tradeType = :type and t.tradeStats = :stats
 			""")
-	int deleteCartRow(@Param("buyerId") UUID buyerId, @Param("sellerId") UUID sellerId, @Param("prodRegDate") String prodRegDate,
-			@Param("prodId") String prodId, @Param("stats") TradeStats stats);
+	Optional<TradeInfo> findReviewRow(@Param("buyerId") UUID buyerId, @Param("sellerId") UUID sellerId,
+			@Param("prodRegDate") String prodRegDate, @Param("prodId") String prodId, @Param("type") TradeType type,
+			@Param("stats") TradeStats stats);
+
+	/** 내 구매검토 행 중 그 거래상태(비교용) 전부 삭제 — 비교는 누를 때마다 목록을 바꾼다 */
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("delete from TradeInfo t where t.userId = :buyerId and t.tradeType = :type and t.tradeStats = :stats")
+	int deleteByUserAndTypeAndStats(@Param("buyerId") UUID buyerId, @Param("type") TradeType type, @Param("stats") TradeStats stats);
+
+	/** 구매자별 비교 목록 교체를 줄 세운다 (트랜잭션 끝까지) — 지우고 담는 사이에 같은 구매자의 다른 요청이 끼지 않게 */
+	@Query(value = "select 1 from (select pg_advisory_xact_lock(hashtext('compare:' || cast(:userId as text)))) l", nativeQuery = true)
+	Integer lockCompare(@Param("userId") UUID userId);
 
 	/** 매물 삭제 때 그 매물의 견적 단계 행을 모두 지운다 (구매요청·구매확정 행은 그대로 — 남아 있으면 TradeListingCleanup 이 삭제를 막는다) */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)

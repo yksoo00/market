@@ -7,9 +7,9 @@ import { my } from "@/messages/my";
 import { search } from "@/messages/search";
 import { signup } from "@/messages/signup";
 
-// 장바구니 비교 흐름 (계획 2026-10-22-cart-compare): 판매자 매물 3개(인텔 CPU 2개 단가 다르게 + AMD CPU 1개)
-// → 구매자 셋 다 [장바구니] → 장바구니에서 소분류가 섞이면 [비교]가 막힘 → 인텔 2개 [비교] → 보조 칸 비교 표(최저가·다른 항목만)
-// → 비교 화면에서 [빼기] → "2개 이상" 안내, 헤더 숫자 2
+// 비교 흐름 (설계 2026-10-27 PR 3, 2026-10-29): 판매자 매물 3개(인텔 CPU 2개 단가 다르게 + AMD CPU 1개)
+// → 구매자가 검색 결과에서 셋 다 체크(선택 줄 칩) → 소분류가 섞이면 [비교]가 막힘 → 칩 ✕ 로 AMD 를 빼고 [비교] → 보조 칸 비교 표(최저가·다른 항목만)
+// → 비교 화면에서 [빼기] → "2개 이상" 안내. 비교 행은 장바구니 숫자에 안 센다
 const password = "Test1234!@";
 
 const checkButton = (page: Page, name: string) =>
@@ -72,7 +72,7 @@ async function register(page: Page, prodName: string, category: string, price: n
   await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
 }
 
-test("장바구니에서 같은 소분류끼리 비교 → 섞이면 막힘 → 비교 화면에서 빼기", async ({ page }) => {
+test("검색에서 같은 소분류끼리 비교 → 섞이면 막힘 → 비교 화면에서 빼기", async ({ page }) => {
   // 매물 3개 등록 + 가입 2번이라 기본 시간을 넘는다
   test.setTimeout(180_000);
   const stamp = Date.now().toString().slice(-8);
@@ -96,24 +96,16 @@ test("장바구니에서 같은 소분류끼리 비교 → 섞이면 막힘 → 
     await logOut(page);
   });
 
-  await test.step("구매자: 셋 다 [장바구니]", async () => {
+  await test.step("구매자: 검색 결과에서 셋 다 체크 → 선택 줄 칩 → 소분류가 섞이면 [비교] 막힘", async () => {
     await signUp(page, buyer, String((Number(stamp) + 1) % 100_000_000).padStart(8, "0"));
     await logIn(page, buyer);
     await page.goto(`/search?q=${encodeURIComponent(word)}`);
     await check(nameA);
     await check(nameB);
     await check(nameC);
-    await page.getByRole("button", { name: cart.add.button, exact: true }).first().click();
-    await expect(page.getByRole("dialog", { name: cart.add.doneTitle })).toBeVisible();
-    await page.keyboard.press("Escape");
-    await expect(cartLink(3)).toBeVisible();
-  });
-
-  await test.step("장바구니: 소분류가 섞이면 [비교] 막힘", async () => {
-    await page.goto("/my/cart");
-    await check(nameA);
-    await check(nameB);
-    await check(nameC);
+    const bar = page.getByRole("region", { name: cart.selection.title(3) });
+    await expect(bar).toBeVisible();
+    await expect(bar.getByText(nameC)).toBeVisible();
     await page.getByRole("button", { name: compare.button, exact: true }).first().click();
     await expect(page.getByRole("status").filter({ hasText: compare.otherCategory })).toBeVisible();
   });
@@ -121,11 +113,13 @@ test("장바구니에서 같은 소분류끼리 비교 → 섞이면 막힘 → 
   const frame = page.frameLocator('iframe[src^="/my/cart/compare"]');
 
   await test.step("인텔 2개 [비교] → 보조 칸 비교 표, 최저가는 B, 다른 항목만 보기", async () => {
-    await rowOf(nameC).getByRole("checkbox", { name: search.result.selectRow(nameC) }).uncheck();
+    // 선택 줄 칩의 ✕ 로 AMD 를 뺀다
+    await page.getByRole("button", { name: cart.selection.removeAria(nameC) }).click();
+    await expect(page.getByRole("region", { name: cart.selection.title(2) })).toBeVisible();
     await page.getByRole("button", { name: compare.button, exact: true }).first().click();
     await expect(frame.getByText(compare.page.count(2))).toBeVisible();
     const priceRow = frame.getByRole("row").filter({ has: frame.getByRole("rowheader", { name: listing.detail.rows.unitPrice, exact: true }) });
-    // 열 순서는 장바구니 순서라 값으로 찾는다
+    // 열 순서는 담은 순서라 값으로 찾는다
     await expect(priceRow.getByRole("cell").filter({ hasText: "9,000" })).toContainText(compare.best.unitPrice);
     await expect(priceRow.getByRole("cell").filter({ hasText: "10,000" })).not.toContainText(compare.best.unitPrice);
     const brandHeader = frame.getByRole("rowheader", { name: listing.detail.rows.brand, exact: true });
@@ -136,10 +130,10 @@ test("장바구니에서 같은 소분류끼리 비교 → 섞이면 막힘 → 
     await expect(priceRow).toHaveCount(1);
   });
 
-  await test.step("비교 화면에서 B [빼기] → 2개 이상 안내, 헤더 2", async () => {
+  await test.step("비교 화면에서 B [빼기] → 2개 이상 안내, 장바구니 숫자는 그대로 0", async () => {
     await frame.getByRole("button", { name: compare.page.removeAria(nameB) }).click();
     await expect(frame.getByText(compare.page.tooFew)).toBeVisible();
-    await expect(cartLink(2)).toBeVisible();
-    await expect(rowOf(nameB)).toHaveCount(0);
+    // 비교 행은 장바구니 숫자에 안 센다
+    await expect(cartLink(0)).toBeVisible();
   });
 });

@@ -6,9 +6,12 @@ import java.util.Map;
 import com.company.market.common.api.ApiResponse;
 import com.company.market.common.auth.AuthenticatedUser;
 import com.company.market.trade.dto.CartAddRequest;
+import com.company.market.trade.dto.CartAddResponse;
 import com.company.market.trade.dto.CartCountResponse;
 import com.company.market.trade.dto.CartItemResponse;
 import com.company.market.trade.dto.CartRemoveRequest;
+import com.company.market.trade.dto.CompareRequest;
+import com.company.market.trade.service.CompareService;
 import com.company.market.trade.service.CartService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +19,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,8 +35,10 @@ public class CartController {
 
 	private final CartService cart;
 
+	private final CompareService compare;
+
 	@PostMapping
-	public ApiResponse<CartCountResponse> add(@AuthenticationPrincipal AuthenticatedUser me, @Valid @RequestBody CartAddRequest req) {
+	public ApiResponse<CartAddResponse> add(@AuthenticationPrincipal AuthenticatedUser me, @Valid @RequestBody CartAddRequest req) {
 		return ApiResponse.of(cart.add(me.id(), req));
 	}
 
@@ -44,6 +50,23 @@ public class CartController {
 	@GetMapping("/count")
 	public ApiResponse<CartCountResponse> count(@AuthenticationPrincipal AuthenticatedUser me) {
 		return ApiResponse.of(cart.count(me.id()));
+	}
+
+	/** [비교] — 내 비교 목록을 이 매물들로 바꾼다 (2~4개, 같은 소분류). 응답은 저장한 개수 */
+	@PutMapping("/compare")
+	public ApiResponse<CartCountResponse> replaceCompare(@AuthenticationPrincipal AuthenticatedUser me, @Valid @RequestBody CompareRequest req) {
+		return ApiResponse.of(new CartCountResponse(compare.replace(me.id(), req)));
+	}
+
+	@GetMapping("/compare")
+	public ApiResponse<Map<String, List<CartItemResponse>>> listCompare(@AuthenticationPrincipal AuthenticatedUser me) {
+		return ApiResponse.of(Map.of("items", compare.list(me.id())));
+	}
+
+	@PostMapping("/compare/remove")
+	public ResponseEntity<Void> removeCompare(@AuthenticationPrincipal AuthenticatedUser me, @Valid @RequestBody CartRemoveRequest req) {
+		compare.remove(me.id(), req.tradeIds());
+		return ResponseEntity.noContent().build();
 	}
 
 	/** DELETE + 본문 대신 POST — 프록시가 DELETE 본문을 버릴 수 있다 */
