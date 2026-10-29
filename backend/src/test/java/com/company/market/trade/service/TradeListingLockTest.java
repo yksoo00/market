@@ -113,7 +113,7 @@ class TradeListingLockTest {
 	@DisplayName("판매자가 매물을 지우는 중에 온 장바구니 담기는 삭제를 기다렸다가 LISTING_NOT_FOUND — 고아 장바구니 행이 남지 않는다")
 	void cartWaitsForListingDelete() throws Exception {
 		Throwable result = raceWithDelete(() -> carts.add(buyerId,
-				new CartAddRequest(List.of(new CartAddRequest.Item(sellerId, REG_DATE)))));
+				new CartAddRequest(List.of(new CartAddRequest.Item(sellerId, REG_DATE, 1, "2099-12-31", null)))));
 
 		assertThat(result).isInstanceOfSatisfying(ApiException.class,
 				e -> assertThat(e.getCode()).isEqualTo(ErrorCode.LISTING_NOT_FOUND));

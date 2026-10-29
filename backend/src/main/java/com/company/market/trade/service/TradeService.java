@@ -1,7 +1,6 @@
 package com.company.market.trade.service;
 
 import java.time.Clock;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -65,6 +64,8 @@ public class TradeService {
 
 	private final UserDirectory userDirectory;
 
+	private final TradeInputRules rules;
+
 	private final Clock clock;
 
 	/** 메일 이벤트 — 커밋 뒤 TradeMailListener 가 보낸다 */
@@ -80,7 +81,7 @@ public class TradeService {
 			throw new ApiException(ErrorCode.LISTING_COMPLETED);
 		}
 		String reqDeliDate = req.reqDeliDate();
-		validate(listing, req.orderQuantity(), reqDeliDate);
+		rules.validate(listing, req.orderQuantity(), reqDeliDate);
 		// 재고는 아래 조건부 UPDATE 가 최종 판정. 여기선 거래ID·락을 잡기 전에 뻔한 초과를 먼저 돌려보낸다
 		if (listing.stockQuantity() == null || req.orderQuantity() > listing.stockQuantity()) {
 			throw new ApiException(ErrorCode.TRADE_OUT_OF_STOCK);
@@ -144,14 +145,14 @@ public class TradeService {
 			if (item.orderUnitPrice() > listing.salesUnitPrice()) {
 				failures.put(prefix + "orderUnitPrice", "희망단가는 등록단가(%d원) 이하로 입력해 주세요.".formatted(listing.salesUnitPrice()));
 			}
-			String quantityFailure = quantityFailure(listing, item.orderQuantity(), item.orderUnitPrice());
+			String quantityFailure = rules.quantityFailure(listing, item.orderQuantity(), item.orderUnitPrice());
 			if (quantityFailure == null && (listing.stockQuantity() == null || item.orderQuantity() > listing.stockQuantity())) {
 				quantityFailure = "현재 재고(%d)보다 많이 요청할 수 없습니다.".formatted(listing.stockQuantity() == null ? 0 : listing.stockQuantity());
 			}
 			if (quantityFailure != null) {
 				failures.put(prefix + "orderQuantity", quantityFailure);
 			}
-			String dateFailure = reqDeliDateFailure(item.reqDeliDate());
+			String dateFailure = rules.reqDeliDateFailure(item.reqDeliDate());
 			if (dateFailure != null) {
 				failures.put(prefix + "reqDeliDate", dateFailure);
 			}
@@ -297,7 +298,7 @@ public class TradeService {
 			throw new ApiException(ErrorCode.LISTING_COMPLETED);
 		}
 		String reqDeliDate = req.reqDeliDate();
-		validate(listing, req.orderQuantity(), reqDeliDate);
+		rules.validate(listing, req.orderQuantity(), reqDeliDate);
 		if (listing.stockQuantity() == null || req.orderQuantity() > listing.stockQuantity()) {
 			throw new ApiException(ErrorCode.TRADE_OUT_OF_STOCK);
 		}
@@ -412,47 +413,6 @@ public class TradeService {
 	public Map<String, Long> pendingCounts(UUID sellerId) {
 		return trades.countBySellerGroupByListing(sellerId, List.of(TradeStats.QUOTE_REQUESTED, TradeStats.REQUESTED)).stream()
 			.collect(Collectors.toMap(r -> (String) r[0], r -> (Long) r[1]));
-	}
-
-	private void validate(ListingTradeSnapshot listing, int quantity, String reqDeliDate) {
-		Map<String, String> failures = new LinkedHashMap<>();
-		String quantityFailure = quantityFailure(listing, quantity, listing.salesUnitPrice());
-		if (quantityFailure != null) {
-			failures.put("orderQuantity", quantityFailure);
-		}
-		String dateFailure = reqDeliDateFailure(reqDeliDate);
-		if (dateFailure != null) {
-			failures.put("reqDeliDate", dateFailure);
-		}
-		if (!failures.isEmpty()) {
-			throw new ValidationException(failures);
-		}
-	}
-
-	/** 납품희망일 규칙(구매·견적 같음): 필수(빈 값은 DTO 가 먼저 막는다), 실제 날짜, 오늘(한국) 이후. 맞으면 null */
-	private String reqDeliDateFailure(String reqDeliDate) {
-		LocalDate date = KoreanDates.parseIso(reqDeliDate);
-		if (date == null) {
-			return "납품희망일이 올바른 날짜가 아닙니다.";
-		}
-		return date.isBefore(KoreanDates.today(clock)) ? "납품희망일은 오늘 이후 날짜로 입력하세요." : null;
-	}
-
-	/** 주문량 규칙(구매·견적 같음). 금액은 그 거래의 단가(구매 = 등록단가, 견적 = 희망단가)로 본다. 맞으면 null */
-	private static String quantityFailure(ListingTradeSnapshot listing, int quantity, long unitPrice) {
-		int minOrder = listing.minOrderQuantity() == null ? 1 : listing.minOrderQuantity();
-		int unit = listing.orderUnit() == null ? 1 : listing.orderUnit();
-		if (quantity < minOrder) {
-			return "최소주문량(%d) 이상 주문해 주세요.".formatted(minOrder);
-		}
-		if (quantity % unit != 0) {
-			return "주문단위(%d)의 배수로 주문해 주세요.".formatted(unit);
-		}
-		// 거래이력 금액(trade_amount)이 int 라 넘는 주문은 받지 않는다 (정의서 타입 유지, 사용자 결정)
-		if (unitPrice * quantity > Integer.MAX_VALUE) {
-			return "한 번에 주문할 수 있는 금액을 넘었습니다.";
-		}
-		return null;
 	}
 
 	private String nicknameOf(UUID userId) {

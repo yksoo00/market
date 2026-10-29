@@ -23,6 +23,10 @@ public interface CartInfoRepository extends JpaRepository<CartInfo, CartInfoId> 
 
 	long countByUserIdAndCartType(UUID userId, CartType cartType);
 
+	/** 이 매물이 이미 그 구분(장바구니|비교용)으로 담겨 있나 */
+	boolean existsByUserIdAndCartTypeAndSellerIdAndProdDateAndProdNo(UUID userId, CartType cartType, UUID sellerId,
+			String prodDate, String prodNo);
+
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("delete from CartInfo c where c.userId = :userId and c.tradeId in :tradeIds")
 	int deleteByUserAndTradeIds(@Param("userId") UUID userId, @Param("tradeIds") Collection<String> tradeIds);

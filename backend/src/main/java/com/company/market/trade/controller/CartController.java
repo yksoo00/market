@@ -6,6 +6,7 @@ import java.util.Map;
 import com.company.market.common.api.ApiResponse;
 import com.company.market.common.auth.AuthenticatedUser;
 import com.company.market.trade.dto.CartAddRequest;
+import com.company.market.trade.dto.CartAddResponse;
 import com.company.market.trade.dto.CartCountResponse;
 import com.company.market.trade.dto.CartItemResponse;
 import com.company.market.trade.dto.CartRemoveRequest;
@@ -32,7 +33,7 @@ public class CartController {
 	private final CartService cart;
 
 	@PostMapping
-	public ApiResponse<CartCountResponse> add(@AuthenticationPrincipal AuthenticatedUser me, @Valid @RequestBody CartAddRequest req) {
+	public ApiResponse<CartAddResponse> add(@AuthenticationPrincipal AuthenticatedUser me, @Valid @RequestBody CartAddRequest req) {
 		return ApiResponse.of(cart.add(me.id(), req));
 	}
 

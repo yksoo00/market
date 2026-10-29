@@ -369,7 +369,8 @@ public class ListingService {
 		return new ListingTradeSnapshot(listing.getUserId(), listing.getRegDate(), listing.getProdId(),
 				product.getProdName(), listing.getProdState(), listing.getSalesUnitPrice(), listing.getStockQuantity(),
 				listing.getMinOrderQuantity(), listing.getOrderUnit(), listing.getDeliveryDate(),
-				listing.getDtExpire() != null, photo != null && photo.startsWith("public/") ? photo : null);
+				listing.getDtExpire() != null, photo != null && photo.startsWith("public/") ? photo : null,
+				product.getProdBrand(), product.getProdMufcDate(), product.getProdSpecInfo(), product.getCategoryCode());
 	}
 
 	/** 거래 목록용 — 여러 매물의 스냅샷을 매물·상품 각 한 쿼리로. 없는 키는 빠진다 */
