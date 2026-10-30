@@ -45,7 +45,13 @@ export interface SearchQuery {
   has: HasItem[];
   /** 최소주문수량이 이 값 이하 */
   maxMinOrder?: number;
+  /** 정렬 (2026-10-30). 칩 줄의 [정렬] 칩 — 다시 검색하면 남고, 필터 초기화는 같이 되돌린다. 주소에서 기본(latest)은 생략 */
+  sort: ListingSort;
 }
+
+/** 정렬 칩 선택지 순서 그대로 — 실제로 쓰는 것만 (사용자 지시 "진짜 필요한 것만") */
+export const LISTING_SORTS = ["latest", "priceAsc", "priceDesc", "deliveryAsc"] as const;
+export type ListingSort = (typeof LISTING_SORTS)[number];
 
 /**
  * search = 전체 검색(/search), mine = 내 판매글(내 활동내역 판매 탭 /my/activity?tab=sales). 같은 화면 부품을 쓰고 경로·거래상태 기본값·API 의 mine 만 다르다.
@@ -107,6 +113,7 @@ export function parseSearchParams(raw: RawSearchParams, scope: SearchScope = "se
     purchased,
     page: intInRange(first(raw.page), MAX_PAGE) || 1,
     has: HAS_ITEMS.filter((h) => first(raw.has).split(",").includes(h)),
+    sort: LISTING_SORTS.find((s) => s === first(raw.sort)) ?? "latest",
   };
   const minStock = intInRange(first(raw.minStock), MAX_STOCK);
   const minPrice = intInRange(first(raw.minPrice), MAX_PRICE);
@@ -142,6 +149,7 @@ export function buildSearchHref(query: SearchQuery, scope: SearchScope = "search
   setFilterParams(p, query);
   if (scope === "search" && query.mine) p.set("mine", "1");
   if (scope === "search" && query.purchased) p.set("purchased", "1");
+  if (query.sort !== "latest") p.set("sort", query.sort);
   if (query.page > 1) p.set("page", String(query.page));
   // 내 판매글은 내 활동내역의 판매 탭 (설계 2026-10-27 PR 4) — tab 이 맨 앞
   if (scope === "mine") return `/my/activity?${new URLSearchParams({ tab: "sales" })}${p.size > 0 ? `&${p}` : ""}`;
@@ -173,6 +181,8 @@ export function searchApiParams(query: SearchQuery, scope: SearchScope = "search
   if (query.field !== "all") p.set("field", query.field);
   p.set("status", query.status);
   setFilterParams(p, query);
+  // 최신순이 아닌 정렬은 page 가 있어야 한다 (늘 보낸다)
+  if (query.sort !== "latest") p.set("sort", query.sort);
   p.set("page", String(query.page));
   return p.toString();
 }
@@ -198,12 +208,14 @@ export function activeFilterCount(query: SearchQuery, scope: SearchScope = "sear
       query.minStock !== undefined,
       query.minPrice !== undefined,
       query.maxPrice !== undefined,
+      // 정렬도 칩 줄의 칩 하나 (2026-10-30) — 걸려 있으면 [필터 초기화]가 같이 되돌린다
+      query.sort !== "latest",
     ].filter(Boolean).length + detailFilterCount(query)
   );
 }
 
 export function clearFilters(query: SearchQuery, scope: SearchScope = "search"): SearchQuery {
-  return { q: query.q, field: query.field, category: "", status: defaultStatus(scope, query.purchased), mine: query.mine, purchased: query.purchased, page: 1, has: [] };
+  return { q: query.q, field: query.field, category: "", status: defaultStatus(scope, query.purchased), mine: query.mine, purchased: query.purchased, page: 1, has: [], sort: "latest" };
 }
 
 export function listingHref(item: Pick<ListingSearchItem, "userId" | "regDate">): string {

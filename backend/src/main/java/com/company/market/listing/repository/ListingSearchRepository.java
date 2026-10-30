@@ -59,14 +59,39 @@ public class ListingSearchRepository {
 	}
 
 	/**
-	 * 같은 조건의 정렬 키만 전부, findPage 와 같은 순서로 [regDate, userId]. 페이지 번호의 경계와 전체 건수를 한 번에 구한다
-	 * (PageKeys — 조건에 맞는 행의 키를 전부 훑는 비용은 설계 2026-10-27 PR 5 에서 감수)
+	 * 같은 조건의 정렬 키만 전부, c.sort() 순서로 [regDate, userId]. 페이지 번호의 경계와 전체 건수를 한 번에 구한다
+	 * (PageKeys — 조건에 맞는 행의 키를 전부 훑는 비용은 설계 2026-10-27 PR 5 에서 감수). 최신순이면 findPage 와 같은 순서,
+	 * 아니면 정렬 열 다음에 최신순으로 끝을 맞춘다 (같은 값끼리 순서가 페이지마다 흔들리지 않게)
 	 */
 	public List<Object[]> findKeys(ListingSearchCondition c, UUID ownerId, Collection<ListingId> keys) {
 		Map<String, Object> params = new HashMap<>();
 		StringBuilder jpql = new StringBuilder("select l.regDate, l.userId from Listing l join Product p on p.prodId = l.prodId where 1=1");
 		appendConditions(jpql, params, c, ownerId, keys);
-		jpql.append(" order by l.regDate desc, l.userId desc");
+		// 정렬 열은 고정 문자열 중에서만 고른다 (값을 끼워 넣지 않음). 납기일은 비어 있을 수 있어 맨 뒤로
+		jpql.append(switch (c.sort()) {
+			case "priceAsc" -> " order by l.salesUnitPrice asc, ";
+			case "priceDesc" -> " order by l.salesUnitPrice desc, ";
+			case "deliveryAsc" -> " order by l.deliveryDate asc nulls last, ";
+			default -> " order by ";
+		});
+		jpql.append("l.regDate desc, l.userId desc");
+		TypedQuery<Object[]> query = em.createQuery(jpql.toString(), Object[].class);
+		params.forEach(query::setParameter);
+		return query.getResultList();
+	}
+
+	/** 키(regDate, userId) 목록의 매물만 [Listing, Product] — 순서는 보장하지 않는다(호출자가 키 순서로 맞춘다). 정렬된 페이지용 */
+	public List<Object[]> findByKeys(List<Object[]> pageKeys) {
+		if (pageKeys.isEmpty()) {
+			return List.of();
+		}
+		Map<String, Object> params = new HashMap<>();
+		StringBuilder jpql = new StringBuilder("select l, p from Listing l join Product p on p.prodId = l.prodId where ");
+		for (int i = 0; i < pageKeys.size(); i++) {
+			jpql.append(i == 0 ? "" : " or ").append("(l.regDate = :r").append(i).append(" and l.userId = :u").append(i).append(")");
+			params.put("r" + i, pageKeys.get(i)[0]);
+			params.put("u" + i, pageKeys.get(i)[1]);
+		}
 		TypedQuery<Object[]> query = em.createQuery(jpql.toString(), Object[].class);
 		params.forEach(query::setParameter);
 		return query.getResultList();

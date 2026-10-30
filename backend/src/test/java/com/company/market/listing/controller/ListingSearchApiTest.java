@@ -391,6 +391,48 @@ class ListingSearchApiTest {
 	}
 
 	@Test
+	@DisplayName("정렬: 단가 낮은/높은 순·납기 빠른 순, 같은 값이면 최신 등록 먼저")
+	void sortOrders() throws Exception {
+		save("ELEC00030001", "20261001090001", "서버 1", null, "Dell", 3000, 5, "2099-03-01");
+		save("ELEC00030002", "20261001090002", "서버 2", null, "Dell", 1000, 1, "2099-01-01");
+		save("ELEC00030003", "20261001090003", "서버 3", null, "Dell", 3000, 9, "2099-02-01");
+		save("ELEC00030004", "20261001090004", "서버 4", null, "Dell", 2000, 3, "2099-01-01");
+		assertThat(sorted("latest")).containsExactly("20261001090004", "20261001090003", "20261001090002", "20261001090001");
+		assertThat(sorted("priceAsc")).containsExactly("20261001090002", "20261001090004", "20261001090003", "20261001090001");
+		assertThat(sorted("priceDesc")).containsExactly("20261001090003", "20261001090001", "20261001090004", "20261001090002");
+		assertThat(sorted("deliveryAsc")).containsExactly("20261001090004", "20261001090002", "20261001090003", "20261001090001");
+	}
+
+	private List<String> sorted(String sort) throws Exception {
+		String body = mvc.perform(get("/api/v1/listings").param("sort", sort).param("page", "1")).andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+		return JsonPath.read(body, "$.data.items[*].regDate");
+	}
+
+	@Test
+	@DisplayName("정렬: 페이지를 넘겨도 순서가 이어지고(단가 낮은 순 25건, 2페이지) 건수는 같다")
+	void sortAcrossPages() throws Exception {
+		for (int i = 1; i <= 25; i++) {
+			save(String.format("ELEC0004%04d", i), String.format("202610011000%02d", i), "서버 " + i, null, "Dell", 100 * (26 - i), 1, null);
+		}
+		String body = mvc.perform(get("/api/v1/listings").param("sort", "priceAsc").param("page", "2")).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.total").value(25))
+			.andExpect(jsonPath("$.data.totalPages").value(2))
+			.andExpect(jsonPath("$.data.items.length()").value(5))
+			.andReturn().getResponse().getContentAsString();
+		// 단가 = 100 × (26 - i) → 낮은 순 21~25번째는 2100~2500원
+		assertThat(JsonPath.<List<Integer>>read(body, "$.data.items[*].salesUnitPrice")).containsExactly(2100, 2200, 2300, 2400, 2500);
+	}
+
+	@Test
+	@DisplayName("정렬: 모르는 값은 400, 최신순이 아닌데 page 가 없으면 400 (커서는 최신순 전용)")
+	void sortValidation() throws Exception {
+		expectInvalid("sort", "sort", "stockDesc");
+		expectInvalid("sort", "sort", "priceAsc");
+		mvc.perform(get("/api/v1/listings").param("sort", "latest")).andExpect(status().isOk());
+	}
+
+	@Test
 	@DisplayName("페이지 번호: 결과가 없어도 1페이지는 있고, 범위 밖·0·숫자 아님은 400")
 	void pageNumberRange() throws Exception {
 		mvc.perform(get("/api/v1/listings").param("q", "없는이름").param("page", "1"))

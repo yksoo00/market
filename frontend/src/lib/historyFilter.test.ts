@@ -58,6 +58,12 @@ describe("historyApiParams (필터 → API)", () => {
   });
 });
 
+describe("정렬 선택지", () => {
+  it("화면에서 뺀 오래된순은 주소에서 읽으면 최신순", () => {
+    expect(parseHistoryFilter({ sort: "oldest" }).sort).toBe("latest");
+  });
+});
+
 describe("parseHistoryFilter 검색 구분", () => {
   it("all·name·brand 만, 나머지는 all", () => {
     expect(parseHistoryFilter({ field: "name" }).field).toBe("name");

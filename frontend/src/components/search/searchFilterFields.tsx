@@ -3,7 +3,7 @@
 import { categoryLabel, FilterCategoryPanel, useCategoryTree } from "@/components/search/FilterCategoryPicker";
 import type { CustomContext, FilterField } from "@/lib/detailFilter";
 import { formatPrice } from "@/lib/format";
-import { COVERAGE_FILTERS, HAS_ITEMS, STATE_FILTERS, WARRANTY_FILTER_MONTHS } from "@/lib/search";
+import { COVERAGE_FILTERS, HAS_ITEMS, LISTING_SORTS, STATE_FILTERS, WARRANTY_FILTER_MONTHS } from "@/lib/search";
 import { search } from "@/messages/search";
 
 const t = search.filter;
@@ -96,6 +96,14 @@ export function searchFilterFields(defaultStatus: string, tree: Tree): FilterFie
         { kind: "number", key: "maxMinOrder", label: t.minOrder, suffix: t.minOrderSuffix },
         { kind: "check", key: "has", label: t.has, options: HAS_ITEMS.map((h) => ({ value: h, label: t.hasItems[h] })) },
       ],
+    },
+    // 정렬 (2026-10-30): 글자 탭은 작고 몇 개 못 넣어 칩으로 (사용자 지시). 고르면 바로
+    {
+      kind: "select",
+      label: search.sort.label,
+      key: "sort",
+      defaultValue: "latest",
+      options: LISTING_SORTS.map((s) => ({ value: s, label: search.sort.options[s] })),
     },
   ];
 }

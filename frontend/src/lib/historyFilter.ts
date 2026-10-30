@@ -8,7 +8,11 @@ import { search } from "@/messages/search";
 export const MAX_Q = 100;
 /** 거래 금액 컬럼이 int */
 export const MAX_AMOUNT = 2_147_483_647;
-export const HISTORY_SORTS = ["latest", "oldest", "amountDesc", "amountAsc"] as const;
+/**
+ * 정렬 칩 선택지 (2026-10-30, 사용자 지시 "진짜 필요한 것만"). 서버는 oldest 도 받지만 화면엔 두지 않는다 —
+ * 주소의 ?sort=oldest 는 최신순으로 읽는다
+ */
+export const HISTORY_SORTS = ["latest", "amountDesc", "amountAsc"] as const;
 export type HistorySort = (typeof HISTORY_SORTS)[number];
 
 /** 주소 파라미터 이름 = 폼 값 키. API 는 min·max 를 minAmount·maxAmount 로 보낸다 */

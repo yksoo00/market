@@ -192,6 +192,12 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await expect(page).toHaveURL(/[?&]category=P01(&|$)/);
     await expect(toolbar.getByRole("button", { name: search.filter.categoryChip("PC주요부품") })).toBeVisible();
     await expect(rowOf(page, prodName)).toBeVisible();
+    // 정렬은 칩 줄의 [정렬] 칩 — 고르면 바로, 걸린 필터는 그대로
+    await toolbar.getByRole("button", { name: search.sort.label, exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: search.sort.options.priceAsc }).click();
+    await expect(page).toHaveURL(/[?&]sort=priceAsc/);
+    await expect(page).toHaveURL(/[?&]category=P01(&|$)/);
+    await expect(rowOf(page, prodName)).toBeVisible();
     // 등록 상태는 "신품대비 80~89%"로 고쳤다 → "신품"만이면 없음
     await toolbar.getByRole("button", { name: search.filter.detail, exact: true }).click();
     await page.getByLabel(search.filter.state).selectOption("new");

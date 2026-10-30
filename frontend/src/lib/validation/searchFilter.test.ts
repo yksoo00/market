@@ -16,6 +16,7 @@ const empty: SearchFilterInput = {
   coverage: "",
   has: [],
   maxMinOrder: "",
+  sort: "latest",
 };
 const parse = (over: Partial<SearchFilterInput>) => searchFilterSchema.safeParse({ ...empty, ...over });
 
@@ -42,7 +43,14 @@ describe("searchFilterSchema", () => {
       coverage: undefined,
       has: [],
       maxMinOrder: undefined,
+      sort: "latest",
     });
+  });
+
+  it("정렬 칩: 아는 값만, 없으면 최신순 (2026-10-30)", () => {
+    expect(parse({ sort: "priceDesc" }).data?.sort).toBe("priceDesc");
+    expect(parse({ sort: "stockDesc" as never }).success).toBe(false);
+    expect(parseFilterForm({ ...filterFormValues(parseSearchParams({ sort: "deliveryAsc" })) }).sort).toBe("deliveryAsc");
   });
 
   it("재고 0 ~ 100,000 정수", () => {

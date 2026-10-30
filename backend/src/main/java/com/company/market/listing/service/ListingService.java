@@ -453,6 +453,9 @@ public class ListingService {
 		if (condition.minPrice() != null && condition.maxPrice() != null && condition.minPrice() > condition.maxPrice()) {
 			throw new ValidationException(Map.of("maxPrice", "최대 가격은 최소 가격보다 크거나 같아야 합니다."));
 		}
+		if (!"latest".equals(condition.sort())) {
+			return searchSorted(condition, ownerId, keys);
+		}
 		// 페이지 번호 방식: 같은 조건의 정렬 키로 경계를 구해, 그 페이지의 앞 줄 키 다음부터 키셋으로 읽는다
 		PageKeys<Object[]> pageKeys = condition.page() == null ? null
 				: PageKeys.of(searchRepository.findKeys(condition, ownerId, keys), condition.page(), PAGE_SIZE);
@@ -472,6 +475,28 @@ public class ListingService {
 			return new ListingPageResponse(items, nextCursor, pageKeys.total(), pageKeys.page(), pageKeys.totalPages());
 		}
 		return new ListingPageResponse(items, nextCursor, searchRepository.count(condition, ownerId, keys), null, null);
+	}
+
+	/**
+	 * 최신순이 아닌 정렬 (2026-10-30). 커서는 최신순 전용이라 page 가 있어야 한다. 정렬 키를 전부 읽어 그 페이지 키만 자르고
+	 * 그 매물만 읽어 키 순서로 맞춘다 (offset 아님 — 거래 목록 정렬과 같은 방식)
+	 */
+	private ListingPageResponse searchSorted(ListingSearchCondition condition, UUID ownerId, Collection<ListingId> keys) {
+		if (condition.page() == null) {
+			throw new ValidationException(Map.of("sort", "최신순 말고 다른 정렬은 page 와 함께 써야 합니다."));
+		}
+		List<Object[]> all = searchRepository.findKeys(condition, ownerId, keys);
+		PageKeys<Object[]> pageKeys = PageKeys.of(all, condition.page(), PAGE_SIZE);
+		int from = (pageKeys.page() - 1) * PAGE_SIZE;
+		List<Object[]> slice = all.subList(from, Math.min(from + PAGE_SIZE, all.size()));
+		Map<String, Object[]> byKey = searchRepository.findByKeys(slice).stream()
+			.collect(Collectors.toMap(r -> ((Listing) r[0]).getRegDate() + "|" + ((Listing) r[0]).getUserId(), r -> r));
+		List<Object[]> page = slice.stream().map(k -> byKey.get(k[0] + "|" + k[1])).filter(Objects::nonNull).toList();
+
+		Map<String, String> paths = categories.namePaths(page.stream().map(r -> (Product) r[1]).toList());
+		List<ListingSearchItemResponse> items = page.stream()
+			.map(r -> toSearchItem((Listing) r[0], (Product) r[1], paths.get(((Product) r[1]).getProdId()))).toList();
+		return new ListingPageResponse(items, null, pageKeys.total(), pageKeys.page(), pageKeys.totalPages());
 	}
 
 	/**

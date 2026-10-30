@@ -133,6 +133,7 @@
   | 불량지원 `coverage` | `replace·refund` |
   | 자료 `has` | `datasheet·photo·testReport·certificate·replaceProd` 쉼표로 5개까지 |
   | 최소주문 `maxMinOrder` | 1 ~ 100,000 |
+  | 정렬 `sort` (2026-10-30) | `latest`(기본) · `priceAsc` · `priceDesc` · `deliveryAsc`. 최신순이 아니면 `page` 필요(커서는 최신순 전용) → 없으면 `fields.sort`. 정렬 열은 고정 문자열 중에서만 고른다(값을 JPQL 에 끼워 넣지 않음) |
 - 구매 (2026-10-15, `POST /api/v1/trades` 외 — 스펙 `2026-10-15-purchase-design.md`). 프론트 `lib/validation/trade.ts` 와 서버 `TradeCreateRequest`·`TradeService` 가 같은 규칙:
   | 항목 | 규칙 |
   |---|---|

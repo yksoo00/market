@@ -55,7 +55,7 @@ export const my = {
       maxAmount: "최대 금액",
       won: "원",
       sort: "정렬",
-      sorts: { latest: "최신순", oldest: "오래된 순", amountDesc: "금액 높은 순", amountAsc: "금액 낮은 순" },
+      sorts: { latest: "최신순", amountDesc: "금액높은순", amountAsc: "금액낮은순" },
       apply: "적용",
       reset: "필터 초기화",
       resultCount: (n: number) => `조건에 맞는 거래 ${n.toLocaleString("ko-KR")}건`,
