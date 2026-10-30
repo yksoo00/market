@@ -11,7 +11,7 @@ export const search = {
   filter: {
     title: "필터",
     status: "거래상태",
-    statuses: { available: "거래 가능", completed: "거래 완료", all: "전체" },
+    statuses: { available: "거래 중", completed: "거래 완료", all: "전체" },
     stock: "재고",
     stockSuffix: "개 이상",
     price: "가격",
