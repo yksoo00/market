@@ -2,11 +2,10 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { useForm, useWatch } from "react-hook-form";
-import { Icon } from "@/components/common/Icon";
+import { applyClass, Chip, inputClass, PopField, PopForm } from "@/components/common/FilterChip";
 import { categoryLabel, FilterCategoryPanel, useCategoryTree } from "@/components/search/FilterCategoryPicker";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { formatPrice } from "@/lib/format";
 import {
   activeFilterCount,
@@ -30,10 +29,6 @@ import { search } from "@/messages/search";
 
 const t = search.filter;
 const STATUSES = ["available", "completed", "all"] as const;
-const inputClass =
-  "h-8.5 rounded-md border border-line bg-surface px-2.5 text-sm text-ink outline-none focus:border-primary aria-invalid:border-down";
-const applyClass =
-  "h-8.5 px-4 rounded-md bg-primary text-white text-sm font-bold hover:bg-primary-dark disabled:opacity-40 disabled:pointer-events-none";
 
 type PopId = "status" | "category" | "stock" | "price" | "detail";
 
@@ -147,7 +142,7 @@ export function FilterBar({ query, scope = "search" }: { query: SearchQuery; sco
         clearLabel={t.clear(t.stock)}
         {...popup("stock")}
       >
-        <PopForm onSubmit={apply} valid={isValid}>
+        <PopForm onSubmit={apply} valid={isValid} applyLabel={t.apply}>
           <PopField label={t.stock} htmlFor="f-stock" error={errors.minStock?.message} errorId="f-stock-err">
             <input
               id="f-stock"
@@ -170,7 +165,7 @@ export function FilterBar({ query, scope = "search" }: { query: SearchQuery; sco
         clearLabel={t.clear(t.price)}
         {...popup("price")}
       >
-        <PopForm onSubmit={apply} valid={isValid}>
+        <PopForm onSubmit={apply} valid={isValid} applyLabel={t.apply}>
           <PopField label={t.price} htmlFor="f-price-min" error={errors.minPrice?.message ?? errors.maxPrice?.message} errorId="f-price-err">
             <input
               id="f-price-min"
@@ -209,7 +204,7 @@ export function FilterBar({ query, scope = "search" }: { query: SearchQuery; sco
         contentClass="w-[34rem]"
         {...popup("detail")}
       >
-        <PopForm onSubmit={apply} valid={isValid}>
+        <PopForm onSubmit={apply} valid={isValid} applyLabel={t.apply}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3">
             <PopField label={t.delivery} htmlFor="f-delivery" error={errors.deliveryBy?.message} errorId="f-delivery-err">
               <input
@@ -299,99 +294,6 @@ export function FilterBar({ query, scope = "search" }: { query: SearchQuery; sco
         <button type="button" onClick={() => go(base)} className="shrink-0 h-8.5 px-2 text-sm text-ink-2 hover:text-ink">
           {t.reset}
         </button>
-      )}
-    </div>
-  );
-}
-
-interface ChipProps {
-  label: string;
-  active: boolean;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onClear: () => void;
-  clearLabel: string;
-  align?: "start" | "end";
-  contentClass?: string;
-  children: ReactNode;
-}
-
-/** 칩 = 팝업 여는 버튼 + (걸려 있으면) 그 조건만 지우는 × */
-function Chip({ label, active, open, onOpenChange, onClear, clearLabel, align, contentClass, children }: ChipProps) {
-  return (
-    <div
-      className={`shrink-0 h-8.5 flex items-center rounded-full border text-sm ${
-        active ? "border-primary bg-primary-soft text-primary-dark font-medium" : "border-line bg-surface text-ink-2"
-      }`}
-    >
-      <Popover open={open} onOpenChange={onOpenChange}>
-        <PopoverTrigger className={`h-full ${active ? "pl-3.5 pr-1.5" : "px-3.5"} flex items-center gap-1 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-primary/40`}>
-          <span className="max-w-48 truncate">{label}</span>
-          <span aria-hidden="true" className="text-xs opacity-60">
-            ▾
-          </span>
-        </PopoverTrigger>
-        <PopoverContent align={align} className={contentClass}>
-          {children}
-        </PopoverContent>
-      </Popover>
-      {active && (
-        <button type="button" aria-label={clearLabel} onClick={onClear} className="h-full pl-1 pr-2.5 flex items-center rounded-r-full hover:text-primary">
-          <Icon name="close" size={14} />
-        </button>
-      )}
-    </div>
-  );
-}
-
-function PopForm({ onSubmit, valid, children }: { onSubmit: () => void; valid: boolean; children: ReactNode }) {
-  return (
-    <form
-      noValidate
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSubmit();
-      }}
-      className="flex flex-col gap-3"
-    >
-      {children}
-      <div className="flex justify-end">
-        <button type="submit" disabled={!valid} className={applyClass}>
-          {t.apply}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-interface PopFieldProps {
-  label: string;
-  htmlFor?: string;
-  /** 체크박스 묶음처럼 label 대상이 하나가 아닐 때 aria-labelledby 용 */
-  labelId?: string;
-  error?: string;
-  errorId?: string;
-  children: ReactNode;
-}
-
-function PopField({ label, htmlFor, labelId, error, errorId, children }: PopFieldProps) {
-  const labelClass = "text-[13px] font-medium text-ink-2";
-  return (
-    <div className="flex flex-col gap-1">
-      {htmlFor ? (
-        <label htmlFor={htmlFor} className={labelClass}>
-          {label}
-        </label>
-      ) : (
-        <span id={labelId} className={labelClass}>
-          {label}
-        </span>
-      )}
-      <div className="flex items-center gap-1.5">{children}</div>
-      {error && (
-        <p id={errorId} className="text-xs text-down">
-          {error}
-        </p>
       )}
     </div>
   );

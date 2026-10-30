@@ -136,9 +136,9 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     await page.getByRole("button", { name: hf.search, exact: true }).click();
     // 적용하면 목록이 다시 마운트된다 — 건수 줄이 보여야 새 목록이다
     await expect(page.getByText(hf.resultCount(1))).toBeVisible();
-    await page.getByRole("button", { name: hf.detail }).click();
-    await page.getByLabel(af.status).selectOption("quoteAccepted");
-    await page.getByRole("button", { name: hf.apply, exact: true }).click();
+    // 상태 칩: 누르면 목록에서 바로 고른다 (구매요청 상태인 이 줄은 견적수락으로 거르면 사라진다)
+    await page.getByRole("button", { name: af.status, exact: true }).click();
+    await page.getByRole("button", { name: t.stats.quoteAccepted, exact: true }).click();
     await expect(page.getByText(af.emptyTitle)).toBeVisible();
     await page.getByRole("button", { name: hf.reset }).click();
     await expect(row).toBeVisible();
@@ -166,7 +166,8 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     // 적용하면 목록이 다시 마운트된다 — 건수 줄이 보여야 새 목록이다 (옛 줄이 남아 있는 동안 누르면 팝업이 같이 사라진다)
     await expect(page.getByText(hf.resultCount(1))).toBeVisible();
     await expect(historyRow).toBeVisible();
-    await page.getByRole("button", { name: hf.detail }).click();
+    // 금액 칩: 팝업에 최소 금액을 넣고 [적용]
+    await page.getByRole("button", { name: hf.amount, exact: true }).click();
     await page.getByRole("textbox", { name: hf.minAmount }).fill("2000000000");
     await page.getByRole("button", { name: hf.apply, exact: true }).click();
     await expect(page.getByText(hf.emptyTitle)).toBeVisible();

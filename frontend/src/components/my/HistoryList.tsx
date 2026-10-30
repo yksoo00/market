@@ -59,11 +59,10 @@ export function HistoryList({ side, page, filter }: { side: HistorySide; page: n
         toolbar: t.filter.label,
         searchPlaceholder: t.filter.searchPlaceholder,
         search: t.filter.search,
-        detail: t.filter.detail,
-        detailChip: t.filter.detailChip,
+        filters: t.filter.chips,
         apply: t.filter.apply,
-        resetPopup: t.filter.resetPopup,
         reset: t.filter.reset,
+        clear: t.filter.clear,
       }}
       searchKey="q"
       fields={historyFields}

@@ -140,11 +140,10 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
           toolbar: my.activityFilter.label,
           searchPlaceholder: my.history.filter.searchPlaceholder,
           search: my.history.filter.search,
-          detail: my.history.filter.detail,
-          detailChip: my.history.filter.detailChip,
+          filters: my.history.filter.chips,
           apply: my.history.filter.apply,
-          resetPopup: my.history.filter.resetPopup,
           reset: my.history.filter.reset,
+          clear: my.history.filter.clear,
         }}
         searchKey="q"
         fields={fields}

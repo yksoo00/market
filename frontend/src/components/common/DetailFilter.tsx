@@ -1,24 +1,25 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useState, type ReactNode } from "react";
-import { useForm, type FieldErrors, type UseFormRegister } from "react-hook-form";
+import { useState } from "react";
+import { useForm } from "react-hook-form";
 import type { z } from "zod";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { fieldKeys, filterCount, type FilterField, type FilterValues } from "@/lib/detailFilter";
+import { applyClass, Chip, inputClass, PopField, PopForm } from "@/components/common/FilterChip";
+import { fieldIsEmpty, fieldKeys, filterCount, type FilterField, type FilterValues } from "@/lib/detailFilter";
+import { formatPrice } from "@/lib/format";
 
 export interface DetailFilterLabels {
-  /** 줄 전체의 접근 가능한 이름 */
+  /** 검색창(줄 전체)의 접근 가능한 이름 */
   toolbar: string;
+  /** 칩 줄의 접근 가능한 이름 */
+  filters: string;
   searchPlaceholder: string;
   search: string;
-  detail: string;
-  detailChip: (n: number) => string;
   apply: string;
-  /** 팝업 안: 상세 칸만 비운다 (검색어는 그대로) */
-  resetPopup: string;
-  /** 줄 옆: 검색어·상세 전부 비운다 */
+  /** 줄 옆: 검색어·칩 조건 전부 비운다 */
   reset: string;
+  /** 칩 옆 ×: 그 조건만 지운다 */
+  clear: (what: string) => string;
 }
 
 interface Props {
@@ -37,21 +38,18 @@ interface Props {
   serverErrors?: Record<string, string>;
 }
 
-const inputClass = "h-8.5 rounded-md border border-line bg-surface px-2.5 text-sm text-ink outline-none focus:border-primary aria-invalid:border-down";
-const applyClass = "h-8.5 px-4 rounded-md bg-primary text-white text-sm font-bold hover:bg-primary-dark disabled:opacity-40 disabled:pointer-events-none";
-
 /**
- * 검색창 + [상세 필터] 팝업 (사용자 지시 2026-10-30: 칩 여러 개 없이 상세 필터 하나만). 화면마다 칸 정의(fields)만 다르다.
- * 검색은 검색창에서 엔터/[검색], 상세는 팝업의 [적용] — 둘 다 같은 값 묶음을 onApply 로 넘기고 부모가 주소를 바꾼다.
- * 팝업을 열 때 상세 칸을 주소 값으로 되돌려, 적용 안 하고 닫은 입력이 남지 않게 한다 (검색 화면 FilterBar 와 같은 규칙).
+ * 검색창 + 필터 칩 줄 (사용자 지시 2026-10-30: 검색 결과 화면과 똑같이). 검색 화면의 FilterBar 와 같은 칩·팝업 부품을 쓰고
+ * 화면마다 칸 정의(fields)만 다르다. 고르기만 하는 칸(select)은 누르면 바로, 입력 칸(기간·금액)은 팝업의 [적용]을 눌러야 주소에
+ * 반영된다. 팝업을 열 때 칸을 주소 값으로 되돌려, 적용 안 하고 닫은 입력이 다른 팝업의 [적용]에 섞여 들어가지 않게 한다.
+ * 주소가 바뀌면 부모가 key 로 다시 마운트해 칩·칸이 주소와 맞는다.
  */
 export function DetailFilter({ labels, searchKey, fields, schema, values, empty, onApply, serverErrors }: Props) {
-  const [open, setOpen] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
   const {
     register,
     handleSubmit,
     reset,
-    getValues,
     formState: { errors, isValid },
   } = useForm<FilterValues>({
     // 폼 값이 문자열 묶음이라는 약속은 호출하는 쪽 스키마가 지킨다
@@ -62,21 +60,35 @@ export function DetailFilter({ labels, searchKey, fields, schema, values, empty,
   });
   const count = filterCount(fields, values);
   const applied = count > 0 || values[searchKey] !== "";
-  const apply = handleSubmit((v) => {
-    setOpen(false);
-    onApply(v);
-  });
   const errorOf = (key: string) => errors[key]?.message ?? serverErrors?.[key];
 
+  // 검색은 지금 걸린 칩 조건에 검색어만 바꿔서
+  const search = handleSubmit((v) => onApply({ ...values, [searchKey]: v[searchKey] ?? "" }));
+  // 칩 팝업의 [적용] — 그 칸의 값만 바꾼다
+  const applyField = (field: FilterField) =>
+    handleSubmit((v) => {
+      setOpenId(null);
+      onApply({ ...values, ...Object.fromEntries(fieldKeys(field).map((k) => [k, v[k] ?? ""])) });
+    });
+  const popup = (id: string) => ({
+    open: openId === id,
+    onOpenChange: (open: boolean) => {
+      if (open) reset(values);
+      setOpenId(open ? id : null);
+    },
+  });
+
   return (
-    <div role="search" aria-label={labels.toolbar} className="flex flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-2">
       <form
+        role="search"
+        aria-label={labels.toolbar}
         noValidate
         onSubmit={(e) => {
           e.preventDefault();
-          void apply(e);
+          void search(e);
         }}
-        className="flex min-w-0 grow basis-56 flex-col gap-1"
+        className="flex flex-col gap-1"
       >
         <div className="flex gap-2">
           <input
@@ -99,142 +111,92 @@ export function DetailFilter({ labels, searchKey, fields, schema, values, empty,
         )}
       </form>
 
-      <Popover
-        open={open}
-        onOpenChange={(next) => {
-          // 열 때 상세 칸을 주소 값으로 되돌린다. 검색창에 친 글자는 그대로
-          if (next) reset({ ...values, [searchKey]: getValues(searchKey) });
-          setOpen(next);
-        }}
-      >
-        <PopoverTrigger
-          className={`h-8.5 shrink-0 px-3.5 flex items-center gap-1 rounded-md border text-sm outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${
-            count > 0 ? "border-primary bg-primary-soft text-primary-dark font-medium" : "border-line bg-surface text-ink-2"
-          }`}
-        >
-          <span>{count > 0 ? labels.detailChip(count) : labels.detail}</span>
-          <span aria-hidden="true" className="text-xs opacity-60">
-            ▾
-          </span>
-        </PopoverTrigger>
-        {/* 낮은 칸(3분할 아래 칸)에서도 잘리지 않게 사용 가능한 높이 안에서 스크롤 */}
-        <PopoverContent align="end" className="w-[26rem] max-h-(--radix-popover-content-available-height) overflow-y-auto">
-          <form
-            noValidate
-            onSubmit={(e) => {
-              e.preventDefault();
-              // 포털이지만 React 이벤트는 부모 폼으로 번진다 — 검색창 폼이 또 제출되지 않게
-              e.stopPropagation();
-              void apply(e);
-            }}
-            className="flex flex-col gap-3"
-          >
-            {fields.map((f) => (
-              <FieldInput key={fieldKeys(f).join("-")} field={f} register={register} errors={errors} serverErrors={serverErrors} />
-            ))}
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  onApply({ ...empty, [searchKey]: values[searchKey] ?? "" });
-                }}
-                className="h-8.5 px-2 text-sm text-ink-2 hover:text-ink"
+      {/* 좁은 칸·모바일은 한 줄 가로 스크롤 (칩이 줄바꿈되면 결과가 밀린다) */}
+      <div role="toolbar" aria-label={labels.filters} className="flex items-center gap-2 overflow-x-auto @md:flex-wrap @md:overflow-visible pb-0.5">
+        {fields.map((field) => {
+          const id = fieldKeys(field)[0];
+          const active = !fieldIsEmpty(field, values);
+          const common = {
+            active,
+            clearLabel: labels.clear(field.label),
+            // 낮은 칸(3분할 아래 칸)에서도 잘리지 않게 사용 가능한 높이 안에서 스크롤
+            contentClass: "max-h-(--radix-popover-content-available-height) overflow-y-auto",
+            ...popup(id),
+          };
+          if (field.kind === "select") {
+            const current = values[field.key] ?? field.defaultValue;
+            const currentLabel = field.options.find((o) => o.value === current)?.label ?? current;
+            return (
+              <Chip
+                key={id}
+                label={active ? `${field.label}: ${currentLabel}` : field.label}
+                onClear={() => onApply({ ...values, [field.key]: field.defaultValue })}
+                {...common}
               >
-                {labels.resetPopup}
-              </button>
-              <button type="submit" disabled={!isValid} className={applyClass}>
-                {labels.apply}
-              </button>
-            </div>
-          </form>
-        </PopoverContent>
-      </Popover>
+                <div role="group" aria-label={field.label} className="flex flex-col min-w-36">
+                  {field.options.map((o) => (
+                    <button
+                      key={o.value}
+                      type="button"
+                      aria-pressed={current === o.value}
+                      onClick={() => {
+                        setOpenId(null);
+                        onApply({ ...values, [field.key]: o.value });
+                      }}
+                      className={`h-9 px-3 rounded-md text-left text-sm hover:bg-bg ${current === o.value ? "text-primary font-medium" : "text-ink"}`}
+                    >
+                      {o.label}
+                    </button>
+                  ))}
+                </div>
+              </Chip>
+            );
+          }
+          const [a, b] = fieldKeys(field);
+          const isDate = field.kind === "dateRange";
+          const [aLabel, bLabel] = field.kind === "dateRange" ? [field.fromLabel, field.toLabel] : [field.minLabel, field.maxLabel];
+          const show = (v: string) => (v === "" ? "" : isDate ? v : formatPrice(Number(v)));
+          const suffix = field.kind === "numberRange" ? field.suffix : "";
+          const error = errorOf(a) ?? errorOf(b);
+          const errorId = `df-${errorOf(a) ? a : b}-err`;
+          const input = (key: string, label: string) => (
+            <input
+              id={`df-${key}`}
+              type={isDate ? "date" : "text"}
+              inputMode={isDate ? undefined : "numeric"}
+              aria-label={label}
+              placeholder={isDate ? undefined : label}
+              {...register(key)}
+              aria-invalid={!!errorOf(key)}
+              aria-describedby={error ? errorId : undefined}
+              className={`${inputClass} ${isDate ? "" : "w-28 num text-right"}`}
+            />
+          );
+          return (
+            <Chip
+              key={id}
+              label={active ? `${field.label}: ${show(values[a] ?? "")}~${show(values[b] ?? "")}${suffix}` : field.label}
+              onClear={() => onApply({ ...values, [a]: "", [b]: "" })}
+              {...common}
+            >
+              <PopForm onSubmit={applyField(field)} valid={isValid} applyLabel={labels.apply}>
+                <PopField label={field.label} error={error} errorId={errorId}>
+                  {input(a, aLabel)}
+                  <span className="text-sm text-ink-2">~</span>
+                  {input(b, bLabel)}
+                  {suffix && <span className="text-sm text-ink-2">{suffix}</span>}
+                </PopField>
+              </PopForm>
+            </Chip>
+          );
+        })}
 
-      {applied && (
-        <button type="button" onClick={() => onApply(empty)} className="shrink-0 h-8.5 px-2 text-sm text-ink-2 hover:text-ink">
-          {labels.reset}
-        </button>
-      )}
-    </div>
-  );
-}
-
-function FieldInput({
-  field,
-  register,
-  errors,
-  serverErrors,
-}: {
-  field: FilterField;
-  register: UseFormRegister<FilterValues>;
-  errors: FieldErrors<FilterValues>;
-  serverErrors?: Record<string, string>;
-}) {
-  const err = (key: string) => errors[key]?.message ?? serverErrors?.[key];
-  const keys = fieldKeys(field);
-  const id = (key: string) => `df-${key}`;
-  if (field.kind === "select") {
-    return (
-      <Row label={field.label} htmlFor={id(field.key)} error={err(field.key)} errorId={`${id(field.key)}-err`}>
-        <select id={id(field.key)} {...register(field.key)} className={inputClass}>
-          {field.options.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </select>
-      </Row>
-    );
-  }
-  const [a, b] = keys;
-  const [aLabel, bLabel] = field.kind === "dateRange" ? [field.fromLabel, field.toLabel] : [field.minLabel, field.maxLabel];
-  const date = field.kind === "dateRange";
-  // 앞·뒤 칸 오류 중 먼저 걸린 하나를 칸 묶음 아래에 보인다
-  const error = err(a) ?? err(b);
-  const errorKey = err(a) ? a : b;
-  const input = (key: string, label: string) => (
-    <input
-      id={id(key)}
-      type={date ? "date" : "text"}
-      inputMode={date ? undefined : "numeric"}
-      aria-label={label}
-      placeholder={date ? undefined : label}
-      {...register(key)}
-      aria-invalid={!!err(key)}
-      aria-describedby={error ? `${id(errorKey)}-err` : undefined}
-      className={`${inputClass} min-w-0 grow ${date ? "" : "num text-right"}`}
-    />
-  );
-  return (
-    <Row label={field.label} error={error} errorId={`${id(errorKey)}-err`}>
-      <div className="flex min-w-0 grow items-center gap-1.5">
-        {input(a, aLabel)}
-        <span className="text-sm text-ink-2">~</span>
-        {input(b, bLabel)}
-        {field.kind === "numberRange" && <span className="text-sm text-ink-2">{field.suffix}</span>}
+        {applied && (
+          <button type="button" onClick={() => onApply(empty)} className="shrink-0 h-8.5 px-2 text-sm text-ink-2 hover:text-ink">
+            {labels.reset}
+          </button>
+        )}
       </div>
-    </Row>
-  );
-}
-
-function Row({ label, htmlFor, error, errorId, children }: { label: string; htmlFor?: string; error?: string; errorId: string; children: ReactNode }) {
-  const labelClass = "text-[13px] font-medium text-ink-2";
-  return (
-    <div className="flex flex-col gap-1">
-      {htmlFor ? (
-        <label htmlFor={htmlFor} className={labelClass}>
-          {label}
-        </label>
-      ) : (
-        <span className={labelClass}>{label}</span>
-      )}
-      <div className="flex items-center gap-1.5">{children}</div>
-      {error && (
-        <p id={errorId} className="text-xs text-down">
-          {error}
-        </p>
-      )}
     </div>
   );
 }
