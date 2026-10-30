@@ -13,7 +13,7 @@ import com.company.market.listing.dto.ListingSearchCondition;
 import com.company.market.trade.dto.QuoteCreateRequest;
 import com.company.market.trade.dto.QuotePurchaseRequest;
 import com.company.market.trade.dto.TradeCreateRequest;
-import com.company.market.trade.dto.TradeHistoryFilter;
+import com.company.market.trade.dto.TradeFilter;
 import com.company.market.trade.dto.TradeHistoryPageResponse;
 import com.company.market.trade.dto.TradePageResponse;
 import com.company.market.trade.dto.TradeResponse;
@@ -102,13 +102,17 @@ public class TradeController {
 		return ResponseEntity.noContent().build();
 	}
 
-	/** 내 구매(role=buyer)·받은 구매요청(role=seller, reg 로 한 매물). active=true 면 진행 중 상태만. 본인 id 는 인증 정보에서만. 읽기라 한도 없음 */
+	/** 내 구매(role=buyer)·받은 구매요청(role=seller, reg 로 한 매물). active=true 면 진행 중 상태만. status·q·from·to·minAmount·maxAmount·sort 는 선택 필터. 본인 id 는 인증 정보에서만. 읽기라 한도 없음 */
 	@GetMapping
 	public ApiResponse<TradePageResponse> list(@AuthenticationPrincipal AuthenticatedUser me,
 			@RequestParam(required = false) String role, @RequestParam(required = false) String reg,
 			@RequestParam(required = false) String cursor, @RequestParam(defaultValue = "false") boolean active,
-			@RequestParam(required = false) Integer page) {
-		return ApiResponse.of(trades.list(me.id(), role, reg, cursor, active, page));
+			@RequestParam(required = false) Integer page, @RequestParam(required = false) String status,
+			@RequestParam(required = false) String q, @RequestParam(required = false) String from,
+			@RequestParam(required = false) String to, @RequestParam(required = false) Long minAmount,
+			@RequestParam(required = false) Long maxAmount, @RequestParam(required = false) String sort) {
+		return ApiResponse.of(trades.list(me.id(), role, reg, cursor, active, page, status,
+				new TradeFilter(q, from, to, minAmount, maxAmount, sort)));
 	}
 
 	/** 내 거래이력(구매확정만). side = all(기본) | buy | sell. q·from·to·minAmount·maxAmount·sort 는 선택 필터. 본인 id 는 인증 정보에서만 */
@@ -119,7 +123,7 @@ public class TradeController {
 			@RequestParam(required = false) String from, @RequestParam(required = false) String to,
 			@RequestParam(required = false) Long minAmount, @RequestParam(required = false) Long maxAmount,
 			@RequestParam(required = false) String sort) {
-		return ApiResponse.of(activity.history(me.id(), side, cursor, page, new TradeHistoryFilter(q, from, to, minAmount, maxAmount, sort)));
+		return ApiResponse.of(activity.history(me.id(), side, cursor, page, new TradeFilter(q, from, to, minAmount, maxAmount, sort)));
 	}
 
 	/** 검색 범위 탭 판정 { sales, purchases } */
