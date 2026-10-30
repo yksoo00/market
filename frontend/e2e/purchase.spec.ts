@@ -132,7 +132,27 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     await page.goto("/my/activity?tab=purchases");
     await expect(page.getByText(my.purchases.emptyTitle)).toBeVisible();
     await page.goto("/my/history?tab=buy");
-    await expect(page.getByRole("table").getByRole("row").filter({ hasText: prodName })).toBeVisible();
+    const historyRow = page.getByRole("table").getByRole("row").filter({ hasText: prodName });
+    await expect(historyRow).toBeVisible();
+    // 거래이력 검색·상세 필터: 없는 이름은 빈 결과 → [필터 초기화] 로 돌아오고, 맞는 이름·금액 조건은 그대로 보인다
+    const hf = my.history.filter;
+    const searchBox = page.getByRole("searchbox", { name: hf.label });
+    await searchBox.fill("zzz-없는상품");
+    await page.getByRole("button", { name: hf.search, exact: true }).click();
+    await expect(page.getByText(hf.emptyTitle)).toBeVisible();
+    await page.getByRole("button", { name: hf.reset }).click();
+    await expect(historyRow).toBeVisible();
+    await searchBox.fill(prodName);
+    await page.getByRole("button", { name: hf.search, exact: true }).click();
+    // 적용하면 목록이 다시 마운트된다 — 건수 줄이 보여야 새 목록이다 (옛 줄이 남아 있는 동안 누르면 팝업이 같이 사라진다)
+    await expect(page.getByText(hf.resultCount(1))).toBeVisible();
+    await expect(historyRow).toBeVisible();
+    await page.getByRole("button", { name: hf.detail }).click();
+    await page.getByRole("textbox", { name: hf.minAmount }).fill("2000000000");
+    await page.getByRole("button", { name: hf.apply, exact: true }).click();
+    await expect(page.getByText(hf.emptyTitle)).toBeVisible();
+    await page.getByRole("button", { name: hf.reset }).click();
+    await expect(historyRow).toBeVisible();
     await page.goto("/search");
     await page.getByRole("link", { name: search.scope.purchased }).click();
     await expect(page).toHaveURL(/purchased=1/);

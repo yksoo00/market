@@ -1,4 +1,6 @@
 import { api } from "@/lib/api/client";
+import type { FilterValues } from "@/lib/detailFilter";
+import { historyApiParams } from "@/lib/historyFilter";
 import type { HistorySide, PendingCounts, QuoteItem, Trade, TradeCreateRequest, TradeHistoryPage, TradePage, TradeRole, TradeScopes } from "@/types/trade";
 
 const action = (tradeId: string, what: "complete" | "accept" | "reject") =>
@@ -34,8 +36,9 @@ export const tradesApi = {
   },
   pendingCounts: () => api<PendingCounts>("/api/v1/trades/pending-counts", { cache: "no-store" }),
   /** 내 거래이력(구매확정만), 페이지 번호 방식 */
-  history: (side: HistorySide, page = 1) => {
+  history: (side: HistorySide, page = 1, filter: FilterValues = {}) => {
     const q = new URLSearchParams({ side, page: String(page) });
+    for (const [k, v] of historyApiParams(filter)) q.set(k, v);
     return api<TradeHistoryPage>(`/api/v1/trades/history?${q}`, { cache: "no-store" });
   },
   /** 검색 범위 탭 판정. 비로그인이면 401 — 호출하는 쪽이 탭 없음으로 본다 */
