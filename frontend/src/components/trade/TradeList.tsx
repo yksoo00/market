@@ -1,18 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
 import { cn } from "cn";
+import { DetailFilter } from "@/components/common/DetailFilter";
+import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
 import { Pager } from "@/components/common/Pager";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog } from "@/components/trade/QuoteDialog";
 import { tradesApi } from "@/lib/api/trades";
 import { notifyCartChanged } from "@/lib/cart";
+import { filterParams, type FilterValues } from "@/lib/detailFilter";
+import { historyFieldFromApi } from "@/lib/historyFilter";
 import { formatPrice } from "@/lib/format";
 import { tabPageHref } from "@/lib/myTabs";
 import { listingHref } from "@/lib/search";
 import { rowActions, type RowAction } from "@/lib/tradeActions";
+import { emptyTradeFilter, TRADE_STATUS_VALUES, tradeFields } from "@/lib/tradeFilter";
+import { listFilterSchema } from "@/lib/validation/historyFilter";
+import { common } from "@/messages/common";
 import { my } from "@/messages/my";
 import { trade } from "@/messages/trade";
 import type { Trade, TradeRole, TradeStats } from "@/types/trade";
@@ -21,7 +29,7 @@ const t = trade.list;
 const c = t.columns;
 const qty = new Intl.NumberFormat("ko-KR");
 
-type Load = { kind: "loading" } | { kind: "error" } | { kind: "ready"; items: Trade[]; page: number; totalPages: number; total: number };
+type Load = { kind: "loading" } | { kind: "error"; fields?: Record<string, string> } | { kind: "ready"; items: Trade[]; page: number; totalPages: number; total: number };
 
 interface Props {
   /** buyer = 내 구매목록, seller = 받은 구매요청 */
@@ -32,23 +40,32 @@ interface Props {
   reg?: string;
   /** 보는 페이지 (1부터). 주소 ?page= 에서 부모가 읽어 넘긴다 */
   page: number;
-  /** 번호 줄 링크의 경로·쿼리 (서버 화면에서 클라이언트로 함수는 못 넘겨서 값으로 받는다) */
+  /** 번호 줄 링크의 경로·쿼리 (서버 화면에서 클라이언트로 함수는 못 넘겨서 값으로 받는다). pageParams 는 탭 등 기본 쿼리 — 검색·필터 값은 filter 에서 더한다 */
   pagePath: string;
   pageParams: Record<string, string | undefined>;
+  /** 검색어·상태·기간·금액·정렬 (주소에서 읽은 값). 바뀌면 부모가 key 로 다시 마운트한다 */
+  filter: FilterValues;
 }
 
 /**
  * 거래 목록 (스펙 2026-10-15-purchase-design.md·2026-10-20-quote-request-design.md "화면"). 구매자·판매자 화면이 같이 쓴다.
  * 줄마다 누를 수 있는 버튼은 lib/tradeActions. 취소하면 행이 지워져 줄을 뺀다. 상대가 먼저 처리했으면(409·404) 목록을 다시 읽는다.
  */
-export function TradeList({ role, reg, active, page, pagePath, pageParams }: Props) {
-  const hrefFor = (n: number) => tabPageHref(pagePath, pageParams, n);
+export function TradeList({ role, reg, active, page, pagePath, pageParams, filter }: Props) {
+  const router = useRouter();
+  const fields = useMemo(() => tradeFields(role), [role]);
+  const schema = useMemo(() => listFilterSchema(TRADE_STATUS_VALUES[role]), [role]);
+  const fparams = filterParams(fields, filter, "q");
+  const filtered = Object.keys(fparams).length > 0;
+  const hrefFor = (n: number) => tabPageHref(pagePath, { ...pageParams, ...fparams }, n);
+  const applyFilter = (values: FilterValues) =>
+    router.push(tabPageHref(pagePath, { ...pageParams, ...filterParams(fields, values, "q") }, 1));
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   // 올리면 지금 페이지를 다시 읽는다
   const [attempt, setAttempt] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
-  // seq: 같은 문구가 연달아 나와도 알림을 새로 그려 스크린리더가 다시 읽게 (key)
-  const [message, setMessage] = useState<{ seq: number; text: string } | null>(null);
+  // 처리 실패 안내는 모달로 (사용자 지시 2026-10-30 — 클릭 뒤 안내는 전부 모달)
+  const { notice, show: showNotice, close: closeNotice } = useNotice();
   // 수락된 견적 줄의 [구매] — 바뀐 매물을 지금 구매 모달로 산다
   const [buying, setBuying] = useState<Trade | null>(null);
   const [purchased, setPurchased] = useState(false);
@@ -59,14 +76,22 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams }: Pro
 
   useEffect(() => {
     let alive = true;
-    void tradesApi.list(role, { reg, active, page }).then((res) => {
+    void tradesApi.list(role, { reg, active, page, filter }).then((res) => {
       if (!alive) return;
-      setLoad(res.ok ? { kind: "ready", ...res.data } : { kind: "error" });
+      if (res.ok) {
+        setLoad({ kind: "ready", ...res.data });
+        return;
+      }
+      // 서버가 필드별로 돌려준 오류(검증 실패)는 해당 칸에 보인다
+      const fields = res.fields
+        ? Object.fromEntries(Object.entries(res.fields).map(([k, v]) => [historyFieldFromApi[k] ?? k, v]))
+        : undefined;
+      setLoad({ kind: "error", fields });
     });
     return () => {
       alive = false;
     };
-  }, [role, reg, active, page, attempt]);
+  }, [role, reg, active, page, filter, attempt]);
 
   const reload = () => {
     setLoad({ kind: "loading" });
@@ -103,13 +128,33 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams }: Pro
       });
       return;
     }
-    setMessage((prev) => ({ seq: (prev?.seq ?? 0) + 1, text: trade.errors[res.code] ?? res.message }));
+    showNotice({ tone: "error", title: common.notice.tradeActionFailed, message: trade.errors[res.code] ?? res.message });
     // 상대가 먼저 처리했으면(지워졌으면 404) 지금 상태를 다시 보여 준다
     if (res.code === "TRADE_NOT_PENDING" || res.code === "TRADE_NOT_FOUND") setAttempt((n) => n + 1);
   };
 
   return (
     <section className="flex flex-col gap-3">
+      <DetailFilter
+        labels={{
+          toolbar: my.activityFilter.label,
+          searchPlaceholder: my.history.filter.searchPlaceholder,
+          search: my.history.filter.search,
+          detail: my.history.filter.detail,
+          detailChip: my.history.filter.detailChip,
+          apply: my.history.filter.apply,
+          resetPopup: my.history.filter.resetPopup,
+          reset: my.history.filter.reset,
+        }}
+        searchKey="q"
+        fields={fields}
+        schema={schema}
+        values={filter}
+        empty={emptyTradeFilter()}
+        onApply={applyFilter}
+        serverErrors={load.kind === "error" ? load.fields : undefined}
+      />
+      {filtered && load.kind === "ready" && <p className="px-1 text-[13px] text-ink-2">{my.history.filter.resultCount(load.total)}</p>}
       {reg && (
         <div className="flex items-center gap-3 text-[13px] text-ink-2">
           <span className="grow">{my.sales.filtered}</span>
@@ -118,12 +163,8 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams }: Pro
           </Link>
         </div>
       )}
-      {message && (
-        <p key={message.seq} role="alert" className="text-[13px] text-down">
-          {message.text}
-        </p>
-      )}
-      <Body load={load} asBuyer={asBuyer} busy={busy} onAct={act} onRetry={reload} firstPageHref={page > 1 ? hrefFor(1) : null} />
+      <NoticeDialog notice={notice} onClose={closeNotice} />
+      <Body load={load} asBuyer={asBuyer} busy={busy} onAct={act} onRetry={reload} firstPageHref={page > 1 ? hrefFor(1) : null} filtered={filtered} />
       {buying && (
         <PurchaseDialog
           sellerId={buying.sellerId}
@@ -186,9 +227,11 @@ interface BodyProps {
   onRetry: () => void;
   /** 2페이지 이후를 못 읽었을 때(건수가 줄어 범위 밖이 된 경우 등) 1페이지로 가는 주소 */
   firstPageHref: string | null;
+  /** 검색어·필터가 걸려 있나 — 빈 결과를 "아직 없어요"가 아니라 "조건에 맞는 게 없어요"로 */
+  filtered: boolean;
 }
 
-function Body({ load, asBuyer, busy, onAct, onRetry, firstPageHref }: BodyProps) {
+function Body({ load, asBuyer, busy, onAct, onRetry, firstPageHref, filtered }: BodyProps) {
   if (load.kind === "loading") {
     return (
       <div className="py-16 text-center text-[13px] text-ink-2" aria-busy="true">
@@ -208,6 +251,14 @@ function Body({ load, asBuyer, busy, onAct, onRetry, firstPageHref }: BodyProps)
             {t.firstPage}
           </Link>
         )}
+      </div>
+    );
+  }
+  if (load.items.length === 0 && filtered) {
+    return (
+      <div className="py-16 flex flex-col items-center gap-2 text-center bg-surface border border-line rounded-md">
+        <p className="text-[15px] font-bold text-ink">{my.activityFilter.emptyTitle}</p>
+        <p className="text-[13px] text-ink-2">{my.activityFilter.emptyDesc}</p>
       </div>
     );
   }

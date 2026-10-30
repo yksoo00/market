@@ -16,6 +16,7 @@ export const common = {
     uploadBlocked: "파일을 올릴 수 없어요",
     uploadChecked: "파일을 확인했어요",
     removeFailed: "뺄 수 없어요",
+    tradeActionFailed: "처리할 수 없어요",
   },
   // 페이지 번호 줄 (설계 2026-10-27 PR 5)
   pager: {

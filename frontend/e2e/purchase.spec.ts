@@ -123,6 +123,25 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     await page.goto("/my/activity?tab=purchases");
     const row = page.getByRole("table").getByRole("row").filter({ hasText: prodName });
     await expect(row.getByText(t.stats.requested)).toBeVisible();
+    // 검색·상세 필터: 없는 이름은 빈 결과 → [필터 초기화], 상태·상품명 조건은 그대로 보인다
+    const af = my.activityFilter;
+    const hf = my.history.filter;
+    const searchBox = page.getByRole("searchbox", { name: af.label });
+    await searchBox.fill("zzz-없는상품");
+    await page.getByRole("button", { name: hf.search, exact: true }).click();
+    await expect(page.getByText(af.emptyTitle)).toBeVisible();
+    await page.getByRole("button", { name: hf.reset }).click();
+    await expect(row).toBeVisible();
+    await searchBox.fill(prodName);
+    await page.getByRole("button", { name: hf.search, exact: true }).click();
+    // 적용하면 목록이 다시 마운트된다 — 건수 줄이 보여야 새 목록이다
+    await expect(page.getByText(hf.resultCount(1))).toBeVisible();
+    await page.getByRole("button", { name: hf.detail }).click();
+    await page.getByLabel(af.status).selectOption("quoteAccepted");
+    await page.getByRole("button", { name: hf.apply, exact: true }).click();
+    await expect(page.getByText(af.emptyTitle)).toBeVisible();
+    await page.getByRole("button", { name: hf.reset }).click();
+    await expect(row).toBeVisible();
     await page.getByRole("button", { name: t.completeAria(prodName) }).click();
     await expect(row.getByText(t.stats.confirmed)).toBeVisible();
     await expect(page.getByRole("button", { name: t.completeAria(prodName) })).toHaveCount(0);

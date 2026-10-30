@@ -100,6 +100,15 @@ export const my = {
     emptyDesc: "매물을 검색해 [구매]로 요청하면 여기에서 볼 수 있어요.",
     toSearch: "매물 검색하기",
   },
+  // 내 활동내역 요청·구매 탭 검색 + 상세 필터 (계획 2026-10-30 후속). 기간·금액·정렬 문구는 history.filter 와 같다
+  activityFilter: {
+    label: "거래 검색",
+    status: "거래상태",
+    statusAll: "전체",
+    period: "기간 (요청일)",
+    emptyTitle: "조건에 맞는 거래가 없어요",
+    emptyDesc: "검색어나 필터를 바꾸거나 초기화해 보세요.",
+  },
   // 내 활동내역 요청 탭 — 내 매물에 들어온 진행 중 거래 (TradeList role=seller)
   sales: {
     emptyTitle: "받은 구매요청이 없어요",

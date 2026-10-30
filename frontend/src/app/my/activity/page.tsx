@@ -4,8 +4,10 @@ import { MobileTabBar } from "@/components/common/MobileTabBar";
 import { MyListingsView } from "@/components/my/MyListingsView";
 import { MyTabs } from "@/components/my/MyTabs";
 import { TradeList } from "@/components/trade/TradeList";
-import { ACTIVITY_TABS, parseActivityTab, parsePage, parseReg } from "@/lib/myTabs";
+import { filterParams } from "@/lib/detailFilter";
+import { ACTIVITY_TABS, parseActivityTab, parsePage, parseReg, tabPageHref } from "@/lib/myTabs";
 import { buildSearchHref, parseSearchParams, type RawSearchParams } from "@/lib/search";
+import { parseTradeFilter, tradeFields } from "@/lib/tradeFilter";
 import { my } from "@/messages/my";
 
 export const metadata: Metadata = { title: my.activity.title };
@@ -20,6 +22,11 @@ export default async function MyActivityPage({ searchParams }: { searchParams: P
   // 판매 탭: 조건이 바뀌면 key 로 다시 마운트
   const query = parseSearchParams(raw, "mine");
   const key = buildSearchHref(query, "mine");
+  // 요청·구매 탭: 검색어·상태·기간·금액·정렬(?q=&status=&from=&to=&min=&max=&sort=)도 주소가 원본. 바뀌면 key 로 다시 마운트
+  const sellerFilter = parseTradeFilter(raw, "seller");
+  const buyerFilter = parseTradeFilter(raw, "buyer");
+  const sellerKey = tabPageHref("/my/activity", { tab: "requests", reg, ...filterParams(tradeFields("seller"), sellerFilter, "q") }, 1);
+  const buyerKey = tabPageHref("/my/activity", { tab: "purchases", ...filterParams(tradeFields("buyer"), buyerFilter, "q") }, 1);
 
   return (
     <>
@@ -34,18 +41,27 @@ export default async function MyActivityPage({ searchParams }: { searchParams: P
           <RequireLogin>
             {tab === "requests" && (
               <TradeList
-                key={reg ?? "all"}
+                key={sellerKey}
                 role="seller"
                 reg={reg}
                 active
                 page={page}
                 pagePath="/my/activity"
                 pageParams={{ tab: "requests", reg }}
+                filter={sellerFilter}
               />
             )}
             {tab === "sales" && <MyListingsView query={query} viewKey={key} />}
             {tab === "purchases" && (
-              <TradeList role="buyer" active page={page} pagePath="/my/activity" pageParams={{ tab: "purchases" }} />
+              <TradeList
+                key={buyerKey}
+                role="buyer"
+                active
+                page={page}
+                pagePath="/my/activity"
+                pageParams={{ tab: "purchases" }}
+                filter={buyerFilter}
+              />
             )}
           </RequireLogin>
         </div>
