@@ -126,7 +126,8 @@ export function HistoryList({ side, page, filter }: { side: HistorySide; page: n
       <>
         {/* 넓은 칸: 표. 좁은 칸: 카드 — 기준은 거래 목록과 같은 칸 폭 576 */}
         <div className="hidden @min-[36rem]:block overflow-x-auto bg-surface border border-line rounded-md">
-          <table className="w-full min-w-3xl text-sm">
+          {/* 칸 안 글자는 줄바꿈하지 않는다 (사용자 지시 2026-10-30) — 넘치면 표가 가로 스크롤 */}
+          <table className="w-full min-w-3xl text-sm whitespace-nowrap">
             <thead className="bg-bg text-[12px] text-ink-2">
               <tr>
                 <th className="px-3 py-2.5 text-left font-medium w-36">{c.date}</th>
