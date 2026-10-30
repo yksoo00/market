@@ -39,12 +39,12 @@ describe("parseHistoryFilter (주소 → 필터)", () => {
 describe("historyApiParams (필터 → API)", () => {
   it("값이 있는 것만, 금액은 minAmount·maxAmount, 기본 정렬은 안 보낸다", () => {
     expect(historyApiParams(base)).toEqual([]);
-    expect(historyApiParams({ ...base, q: "R740", from: "2026-10-01", min: "10", max: "20", sort: "oldest" })).toEqual([
+    expect(historyApiParams({ ...base, q: "R740", from: "2026-10-01", min: "10", max: "20", sort: "amountDesc" })).toEqual([
       ["q", "R740"],
       ["from", "2026-10-01"],
       ["minAmount", "10"],
       ["maxAmount", "20"],
-      ["sort", "oldest"],
+      ["sort", "amountDesc"],
     ]);
   });
 

@@ -45,7 +45,7 @@ export interface SearchQuery {
   has: HasItem[];
   /** 최소주문수량이 이 값 이하 */
   maxMinOrder?: number;
-  /** 정렬 (2026-10-30). 칩 줄의 [정렬] 칩 — 다시 검색하면 남고, 필터 초기화는 같이 되돌린다. 주소에서 기본(latest)은 생략 */
+  /** 정렬 (2026-10-30). 칩 줄의 [정렬] 칩 — 다시 검색하면 남고, 필터 초기화는 같이 되돌린다(걸린 개수엔 안 센다). 주소에서 기본(latest)은 생략 */
   sort: ListingSort;
 }
 
@@ -208,8 +208,7 @@ export function activeFilterCount(query: SearchQuery, scope: SearchScope = "sear
       query.minStock !== undefined,
       query.minPrice !== undefined,
       query.maxPrice !== undefined,
-      // 정렬도 칩 줄의 칩 하나 (2026-10-30) — 걸려 있으면 [필터 초기화]가 같이 되돌린다
-      query.sort !== "latest",
+      // 정렬은 세지 않는다 — 결과를 거르지 않으므로 빈 결과 화면이 "필터 때문"으로 보이면 안 된다 (코드리뷰)
     ].filter(Boolean).length + detailFilterCount(query)
   );
 }

@@ -80,18 +80,24 @@ public class ListingSearchRepository {
 		return query.getResultList();
 	}
 
-	/** 키(regDate, userId) 목록의 매물만 [Listing, Product] — 순서는 보장하지 않는다(호출자가 키 순서로 맞춘다). 정렬된 페이지용 */
-	public List<Object[]> findByKeys(List<Object[]> pageKeys) {
+	/**
+	 * 키(regDate, userId) 목록의 매물만 [Listing, Product] — 순서는 보장하지 않는다(호출자가 키 순서로 맞춘다). 정렬된 페이지용.
+	 * 같은 검색 조건을 다시 건다: 키를 읽은 뒤 그 사이에 조건에서 벗어난 매물(거래완료·가격 수정)이 섞이지 않게
+	 */
+	public List<Object[]> findByKeys(ListingSearchCondition c, UUID ownerId, Collection<ListingId> keys, List<Object[]> pageKeys) {
 		if (pageKeys.isEmpty()) {
 			return List.of();
 		}
 		Map<String, Object> params = new HashMap<>();
-		StringBuilder jpql = new StringBuilder("select l, p from Listing l join Product p on p.prodId = l.prodId where ");
+		StringBuilder jpql = new StringBuilder("select l, p from Listing l join Product p on p.prodId = l.prodId where 1=1");
+		appendConditions(jpql, params, c, ownerId, keys);
+		jpql.append(" and (");
 		for (int i = 0; i < pageKeys.size(); i++) {
-			jpql.append(i == 0 ? "" : " or ").append("(l.regDate = :r").append(i).append(" and l.userId = :u").append(i).append(")");
-			params.put("r" + i, pageKeys.get(i)[0]);
-			params.put("u" + i, pageKeys.get(i)[1]);
+			jpql.append(i == 0 ? "" : " or ").append("(l.regDate = :pkr").append(i).append(" and l.userId = :pku").append(i).append(")");
+			params.put("pkr" + i, pageKeys.get(i)[0]);
+			params.put("pku" + i, pageKeys.get(i)[1]);
 		}
+		jpql.append(")");
 		TypedQuery<Object[]> query = em.createQuery(jpql.toString(), Object[].class);
 		params.forEach(query::setParameter);
 		return query.getResultList();

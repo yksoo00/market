@@ -489,7 +489,7 @@ public class ListingService {
 		PageKeys<Object[]> pageKeys = PageKeys.of(all, condition.page(), PAGE_SIZE);
 		int from = (pageKeys.page() - 1) * PAGE_SIZE;
 		List<Object[]> slice = all.subList(from, Math.min(from + PAGE_SIZE, all.size()));
-		Map<String, Object[]> byKey = searchRepository.findByKeys(slice).stream()
+		Map<String, Object[]> byKey = searchRepository.findByKeys(condition, ownerId, keys, slice).stream()
 			.collect(Collectors.toMap(r -> ((Listing) r[0]).getRegDate() + "|" + ((Listing) r[0]).getUserId(), r -> r));
 		List<Object[]> page = slice.stream().map(k -> byKey.get(k[0] + "|" + k[1])).filter(Objects::nonNull).toList();
 

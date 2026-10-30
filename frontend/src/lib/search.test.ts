@@ -310,9 +310,9 @@ describe("정렬 (sort, 2026-10-30)", () => {
     expect(searchApiParams(q())).not.toContain("sort=");
   });
 
-  it("정렬도 칩 하나 — 걸리면 세고, 필터 초기화가 최신순으로 되돌린다", () => {
+  it("필터 초기화가 최신순으로 되돌리지만, 결과를 거르지 않으므로 걸린 개수엔 안 센다", () => {
     expect(clearFilters(q({ sort: "priceAsc", minPrice: 10 })).sort).toBe("latest");
-    expect(activeFilterCount(q({ sort: "priceAsc" }))).toBe(1);
+    expect(activeFilterCount(q({ sort: "priceAsc" }))).toBe(0);
   });
 });
 

@@ -425,6 +425,18 @@ class ListingSearchApiTest {
 	}
 
 	@Test
+	@DisplayName("정렬: 내 판매(mine)에서도 내 글만 정렬되고, 남의 싼 글은 끼지 않는다")
+	void sortWithMine() throws Exception {
+		save("ELEC00050001", "20261001110001", "서버 1", null, "Dell", 3000, 1, null);
+		save("ELEC00050002", "20261001110002", "서버 2", null, "Dell", 2000, 1, null);
+		saveOtherUsersListing("ELEC00050009", "20261001110009", "서버 남의 것");
+		String body = mvc.perform(get("/api/v1/listings").param("mine", "true").param("status", "all").param("sort", "priceAsc").param("page", "1")
+				.cookie(mine()))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(2)).andReturn().getResponse().getContentAsString();
+		assertThat(JsonPath.<List<String>>read(body, "$.data.items[*].regDate")).containsExactly("20261001110002", "20261001110001");
+	}
+
+	@Test
 	@DisplayName("정렬: 모르는 값은 400, 최신순이 아닌데 page 가 없으면 400 (커서는 최신순 전용)")
 	void sortValidation() throws Exception {
 		expectInvalid("sort", "sort", "stockDesc");
