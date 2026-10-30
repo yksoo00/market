@@ -4,7 +4,8 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useState, type ReactNode } from "react";
 import { useForm, type UseFormRegister } from "react-hook-form";
 import type { z } from "zod";
-import { applyClass, Chip, inputClass, PopField, PopForm } from "@/components/common/FilterChip";
+import { Chip, inputClass, PopField, PopForm } from "@/components/common/FilterChip";
+import { Icon } from "@/components/common/Icon";
 import {
   fieldIsEmpty,
   fieldKeys,
@@ -106,17 +107,27 @@ export function DetailFilter({ labels, searchKey, fields, schema, values, empty,
           }}
           className="flex flex-col gap-1"
         >
-          <div className="flex gap-2">
-            <input
-              type="search"
-              aria-label={labels.toolbar}
-              placeholder={labels.searchPlaceholder}
-              {...register(searchKey)}
-              aria-invalid={!!errorOf(searchKey)}
-              aria-describedby={errorOf(searchKey) ? `df-${searchKey}-err` : undefined}
-              className={`${inputClass} min-w-0 grow`}
-            />
-            <button type="submit" disabled={!isValid} className={applyClass}>
+          {/* 모양은 SearchForm(홈·검색 화면)과 같다. 구분 select 만 없다 — 상품명 하나만 찾는다 */}
+          <div
+            className={`h-11 @md:h-12 flex items-stretch rounded-md @md:rounded-lg border-2 bg-surface overflow-hidden ${errorOf(searchKey) ? "border-down" : "border-primary"}`}
+          >
+            <div className="grow min-w-0 flex items-center gap-2.5 px-3 @md:px-3.5 text-ink-2">
+              <Icon name="search" strokeWidth={2} />
+              <input
+                type="search"
+                aria-label={labels.toolbar}
+                placeholder={labels.searchPlaceholder}
+                {...register(searchKey)}
+                aria-invalid={!!errorOf(searchKey)}
+                aria-describedby={errorOf(searchKey) ? `df-${searchKey}-err` : undefined}
+                className="grow min-w-0 bg-transparent outline-none text-[15px] @md:text-base text-ink placeholder:text-ink-3"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!isValid}
+              className="w-16 @md:w-26 bg-primary text-white text-sm @md:text-base font-bold hover:bg-primary-dark disabled:opacity-50"
+            >
               {labels.search}
             </button>
           </div>
