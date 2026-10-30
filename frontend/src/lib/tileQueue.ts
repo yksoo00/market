@@ -1,4 +1,4 @@
-import { isRelated, screenOf } from "@/lib/tileScreens";
+import { isRelated, isSolo, screenOf } from "@/lib/tileScreens";
 
 // 화면 칸 상태 전이 (사용자 지시 2026-10-19, decisions.md "화면 칸은 홈 고정 · 주기능 · 보조").
 // 넓은 화면은 [홈 | 주기능 | 보조] 고정 자리. 큐가 아니라 자리를 덮어쓴다:
@@ -46,6 +46,10 @@ export function decideOpen(
 
   // 모바일 폭에선 분할하지 않는다 (사용자 지시). 주기능 한 칸만 보인다
   if (!opts.wide) return mainScreen === target ? { kind: "inPlace", paneKey: main.key, path } : { kind: "main", path };
+
+  // 혼자 뜨는 화면(임시 테이블)은 늘 새 주기능, 그 화면에서 연 것도 새 주기능 — 옆 칸을 만들지 않는다.
+  // 홈도 이때는 왼쪽에 안 보이므로 아래 "홈 링크는 아무것도 안 함"보다 먼저 본다
+  if (isSolo(path) || isSolo(main.path)) return { kind: "main", path };
 
   // 홈은 이미 왼쪽에 보인다 — 홈 링크는 아무것도 안 함 (로고만 reset 으로 홈 한 칸)
   if (target === "home") return isHome(main.path) ? { kind: "main", path } : { kind: "none" };

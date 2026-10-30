@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { isRelated, screenOf } from "./tileScreens";
+import { isRelated, isSolo, screenOf } from "./tileScreens";
+
+describe("isSolo", () => {
+  it("임시 테이블만 혼자 뜬다 (쿼리가 붙어도)", () => {
+    expect(isSolo("/dev/tables")).toBe(true);
+    expect(isSolo("/dev/tables?tab=users")).toBe(true);
+    expect(isSolo("/search")).toBe(false);
+    expect(isSolo("/")).toBe(false);
+  });
+});
 
 describe("screenOf", () => {
   it("공통 화면", () => {

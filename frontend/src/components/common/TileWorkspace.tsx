@@ -7,6 +7,7 @@ import { useReportTilePathname } from "@/hooks/useReportTilePathname";
 import { TileWorkspaceProvider, useTileWorkspace } from "@/components/common/TileWorkspaceContext";
 import { TileCloseButton, TileFrame } from "@/components/common/TileFrame";
 import { HOME_KEY, isHome } from "@/lib/tileQueue";
+import { isSolo } from "@/lib/tileScreens";
 
 // Provider는 framed 여부와 무관하게 항상 감싼다. useIsFramed는 첫 렌더 false → iframe 안이면 true로
 // 바뀌는데, 이때 루트 타입(Provider ↔ Fragment)이 바뀌면 페이지 전체가 다시 마운트되기 때문.
@@ -40,7 +41,9 @@ function TileGrid({ main }: { main: ReactNode }) {
   // 분할로 그려, 한 칸으로 떴다가 분할로 바뀌며 화면이 튀고 그 사이 클릭이 엉뚱한 칸에 가는 일이 없게 (E2E 에서 발견).
   // 칸 목록을 알면 그걸(주기능 칸 = 주소창) 따른다 — 닫기·새 주기능 직후 라우터가 주소를 바꾸기 전에도 배치와 칸이 어긋나지 않게
   const pathname = usePathname();
-  const split = !isHome(panes[0]?.path ?? pathname);
+  const mainPath = panes[0]?.path ?? pathname;
+  // 혼자 뜨는 화면(임시 테이블)도 한 칸 (2026-10-30)
+  const split = !isHome(mainPath) && !isSolo(mainPath);
   // 홈 iframe·보조는 넓은 화면의 바깥 문서에서만 그린다. 숨긴(display:none) iframe 도 Chromium 은 바로 불러온다(lazy 무시).
   // 하이드레이션 전엔 빈 홈 칸 자리만 CSS 로 잡아 둔다 (첫 화면이 튀지 않게)
   const live = !framed && wide;
