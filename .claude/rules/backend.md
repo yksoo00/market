@@ -37,7 +37,7 @@ com.company.market
 
 ## API
 - 경로 `/api/v1/...`. 리소스 복수형. `GET /api/v1/listings/{id}`.
-- 응답 `{ ok, data }` / `{ ok, code, message }`. 목록은 `{ items, nextCursor }` 커서 페이지네이션. offset 페이지네이션 금지.
+- 응답 `{ ok, data }` / `{ ok, code, message }`. 목록은 `{ items, nextCursor }` 커서 페이지네이션. offset 페이지네이션 금지. 페이지 번호가 필요한 목록은 `page` 파라미터를 더 받아 `{ items, page, totalPages, total }` 도 돌려준다 — 같은 조건의 정렬 키를 전부 읽어 `common/paging/PageKeys` 로 경계를 구하고 그 키부터 키셋으로 읽는다(offset 아님). 범위 밖 page 는 400. `page` 가 없으면 커서 방식 그대로 (2026-10-29).
 - 현재 사용자는 `@AuthenticationPrincipal`로만. 요청 본문의 userId 사용 금지.
 - 모든 요청 DTO에 Bean Validation (`@Valid`, `@NotBlank`, `@Size`, `@Min/@Max` …). 프론트가 검증했다고 생략하지 않는다. 수치는 `docs/security.md` "입력 검증"과 동일.
 - 검증 실패 응답은 400 + `{ ok: false, code: "VALIDATION", message, fields: { "<필드>": "<문구>" } }`. 프론트가 필드별로 표시하므로 필드명은 요청 DTO 필드명 그대로.

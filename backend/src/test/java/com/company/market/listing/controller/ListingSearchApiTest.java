@@ -353,6 +353,42 @@ class ListingSearchApiTest {
 	}
 
 	@Test
+	@DisplayName("페이지 번호: 필터를 건 채 page=2·3 으로 바로 가도 중복·누락이 없고, 전체 건수·전체 페이지 수를 준다")
+	void pageNumbersJumpWithFilter() throws Exception {
+		for (int i = 0; i < 45; i++) {
+			save(String.format("ELEC0002%04d", i), String.format("202610010900%02d", i), "서버 " + i, null, "Dell", 1000 + i, 1, null);
+		}
+		save("ELEC00029999", "20261001085900", "서버 비쌈", null, "Dell", 999_999, 1, null);
+
+		List<String> all = new ArrayList<>();
+		for (int p = 3; p >= 1; p--) {
+			String body = mvc.perform(get("/api/v1/listings").param("maxPrice", "2000").param("page", String.valueOf(p)))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.page").value(p))
+				.andExpect(jsonPath("$.data.totalPages").value(3))
+				.andExpect(jsonPath("$.data.total").value(45))
+				.andReturn().getResponse().getContentAsString();
+			all.addAll(JsonPath.<List<String>>read(body, "$.data.items[*].regDate"));
+		}
+		// 3, 2, 1 쪽을 거꾸로 받아도 합치면 45개가 겹침 없이 나온다 (비싼 매물은 필터로 빠짐)
+		assertThat(all).hasSize(45).doesNotHaveDuplicates().doesNotContain("20261001085900");
+		mvc.perform(get("/api/v1/listings").param("maxPrice", "2000").param("page", "3"))
+			.andExpect(jsonPath("$.data.items.length()").value(5));
+	}
+
+	@Test
+	@DisplayName("페이지 번호: 결과가 없어도 1페이지는 있고, 범위 밖·0·숫자 아님은 400")
+	void pageNumberRange() throws Exception {
+		mvc.perform(get("/api/v1/listings").param("q", "없는이름").param("page", "1"))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.totalPages").value(1))
+			.andExpect(jsonPath("$.data.total").value(0));
+		mvc.perform(get("/api/v1/listings").param("q", "없는이름").param("page", "2")).andExpect(status().isBadRequest());
+		mvc.perform(get("/api/v1/listings").param("page", "0")).andExpect(status().isBadRequest());
+		mvc.perform(get("/api/v1/listings").param("page", "abc")).andExpect(status().isBadRequest());
+	}
+
+	@Test
 	@DisplayName("같은 등록일시의 다른 사용자 매물이 페이지 경계에 걸쳐도 다음 페이지에서 소실되지 않는다")
 	void tiedRegDateAtPageBoundaryIsNotLost() throws Exception {
 		// 19건으로 1페이지 대부분을 채우고, 같은 초에 등록한 3명 중 2명만 1페이지에 들어가게 한다

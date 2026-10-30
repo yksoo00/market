@@ -138,6 +138,25 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			@Param("stats") Collection<TradeStats> stats, @Param("regDate") String regDate, @Param("cursor") String cursor,
 			Pageable page);
 
+	/** findBuyerPage 와 같은 조건·순서의 거래ID 만 전부 — 페이지 번호의 경계와 전체 건수 (PageKeys) */
+	@Query("""
+			select t.tradeId from TradeInfo t
+			 where t.userId = :buyerId and t.tradeType <> :hidden and t.tradeStats in :stats
+			 order by t.tradeId desc
+			""")
+	List<String> findBuyerKeys(@Param("buyerId") UUID buyerId, @Param("hidden") TradeType hidden,
+			@Param("stats") Collection<TradeStats> stats);
+
+	/** findSellerPage 와 같은 조건·순서의 거래ID 만 전부 */
+	@Query("""
+			select t.tradeId from TradeInfo t
+			 where t.sellerId = :sellerId and t.tradeType <> :hidden and t.tradeStats in :stats
+			   and (:regDate is null or t.prodRegDate = :regDate)
+			 order by t.tradeId desc
+			""")
+	List<String> findSellerKeys(@Param("sellerId") UUID sellerId, @Param("hidden") TradeType hidden,
+			@Param("stats") Collection<TradeStats> stats, @Param("regDate") String regDate);
+
 	/** 판매자 매물별 그 상태들 건수 → [매물 등록일시, count]. 한 판매자 안에서 등록일시는 매물 하나 (같은 초 등록 409) */
 	@Query("""
 			select t.prodRegDate, count(t) from TradeInfo t

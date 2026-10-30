@@ -16,6 +16,7 @@ import java.util.stream.Collectors;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.exception.ValidationException;
+import com.company.market.common.paging.PageKeys;
 import com.company.market.common.time.KoreanDates;
 import com.company.market.listing.domain.ListingId;
 import com.company.market.listing.dto.ListingTradeSnapshot;
@@ -405,7 +406,7 @@ public class TradeService {
 	private static final List<TradeStats> SELLER_ACTIVE = List.of(TradeStats.QUOTE_REQUESTED, TradeStats.REQUESTED);
 
 	/** role = buyer(내 구매) | seller(받은 구매요청, regDate 로 한 매물만). active 면 진행 중 상태만. 최신순 20개 + 커서 */
-	public TradePageResponse list(UUID me, String role, String regDate, String cursor, boolean active) {
+	public TradePageResponse list(UUID me, String role, String regDate, String cursor, boolean active, Integer pageNo) {
 		if (cursor != null && !cursor.isEmpty() && !cursor.matches("\\d{11}")) {
 			throw new ValidationException(Map.of("cursor", "커서 형식이 올바르지 않습니다."));
 		}
@@ -413,14 +414,22 @@ public class TradeService {
 		PageRequest page = PageRequest.of(0, PAGE_SIZE + 1);
 		boolean asBuyer;
 		List<TradeInfo> rows;
+		List<String> allKeys;
+		PageKeys<String> pageKeys;
 		if ("buyer".equals(role)) {
 			asBuyer = true;
-			rows = trades.findBuyerPage(me, TradeType.REVIEW, active ? BUYER_ACTIVE : List.of(TradeStats.values()), after, page);
+			List<TradeStats> stats = active ? BUYER_ACTIVE : List.of(TradeStats.values());
+			allKeys = pageNo == null ? null : trades.findBuyerKeys(me, TradeType.REVIEW, stats);
+			pageKeys = allKeys == null ? null : PageKeys.of(allKeys, pageNo, PAGE_SIZE);
+			rows = trades.findBuyerPage(me, TradeType.REVIEW, stats, pageKeys == null ? after : pageKeys.after(), page);
 		}
 		else if ("seller".equals(role)) {
 			asBuyer = false;
-			rows = trades.findSellerPage(me, TradeType.REVIEW, active ? SELLER_ACTIVE : List.of(TradeStats.values()),
-					regDate == null || regDate.isBlank() ? null : regDate, after, page);
+			List<TradeStats> stats = active ? SELLER_ACTIVE : List.of(TradeStats.values());
+			String reg = regDate == null || regDate.isBlank() ? null : regDate;
+			allKeys = pageNo == null ? null : trades.findSellerKeys(me, TradeType.REVIEW, stats, reg);
+			pageKeys = allKeys == null ? null : PageKeys.of(allKeys, pageNo, PAGE_SIZE);
+			rows = trades.findSellerPage(me, TradeType.REVIEW, stats, reg, pageKeys == null ? after : pageKeys.after(), page);
 		}
 		else {
 			throw new ValidationException(Map.of("role", "role 은 buyer 또는 seller 여야 합니다."));
@@ -439,7 +448,9 @@ public class TradeService {
 						nicknames.get(asBuyer ? t.getSellerId() : t.getUserId()));
 			})
 			.toList();
-		return new TradePageResponse(items, hasMore ? pageRows.get(pageRows.size() - 1).getTradeId() : null);
+		String nextCursor = hasMore ? pageRows.get(pageRows.size() - 1).getTradeId() : null;
+		return pageKeys == null ? new TradePageResponse(items, nextCursor, null, null, null)
+				: new TradePageResponse(items, nextCursor, pageKeys.page(), pageKeys.totalPages(), pageKeys.total());
 	}
 
 	/** 내 매물별 판매자가 처리할 건수(견적요청 + 구매요청). 키 = 매물 regDate. 내 판매글 표의 "구매요청 N건" */

@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
+import { Pager } from "@/components/common/Pager";
 import { tradesApi } from "@/lib/api/trades";
 import { formatPrice } from "@/lib/format";
 import { formatTradeDate } from "@/lib/historyFormat";
+import { tabPageHref } from "@/lib/myTabs";
 import { my } from "@/messages/my";
 import type { HistorySide, TradeHistoryItem } from "@/types/trade";
 
@@ -11,43 +14,27 @@ const t = my.history;
 const c = t.columns;
 const qty = new Intl.NumberFormat("ko-KR");
 
-type Load = { kind: "loading" } | { kind: "error" } | { kind: "ready"; items: TradeHistoryItem[]; nextCursor: string | null };
+type Load = { kind: "loading" } | { kind: "error" } | { kind: "ready"; items: TradeHistoryItem[]; page: number; totalPages: number; total: number };
 
 /**
- * 내 거래이력 목록 (구매확정된 거래, 최신 확정순). 탭(side)이 바뀌면 부모가 key 로 다시 마운트한다.
+ * 내 거래이력 목록 (구매확정된 거래, 최신 확정순, 페이지 번호). 탭(side)이 바뀌면 부모가 key 로 다시 마운트한다.
  * 전체 탭은 줄마다 구매/판매를 표시한다. 상대는 닉네임만.
  */
-export function HistoryList({ side }: { side: HistorySide }) {
+export function HistoryList({ side, page }: { side: HistorySide; page: number }) {
+  const hrefFor = (n: number) => tabPageHref("/my/history", { tab: side }, n);
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [moreFailed, setMoreFailed] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    void tradesApi.history(side).then((res) => {
+    void tradesApi.history(side, page).then((res) => {
       if (!alive) return;
-      setLoad(res.ok ? { kind: "ready", items: res.data.items, nextCursor: res.data.nextCursor } : { kind: "error" });
+      setLoad(res.ok ? { kind: "ready", ...res.data } : { kind: "error" });
     });
     return () => {
       alive = false;
     };
-  }, [side, attempt]);
-
-  const loadMore = async () => {
-    if (load.kind !== "ready" || !load.nextCursor) return;
-    setLoadingMore(true);
-    setMoreFailed(false);
-    const res = await tradesApi.history(side, load.nextCursor);
-    setLoadingMore(false);
-    if (!res.ok) {
-      setMoreFailed(true);
-      return;
-    }
-    setLoad((prev) =>
-      prev.kind === "ready" ? { kind: "ready", items: [...prev.items, ...res.data.items], nextCursor: res.data.nextCursor } : prev,
-    );
-  };
+  }, [side, page, attempt]);
 
   if (load.kind === "loading") {
     return (
@@ -70,6 +57,11 @@ export function HistoryList({ side }: { side: HistorySide }) {
         >
           {t.retry}
         </button>
+        {page > 1 && (
+          <Link href={hrefFor(1)} className="text-[13px] text-primary font-medium hover:underline">
+            {t.firstPage}
+          </Link>
+        )}
       </div>
     );
   }
@@ -132,23 +124,7 @@ export function HistoryList({ side }: { side: HistorySide }) {
           </li>
         ))}
       </ul>
-      {load.nextCursor && (
-        <div className="flex items-center justify-center gap-2">
-          <button
-            type="button"
-            onClick={() => void loadMore()}
-            disabled={loadingMore}
-            className="h-8.5 px-4 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft disabled:opacity-40 disabled:pointer-events-none"
-          >
-            {t.more}
-          </button>
-          {moreFailed && (
-            <span role="alert" className="text-[13px] text-down">
-              {t.loadFailed}
-            </span>
-          )}
-        </div>
-      )}
+      <Pager page={load.page} totalPages={load.totalPages} total={load.total} hrefFor={hrefFor} />
     </section>
   );
 }

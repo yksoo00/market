@@ -36,7 +36,7 @@ export const my = {
     loading: "불러오는 중…",
     loadFailed: "거래이력을 불러오지 못했어요.",
     retry: "다시 시도",
-    more: "더 보기",
+    firstPage: "1페이지로",
     emptyTitle: "아직 확정된 거래가 없어요",
     emptyDesc: "구매가 확정되면 여기에서 볼 수 있어요.",
   },

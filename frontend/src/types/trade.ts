@@ -54,7 +54,9 @@ export interface Trade {
 
 export interface TradePage {
   items: Trade[];
-  nextCursor: string | null;
+  page: number;
+  totalPages: number;
+  total: number;
 }
 
 /** GET /api/v1/trades/pending-counts — { 매물 regDate: 판매자가 처리할 견적요청 + 구매요청 건수 } */
@@ -74,7 +76,9 @@ export interface TradeHistoryItem {
 
 export interface TradeHistoryPage {
   items: TradeHistoryItem[];
-  nextCursor: string | null;
+  page: number;
+  totalPages: number;
+  total: number;
 }
 
 export type HistorySide = "all" | "buy" | "sell";

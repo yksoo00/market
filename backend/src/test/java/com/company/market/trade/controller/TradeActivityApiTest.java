@@ -244,6 +244,54 @@ class TradeActivityApiTest {
 	}
 
 	@Test
+	@DisplayName("페이지 번호: 이력 page=1·3 으로 바로 가고 전체 건수·페이지 수를 주며, 범위 밖은 400")
+	void historyPageNumbers() throws Exception {
+		for (int i = 1; i <= 45; i++) {
+			jdbc.update("""
+					insert into trd_trade_history (user_id, trade_id, trade_date, prod_id, trade_type, seller_id, trade_unit_price, trade_quantity, trade_amount)
+					values (?, ?, '20261015120000', 'ACTAPI01', '거래', ?, 100, 1, 100)
+					""", buyerId, "202610150%02d".formatted(i), sellerId);
+		}
+		mvc.perform(get("/api/v1/trades/history?side=buy&page=1").cookie(buyer)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items", hasSize(20)))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value("20261015045"))
+			.andExpect(jsonPath("$.data.page").value(1))
+			.andExpect(jsonPath("$.data.totalPages").value(3))
+			.andExpect(jsonPath("$.data.total").value(45));
+		mvc.perform(get("/api/v1/trades/history?side=buy&page=3").cookie(buyer)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items", hasSize(5)))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value("20261015005"));
+		mvc.perform(get("/api/v1/trades/history?side=buy&page=4").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.page").exists());
+		// 판매자 쪽은 건수가 0 — 1페이지는 비어 있어도 있다
+		mvc.perform(get("/api/v1/trades/history?side=buy&page=1").cookie(seller)).andExpect(jsonPath("$.data.total").value(0))
+			.andExpect(jsonPath("$.data.totalPages").value(1));
+	}
+
+	@Test
+	@DisplayName("페이지 번호: 거래 목록(구매자·판매자) page=2 와 진행 중 필터가 같이 걸린다")
+	void tradeListPageNumbers() throws Exception {
+		for (int i = 0; i < 21; i++) {
+			buy(buyerId, REG_A, 1);
+		}
+		String confirmed = buy(buyerId, REG_B, 1);
+		complete(buyer, confirmed);
+		// active: 구매확정 한 건은 빠져 21건 → 2페이지
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=2").cookie(buyer)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items", hasSize(1)))
+			.andExpect(jsonPath("$.data.page").value(2))
+			.andExpect(jsonPath("$.data.totalPages").value(2))
+			.andExpect(jsonPath("$.data.total").value(21));
+		mvc.perform(get("/api/v1/trades?role=seller&active=true&page=1").cookie(seller)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items", hasSize(20)))
+			.andExpect(jsonPath("$.data.total").value(21));
+		mvc.perform(get("/api/v1/trades?role=buyer&page=2").cookie(buyer)).andExpect(jsonPath("$.data.total").value(22));
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=3").cookie(buyer)).andExpect(status().isBadRequest());
+		// 커서 방식은 그대로 — page 가 없으면 page 칸이 없다
+		mvc.perform(get("/api/v1/trades?role=buyer").cookie(buyer)).andExpect(jsonPath("$.data.page").doesNotExist());
+	}
+
+	@Test
 	@DisplayName("이력: 잘못된 side·cursor 는 400")
 	void historyValidation() throws Exception {
 		mvc.perform(get("/api/v1/trades/history?side=x").cookie(buyer)).andExpect(status().isBadRequest())

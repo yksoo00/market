@@ -4,7 +4,7 @@ import { MobileTabBar } from "@/components/common/MobileTabBar";
 import { MyListingsView } from "@/components/my/MyListingsView";
 import { MyTabs } from "@/components/my/MyTabs";
 import { TradeList } from "@/components/trade/TradeList";
-import { ACTIVITY_TABS, parseActivityTab, parseReg } from "@/lib/myTabs";
+import { ACTIVITY_TABS, parseActivityTab, parsePage, parseReg } from "@/lib/myTabs";
 import { buildSearchHref, parseSearchParams, type RawSearchParams } from "@/lib/search";
 import { my } from "@/messages/my";
 
@@ -16,6 +16,7 @@ export default async function MyActivityPage({ searchParams }: { searchParams: P
   const raw = await searchParams;
   const tab = parseActivityTab(raw.tab);
   const reg = parseReg(raw.reg);
+  const page = parsePage(raw.page);
   // 판매 탭: 조건이 바뀌면 key 로 다시 마운트
   const query = parseSearchParams(raw, "mine");
   const key = buildSearchHref(query, "mine");
@@ -31,9 +32,21 @@ export default async function MyActivityPage({ searchParams }: { searchParams: P
             tabs={ACTIVITY_TABS.map((k) => ({ key: k, label: my.activity.tabs[k], href: `/my/activity?tab=${k}` }))}
           />
           <RequireLogin>
-            {tab === "requests" && <TradeList key={reg ?? "all"} role="seller" reg={reg} active />}
+            {tab === "requests" && (
+              <TradeList
+                key={reg ?? "all"}
+                role="seller"
+                reg={reg}
+                active
+                page={page}
+                pagePath="/my/activity"
+                pageParams={{ tab: "requests", reg }}
+              />
+            )}
             {tab === "sales" && <MyListingsView query={query} viewKey={key} />}
-            {tab === "purchases" && <TradeList role="buyer" active />}
+            {tab === "purchases" && (
+              <TradeList role="buyer" active page={page} pagePath="/my/activity" pageParams={{ tab: "purchases" }} />
+            )}
           </RequireLogin>
         </div>
       </main>

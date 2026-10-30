@@ -14,7 +14,7 @@ const q = (over: Partial<SearchQuery> = {}): SearchQuery => ({ ...parseSearchPar
 
 describe("parseSearchParams", () => {
   it("빈 파라미터면 기본값", () => {
-    expect(parseSearchParams({})).toEqual({ q: "", field: "all", category: "", status: "available", mine: false, purchased: false, has: [] });
+    expect(parseSearchParams({})).toEqual({ q: "", field: "all", category: "", status: "available", mine: false, purchased: false, page: 1, has: [] });
   });
 
   it("검색어 앞뒤 공백을 지우고, 공백뿐이면 빈 검색어", () => {
@@ -108,7 +108,7 @@ describe("searchApiParams", () => {
   const read = (s: string) => new URLSearchParams(s);
 
   it("기본 조건은 status 만", () => {
-    expect(searchApiParams(q())).toBe("status=available");
+    expect(searchApiParams(q())).toBe("status=available&page=1");
   });
 
   it("카테고리는 코드로 보낸다 (2026-10-19 필터 복원), 옛 한글 값은 읽을 때 버려 안 보낸다", () => {
@@ -121,9 +121,9 @@ describe("searchApiParams", () => {
     expect(read(searchApiParams(q({ field: "brand" }))).get("field")).toBe("brand");
   });
 
-  it("필터·커서를 담고 검색어는 인코딩된다", () => {
+  it("필터·페이지를 담고 검색어는 인코딩된다", () => {
     const p = read(
-      searchApiParams(q({ q: "Dell R740", minPrice: 10, maxPrice: 20, minStock: 0, deliveryBy: "2026-10-10", status: "all" }), "c1"),
+      searchApiParams(q({ q: "Dell R740", minPrice: 10, maxPrice: 20, minStock: 0, deliveryBy: "2026-10-10", status: "all", page: 3 })),
     );
     expect(p.get("q")).toBe("Dell R740");
     expect(p.get("minPrice")).toBe("10");
@@ -131,7 +131,7 @@ describe("searchApiParams", () => {
     expect(p.get("minStock")).toBe("0");
     expect(p.get("deliveryBy")).toBe("2026-10-10");
     expect(p.get("status")).toBe("all");
-    expect(p.get("cursor")).toBe("c1");
+    expect(p.get("page")).toBe("3");
   });
 });
 
@@ -156,8 +156,8 @@ describe("내 판매글 범위(mine)", () => {
 
   it("API 파라미터에 mine=true (검색 화면은 없음)", () => {
     const query = parseSearchParams({}, "mine");
-    expect(new URLSearchParams(searchApiParams(query, undefined, "mine")).get("mine")).toBe("true");
-    expect(new URLSearchParams(searchApiParams(query, undefined, "mine")).get("status")).toBe("all");
+    expect(new URLSearchParams(searchApiParams(query, "mine")).get("mine")).toBe("true");
+    expect(new URLSearchParams(searchApiParams(query, "mine")).get("status")).toBe("all");
     expect(new URLSearchParams(searchApiParams(parseSearchParams({}))).has("mine")).toBe(false);
   });
 
@@ -293,5 +293,32 @@ describe("내 구매의 거래상태 기본값", () => {
     expect(activeFilterCount(query)).toBe(0);
     expect(new URLSearchParams(searchApiParams(query)).get("status")).toBe("all");
     expect(clearFilters({ ...query, status: "available" }).status).toBe("all");
+  });
+});
+
+describe("페이지 번호 (page)", () => {
+  it("주소의 page 는 1 이상 정수만, 틀리면 1페이지", () => {
+    expect(parseSearchParams({}).page).toBe(1);
+    expect(parseSearchParams({ page: "4" }).page).toBe(4);
+    expect(parseSearchParams({ page: "0" }).page).toBe(1);
+    expect(parseSearchParams({ page: "-1" }).page).toBe(1);
+    expect(parseSearchParams({ page: "x" }).page).toBe(1);
+    expect(parseSearchParams({ page: "9999999999" }).page).toBe(1);
+  });
+
+  it("1페이지는 주소에 안 싣고, 2페이지부터 싣는다 (내 판매글 탭 주소에도)", () => {
+    const query = parseSearchParams({ q: "R740" });
+    expect(buildSearchHref(query)).toBe("/search?q=R740");
+    expect(buildSearchHref({ ...query, page: 3 })).toBe("/search?q=R740&page=3");
+    const mine = parseSearchParams({ page: "2" }, "mine");
+    expect(buildSearchHref(mine, "mine")).toBe("/my/activity?tab=sales&page=2");
+  });
+
+  it("API 에는 항상 page 를 보낸다", () => {
+    expect(new URLSearchParams(searchApiParams(parseSearchParams({ page: "2" }))).get("page")).toBe("2");
+  });
+
+  it("필터 초기화는 1페이지로 돌아간다", () => {
+    expect(clearFilters(parseSearchParams({ page: "5", minStock: "3" })).page).toBe(1);
   });
 });

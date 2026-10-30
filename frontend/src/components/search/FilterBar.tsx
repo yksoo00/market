@@ -67,7 +67,8 @@ export function FilterBar({ query, scope = "search" }: { query: SearchQuery; sco
 
   const go = (next: SearchQuery) => {
     setOpenId(null);
-    router.push(buildSearchHref(next, scope));
+    // 조건이 바뀌면 1페이지부터
+    router.push(buildSearchHref({ ...next, page: 1 }, scope));
   };
   const apply = handleSubmit((values) => go({ ...query, ...values }));
   const popup = (id: PopId) => ({

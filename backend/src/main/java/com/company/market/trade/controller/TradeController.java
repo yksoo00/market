@@ -105,15 +105,17 @@ public class TradeController {
 	@GetMapping
 	public ApiResponse<TradePageResponse> list(@AuthenticationPrincipal AuthenticatedUser me,
 			@RequestParam(required = false) String role, @RequestParam(required = false) String reg,
-			@RequestParam(required = false) String cursor, @RequestParam(defaultValue = "false") boolean active) {
-		return ApiResponse.of(trades.list(me.id(), role, reg, cursor, active));
+			@RequestParam(required = false) String cursor, @RequestParam(defaultValue = "false") boolean active,
+			@RequestParam(required = false) Integer page) {
+		return ApiResponse.of(trades.list(me.id(), role, reg, cursor, active, page));
 	}
 
 	/** 내 거래이력(구매확정만). side = all(기본) | buy | sell. 본인 id 는 인증 정보에서만 */
 	@GetMapping("/history")
 	public ApiResponse<TradeHistoryPageResponse> history(@AuthenticationPrincipal AuthenticatedUser me,
-			@RequestParam(required = false) String side, @RequestParam(required = false) String cursor) {
-		return ApiResponse.of(activity.history(me.id(), side, cursor));
+			@RequestParam(required = false) String side, @RequestParam(required = false) String cursor,
+			@RequestParam(required = false) Integer page) {
+		return ApiResponse.of(activity.history(me.id(), side, cursor, page));
 	}
 
 	/** 검색 범위 탭 판정 { sales, purchases } */

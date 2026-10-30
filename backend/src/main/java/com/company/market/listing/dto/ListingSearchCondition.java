@@ -38,6 +38,8 @@ public record ListingSearchCondition(
 		@Min(1) @Max(100_000) Integer maxMinOrder,
 		// true 면 요청자 본인 글만. 로그인 필수 — 본인 id 는 이 값이 아니라 인증 정보에서만 가져온다 (컨트롤러)
 		Boolean mine,
+		// 페이지 번호 방식 (1부터, 설계 2026-10-27 PR 5). 있으면 cursor 는 무시하고 이 페이지를 돌려준다. 범위 밖은 서비스가 400
+		@Min(1) @Max(1_000_000) Integer page,
 		String cursor) {
 
 	private static final String HAS_ITEM = "(datasheet|photo|testReport|certificate|replaceProd)";
