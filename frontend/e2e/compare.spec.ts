@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { auth } from "@/messages/auth";
 import { cart } from "@/messages/cart";
+import { common } from "@/messages/common";
 import { compare } from "@/messages/compare";
 import { listing } from "@/messages/listing";
 import { my } from "@/messages/my";
@@ -107,7 +108,11 @@ test("검색에서 같은 소분류끼리 비교 → 섞이면 막힘 → 비교
     await expect(bar).toBeVisible();
     await expect(bar.getByText(nameC)).toBeVisible();
     await page.getByRole("button", { name: compare.button, exact: true }).first().click();
-    await expect(page.getByRole("status").filter({ hasText: compare.otherCategory })).toBeVisible();
+    // 안내는 모달 — 확인으로 닫아야 바깥(선택 줄)을 만질 수 있다
+    const notice = page.getByRole("alertdialog").filter({ hasText: compare.otherCategory });
+    await expect(notice).toBeVisible();
+    await notice.getByRole("button", { name: common.notice.confirm }).click();
+    await expect(notice).toBeHidden();
   });
 
   const frame = page.frameLocator('iframe[src^="/my/cart/compare"]');
