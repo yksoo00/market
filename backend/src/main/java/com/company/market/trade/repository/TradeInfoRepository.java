@@ -118,7 +118,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			select t from TradeInfo t
 			 where t.userId = :buyerId and t.tradeType <> :hidden and t.tradeStats in :stats
 			   and coalesce(t.regDate, '00000000000000') >= :fromDate and coalesce(t.regDate, '00000000000000') <= :toDate
-			   and t.orderUnitPrice * t.orderQuantity >= :minAmount and t.orderUnitPrice * t.orderQuantity <= :maxAmount
+			   and cast(t.orderUnitPrice as long) * t.orderQuantity >= :minAmount and cast(t.orderUnitPrice as long) * t.orderQuantity <= :maxAmount
 			   and (:useProds = false or t.prodId in :prodIds)
 			   and (:cursor is null or t.tradeId < :cursor)
 			 order by t.tradeId desc
@@ -137,7 +137,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			 where t.sellerId = :sellerId and t.tradeType <> :hidden and t.tradeStats in :stats
 			   and (:regDate is null or t.prodRegDate = :regDate)
 			   and coalesce(t.regDate, '00000000000000') >= :fromDate and coalesce(t.regDate, '00000000000000') <= :toDate
-			   and t.orderUnitPrice * t.orderQuantity >= :minAmount and t.orderUnitPrice * t.orderQuantity <= :maxAmount
+			   and cast(t.orderUnitPrice as long) * t.orderQuantity >= :minAmount and cast(t.orderUnitPrice as long) * t.orderQuantity <= :maxAmount
 			   and (:useProds = false or t.prodId in :prodIds)
 			   and (:cursor is null or t.tradeId < :cursor)
 			 order by t.tradeId desc
@@ -153,10 +153,10 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	 * 정렬(금액순 포함)은 호출자가 이 키 목록을 자바에서 한다 — 금액은 컬럼이 아니라 식이라 Sort 로 못 건다
 	 */
 	@Query("""
-			select t.tradeId, t.userId, t.orderUnitPrice * t.orderQuantity from TradeInfo t
+			select t.tradeId, t.userId, cast(t.orderUnitPrice as long) * t.orderQuantity from TradeInfo t
 			 where t.userId = :buyerId and t.tradeType <> :hidden and t.tradeStats in :stats
 			   and coalesce(t.regDate, '00000000000000') >= :fromDate and coalesce(t.regDate, '00000000000000') <= :toDate
-			   and t.orderUnitPrice * t.orderQuantity >= :minAmount and t.orderUnitPrice * t.orderQuantity <= :maxAmount
+			   and cast(t.orderUnitPrice as long) * t.orderQuantity >= :minAmount and cast(t.orderUnitPrice as long) * t.orderQuantity <= :maxAmount
 			   and (:useProds = false or t.prodId in :prodIds)
 			""")
 	List<Object[]> findBuyerKeys(@Param("buyerId") UUID buyerId, @Param("hidden") TradeType hidden,
@@ -165,11 +165,11 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 
 	/** findSellerPage 와 같은 조건의 [거래ID, 구매자ID, 금액] 만 전부 (findBuyerKeys 와 같다) */
 	@Query("""
-			select t.tradeId, t.userId, t.orderUnitPrice * t.orderQuantity from TradeInfo t
+			select t.tradeId, t.userId, cast(t.orderUnitPrice as long) * t.orderQuantity from TradeInfo t
 			 where t.sellerId = :sellerId and t.tradeType <> :hidden and t.tradeStats in :stats
 			   and (:regDate is null or t.prodRegDate = :regDate)
 			   and coalesce(t.regDate, '00000000000000') >= :fromDate and coalesce(t.regDate, '00000000000000') <= :toDate
-			   and t.orderUnitPrice * t.orderQuantity >= :minAmount and t.orderUnitPrice * t.orderQuantity <= :maxAmount
+			   and cast(t.orderUnitPrice as long) * t.orderQuantity >= :minAmount and cast(t.orderUnitPrice as long) * t.orderQuantity <= :maxAmount
 			   and (:useProds = false or t.prodId in :prodIds)
 			""")
 	List<Object[]> findSellerKeys(@Param("sellerId") UUID sellerId, @Param("hidden") TradeType hidden,
