@@ -147,10 +147,18 @@ describe("applyOpen", () => {
 });
 
 describe("closePane", () => {
-  it("보조를 닫으면 주기능만, 주기능을 닫으면 홈 한 칸", () => {
+  it("보조를 닫으면 주기능만 남는다", () => {
     const panes = [P("a", "/search"), P("b", DETAIL)];
     expect(closePane(panes, "b", "n")).toEqual([P("a", "/search")]);
-    expect(closePane(panes, "a", "n")).toEqual([P("n", "/")]);
+  });
+
+  it("보조가 있을 때 주기능을 닫으면 보조가 새 주기능으로 올라온다 — 보조까지 같이 닫히지 않는다", () => {
+    const panes = [P("a", "/search"), P("b", DETAIL)];
+    expect(closePane(panes, "a", "n")).toEqual([P("n", DETAIL)]);
+  });
+
+  it("보조 없는 주기능을 닫으면 홈 한 칸", () => {
+    expect(closePane([P("a", "/search")], "a", "n")).toEqual([P("n", "/")]);
   });
 
   it("홈 한 칸·모르는 칸은 그대로", () => {
