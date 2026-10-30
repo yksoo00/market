@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type ChangeEvent } from "react";
 import { Loader2 } from "lucide-react";
 import { cn } from "cn";
-import { inlineBelow, inlineLabel, inlineShell } from "@/components/auth/FormField";
+import { inlineBelow, inlineLabel, inlineMinH, inlineShell } from "@/components/auth/FormField";
 import { Icon } from "@/components/common/Icon";
 import { Label } from "@/components/ui/label";
 import { uploadFile } from "@/lib/api/uploads";
@@ -122,7 +122,7 @@ export function SingleFileUploader({
         {label}
         {hint && <span className="font-normal text-ink-3">{hint}</span>}
       </Label>
-      <div className="@sm:min-h-11 flex items-center gap-2 min-w-0">
+      <div className={`${inlineMinH} flex items-center gap-2 min-w-0`}>
         <button
           type="button"
           onClick={() => inputRef.current?.click()}

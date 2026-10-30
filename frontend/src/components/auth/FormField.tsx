@@ -42,12 +42,14 @@ interface ShellProps {
   children: ReactNode;
 }
 
-// 라벨 왼쪽 배치(inline)의 격자. 칸 폭 @sm(384) 이상이면 라벨 왼쪽 — 웹은 분할 칸이 좁아도 늘 옆에 붙고, 휴대폰(칸 안쪽 340 안팎)에서만 위로 쌓인다 (사용자 결정 2026-10-30).
+// 라벨 왼쪽 배치(inline)의 격자. 웹은 칸이 좁아도 늘 옆에, 휴대폰(화면 768 미만)에서만 위로 쌓는다 (사용자 결정 2026-10-30).
+// 칸 폭(@md)이 아니라 화면 폭(md:)인 이유: 웹 분할 칸은 768 미만일 수 있다. iframe 칸은 화면 폭이 곧 칸 폭이라 framed: 를 같이 쓴다 (iframe 칸은 넓은 화면에만 뜬다).
 // 사진·데이터시트 업로더도 같은 격자를 써서 칸끼리 어긋나지 않게 export
-export const inlineShell = "@sm:grid @sm:grid-cols-[6.5rem_minmax(0,1fr)] @sm:gap-x-3";
+export const inlineShell = "md:grid md:grid-cols-[6.5rem_minmax(0,1fr)] md:gap-x-3 framed:grid framed:grid-cols-[6.5rem_minmax(0,1fr)] framed:gap-x-3";
 // min-h-11 = 입력 높이(44)라 라벨이 첫 줄 가운데에. self-start 로 여러 줄 칸(설명·사진)에서도 위에 붙는다 (stretch 면 행 한가운데)
-export const inlineLabel = "@sm:min-h-11 @sm:self-start @sm:flex-wrap @sm:gap-x-1 @sm:gap-y-0 @sm:leading-tight";
-export const inlineBelow = "@sm:col-start-2";
+export const inlineMinH = "md:min-h-11 framed:min-h-11";
+export const inlineLabel = `${inlineMinH} md:self-start md:flex-wrap md:gap-x-1 md:gap-y-0 md:leading-tight framed:self-start framed:flex-wrap framed:gap-x-1 framed:gap-y-0 framed:leading-tight`;
+export const inlineBelow = "md:col-start-2 framed:col-start-2";
 
 // 가입 폼(카드 폭 560)용 좁은 격자: 가장 가까운 @container(AuthCard 본문) 폭 @sm(384) 이상이면 라벨 왼쪽.
 // 카드 안쪽은 데스크톱 510 안팎이라 늘 옆에 붙고, 휴대폰(카드 안쪽 310 안팎)에선 위로 쌓인다
@@ -57,7 +59,7 @@ const narrow = {
   below: "@sm:col-start-2",
 };
 
-/** inline: true = 매물 등록 폼 격자(@sm), "narrow" = 가입 폼 격자(@sm) */
+/** inline: true = 매물 등록 폼 격자(화면 md), "narrow" = 가입 폼 격자(@sm) */
 export type Inline = boolean | "narrow";
 
 export function inlineClasses(inline: Inline | undefined) {
