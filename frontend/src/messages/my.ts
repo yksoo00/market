@@ -44,8 +44,8 @@ export const my = {
       label: "거래이력 검색",
       searchPlaceholder: "상품명으로 검색",
       search: "검색",
-      detail: "상세 필터",
-      detailChip: (n: number) => `상세 필터 ${n}`,
+      chips: "필터",
+      clear: (what: string) => `${what} 조건 지우기`,
       period: "기간 (확정일)",
       from: "시작일",
       to: "종료일",
@@ -56,7 +56,6 @@ export const my = {
       sort: "정렬",
       sorts: { latest: "최신순", oldest: "오래된 순", amountDesc: "금액 높은 순", amountAsc: "금액 낮은 순" },
       apply: "적용",
-      resetPopup: "초기화",
       reset: "필터 초기화",
       resultCount: (n: number) => `조건에 맞는 거래 ${n.toLocaleString("ko-KR")}건`,
       emptyTitle: "조건에 맞는 거래가 없어요",
@@ -99,6 +98,15 @@ export const my = {
     emptyTitle: "아직 구매요청이 없어요",
     emptyDesc: "매물을 검색해 [구매]로 요청하면 여기에서 볼 수 있어요.",
     toSearch: "매물 검색하기",
+  },
+  // 내 활동내역 요청·구매 탭 검색 + 상세 필터 (계획 2026-10-30 후속). 기간·금액·정렬 문구는 history.filter 와 같다
+  activityFilter: {
+    label: "거래 검색",
+    status: "거래상태",
+    statusAll: "전체",
+    period: "기간 (요청일)",
+    emptyTitle: "조건에 맞는 거래가 없어요",
+    emptyDesc: "검색어나 필터를 바꾸거나 초기화해 보세요.",
   },
   // 내 활동내역 요청 탭 — 내 매물에 들어온 진행 중 거래 (TradeList role=seller)
   sales: {

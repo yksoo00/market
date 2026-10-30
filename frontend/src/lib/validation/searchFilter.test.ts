@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parseSearchParams } from "@/lib/search";
 import { search as t } from "@/messages/search";
-import { filterDefaults, searchFilterSchema, type SearchFilterInput } from "./searchFilter";
+import { filterDefaults, filterFormValues, parseFilterForm, searchFilterFormSchema, searchFilterSchema, type SearchFilterInput } from "./searchFilter";
 
 const empty: SearchFilterInput = {
   category: "",
@@ -118,5 +118,27 @@ describe("상세 필터 검증 (2026-10-19)", () => {
 
   it("자료는 아는 키만, 정해진 순서로", () => {
     expect(parse({ has: ["photo", "foo", "datasheet"] }).data?.has).toEqual(["datasheet", "photo"]);
+  });
+});
+
+describe("DetailFilter 와 잇는 변환 (폼 값은 전부 문자열)", () => {
+  it("검색 조건 → 폼 값 → 다시 같은 필터 값 (has 는 쉼표 문자열)", () => {
+    const query = parseSearchParams({ status: "all", minPrice: "100", state: "80", brand: "Dell", has: "datasheet,photo", maxMinOrder: "5" });
+    const form = filterFormValues(query);
+    expect(form).toMatchObject({ status: "all", minPrice: "100", state: "80", brand: "Dell", has: "datasheet,photo", maxMinOrder: "5", minStock: "" });
+    expect(Object.values(form).every((v) => typeof v === "string")).toBe(true);
+    expect(parseFilterForm(form)).toEqual(searchFilterSchema.parse(filterDefaults(query)));
+  });
+
+  it("폼 검증은 기존 스키마와 같은 규칙·문구 (has 문자열도 통과)", () => {
+    const ok = searchFilterFormSchema.safeParse({ ...filterFormValues(parseSearchParams({})), has: "photo" });
+    expect(ok.success).toBe(true);
+    const bad = searchFilterFormSchema.safeParse({ ...filterFormValues(parseSearchParams({})), minPrice: "1,000" });
+    expect(bad.success).toBe(false);
+    expect(!bad.success && bad.error.issues[0].message).toBe(t.validation.price);
+  });
+
+  it("has 가 비면 빈 배열", () => {
+    expect(parseFilterForm(filterFormValues(parseSearchParams({}))).has).toEqual([]);
   });
 });

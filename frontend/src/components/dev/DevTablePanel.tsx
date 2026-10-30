@@ -1,0 +1,162 @@
+"use client";
+
+import { useState } from "react";
+import { DevRowForm } from "@/components/dev/DevRowForm";
+import { ExcelPickButton } from "@/components/dev/ExcelPickButton";
+import type { NoticeContent } from "@/components/common/NoticeDialog";
+import { ResultDialog } from "@/components/common/ResultDialog";
+import { Button } from "@/components/ui/button";
+import { createDevRow, deleteDevRow, fetchDevRows, importDevTable, updateDevRow } from "@/lib/api/dev";
+import { dev } from "@/messages/dev";
+import type { DevCell, DevRow, DevRows, DevTable } from "@/types/dev";
+
+const LIMIT = 100;
+
+function keyOf(table: DevTable, row: DevRow): DevRow {
+  return Object.fromEntries(table.primaryKey.map((k) => [k, row[k]]));
+}
+
+/** 테이블 하나의 조회·생성·수정·삭제·엑셀 불러오기 (임시 화면) */
+export function DevTablePanel({ table, notify }: { table: DevTable; notify: (n: NoticeContent) => void }) {
+  const [data, setData] = useState<DevRows | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [selected, setSelected] = useState<number | null>(null);
+  const [form, setForm] = useState<"create" | "update" | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const row = data !== null && selected !== null ? data.rows[selected] : null;
+
+  async function query(offset = data?.offset ?? 0) {
+    setBusy(true);
+    const res = await fetchDevRows(table.name, LIMIT, offset);
+    setBusy(false);
+    if (!res.ok) return notify({ tone: "error", title: dev.result.queryFailed, message: res.message });
+    setData(res.data);
+    setSelected(null);
+  }
+
+  async function save(values: Record<string, DevCell>): Promise<string | null> {
+    const res =
+      form === "update" && row
+        ? await updateDevRow(table.name, keyOf(table, row), values)
+        : await createDevRow(table.name, values);
+    if (!res.ok) return res.message;
+    setForm(null);
+    notify({ tone: "success", title: dev.result.saved, message: "" });
+    await query();
+    return null;
+  }
+
+  async function remove() {
+    if (!row) return;
+    setConfirmDelete(false);
+    setBusy(true);
+    const res = await deleteDevRow(table.name, keyOf(table, row));
+    setBusy(false);
+    if (!res.ok) return notify({ tone: "error", title: dev.result.deleteFailed, message: res.message });
+    notify({ tone: "success", title: dev.result.deleted, message: "" });
+    await query();
+  }
+
+  async function importFile(file: File) {
+    setBusy(true);
+    const res = await importDevTable(table.name, file);
+    setBusy(false);
+    if (!res.ok) return notify({ tone: "error", title: dev.result.importFailed, message: res.message });
+    notify({
+      tone: "success",
+      title: dev.result.importDone,
+      message: res.data.results.map((r) => dev.result.importLine(r.table, r.inserted)).join("\n"),
+    });
+    await query();
+  }
+
+  const invalid = (message: string) => notify({ tone: "error", title: dev.result.pickFile, message });
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" disabled={busy} onClick={() => query(0)}>
+          {dev.query}
+        </Button>
+        <Button type="button" variant="outline" disabled={busy} onClick={() => setForm("create")}>
+          {dev.create}
+        </Button>
+        <Button type="button" variant="outline" disabled={busy || !row} onClick={() => setForm("update")}>
+          {dev.update}
+        </Button>
+        <Button type="button" variant="outline" disabled={busy || !row} onClick={() => setConfirmDelete(true)}>
+          {dev.remove}
+        </Button>
+        <ExcelPickButton label={dev.importTable} disabled={busy} onPick={importFile} onInvalid={invalid} />
+      </div>
+
+      {data === null ? (
+        <p className="py-8 text-center text-[13px] text-ink-2">{dev.notQueried}</p>
+      ) : data.rows.length === 0 ? (
+        <p className="py-8 text-center text-[13px] text-ink-2">{dev.empty}</p>
+      ) : (
+        <>
+          <div className="flex items-center gap-2 text-[13px] text-ink-2">
+            <span>{dev.pageRange(data.offset + 1, data.offset + data.rows.length, data.total)}</span>
+            <Button type="button" variant="outline" size="sm" disabled={busy || data.offset === 0} onClick={() => query(Math.max(0, data.offset - LIMIT))}>
+              {dev.prevPage}
+            </Button>
+            <Button type="button" variant="outline" size="sm" disabled={busy || data.offset + data.rows.length >= data.total} onClick={() => query(data.offset + LIMIT)}>
+              {dev.nextPage}
+            </Button>
+          </div>
+          <div className="overflow-auto max-h-[60dvh] border border-line rounded-md">
+            <table className="text-[12px] whitespace-nowrap">
+              <thead className="sticky top-0 bg-surface">
+                <tr>
+                  <th className="px-2 py-1 border-b border-line" />
+                  {table.columns.map((c) => (
+                    <th key={c.name} className="px-2 py-1 border-b border-line text-left font-medium">
+                      {c.name}
+                      {table.primaryKey.includes(c.name) && ` ${dev.pkMark}`}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {data.rows.map((r, i) => (
+                  <tr key={i} className={selected === i ? "bg-line/40" : undefined} onClick={() => setSelected(i)}>
+                    <td className="px-2 py-1">
+                      <input type="radio" name={`sel-${table.name}`} checked={selected === i} onChange={() => setSelected(i)} aria-label={`${i + 1}`} />
+                    </td>
+                    {table.columns.map((c) => (
+                      <td key={c.name} className="px-2 py-1 max-w-[260px] truncate" title={String(r[c.name] ?? "")}>
+                        {r[c.name] === null ? <span className="text-ink-2">null</span> : String(r[c.name])}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+
+      {form && (
+        <DevRowForm
+          table={table}
+          row={form === "update" ? row : null}
+          onSubmit={save}
+          onClose={() => setForm(null)}
+        />
+      )}
+      <ResultDialog
+        open={confirmDelete}
+        tone="error"
+        title={dev.confirmDelete.title}
+        message={row ? dev.confirmDelete.message(JSON.stringify(keyOf(table, row))) : ""}
+        actionLabel={dev.confirmDelete.confirm}
+        onAction={remove}
+        retryLabel={dev.confirmDelete.cancel}
+        onRetry={() => setConfirmDelete(false)}
+        onClose={() => setConfirmDelete(false)}
+      />
+    </div>
+  );
+}

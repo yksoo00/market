@@ -194,7 +194,7 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await expect(rowOf(page, prodName)).toBeVisible();
     // 등록 상태는 "신품대비 80~89%"로 고쳤다 → "신품"만이면 없음
     await toolbar.getByRole("button", { name: search.filter.detail, exact: true }).click();
-    await page.locator("#f-state").selectOption("new");
+    await page.getByLabel(search.filter.state).selectOption("new");
     await page.getByRole("dialog").getByRole("button", { name: search.filter.apply, exact: true }).click();
     await expect(page).toHaveURL(/[?&]state=new/);
     await expect(page.getByRole("table")).toHaveCount(0);

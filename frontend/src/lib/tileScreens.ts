@@ -30,6 +30,8 @@ const SCREENS: { id: string; group: TileGroup; pattern: RegExp }[] = [
   { id: "buyQuotes", group: "buy", pattern: /^\/quotes$/ },
   { id: "search", group: "buy", pattern: /^\/search$/ },
   { id: "buyRequest", group: "buy", pattern: /^\/requests(\/.*)?$/ },
+  // 로컬 전용 임시 테이블 관리. 어느 칸 옆에서 열어도 되는 도구 화면이라 공통 (2026-10-30)
+  { id: "devTables", group: "common", pattern: /^\/dev\/tables$/ },
 ];
 
 /** path는 쿼리·해시가 붙어 있어도 된다 */

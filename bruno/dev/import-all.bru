@@ -1,0 +1,15 @@
+meta {
+  name: 엑셀 전체 불러오기 (로컬 전용)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{baseUrl}}/api/v1/dev/import
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  file: @file(./all.xlsx)
+}
