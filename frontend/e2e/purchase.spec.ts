@@ -144,6 +144,8 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     await expect(historyRow).toBeVisible();
     await searchBox.fill(prodName);
     await page.getByRole("button", { name: hf.search, exact: true }).click();
+    // 적용하면 목록이 다시 마운트된다 — 건수 줄이 보여야 새 목록이다 (옛 줄이 남아 있는 동안 누르면 팝업이 같이 사라진다)
+    await expect(page.getByText(hf.resultCount(1))).toBeVisible();
     await expect(historyRow).toBeVisible();
     await page.getByRole("button", { name: hf.detail }).click();
     await page.getByRole("textbox", { name: hf.minAmount }).fill("2000000000");
