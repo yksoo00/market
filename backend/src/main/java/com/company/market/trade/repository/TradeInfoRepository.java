@@ -117,11 +117,16 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	@Query("""
 			select t from TradeInfo t
 			 where t.userId = :buyerId and t.tradeType <> :hidden and t.tradeStats in :stats
+			   and coalesce(t.regDate, '00000000000000') >= :fromDate and coalesce(t.regDate, '00000000000000') <= :toDate
+			   and cast(t.orderUnitPrice as long) * t.orderQuantity >= :minAmount and cast(t.orderUnitPrice as long) * t.orderQuantity <= :maxAmount
+			   and (:useProds = false or t.prodId in :prodIds)
 			   and (:cursor is null or t.tradeId < :cursor)
 			 order by t.tradeId desc
 			""")
 	List<TradeInfo> findBuyerPage(@Param("buyerId") UUID buyerId, @Param("hidden") TradeType hidden,
-			@Param("stats") Collection<TradeStats> stats, @Param("cursor") String cursor, Pageable page);
+			@Param("stats") Collection<TradeStats> stats, @Param("fromDate") String fromDate, @Param("toDate") String toDate, @Param("minAmount") int minAmount,
+			@Param("maxAmount") int maxAmount, @Param("useProds") boolean useProds, @Param("prodIds") Collection<String> prodIds,
+			@Param("cursor") String cursor, Pageable page);
 
 	/**
 	 * 내가 판매자인 거래. regDate 가 있으면 그 매물만. hidden 종류(구매검토 = 구매자의 장바구니)는 판매자에게 안 보인다.
@@ -131,31 +136,46 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			select t from TradeInfo t
 			 where t.sellerId = :sellerId and t.tradeType <> :hidden and t.tradeStats in :stats
 			   and (:regDate is null or t.prodRegDate = :regDate)
+			   and coalesce(t.regDate, '00000000000000') >= :fromDate and coalesce(t.regDate, '00000000000000') <= :toDate
+			   and cast(t.orderUnitPrice as long) * t.orderQuantity >= :minAmount and cast(t.orderUnitPrice as long) * t.orderQuantity <= :maxAmount
+			   and (:useProds = false or t.prodId in :prodIds)
 			   and (:cursor is null or t.tradeId < :cursor)
 			 order by t.tradeId desc
 			""")
 	List<TradeInfo> findSellerPage(@Param("sellerId") UUID sellerId, @Param("hidden") TradeType hidden,
-			@Param("stats") Collection<TradeStats> stats, @Param("regDate") String regDate, @Param("cursor") String cursor,
-			Pageable page);
+			@Param("stats") Collection<TradeStats> stats, @Param("regDate") String regDate,
+			@Param("fromDate") String fromDate, @Param("toDate") String toDate, @Param("minAmount") int minAmount,
+			@Param("maxAmount") int maxAmount, @Param("useProds") boolean useProds, @Param("prodIds") Collection<String> prodIds,
+			@Param("cursor") String cursor, Pageable page);
 
-	/** findBuyerPage 와 같은 조건·순서의 거래ID 만 전부 — 페이지 번호의 경계와 전체 건수 (PageKeys) */
+	/**
+	 * findBuyerPage 와 같은 조건의 [거래ID, 구매자ID, 금액(단가×수량)] 만 전부 — 페이지 번호의 경계와 전체 건수 (PageKeys).
+	 * 정렬(금액순 포함)은 호출자가 이 키 목록을 자바에서 한다 — 금액은 컬럼이 아니라 식이라 Sort 로 못 건다
+	 */
 	@Query("""
-			select t.tradeId from TradeInfo t
+			select t.tradeId, t.userId, cast(t.orderUnitPrice as long) * t.orderQuantity from TradeInfo t
 			 where t.userId = :buyerId and t.tradeType <> :hidden and t.tradeStats in :stats
-			 order by t.tradeId desc
+			   and coalesce(t.regDate, '00000000000000') >= :fromDate and coalesce(t.regDate, '00000000000000') <= :toDate
+			   and cast(t.orderUnitPrice as long) * t.orderQuantity >= :minAmount and cast(t.orderUnitPrice as long) * t.orderQuantity <= :maxAmount
+			   and (:useProds = false or t.prodId in :prodIds)
 			""")
-	List<String> findBuyerKeys(@Param("buyerId") UUID buyerId, @Param("hidden") TradeType hidden,
-			@Param("stats") Collection<TradeStats> stats);
+	List<Object[]> findBuyerKeys(@Param("buyerId") UUID buyerId, @Param("hidden") TradeType hidden,
+			@Param("stats") Collection<TradeStats> stats, @Param("fromDate") String fromDate, @Param("toDate") String toDate, @Param("minAmount") int minAmount,
+			@Param("maxAmount") int maxAmount, @Param("useProds") boolean useProds, @Param("prodIds") Collection<String> prodIds);
 
-	/** findSellerPage 와 같은 조건·순서의 거래ID 만 전부 */
+	/** findSellerPage 와 같은 조건의 [거래ID, 구매자ID, 금액] 만 전부 (findBuyerKeys 와 같다) */
 	@Query("""
-			select t.tradeId from TradeInfo t
+			select t.tradeId, t.userId, cast(t.orderUnitPrice as long) * t.orderQuantity from TradeInfo t
 			 where t.sellerId = :sellerId and t.tradeType <> :hidden and t.tradeStats in :stats
 			   and (:regDate is null or t.prodRegDate = :regDate)
-			 order by t.tradeId desc
+			   and coalesce(t.regDate, '00000000000000') >= :fromDate and coalesce(t.regDate, '00000000000000') <= :toDate
+			   and cast(t.orderUnitPrice as long) * t.orderQuantity >= :minAmount and cast(t.orderUnitPrice as long) * t.orderQuantity <= :maxAmount
+			   and (:useProds = false or t.prodId in :prodIds)
 			""")
-	List<String> findSellerKeys(@Param("sellerId") UUID sellerId, @Param("hidden") TradeType hidden,
-			@Param("stats") Collection<TradeStats> stats, @Param("regDate") String regDate);
+	List<Object[]> findSellerKeys(@Param("sellerId") UUID sellerId, @Param("hidden") TradeType hidden,
+			@Param("stats") Collection<TradeStats> stats, @Param("regDate") String regDate,
+			@Param("fromDate") String fromDate, @Param("toDate") String toDate, @Param("minAmount") int minAmount,
+			@Param("maxAmount") int maxAmount, @Param("useProds") boolean useProds, @Param("prodIds") Collection<String> prodIds);
 
 	/** 판매자 매물별 그 상태들 건수 → [매물 등록일시, count]. 한 판매자 안에서 등록일시는 매물 하나 (같은 초 등록 409) */
 	@Query("""

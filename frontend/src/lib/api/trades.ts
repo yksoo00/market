@@ -1,5 +1,6 @@
 import { api } from "@/lib/api/client";
 import type { FilterValues } from "@/lib/detailFilter";
+import { tradeApiParams } from "@/lib/tradeFilter";
 import { historyApiParams } from "@/lib/historyFilter";
 import type { HistorySide, PendingCounts, QuoteItem, Trade, TradeCreateRequest, TradeHistoryPage, TradePage, TradeRole, TradeScopes } from "@/types/trade";
 
@@ -27,9 +28,10 @@ export const tradesApi = {
   reject: (tradeId: string) => action(tradeId, "reject"),
   /** 취소 = 행 삭제 → 204 (돌려줄 거래 없음) */
   cancel: (tradeId: string) => api<null>(`/api/v1/trades/${encodeURIComponent(tradeId)}/cancel`, { method: "POST" }),
-  /** active: 내 활동내역 — 진행 중 거래만 (구매자 견적요청·견적수락·견적거절·구매요청, 판매자 견적요청·구매요청) */
-  list: (role: TradeRole, opts: { reg?: string; page?: number; active?: boolean } = {}) => {
+  /** filter: 검색어·상태·기간·금액·정렬 (빈 값은 안 보낸다). active: 내 활동내역 — 진행 중 거래만 (구매자 견적요청·견적수락·견적거절·구매요청, 판매자 견적요청·구매요청) */
+  list: (role: TradeRole, opts: { reg?: string; page?: number; active?: boolean; filter?: FilterValues } = {}) => {
     const q = new URLSearchParams({ role, page: String(opts.page ?? 1) });
+    for (const [k, v] of tradeApiParams(opts.filter ?? {})) q.set(k, v);
     if (opts.reg) q.set("reg", opts.reg);
     if (opts.active) q.set("active", "true");
     return api<TradePage>(`/api/v1/trades?${q}`, { cache: "no-store" });

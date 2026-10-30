@@ -440,6 +440,100 @@ class TradeActivityApiTest {
 		mvc.perform(get("/api/v1/trades?role=seller&active=true").cookie(seller)).andExpect(jsonPath("$.data.items", hasSize(0)));
 	}
 
+	// ---- 활동내역 목록 검색·필터 (계획 2026-10-30 후속) ----
+
+	@Test
+	@DisplayName("목록 필터: 상품명 부분 일치(구매자·판매자 둘 다), 없는 이름은 빈 결과, 남의 거래는 안 보인다")
+	void tradeListFilterByName() throws Exception {
+		buy(buyerId, REG_A, 1); // 서버 R740
+		buy(buyerId, REG_B, 1); // 스위치 C9300
+		for (var who : new Cookie[] { buyer, seller }) {
+			String role = who == buyer ? "buyer" : "seller";
+			mvc.perform(get("/api/v1/trades?role=" + role + "&active=true&page=1").param("q", "r740").cookie(who))
+				.andExpect(status().isOk())
+				.andExpect(jsonPath("$.data.total").value(1))
+				.andExpect(jsonPath("$.data.items", hasSize(1)))
+				.andExpect(jsonPath("$.data.items[0].prodName").value("서버 R740"));
+		}
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1").param("q", "없는이름").cookie(buyer))
+			.andExpect(jsonPath("$.data.items", hasSize(0))).andExpect(jsonPath("$.data.totalPages").value(1));
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1").param("q", "%").cookie(buyer))
+			.andExpect(jsonPath("$.data.total").value(0));
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1").param("q", "r740").cookie(stranger))
+			.andExpect(jsonPath("$.data.total").value(0));
+	}
+
+	@Test
+	@DisplayName("목록 필터: 상태는 그 목록에서 보일 수 있는 진행 중 상태 안에서만 (판매자에게 견적수락은 없다)")
+	void tradeListFilterByStatus() throws Exception {
+		String requested = buy(buyerId, REG_A, 1);
+		String accepted = buy(buyerId, REG_B, 1);
+		jdbc.update("update trd_trade_info set trade_stats = '견적수락', trade_type = '견적조정' where trade_id = ?", accepted);
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1&status=quoteAccepted").cookie(buyer))
+			.andExpect(jsonPath("$.data.total").value(1)).andExpect(jsonPath("$.data.items[0].tradeId").value(accepted));
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1&status=requested").cookie(buyer))
+			.andExpect(jsonPath("$.data.total").value(1)).andExpect(jsonPath("$.data.items[0].tradeId").value(requested));
+		mvc.perform(get("/api/v1/trades?role=seller&active=true&page=1&status=requested").cookie(seller))
+			.andExpect(jsonPath("$.data.total").value(1));
+		// 판매자 진행 중 상태가 아니거나 모르는 값, 진행 중이 아닌 구매확정은 400
+		mvc.perform(get("/api/v1/trades?role=seller&active=true&page=1&status=quoteAccepted").cookie(seller))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.status").exists());
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1&status=confirmed").cookie(buyer))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.status").exists());
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1&status=x").cookie(buyer))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.status").exists());
+	}
+
+	@Test
+	@DisplayName("목록 필터: 기간(양끝 포함)·금액 범위(단가×수량)·정렬 4종, 같은 금액이면 최신 먼저")
+	void tradeListFilterByPeriodAmountAndSort() throws Exception {
+		String small = buy(buyerId, REG_A, 1); // 1,000원
+		String mid = buy(buyerId, REG_A, 3); // 3,000원
+		String big = buy(buyerId, REG_B, 5); // 5,000원
+		String midTwin = buy(buyerId, REG_B, 3); // 3,000원
+		jdbc.update("update trd_trade_info set reg_date = '20261001090000' where trade_id = ?", small);
+		jdbc.update("update trd_trade_info set reg_date = '20261005235959' where trade_id = ?", mid);
+		jdbc.update("update trd_trade_info set reg_date = '20261010000000' where trade_id = ?", big);
+		jdbc.update("update trd_trade_info set reg_date = '20261010000000' where trade_id = ?", midTwin);
+		String base = "/api/v1/trades?role=buyer&active=true&page=1";
+
+		mvc.perform(get(base + "&from=2026-10-05&to=2026-10-05").cookie(buyer)).andExpect(jsonPath("$.data.total").value(1))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value(mid));
+		mvc.perform(get(base + "&from=2026-10-02").cookie(buyer)).andExpect(jsonPath("$.data.total").value(3));
+		mvc.perform(get(base + "&minAmount=3000&maxAmount=3000").cookie(buyer)).andExpect(jsonPath("$.data.total").value(2));
+		mvc.perform(get(base + "&minAmount=3001").cookie(buyer)).andExpect(jsonPath("$.data.total").value(1));
+
+		mvc.perform(get(base).cookie(buyer)).andExpect(jsonPath("$.data.items[0].tradeId").value(midTwin));
+		mvc.perform(get(base + "&sort=oldest").cookie(buyer)).andExpect(jsonPath("$.data.items[0].tradeId").value(small));
+		mvc.perform(get(base + "&sort=amountDesc").cookie(buyer))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value(big))
+			.andExpect(jsonPath("$.data.items[1].tradeId").value(midTwin))
+			.andExpect(jsonPath("$.data.items[2].tradeId").value(mid));
+		mvc.perform(get(base + "&sort=amountAsc").cookie(buyer))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value(small))
+			.andExpect(jsonPath("$.data.items[3].tradeId").value(big));
+	}
+
+	@Test
+	@DisplayName("목록 필터: 잘못된 값은 400 (날짜·기간 뒤집힘·금액·q 101자·sort), 커서 방식에서 최신순 아닌 정렬도 400")
+	void tradeListFilterValidation() throws Exception {
+		String base = "/api/v1/trades?role=buyer&active=true&page=1";
+		mvc.perform(get(base + "&from=2026-13-01").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.from").exists());
+		mvc.perform(get(base + "&from=2026-10-10&to=2026-10-09").cookie(buyer)).andExpect(status().isBadRequest());
+		mvc.perform(get(base + "&minAmount=-1").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.minAmount").exists());
+		mvc.perform(get(base + "&minAmount=500&maxAmount=100").cookie(buyer)).andExpect(status().isBadRequest());
+		mvc.perform(get(base).param("q", "가".repeat(101)).cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.q").exists());
+		mvc.perform(get(base + "&sort=x").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.sort").exists());
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&sort=oldest").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.sort").exists());
+		// 커서 방식도 최신순이면 필터는 받는다
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&minAmount=1").cookie(buyer)).andExpect(status().isOk());
+	}
+
 	// ---- 내 구매 매물 검색 ----
 
 	@Test
