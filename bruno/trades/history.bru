@@ -5,7 +5,7 @@ meta {
 }
 
 get {
-  url: {{baseUrl}}/api/v1/trades/history?side=all&page=1
+  url: {{baseUrl}}/api/v1/trades/history?side=all&page=1&q=&from=&to=&minAmount=&maxAmount=&sort=latest
   body: none
   auth: none
 }
@@ -15,5 +15,5 @@ vars:pre-request {
 }
 
 docs {
-  로그인(login.bru) 먼저. 구매확정된 거래만. side = all(기본) | buy(내가 구매자) | sell(내가 판매자). page=N(1부터)이면 응답에 page·totalPages·total 이 더해진다(범위 밖 400). 커서 방식은 nextCursor 를 cursor 로.
+  로그인(login.bru) 먼저. 구매확정된 거래만. side = all(기본) | buy(내가 구매자) | sell(내가 판매자). page=N(1부터)이면 응답에 page·totalPages·total 이 더해진다(범위 밖 400). 커서 방식은 nextCursor 를 cursor 로. 필터(전부 선택, 빈 값이면 안 검): q 상품명 부분 일치(100자), from·to 확정일 yyyy-MM-dd 양끝 포함, minAmount·maxAmount 0~2147483647, sort = latest(기본)|oldest|amountDesc|amountAsc (latest 아니면 page 필수).
 }

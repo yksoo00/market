@@ -51,6 +51,10 @@
 - `docs/security.md` 입력 검증 표에 거래이력 파라미터 수치, `docs/design.md` 검색창 + 상세 필터 팝업, `docs/data-model.md` 변경 없음 확인.
 - `./gradlew test --tests "*TradeActivityApiTest"` 후 PR 직전 `./gradlew check`, `pnpm typecheck && pnpm lint && pnpm test`, E2E 는 거래이력 흐름 spec 에 필터 한 단계 추가해 그 spec 만 1번.
 
+### 후속 PR — 활동내역 요청·구매 탭 (사용자 2026-10-30 "각 탭마다")
+
+거래이력 PR 이 머지·확인된 뒤 `feat/activity-filter` 로. 위 공용 부품(`DetailFilter*`, 파라미터 검증)을 `TradeList` 에 달고, 백엔드 `TradeService.list` 에 상품명·기간·정렬을 더한다 (진행 중 상태 4종 안에서만, 금액은 `상세` 안). 판매 탭은 이미 검색·필터가 있어 그대로. 쓰기 동작([수락]·[거절]·[취소]) 뒤 목록 갱신이 필터를 유지하는지 확인. 별도 계획 파일은 쓰지 않고 이 절에서 이어 간다.
+
 ## 영향 검토
 
 - API: 선택 파라미터만 추가 → 기존 호출 그대로 호환 (롤링 무중단). 응답 모양 변경 없음.

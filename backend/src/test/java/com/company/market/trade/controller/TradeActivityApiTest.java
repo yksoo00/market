@@ -300,6 +300,127 @@ class TradeActivityApiTest {
 			.andExpect(jsonPath("$.fields.cursor").exists());
 	}
 
+	// ---- 거래이력 검색·필터 (계획 2026-10-30) ----
+
+	/** 구매자 = buyer, 판매자 = seller 인 이력 한 줄 */
+	private void history(String tradeId, String date, String prodId, int amount) {
+		jdbc.update("""
+				insert into trd_trade_history (user_id, trade_id, trade_date, prod_id, trade_type, seller_id, trade_unit_price, trade_quantity, trade_amount)
+				values (?, ?, ?, ?, '거래', ?, ?, 1, ?)
+				""", buyerId, tradeId, date, prodId, sellerId, amount, amount);
+	}
+
+	private void filterFixture() {
+		history("20261001001", "20261001090000", "ACTAPI01", 1000); // 서버 R740
+		history("20261005001", "20261005235959", "ACTAPI02", 5000); // 스위치 C9300
+		history("20261010001", "20261010000000", "ACTAPI01", 3000); // 서버 R740
+		history("20261010002", "20261010000000", "ACTAPI02", 3000); // 같은 일시·금액
+	}
+
+	@Test
+	@DisplayName("이력 필터: 상품명 부분 일치(대소문자 무시), %·_ 는 글자, 없으면 빈 결과, 건수는 걸러진 기준")
+	void historyFilterByName() throws Exception {
+		filterFixture();
+		mvc.perform(get("/api/v1/trades/history?page=1&q=r740").cookie(buyer)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.total").value(2))
+			.andExpect(jsonPath("$.data.items", hasSize(2)))
+			.andExpect(jsonPath("$.data.items[0].prodName").value("서버 R740"));
+		// 값은 param 으로 — 주소 문자열에 넣으면 MockMvc 가 한 번 더 인코딩한다
+		mvc.perform(get("/api/v1/trades/history?page=1").param("q", "스위치").cookie(buyer)).andExpect(jsonPath("$.data.total").value(2));
+		mvc.perform(get("/api/v1/trades/history?page=1").param("q", "%").cookie(buyer)).andExpect(jsonPath("$.data.total").value(0));
+		mvc.perform(get("/api/v1/trades/history?page=1").param("q", "_").cookie(buyer)).andExpect(jsonPath("$.data.total").value(0));
+		mvc.perform(get("/api/v1/trades/history?page=1&q=없는상품").cookie(buyer)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items", hasSize(0)))
+			.andExpect(jsonPath("$.data.totalPages").value(1));
+		mvc.perform(get("/api/v1/trades/history?page=1").param("q", "  ").cookie(buyer)).andExpect(jsonPath("$.data.total").value(4));
+	}
+
+	@Test
+	@DisplayName("이력 필터: 기간은 양끝 날짜를 포함한다 (to 날짜 23:59:59 까지)")
+	void historyFilterByPeriod() throws Exception {
+		filterFixture();
+		mvc.perform(get("/api/v1/trades/history?page=1&from=2026-10-05&to=2026-10-05").cookie(buyer))
+			.andExpect(jsonPath("$.data.total").value(1))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value("20261005001"));
+		mvc.perform(get("/api/v1/trades/history?page=1&from=2026-10-02").cookie(buyer)).andExpect(jsonPath("$.data.total").value(3));
+		mvc.perform(get("/api/v1/trades/history?page=1&to=2026-10-04").cookie(buyer)).andExpect(jsonPath("$.data.total").value(1));
+	}
+
+	@Test
+	@DisplayName("이력 필터: 금액 범위는 양끝 포함, 탭(구매/판매)·상품명과 함께 걸린다")
+	void historyFilterByAmountAndCombined() throws Exception {
+		filterFixture();
+		mvc.perform(get("/api/v1/trades/history?page=1&minAmount=3000&maxAmount=3000").cookie(buyer))
+			.andExpect(jsonPath("$.data.total").value(2));
+		mvc.perform(get("/api/v1/trades/history?page=1&minAmount=3001").cookie(buyer)).andExpect(jsonPath("$.data.total").value(1));
+		mvc.perform(get("/api/v1/trades/history?page=1&maxAmount=999").cookie(buyer)).andExpect(jsonPath("$.data.total").value(0));
+		mvc.perform(get("/api/v1/trades/history?side=buy&page=1&q=R740&minAmount=2000").cookie(buyer))
+			.andExpect(jsonPath("$.data.total").value(1))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value("20261010001"));
+		// 판매자 쪽 탭에서도 같은 필터
+		mvc.perform(get("/api/v1/trades/history?side=sell&page=1&q=C9300").cookie(seller)).andExpect(jsonPath("$.data.total").value(2));
+		// 구매 탭에서 판매자는 아무것도 못 본다
+		mvc.perform(get("/api/v1/trades/history?side=buy&page=1&q=R740").cookie(seller)).andExpect(jsonPath("$.data.total").value(0));
+	}
+
+	@Test
+	@DisplayName("이력 정렬: 최신·오래된·금액 높은/낮은 순, 같은 값이면 최신·거래ID 내림차순으로 끝을 맞춘다")
+	void historySort() throws Exception {
+		filterFixture();
+		mvc.perform(get("/api/v1/trades/history?page=1").cookie(buyer))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value("20261010002"))
+			.andExpect(jsonPath("$.data.items[3].tradeId").value("20261001001"));
+		mvc.perform(get("/api/v1/trades/history?page=1&sort=oldest").cookie(buyer))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value("20261001001"))
+			.andExpect(jsonPath("$.data.items[3].tradeId").value("20261010002"));
+		mvc.perform(get("/api/v1/trades/history?page=1&sort=amountDesc").cookie(buyer))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value("20261005001"))
+			.andExpect(jsonPath("$.data.items[1].tradeId").value("20261010002"))
+			.andExpect(jsonPath("$.data.items[2].tradeId").value("20261010001"));
+		mvc.perform(get("/api/v1/trades/history?page=1&sort=amountAsc").cookie(buyer))
+			.andExpect(jsonPath("$.data.items[0].tradeId").value("20261001001"))
+			.andExpect(jsonPath("$.data.items[1].tradeId").value("20261010002"))
+			.andExpect(jsonPath("$.data.items[3].tradeId").value("20261005001"));
+	}
+
+	@Test
+	@DisplayName("이력 정렬: 페이지를 넘겨도 정렬 순서가 이어진다 (금액 낮은 순 25건, 2페이지)")
+	void historySortAcrossPages() throws Exception {
+		for (int i = 1; i <= 25; i++) {
+			history("202610150%02d".formatted(i), "20261015120000", "ACTAPI01", i * 10);
+		}
+		mvc.perform(get("/api/v1/trades/history?page=2&sort=amountAsc").cookie(buyer))
+			.andExpect(jsonPath("$.data.items", hasSize(5)))
+			.andExpect(jsonPath("$.data.items[0].amount").value(210))
+			.andExpect(jsonPath("$.data.items[4].amount").value(250));
+	}
+
+	@Test
+	@DisplayName("이력 필터: 잘못된 값은 400 (날짜 형식·from>to·금액 음수·min>max·q 101자·sort), 커서 방식에서 최신순 아닌 정렬도 400")
+	void historyFilterValidation() throws Exception {
+		mvc.perform(get("/api/v1/trades/history?page=1&from=2026-13-01").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.from").exists());
+		mvc.perform(get("/api/v1/trades/history?page=1&to=20261001").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.to").exists());
+		mvc.perform(get("/api/v1/trades/history?page=1&from=2026-10-10&to=2026-10-09").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.from").exists());
+		mvc.perform(get("/api/v1/trades/history?page=1&minAmount=-1").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.minAmount").exists());
+		mvc.perform(get("/api/v1/trades/history?page=1&maxAmount=2147483648").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.maxAmount").exists());
+		mvc.perform(get("/api/v1/trades/history?page=1&minAmount=500&maxAmount=100").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.minAmount").exists());
+		mvc.perform(get("/api/v1/trades/history?page=1&q=" + "가".repeat(101)).cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.q").exists());
+		mvc.perform(get("/api/v1/trades/history?page=1&sort=x").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.sort").exists());
+		mvc.perform(get("/api/v1/trades/history?sort=oldest").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.sort").exists());
+		mvc.perform(get("/api/v1/trades/history?q=R740").cookie(buyer)).andExpect(status().isOk());
+		mvc.perform(get("/api/v1/trades/history?page=1&q=" + "가".repeat(100)).cookie(buyer)).andExpect(status().isOk());
+		mvc.perform(get("/api/v1/trades/history?page=1&maxAmount=2147483647").cookie(buyer)).andExpect(status().isOk());
+	}
+
 	// ---- 내 활동내역: 진행 중만 ----
 
 	@Test

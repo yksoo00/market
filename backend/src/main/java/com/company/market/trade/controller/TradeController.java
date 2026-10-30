@@ -13,6 +13,7 @@ import com.company.market.listing.dto.ListingSearchCondition;
 import com.company.market.trade.dto.QuoteCreateRequest;
 import com.company.market.trade.dto.QuotePurchaseRequest;
 import com.company.market.trade.dto.TradeCreateRequest;
+import com.company.market.trade.dto.TradeHistoryFilter;
 import com.company.market.trade.dto.TradeHistoryPageResponse;
 import com.company.market.trade.dto.TradePageResponse;
 import com.company.market.trade.dto.TradeResponse;
@@ -110,12 +111,15 @@ public class TradeController {
 		return ApiResponse.of(trades.list(me.id(), role, reg, cursor, active, page));
 	}
 
-	/** 내 거래이력(구매확정만). side = all(기본) | buy | sell. 본인 id 는 인증 정보에서만 */
+	/** 내 거래이력(구매확정만). side = all(기본) | buy | sell. q·from·to·minAmount·maxAmount·sort 는 선택 필터. 본인 id 는 인증 정보에서만 */
 	@GetMapping("/history")
 	public ApiResponse<TradeHistoryPageResponse> history(@AuthenticationPrincipal AuthenticatedUser me,
 			@RequestParam(required = false) String side, @RequestParam(required = false) String cursor,
-			@RequestParam(required = false) Integer page) {
-		return ApiResponse.of(activity.history(me.id(), side, cursor, page));
+			@RequestParam(required = false) Integer page, @RequestParam(required = false) String q,
+			@RequestParam(required = false) String from, @RequestParam(required = false) String to,
+			@RequestParam(required = false) Long minAmount, @RequestParam(required = false) Long maxAmount,
+			@RequestParam(required = false) String sort) {
+		return ApiResponse.of(activity.history(me.id(), side, cursor, page, new TradeHistoryFilter(q, from, to, minAmount, maxAmount, sort)));
 	}
 
 	/** 검색 범위 탭 판정 { sales, purchases } */
