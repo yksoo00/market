@@ -1,12 +1,18 @@
+import { readFileSync } from "node:fs";
+import { parseEnv } from "node:util";
 import type { NextConfig } from "next";
 
 // 환경변수는 저장소 루트 .env 하나만 쓴다(사용자 방침). Next 는 frontend/ 밖의 .env 를 읽지 않으므로 여기서 직접 읽는다.
-// loadEnvFile 은 이미 있는 값을 덮어쓰지 않아, 셸 환경변수와 frontend/.env* 가 루트 .env 보다 우선한다.
-// 루트 .env 가 없는 곳(CI, 컨테이너 빌드)에서는 조용히 넘어간다. 이 설정 파일은 서버(Node)에서만 돈다
+// 프론트에 필요한 키만 process.env 에 옮긴다 — 루트 .env 에는 DB·JWT·메일 비밀값이 있어 Next 서버 프로세스에 통째로 넣지 않는다.
+// 이미 있는 값은 덮어쓰지 않아, 셸 환경변수와 frontend/.env* 가 루트 .env 보다 우선한다.
+// 루트 .env 가 없는 곳(CI, 컨테이너 빌드)에서는 넘어가고, 다른 오류(깨진 파일 등)는 그대로 던진다. 이 설정 파일은 서버(Node)에서만 돈다
+const ROOT_ENV_KEYS = /^(NEXT_PUBLIC_|DEV_ALLOWED_ORIGINS$|API_PROXY_TARGET$)/;
 try {
-  process.loadEnvFile("../.env");
-} catch {
-  // 파일 없음
+  for (const [key, value] of Object.entries(parseEnv(readFileSync("../.env", "utf8")))) {
+    if (ROOT_ENV_KEYS.test(key) && process.env[key] === undefined) process.env[key] = value;
+  }
+} catch (e) {
+  if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
 }
 
 // 개발 서버를 localhost 말고 다른 주소(VM 의 사설 IP, 포트포워딩 등)로도 쓸 때의 설정. 주소는 코드에 두지 않고
