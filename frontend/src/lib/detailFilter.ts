@@ -6,9 +6,11 @@ import type { ReactNode } from "react";
 export type FilterValues = Record<string, string>;
 
 /** 검색창 왼쪽 구분 select (전체·상품명·제조사 같은 찾는 범위) */
-export interface SearchField {
+export interface SearchScopeSelect {
   key: string;
   label: string;
+  /** 이 값이면 주소에 싣지 않는다 */
+  defaultValue: string;
   options: { value: string; label: string }[];
 }
 
@@ -88,19 +90,19 @@ export function filterCount(fields: FilterField[], values: FilterValues): number
 
 /**
  * 값 → 주소 파라미터. 빈 값과 select 기본값은 뺀다 (같은 조건이 다른 주소가 되지 않게).
- * 검색 구분(searchField)은 검색어가 있고 첫 선택지(기본)가 아닐 때만
+ * 검색 구분(searchField)은 검색어가 있고 기본값이 아닐 때만
  */
 export function filterParams(
   fields: FilterField[],
   values: FilterValues,
   searchKey: string,
-  searchField?: SearchField,
+  searchField?: SearchScopeSelect,
 ): Record<string, string | undefined> {
   const out: Record<string, string | undefined> = {};
   const q = (values[searchKey] ?? "").trim();
   if (q) out[searchKey] = q;
   const scope = searchField ? values[searchField.key] : undefined;
-  if (q && searchField && scope && scope !== searchField.options[0]?.value) out[searchField.key] = scope;
+  if (q && searchField && scope && scope !== searchField.defaultValue) out[searchField.key] = scope;
   for (const f of fields) {
     if (fieldIsEmpty(f, values)) continue;
     for (const k of fieldKeys(f)) if (values[k]) out[k] = values[k];

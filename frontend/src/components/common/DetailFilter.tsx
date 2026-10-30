@@ -14,7 +14,7 @@ import {
   type FilterField,
   type FilterValues,
   type GroupItem,
-  type SearchField,
+  type SearchScopeSelect,
 } from "@/lib/detailFilter";
 import { formatPrice } from "@/lib/format";
 
@@ -37,7 +37,7 @@ interface Props {
   /** 검색창이 쓰는 값 키. 없으면 검색창 없이 칩 줄만 (검색 결과 화면은 자기 검색창이 따로 있다) */
   searchKey?: string;
   /** 검색창 왼쪽 구분 select. 고른 값은 [검색]을 누를 때 검색어와 함께 반영된다 */
-  searchField?: SearchField;
+  searchField?: SearchScopeSelect;
   fields: FilterField[];
   /** 폼 검증. 칸은 문자열 그대로(빈 칸 = 조건 없음). 통과한 값은 쓰지 않고 입력한 문자열 그대로 onApply 로 넘긴다 */
   schema: z.ZodType;
@@ -76,6 +76,8 @@ export function DetailFilter({ labels, searchKey, searchField, fields, schema, v
   const count = filterCount(fields, values);
   const applied = count > 0 || (searchKey !== undefined && values[searchKey] !== "");
   const errorOf = (key: string) => errors[key]?.message ?? serverErrors?.[key];
+  // 검색창 아래 한 줄: 검색어 오류, 없으면 구분 오류 (서버가 돌려준 fields.field 도 삼키지 않게)
+  const searchError = searchKey === undefined ? undefined : (errorOf(searchKey) ?? (searchField ? errorOf(searchField.key) : undefined));
 
   // 검색은 지금 걸린 칩 조건에 검색어(와 구분)만 바꿔서
   const search = handleSubmit(() =>
@@ -118,12 +120,14 @@ export function DetailFilter({ labels, searchKey, searchField, fields, schema, v
         >
           {/* 모양은 SearchForm(홈·검색 화면)과 같다 */}
           <div
-            className={`h-11 @md:h-12 flex items-stretch rounded-md @md:rounded-lg border-2 bg-surface overflow-hidden ${errorOf(searchKey) ? "border-down" : "border-primary"}`}
+            className={`h-11 @md:h-12 flex items-stretch rounded-md @md:rounded-lg border-2 bg-surface overflow-hidden ${searchError ? "border-down" : "border-primary"}`}
           >
             {searchField && (
               <select
                 aria-label={searchField.label}
                 {...register(searchField.key)}
+                aria-invalid={!!errorOf(searchField.key)}
+                aria-describedby={errorOf(searchField.key) ? `df-${searchKey}-err` : undefined}
                 className="w-18 @md:w-28 px-2 @md:px-3 border-r border-line bg-primary-soft text-primary-dark text-sm font-medium outline-none"
               >
                 {searchField.options.map((o) => (
@@ -153,9 +157,9 @@ export function DetailFilter({ labels, searchKey, searchField, fields, schema, v
               {labels.search}
             </button>
           </div>
-          {errorOf(searchKey) && (
+          {searchError && (
             <p id={`df-${searchKey}-err`} className="text-xs text-down">
-              {errorOf(searchKey)}
+              {searchError}
             </p>
           )}
         </form>

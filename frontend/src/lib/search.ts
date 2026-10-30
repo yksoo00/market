@@ -70,7 +70,7 @@ export const MAX_PAGE = 1_000_000;
 const CATEGORY_PATTERN = /^[A-Z0-9]{1,4}(-[A-Z0-9]{1,4}){0,2}$/;
 const WARRANTY_DAYS: readonly number[] = WARRANTY_FILTER_MONTHS.map((m) => m * 30);
 
-const FIELDS: readonly SearchField[] = ["all", "name", "brand"];
+export const SEARCH_FIELDS: readonly SearchField[] = ["all", "name", "brand"];
 const STATUSES: readonly StatusFilter[] = ["available", "completed", "all"];
 
 /** 실제 존재하는 YYYY-MM-DD인지 */
@@ -99,7 +99,7 @@ export function parseSearchParams(raw: RawSearchParams, scope: SearchScope = "se
   const query: SearchQuery = {
     // 넘치는 검색어를 그대로 보내면 서버 400 이 [다시 시도]로도 안 풀린다 → 잘라서 쓴다
     q: first(raw.q).trim().slice(0, MAX_QUERY).trim(),
-    field: FIELDS.includes(field) ? field : "all",
+    field: SEARCH_FIELDS.includes(field) ? field : "all",
     // 형식이 틀린 코드를 보내면 서버 400 이 [다시 시도]로도 안 풀린다 → 버린다
     category: CATEGORY_PATTERN.test(first(raw.category)) ? first(raw.category) : "",
     status: STATUSES.includes(status) ? status : defaultStatus(scope, purchased),

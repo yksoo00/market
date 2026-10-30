@@ -28,8 +28,8 @@ describe("detailFilter", () => {
     expect(filterParams(fields, { q: "", sort: "amountDesc" }, "q")).toEqual({ sort: "amountDesc" });
   });
 
-  it("검색 구분은 검색어가 있고 첫 선택지(기본)가 아닐 때만 주소에", () => {
-    const scope = { key: "field", label: "구분", options: [{ value: "all", label: "전체" }, { value: "brand", label: "제조사" }] };
+  it("검색 구분은 검색어가 있고 기본값이 아닐 때만 주소에", () => {
+    const scope = { key: "field", label: "구분", defaultValue: "all", options: [{ value: "all", label: "전체" }, { value: "brand", label: "제조사" }] };
     expect(filterParams(fields, { q: "dell", field: "brand" }, "q", scope)).toEqual({ q: "dell", field: "brand" });
     expect(filterParams(fields, { q: "dell", field: "all" }, "q", scope)).toEqual({ q: "dell" });
     expect(filterParams(fields, { q: "", field: "brand" }, "q", scope)).toEqual({});

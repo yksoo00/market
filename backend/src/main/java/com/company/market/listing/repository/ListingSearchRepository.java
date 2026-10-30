@@ -184,7 +184,6 @@ public class ListingSearchRepository {
 		}
 	}
 
-	/** 사용자가 친 % _ \ 를 와일드카드가 아니라 글자로 */
 	/**
 	 * 검색어 q 가 field 범위(all·name·brand)에 맞는 상품ID, 최대 limit 개 (거래 검색 — 거래 줄은 prod_id 만 갖고 있다).
 	 * 맞추는 규칙은 매물 검색과 같다 (appendWords)
@@ -217,6 +216,7 @@ public class ListingSearchRepository {
 		}
 	}
 
+	/** 사용자가 친 % _ \ 를 와일드카드가 아니라 글자로 */
 	private static String escapeLike(String word) {
 		return word.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
 	}

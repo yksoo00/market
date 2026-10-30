@@ -1,4 +1,5 @@
-import { firstParam, type FilterField, type FilterValues, type SearchField } from "@/lib/detailFilter";
+import { firstParam, type FilterField, type FilterValues, type SearchScopeSelect } from "@/lib/detailFilter";
+import { SEARCH_FIELDS } from "@/lib/search";
 import { my } from "@/messages/my";
 import { search } from "@/messages/search";
 
@@ -9,9 +10,6 @@ export const MAX_Q = 100;
 export const MAX_AMOUNT = 2_147_483_647;
 export const HISTORY_SORTS = ["latest", "oldest", "amountDesc", "amountAsc"] as const;
 export type HistorySort = (typeof HISTORY_SORTS)[number];
-
-/** 검색 구분 — 매물 검색(SearchForm)과 같은 범위 (2026-10-30) */
-export const SEARCH_FIELDS = ["all", "name", "brand"] as const;
 
 /** 주소 파라미터 이름 = 폼 값 키. API 는 min·max 를 minAmount·maxAmount 로 보낸다 */
 export const HISTORY_KEYS = { q: "q", field: "field", from: "from", to: "to", min: "min", max: "max", sort: "sort" } as const;
@@ -24,10 +22,11 @@ export const historyFields: FilterField[] = [
   { kind: "select", label: t.sort, key: "sort", defaultValue: "latest", options: HISTORY_SORTS.map((s) => ({ value: s, label: t.sorts[s] })) },
 ];
 
-/** 검색창 왼쪽 구분 select (DetailFilter searchField) — 문구는 매물 검색창과 같다 */
-export const tradeSearchField: SearchField = {
+/** 검색창 왼쪽 구분 select (DetailFilter searchField) — 범위·문구는 매물 검색창과 같다 (2026-10-30) */
+export const tradeSearchField: SearchScopeSelect = {
   key: "field",
   label: search.form.fieldLabel,
+  defaultValue: "all",
   options: SEARCH_FIELDS.map((f) => ({ value: f, label: search.form.fields[f] })),
 };
 
