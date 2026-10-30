@@ -104,6 +104,13 @@ export const search = {
     testReport: "테스트리포트",
     certificate: "정품인증서",
     state: "상품상태",
+    price: "단가",
+    quantity: "수량",
+    category: "카테고리",
+    minOrder: "최소 주문 수량",
+    orderUnit: "주문단위",
+    deliveryDate: "납기일",
+    regDate: "등록일",
   },
   empty: {
     title: "조건에 맞는 매물이 없어요",
