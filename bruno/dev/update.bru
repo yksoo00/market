@@ -1,0 +1,18 @@
+meta {
+  name: 행 수정 (로컬 전용)
+  type: http
+  seq: 4
+}
+
+put {
+  url: {{baseUrl}}/api/v1/dev/tables/trd_ctgr_code/rows
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "key": { "category_code": "ZZ1" },
+    "values": { "category_name": "바뀜" }
+  }
+}

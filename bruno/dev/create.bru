@@ -1,0 +1,21 @@
+meta {
+  name: 행 생성 (로컬 전용)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/dev/tables/trd_ctgr_code/rows
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "category_code": "ZZ1",
+    "category_name": "임시",
+    "category_depth": "일반",
+    "category_class": "소",
+    "reg_date": "20261030000000"
+  }
+}

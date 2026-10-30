@@ -1,0 +1,17 @@
+meta {
+  name: 행 삭제 (로컬 전용)
+  type: http
+  seq: 5
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/dev/tables/trd_ctgr_code/rows
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "category_code": "ZZ1"
+  }
+}
