@@ -71,7 +71,7 @@ function TileGrid({ main }: { main: ReactNode }) {
       } ${split ? `md:col-start-2 md:row-start-1 ${sub ? "md:row-span-1" : "md:row-span-2"}` : ""} ${box}`}
     >
       {main}
-      {/* 분할일 때 주기능 칸에도 닫기. 닫으면 홈 한 칸 */}
+      {/* 분할일 때 주기능 칸에도 닫기. 닫으면 보조가 주기능으로 올라온다(없으면 홈 한 칸) */}
       {split && panes[0] && (
         <div className="hidden md:contents framed:hidden">
           <TileCloseButton onClick={() => close(panes[0].key)} />

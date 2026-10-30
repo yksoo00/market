@@ -75,11 +75,14 @@ export function applyOpen(panes: readonly Pane[], action: OpenAction, newKey: st
   }
 }
 
-/** 보조를 닫으면 주기능만, 주기능을 닫으면 홈 한 칸 (홈 칸은 닫기 없음) */
+/**
+ * 보조를 닫으면 주기능만, 주기능을 닫으면 보조가 새 주기능으로 올라와 [홈 | 보조] (보조가 없으면 홈 한 칸).
+ * 홈 칸은 닫기 없음. 보조는 iframe 이고 주기능은 라우터가 그리는 칸이라, 올릴 때 새 key 로 다시 연다
+ */
 export function closePane(panes: readonly Pane[], key: string, newKey: string): Pane[] {
   const [main, sub] = panes;
   if (sub?.key === key) return [main];
-  if (main?.key === key && !isHome(main.path)) return [{ key: newKey, path: "/" }];
+  if (main?.key === key && !isHome(main.path)) return [{ key: newKey, path: sub ? sub.path : "/" }];
   return [...panes];
 }
 
