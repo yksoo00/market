@@ -4,10 +4,13 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -23,12 +26,14 @@ import com.company.market.listing.dto.ListingTradeSnapshot;
 import com.company.market.listing.service.ListingService;
 import com.company.market.trade.domain.TradeHistory;
 import com.company.market.trade.domain.TradeInfo;
+import com.company.market.trade.domain.TradeInfoId;
 import com.company.market.trade.domain.TradeStats;
 import com.company.market.trade.domain.TradeType;
 import com.company.market.trade.dto.QuoteCreateRequest;
 import com.company.market.trade.dto.QuotePurchaseRequest;
 import com.company.market.trade.service.TradeMailEvent.Kind;
 import com.company.market.trade.dto.TradeCreateRequest;
+import com.company.market.trade.dto.TradeFilter;
 import com.company.market.trade.dto.TradePageResponse;
 import com.company.market.trade.dto.TradeResponse;
 import com.company.market.trade.repository.CartInfoRepository;
@@ -405,37 +410,80 @@ public class TradeService {
 
 	private static final List<TradeStats> SELLER_ACTIVE = List.of(TradeStats.QUOTE_REQUESTED, TradeStats.REQUESTED);
 
-	/** role = buyer(내 구매) | seller(받은 구매요청, regDate 로 한 매물만). active 면 진행 중 상태만. 최신순 20개 + 커서 */
-	public TradePageResponse list(UUID me, String role, String regDate, String cursor, boolean active, Integer pageNo) {
+	/**
+	 * role = buyer(내 구매) | seller(받은 구매요청, regDate 로 한 매물만). active 면 진행 중 상태만. 최신순 20개 + 커서.
+	 * 검색·필터(상품명·상태·기간·금액·정렬, 계획 2026-10-30)는 본인 거래 조건 안에서만 걸린다. status 는 이 목록에서 보일 수 있는 상태
+	 * (active 면 진행 중 상태) 중 하나 — 아니면 400. 최신순이 아닌 정렬은 page 가 필요하다 (커서는 최신순 전용)
+	 */
+	public TradePageResponse list(UUID me, String role, String regDate, String cursor, boolean active, Integer pageNo, String status,
+			TradeFilter filter) {
 		if (cursor != null && !cursor.isEmpty() && !cursor.matches("\\d{11}")) {
 			throw new ValidationException(Map.of("cursor", "커서 형식이 올바르지 않습니다."));
 		}
-		String after = cursor == null || cursor.isEmpty() ? null : cursor;
-		PageRequest page = PageRequest.of(0, PAGE_SIZE + 1);
 		boolean asBuyer;
-		List<TradeInfo> rows;
-		List<String> allKeys;
-		PageKeys<String> pageKeys;
+		List<TradeStats> allowed;
 		if ("buyer".equals(role)) {
 			asBuyer = true;
-			List<TradeStats> stats = active ? BUYER_ACTIVE : List.of(TradeStats.values());
-			allKeys = pageNo == null ? null : trades.findBuyerKeys(me, TradeType.REVIEW, stats);
-			pageKeys = allKeys == null ? null : PageKeys.of(allKeys, pageNo, PAGE_SIZE);
-			rows = trades.findBuyerPage(me, TradeType.REVIEW, stats, pageKeys == null ? after : pageKeys.after(), page);
+			allowed = active ? BUYER_ACTIVE : List.of(TradeStats.values());
 		}
 		else if ("seller".equals(role)) {
 			asBuyer = false;
-			List<TradeStats> stats = active ? SELLER_ACTIVE : List.of(TradeStats.values());
-			String reg = regDate == null || regDate.isBlank() ? null : regDate;
-			allKeys = pageNo == null ? null : trades.findSellerKeys(me, TradeType.REVIEW, stats, reg);
-			pageKeys = allKeys == null ? null : PageKeys.of(allKeys, pageNo, PAGE_SIZE);
-			rows = trades.findSellerPage(me, TradeType.REVIEW, stats, reg, pageKeys == null ? after : pageKeys.after(), page);
+			allowed = active ? SELLER_ACTIVE : List.of(TradeStats.values());
 		}
 		else {
 			throw new ValidationException(Map.of("role", "role 은 buyer 또는 seller 여야 합니다."));
 		}
-		boolean hasMore = rows.size() > PAGE_SIZE;
-		List<TradeInfo> pageRows = hasMore ? rows.subList(0, PAGE_SIZE) : rows;
+		Map<String, String> errors = new LinkedHashMap<>();
+		TradeFilterRules.Parsed f = TradeFilterRules.parse(filter == null ? TradeFilter.none() : filter, pageNo != null, errors);
+		List<TradeStats> stats = allowed;
+		if (status != null && !status.isBlank()) {
+			TradeStats picked = Arrays.stream(TradeStats.values()).filter(s -> s.code().equals(status)).findFirst().orElse(null);
+			if (picked == null || !allowed.contains(picked)) {
+				errors.put("status", "status 는 이 목록에서 볼 수 있는 거래상태 중 하나여야 합니다.");
+			}
+			else {
+				stats = List.of(picked);
+			}
+		}
+		if (!errors.isEmpty()) {
+			throw new ValidationException(errors);
+		}
+		String after = cursor == null || cursor.isEmpty() ? null : cursor;
+		String reg = regDate == null || regDate.isBlank() ? null : regDate;
+		boolean useProds = f.q() != null;
+		List<String> prodIds = useProds ? listings.productIdsByName(f.q(), TradeFilterRules.NAME_MATCH_MAX) : List.of("");
+		if (useProds && prodIds.isEmpty()) {
+			// 맞는 상품이 없으면 쿼리 없이 빈 결과. 페이지 번호면 1페이지만 있다
+			PageKeys<Object[]> empty = pageNo == null ? null : PageKeys.of(List.of(), pageNo, PAGE_SIZE);
+			return empty == null ? new TradePageResponse(List.of(), null, null, null, null)
+					: new TradePageResponse(List.of(), null, empty.page(), empty.totalPages(), empty.total());
+		}
+
+		List<TradeInfo> pageRows;
+		PageKeys<Object[]> pageKeys = null;
+		boolean hasMore;
+		if (pageNo == null) {
+			PageRequest page = PageRequest.of(0, PAGE_SIZE + 1);
+			List<TradeInfo> rows = asBuyer
+					? trades.findBuyerPage(me, TradeType.REVIEW, stats, f.from(), f.to(), f.min(), f.max(), useProds, prodIds, after, page)
+					: trades.findSellerPage(me, TradeType.REVIEW, stats, reg, f.from(), f.to(), f.min(), f.max(), useProds, prodIds, after, page);
+			hasMore = rows.size() > PAGE_SIZE;
+			pageRows = hasMore ? rows.subList(0, PAGE_SIZE) : rows;
+		}
+		else {
+			// 페이지 번호: 같은 조건의 키를 전부 읽어 자바에서 정렬하고 그 페이지의 키 20개를 잘라 읽는다 (offset 아님 — 키는 이미 다 읽었다)
+			List<Object[]> keys = new ArrayList<>(asBuyer
+					? trades.findBuyerKeys(me, TradeType.REVIEW, stats, f.from(), f.to(), f.min(), f.max(), useProds, prodIds)
+					: trades.findSellerKeys(me, TradeType.REVIEW, stats, reg, f.from(), f.to(), f.min(), f.max(), useProds, prodIds));
+			keys.sort(keyOrder(f.sort()));
+			pageKeys = PageKeys.of(keys, pageNo, PAGE_SIZE);
+			List<Object[]> slice = keys.subList((pageNo - 1) * PAGE_SIZE, Math.min(pageNo * PAGE_SIZE, keys.size()));
+			Map<TradeInfoId, TradeInfo> byId = trades
+				.findAllById(slice.stream().map(k -> new TradeInfoId((UUID) k[1], (String) k[0])).toList()).stream()
+				.collect(Collectors.toMap(TradeInfo::getId, t -> t));
+			pageRows = slice.stream().map(k -> byId.get(new TradeInfoId((UUID) k[1], (String) k[0]))).filter(Objects::nonNull).toList();
+			hasMore = (long) pageNo * PAGE_SIZE < pageKeys.total();
+		}
 
 		Map<ListingId, ListingTradeSnapshot> listingsById = listings.snapshotsForTrades(
 				pageRows.stream().map(t -> t.listingId()).collect(Collectors.toSet()));
@@ -448,9 +496,22 @@ public class TradeService {
 						nicknames.get(asBuyer ? t.getSellerId() : t.getUserId()));
 			})
 			.toList();
-		String nextCursor = hasMore ? pageRows.get(pageRows.size() - 1).getTradeId() : null;
+		// 커서는 최신순 전용 — 다른 정렬의 다음 장은 page 로만 간다
+		String nextCursor = hasMore && "latest".equals(f.sort()) ? pageRows.get(pageRows.size() - 1).getTradeId() : null;
 		return pageKeys == null ? new TradePageResponse(items, nextCursor, null, null, null)
 				: new TradePageResponse(items, nextCursor, pageKeys.page(), pageKeys.totalPages(), pageKeys.total());
+	}
+
+	/** 키 [거래ID, 구매자ID, 금액] 의 정렬. 거래ID 는 11자 고정 길이라 문자열 순서가 시간 순서. 같은 금액이면 최신(거래ID 내림차순) 먼저 */
+	private static Comparator<Object[]> keyOrder(String sort) {
+		Comparator<Object[]> byIdDesc = Comparator.comparing((Object[] k) -> (String) k[0]).reversed();
+		Comparator<Object[]> byAmount = Comparator.comparing((Object[] k) -> ((Number) k[2]).longValue());
+		return switch (sort) {
+			case "oldest" -> Comparator.comparing((Object[] k) -> (String) k[0]);
+			case "amountDesc" -> byAmount.reversed().thenComparing(byIdDesc);
+			case "amountAsc" -> byAmount.thenComparing(byIdDesc);
+			default -> byIdDesc;
+		};
 	}
 
 	/** 내 매물별 판매자가 처리할 건수(견적요청 + 구매요청). 키 = 매물 regDate. 내 판매글 표의 "구매요청 N건" */

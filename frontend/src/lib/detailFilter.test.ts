@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fieldIsEmpty, filterCount, filterParams, type FilterField } from "@/lib/detailFilter";
+import { fieldIsEmpty, fieldKeys, filterCount, filterParams, groupCount, type FilterField } from "@/lib/detailFilter";
 
 const fields: FilterField[] = [
   { kind: "dateRange", label: "기간", fromKey: "from", toKey: "to", fromLabel: "시작", toLabel: "끝" },
@@ -26,5 +26,39 @@ describe("detailFilter", () => {
       to: "2026-10-05",
     });
     expect(filterParams(fields, { q: "", sort: "amountDesc" }, "q")).toEqual({ sort: "amountDesc" });
+  });
+});
+
+describe("detailFilter 칸 종류 (검색 화면용)", () => {
+  const group: FilterField = {
+    kind: "group",
+    label: "상세 필터",
+    items: [
+      { kind: "date", key: "deliveryBy", label: "납품일" },
+      { kind: "text", key: "brand", label: "제조사" },
+      { kind: "check", key: "has", label: "있는 것", options: [{ value: "photo", label: "사진" }] },
+    ],
+  };
+  const custom: FilterField = { kind: "custom", label: "카테고리", keys: ["category"], render: () => null };
+  const stock: FilterField = { kind: "numberMin", label: "재고", key: "minStock", suffix: "개 이상" };
+
+  it("키는 칸이 쓰는 값 전부", () => {
+    expect(fieldKeys(group)).toEqual(["deliveryBy", "brand", "has"]);
+    expect(fieldKeys(custom)).toEqual(["category"]);
+    expect(fieldKeys(stock)).toEqual(["minStock"]);
+  });
+
+  it("묶음은 걸린 칸 수를 세고, 하나도 없으면 비었다", () => {
+    expect(fieldIsEmpty(group, { deliveryBy: "", brand: "", has: "" })).toBe(true);
+    expect(groupCount(group as FilterField & { kind: "group" }, { deliveryBy: "2026-10-01", brand: "", has: "photo" })).toBe(2);
+    expect(filterCount([group, custom, stock], { brand: "Dell", category: "E01", minStock: "" })).toBe(2);
+  });
+
+  it("검색어 없는 줄도 주소 파라미터는 걸린 칸만", () => {
+    expect(filterParams([group, stock], { brand: "Dell", has: "photo,image", minStock: "3", deliveryBy: "" }, "q")).toEqual({
+      brand: "Dell",
+      has: "photo,image",
+      minStock: "3",
+    });
   });
 });

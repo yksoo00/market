@@ -14,6 +14,7 @@ import {
   type SearchQuery,
   type StateFilter,
 } from "@/lib/search";
+import type { FilterValues } from "@/lib/detailFilter";
 import { search as t } from "@/messages/search";
 
 // 검색 결과 필터 바. 수치는 docs/security.md "입력 검증"이 원본.
@@ -83,3 +84,21 @@ export function filterDefaults(query: SearchQuery): SearchFilterInput {
     maxMinOrder: str(query.maxMinOrder),
   };
 }
+
+// ---- 공용 필터 줄(DetailFilter)과 잇는 부분: 폼 값이 전부 문자열이라 has 는 쉼표로 이은 문자열 ----
+
+const splitHas = (s: string | undefined) => (s ? s.split(",").filter(Boolean) : []);
+
+/** DetailFilter 의 폼 값 (전부 문자열) */
+export function filterFormValues(query: SearchQuery): FilterValues {
+  const d = filterDefaults(query);
+  return { ...d, has: d.has.join(",") };
+}
+
+/** DetailFilter 가 넘긴 폼 값 → 검증을 거친 필터 값 */
+export function parseFilterForm(values: FilterValues): SearchFilterOutput {
+  return searchFilterSchema.parse({ ...values, has: splitHas(values.has) });
+}
+
+/** DetailFilter 의 resolver 용 — 폼 값을 같은 규칙으로 검증한다 (통과한 값은 쓰지 않고 오류 문구만 쓴다) */
+export const searchFilterFormSchema = z.preprocess((v) => ({ ...(v as FilterValues), has: splitHas((v as FilterValues).has) }), searchFilterSchema);
