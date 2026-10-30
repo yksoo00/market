@@ -27,7 +27,6 @@ export const home = {
     fileExcel: "파일 추가 (엑셀)",
     filePdf: "파일 추가 (PDF)",
     fileImage: "파일 추가 (이미지)",
-    dismiss: "알림 닫기",
   },
   tabs: { home: "홈", listings: "매물", post: "등록", me: "내 정보" },
 };

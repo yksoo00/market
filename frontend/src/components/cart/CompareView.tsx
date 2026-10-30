@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/common/Icon";
+import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
@@ -14,6 +15,7 @@ import { compareRows, MIN_COMPARE, sameKey } from "@/lib/compare";
 import { fileUrl } from "@/lib/files";
 import { mainPhoto } from "@/lib/listingDetail";
 import { listingHref } from "@/lib/search";
+import { common } from "@/messages/common";
 import { compare as t } from "@/messages/compare";
 import { listing } from "@/messages/listing";
 import { trade } from "@/messages/trade";
@@ -39,7 +41,7 @@ export function CompareView() {
   const [attempt, setAttempt] = useState(0);
   const [onlyDiff, setOnlyDiff] = useState(false);
   const [removing, setRemoving] = useState(false);
-  const [removeError, setRemoveError] = useState<string | null>(null);
+  const { notice, show, close: closeNotice } = useNotice();
   const [buying, setBuying] = useState<ListingDetail | null>(null);
   const [purchased, setPurchased] = useState(false);
   const [quoting, setQuoting] = useState<QuoteTarget[] | null>(null);
@@ -98,11 +100,10 @@ export function CompareView() {
 
   const remove = async (d: ListingDetail, tradeId: string) => {
     setRemoving(true);
-    setRemoveError(null);
     const res = await cartApi.removeCompare([tradeId]);
     setRemoving(false);
     if (!res.ok) {
-      setRemoveError(trade.errors[res.code] ?? res.message);
+      show({ tone: "error", title: common.notice.removeFailed, message: trade.errors[res.code] ?? res.message });
       return;
     }
     // 빼기는 열만 줄이고 다시 읽지 않는다 (남은 열의 값은 그대로)
@@ -137,11 +138,7 @@ export function CompareView() {
           {t.page.removedSkipped}
         </p>
       )}
-      {removeError && (
-        <p role="alert" className="text-[13px] text-down">
-          {removeError}
-        </p>
-      )}
+      <NoticeDialog notice={notice} onClose={closeNotice} />
 
       {/* 항목 열은 왼쪽에 고정, 상품 열이 넘치면 가로 스크롤 (좁은 칸·모바일) */}
       <div className="overflow-x-auto rounded-md border border-line bg-surface">

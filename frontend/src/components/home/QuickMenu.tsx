@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
-import { Icon } from "@/components/common/Icon";
+import { useRef, type ChangeEvent, type ReactNode } from "react";
+import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
 import { QuickIcon, type QuickIconName } from "@/components/common/QuickIcon";
 import {
   DropdownMenu,
@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { acceptOf, checkUpload, type UploadKind } from "@/lib/validation/upload";
+import { common } from "@/messages/common";
 import { home } from "@/messages/home";
 import { upload } from "@/messages/upload";
 
@@ -27,8 +28,6 @@ const routes = {
 };
 
 type Tone = "sell" | "buy";
-// seq: 같은 문구가 연달아 나와도 알림 요소를 새로 그려 스크린리더가 다시 읽게 한다 (key 로 사용)
-type Notice = { error: boolean; text: string; seq: number } | null;
 
 const toneClass: Record<Tone, string> = {
   // 호버 배경은 -soft 토큰이 아니라 진한 색의 반투명. -soft 는 페이지 배경(bg)과 거의 같아 호버가 안 보이고,
@@ -42,7 +41,7 @@ const itemClass = "p-1 rounded-xl outline-none focus-visible:ring-2 focus-visibl
 export function QuickMenu() {
   const fileRef = useRef<HTMLInputElement>(null);
   const kindRef = useRef<UploadKind>("excel");
-  const [notice, setNotice] = useState<Notice>(null);
+  const { notice, show, close } = useNotice();
 
   // 파일 input 하나를 종류마다 accept 만 바꿔 쓴다. 클릭 이벤트 안에서 바로 열어야 브라우저가 막지 않으므로
   // state 대신 ref·DOM 속성으로 넘긴다 (setState 는 다음 렌더에야 반영됨)
@@ -59,11 +58,11 @@ export function QuickMenu() {
     e.target.value = ""; // 같은 파일을 다시 골라도 change 가 나게
     if (!file) return;
     const error = checkUpload(kindRef.current, file);
-    setNotice((prev) => ({
-      error: error !== null,
-      text: error ?? upload.pending(file.name),
-      seq: (prev?.seq ?? 0) + 1,
-    }));
+    show(
+      error !== null
+        ? { tone: "error", title: common.notice.uploadBlocked, message: error }
+        : { tone: "success", title: common.notice.uploadChecked, message: upload.pending(file.name) },
+    );
   };
 
   return (
@@ -96,19 +95,7 @@ export function QuickMenu() {
 
       <input ref={fileRef} type="file" className="hidden" onChange={onFile} tabIndex={-1} aria-hidden="true" />
 
-      {notice && (
-        <p
-          key={notice.seq}
-          role={notice.error ? "alert" : "status"}
-          className={`max-w-full flex items-center gap-2 text-[13px] ${notice.error ? "text-down" : "text-ink-2"}`}
-        >
-          {/* 긴 파일 이름(공백 없음)이 한 줄로 늘어나 가로 스크롤을 만들지 않게 */}
-          <span className="min-w-0 break-all">{notice.text}</span>
-          <button type="button" aria-label={t.dismiss} onClick={() => setNotice(null)} className="shrink-0 text-ink-3 hover:text-ink">
-            <Icon name="close" size={14} />
-          </button>
-        </p>
-      )}
+      <NoticeDialog notice={notice} onClose={close} />
     </div>
   );
 }

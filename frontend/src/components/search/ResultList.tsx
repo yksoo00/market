@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState, type MouseEvent, type ReactNode } from "react";
 import { Icon } from "@/components/common/Icon";
+import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { SelectionBar } from "@/components/search/SelectionBar";
@@ -21,6 +22,7 @@ import { MAX_CART_ADD } from "@/lib/validation/cart";
 import { MAX_QUOTE_ITEMS } from "@/lib/validation/quote";
 import { activeFilterCount, buildSearchHref, clearFilters, listingHref, type SearchQuery, type SearchScope } from "@/lib/search";
 import { cart } from "@/messages/cart";
+import { common } from "@/messages/common";
 import { compare } from "@/messages/compare";
 import { my } from "@/messages/my";
 import { search as t } from "@/messages/search";
@@ -127,8 +129,8 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   const [local, setLocal] = useState<ReadonlySet<string>>(new Set());
   const picked: ReadonlySet<string> = shared ? new Set(stored.keys()) : new Set(items.map(keyOf).filter((k) => local.has(k)));
   const visiblePicked = items.filter((i) => picked.has(keyOf(i))).length;
-  // seq: 같은 문구가 연달아 나와도 알림 요소를 새로 그려 스크린리더가 다시 읽게 한다 (key 로 사용)
-  const [notice, setNotice] = useState<{ seq: number; text: string } | null>(null);
+  // 클릭 뒤 안내는 모달로 (사용자 지시 2026-10-30)
+  const { notice, show, close: closeNotice } = useNotice();
   // [구매] 모달 대상(체크한 매물 1개)과 성공 안내
   const [buying, setBuying] = useState<ListingSearchItem | null>(null);
   const [purchased, setPurchased] = useState(false);
@@ -166,52 +168,54 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   };
   // 체크한 매물. 검색은 목록에 안 보이는 것까지(저장소), 장바구니는 지금 줄 중에서
   const chosenItems = (): ListingSearchItem[] => (shared ? [...stored.values()] : items.filter((i) => picked.has(keyOf(i))));
-  const showNotice = (text: string) => setNotice((prev) => ({ seq: (prev?.seq ?? 0) + 1, text }));
-  // 장바구니엔 거래완료 매물이 남아 있을 수 있다 — 견적·구매 대상에서 빼고 알린다 (빼기만 된다)
-  const chosenForTrade = () => {
+  const showNotice = (title: string, message: string) => show({ tone: "error", title, message });
+  // 장바구니엔 거래완료 매물이 남아 있을 수 있다 — 견적·구매 대상에서 빼고 알린 뒤(확인을 누르면) 이어서 진행한다 (빼기만 된다)
+  const withTradeTargets = (proceed: (chosen: ListingSearchItem[]) => void) => {
     const chosen = chosenItems();
-    if (!inCart) return chosen;
-    const actionable = chosen.filter(cartActionable);
-    if (actionable.length < chosen.length) showNotice(cart.page.completedSkipped);
-    return actionable;
+    const actionable = inCart ? chosen.filter(cartActionable) : chosen;
+    if (actionable.length < chosen.length) {
+      show({ tone: "error", title: common.notice.someSkipped, message: cart.page.completedSkipped, then: () => proceed(actionable) });
+    } else {
+      proceed(actionable);
+    }
   };
   // 장바구니에서 열면 담을 때 입력한 값이 기본값 (설계 2026-10-27 PR 3 판정 5)
   const cartDefaultsOf = (i: ListingSearchItem) => (inCart ? cartDefaults?.get(keyOf(i)) : undefined);
   // 견적은 여러 매물을 한 번에 (서버 한도 20개)
-  const quoteSelected = () => {
-    const chosen = chosenForTrade();
-    if (chosen.length === 0) return;
-    if (chosen.length > MAX_QUOTE_ITEMS) showNotice(trade.quote.tooMany(MAX_QUOTE_ITEMS));
-    else setQuoting(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate, defaults: cartDefaultsOf(i) })));
-  };
+  const quoteSelected = () =>
+    withTradeTargets((chosen) => {
+      if (chosen.length === 0) return;
+      if (chosen.length > MAX_QUOTE_ITEMS) showNotice(common.notice.quoteBlocked, trade.quote.tooMany(MAX_QUOTE_ITEMS));
+      else setQuoting(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate, defaults: cartDefaultsOf(i) })));
+    });
   // 장바구니는 수량·납품희망일·요청사항을 받는 모달로 담는다 (서버 한도 20개). 하나라도 틀리면 서버가 아무것도 안 담고 이유를 돌려준다
   const addSelected = () => {
     const chosen = chosenItems();
     if (chosen.length > MAX_CART_ADD) {
-      showNotice(cart.add.tooMany(MAX_CART_ADD));
+      showNotice(common.notice.cartBlocked, cart.add.tooMany(MAX_CART_ADD));
       return;
     }
     setCartTargets(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
   };
   // 구매 모달은 매물 1개용 — 여러 개를 체크했으면 하나만 고르라고 알린다 (계획 2026-10-15 "스펙과 달라진 점")
-  const buySelected = () => {
-    const chosen = chosenForTrade();
-    if (chosen.length === 1) setBuying(chosen[0]);
-    else if (chosen.length > 1) showNotice(p.oneAtATime);
-  };
+  const buySelected = () =>
+    withTradeTargets((chosen) => {
+      if (chosen.length === 1) setBuying(chosen[0]);
+      else if (chosen.length > 1) showNotice(common.notice.buyBlocked, p.oneAtATime);
+    });
   // 비교는 같은 소분류 2~4개. 거래완료도 볼 수 있어 거르지 않는다 (비교 화면이 버튼만 숨김).
   // 누르면 서버의 내 비교 목록이 이 선택으로 바뀌고, 비교 화면을 옆 보조 칸에 연다 (사용자 결정 2026-10-29)
   const compareSelected = async () => {
     const chosen = chosenItems();
     const block = compareBlock(chosen);
-    if (block === "tooMany") showNotice(compare.tooMany(MAX_COMPARE));
-    else if (block === "category") showNotice(compare.otherCategory);
+    if (block === "tooMany") showNotice(common.notice.compareBlocked, compare.tooMany(MAX_COMPARE));
+    else if (block === "category") showNotice(common.notice.compareBlocked, compare.otherCategory);
     else if (block === null) {
       setComparing(true);
       const res = await cartApi.replaceCompare(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
       setComparing(false);
       if (res.ok) openTile(COMPARE_HREF, false);
-      else showNotice(trade.errors[res.code] ?? compare.failed);
+      else showNotice(common.notice.compareBlocked, trade.errors[res.code] ?? compare.failed);
     }
   };
   const selectionBar = shared ? (
@@ -379,14 +383,7 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
         onClose={() => setAdded(null)}
       />
 
-      {!mine && notice !== null && (
-        <div key={notice.seq} role="status" className="flex items-center gap-2 text-[13px] text-ink-2">
-          <span className="min-w-0">{notice.text}</span>
-          <button type="button" aria-label={r.dismiss} onClick={() => setNotice(null)} className="shrink-0 text-ink-3 hover:text-ink">
-            <Icon name="close" size={14} strokeWidth={2} />
-          </button>
-        </div>
-      )}
+      {!mine && <NoticeDialog notice={notice} onClose={closeNotice} />}
 
       {/* 데스크톱: 표. 열이 많아(16) 칸에 다 안 들어가므로 가로 스크롤하고, 체크·상품명은 왼쪽에 고정해
           어느 열을 보든 어떤 매물인지 보이게 한다.

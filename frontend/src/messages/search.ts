@@ -84,7 +84,6 @@ export const search = {
     selectRow: (name: string) => `${name} 선택`,
     quote: "견적 요청",
     buy: "구매",
-    dismiss: "알림 닫기",
     completedBadge: "거래완료",
     dataSheet: "데이터시트",
     photo: "사진",

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { Icon } from "@/components/common/Icon";
+import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
 import { QuickIcon, type QuickIconName } from "@/components/common/QuickIcon";
 import {
   DropdownMenu,
@@ -12,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { acceptOf, checkUpload, type UploadKind } from "@/lib/validation/upload";
+import { common } from "@/messages/common";
 import { home } from "@/messages/home";
 import { upload } from "@/messages/upload";
 
@@ -28,8 +30,6 @@ const routes = {
 };
 
 type Tone = "sell" | "buy";
-// seq: 같은 문구가 연달아 나와도 알림 요소를 새로 그려 스크린리더가 다시 읽게 한다 (key 로 사용)
-type Notice = { error: boolean; text: string; seq: number } | null;
 
 const toneClass: Record<Tone, string> = {
   // 호버 배경은 -soft 토큰이 아니라 진한 색의 반투명 (-soft 는 아이콘의 연한 면과 같은 색이라 그림이 묻힌다)
@@ -43,12 +43,12 @@ const cellClass = "h-auto flex-col justify-start gap-1.5 rounded-lg px-1 py-2.5 
 
 /**
  * 헤더 오른쪽 앱 메뉴(∷). 홈 가운데 판매·구매 아이콘 줄(QuickMenu)과 같은 항목 — 어느 화면에서나 가게 (decisions.md 2026-10-19 홈 아이콘 줄 복원).
- * 링크는 일반 Link 라 타일 큐 엔진이 가로챈다. 파일 고르기는 메뉴를 닫지 않고 결과를 메뉴 아래에 알린다.
+ * 링크는 일반 Link 라 타일 큐 엔진이 가로챈다. 파일 고르기 결과는 메뉴를 닫고 안내 모달로 알린다.
  */
 export function AppLauncher() {
   const fileRef = useRef<HTMLInputElement>(null);
   const kindRef = useRef<UploadKind>("excel");
-  const [notice, setNotice] = useState<Notice>(null);
+  const { notice, show, close: closeNotice } = useNotice();
   const [open, setOpen] = useState(false);
   // 판매상품 등록의 등록 방법(직접 입력·파일) 펼침
   const [newOpen, setNewOpen] = useState(false);
@@ -71,11 +71,17 @@ export function AppLauncher() {
     e.target.value = ""; // 같은 파일을 다시 골라도 change 가 나게
     if (!file) return;
     const error = checkUpload(kindRef.current, file);
-    setNotice((prev) => ({ error: error !== null, text: error ?? upload.pending(file.name), seq: (prev?.seq ?? 0) + 1 }));
+    // 메뉴가 열린 채 모달을 띄우면 포커스가 메뉴와 부딪치므로 먼저 닫는다
+    close();
+    show(
+      error !== null
+        ? { tone: "error", title: common.notice.uploadBlocked, message: error }
+        : { tone: "success", title: common.notice.uploadChecked, message: upload.pending(file.name) },
+    );
   };
 
   const onPick = (e: Event, kind: UploadKind) => {
-    e.preventDefault(); // 메뉴를 닫지 않는다 — 결과 알림이 메뉴 안에 보이게
+    e.preventDefault(); // 파일 대화상자가 뜨는 동안 메뉴를 유지한다 (고른 뒤 onFile 에서 닫는다)
     pickFile(kind);
   };
 
@@ -86,10 +92,7 @@ export function AppLauncher() {
         open={open}
         onOpenChange={(next) => {
           setOpen(next);
-          if (!next) {
-            setNotice(null);
-            setNewOpen(false);
-          }
+          if (!next) setNewOpen(false);
         }}
       >
         <DropdownMenuTrigger aria-label={t.apps} title={t.apps} className="w-11 h-11 flex items-center justify-center rounded-full text-on-primary hover:text-white hover:bg-white/10 outline-none focus-visible:ring-2 focus-visible:ring-white/60">
@@ -136,23 +139,10 @@ export function AppLauncher() {
               <Cell icon="buyBulk" label={t.buyBulk} />
             </DropdownMenuItem>
           </Section>
-
-          {notice && (
-            <p
-              key={notice.seq}
-              role={notice.error ? "alert" : "status"}
-              className={`mt-2 flex items-start gap-2 rounded-md bg-bg px-2.5 py-2 text-xs ${notice.error ? "text-down" : "text-ink-2"}`}
-            >
-              {/* 긴 파일 이름(공백 없음)이 메뉴 폭을 넘지 않게 */}
-              <span className="min-w-0 grow break-all">{notice.text}</span>
-              <button type="button" aria-label={t.dismiss} onClick={() => setNotice(null)} className="shrink-0 text-ink-3 hover:text-ink">
-                <Icon name="close" size={14} />
-              </button>
-            </p>
-          )}
         </DropdownMenuContent>
       </DropdownMenu>
       <input ref={fileRef} type="file" className="hidden" onChange={onFile} tabIndex={-1} aria-hidden="true" />
+      <NoticeDialog notice={notice} onClose={closeNotice} />
     </>
   );
 }
