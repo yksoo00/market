@@ -122,7 +122,7 @@ export function SingleFileUploader({
         {label}
         {hint && <span className="font-normal text-ink-3">{hint}</span>}
       </Label>
-      <div className="@md:min-h-11 flex items-center gap-2 min-w-0">
+      <div className="@sm:min-h-11 flex items-center gap-2 min-w-0">
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
