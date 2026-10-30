@@ -268,5 +268,5 @@
 ## 로컬 전용 임시 개발 API (`/api/v1/dev/**`, 2026-10-30)
 
 - 테이블 8개를 서비스 검증 없이 읽고 쓰는 테스트용 API다. `APP_ENV=local` 일 때만 빈이 생기고(아니면 404), 켜지면 로그인 없이 열려 있다.
-- 운영·공유 서버의 `.env` 에 `APP_ENV=local` 을 넣지 않는다. 프론트 `NEXT_PUBLIC_DEV_TOOLS=true` 도 로컬 `.env.local` 에만.
+- 운영·공유 서버의 `.env` 에 `APP_ENV=local` 을 넣지 않는다. 프론트 `NEXT_PUBLIC_DEV_TOOLS=true` 도 로컬 루트 `.env` 에만.
 - 값은 전부 바인드, 테이블·컬럼 이름은 화이트리스트 + `information_schema` 확인 후에만 SQL 식별자로 쓴다. 엑셀 10MB·시트당 5만 행 상한. `password` 컬럼은 응답에서 `***`.
