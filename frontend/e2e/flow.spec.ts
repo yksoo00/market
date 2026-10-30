@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { auth } from "@/messages/auth";
+import { common } from "@/messages/common";
 import { home } from "@/messages/home";
 import { listing } from "@/messages/listing";
 import { my } from "@/messages/my";
@@ -213,6 +214,15 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await rowOf(page, prodName).getByRole("link", { name: prodName }).click();
     await expect(page.locator('iframe[src^="/listings/"]')).toBeVisible();
     await expect(page).toHaveURL(/\/my\/activity\?tab=sales$/);
+  });
+
+  await test.step("주기능 칸을 닫으면 상세(보조)가 남아 주기능으로 올라온다 — 홈 | 상세 반반", async () => {
+    // 주기능 닫기 = iframe 을 직접 담은 칸 밖에 있는 닫기 버튼 (보조 칸 닫기는 iframe 과 같은 칸 안)
+    await page.locator(`xpath=//button[@aria-label="${common.tileClose}"][not(ancestor::div[./iframe])]`).click();
+    await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
+    await expect(page.locator("iframe")).toHaveCount(1);
+    await expect(page.locator('iframe[src="/"]')).toBeVisible();
+    await expect(page.getByText(prodName).first()).toBeVisible();
   });
 
   await test.step("로그아웃 후 주소창 칸(/login 전체 화면)에서 로그인해도 홈 전체 화면", async () => {
