@@ -23,5 +23,9 @@ public record ListingSearchItemResponse(
 		Integer stockQuantity,
 		Integer salesUnitPrice,
 		String deliveryDate,
-		String tradeStatus) {
+		String tradeStatus,
+		Integer minOrderQuantity,
+		Integer orderUnit,
+		/** "대 > 중 > 소" 이름. 카테고리 마스터에 없는 옛 코드면 null (화면은 category 코드를 보여 준다) */
+		String categoryPath) {
 }

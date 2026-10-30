@@ -74,6 +74,22 @@ public class CategoryService {
 		return path.isEmpty() ? null : path;
 	}
 
+	/** 목록용 — 여러 상품의 경로 이름을 마스터 한 쿼리로. 키는 상품ID, 이름을 못 구한 상품은 빠진다 */
+	public Map<String, String> namePaths(Collection<Product> productList) {
+		List<String> allCodes = productList.stream().map(Product::category)
+			.flatMap(c -> Stream.of(c.major(), c.middle(), c.minor())).filter(Objects::nonNull).distinct().toList();
+		Map<String, String> names = names(allCodes);
+		return productList.stream().distinct().map(p -> Map.entry(p.getProdId(), namePath(p, names)))
+			.filter(e -> e.getValue() != null).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+	}
+
+	private static String namePath(Product product, Map<String, String> names) {
+		CategoryFragments c = product.category();
+		String path = Stream.of(c.major(), c.middle(), c.minor()).filter(Objects::nonNull).map(names::get)
+			.filter(Objects::nonNull).collect(Collectors.joining(" > "));
+		return path.isEmpty() ? null : path;
+	}
+
 	/** 조각 코드 → 이름 (여러 상품을 한 쿼리로) */
 	public Map<String, String> names(Collection<String> codes) {
 		return masters.findAllById(codes).stream()

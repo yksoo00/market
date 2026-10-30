@@ -303,6 +303,20 @@ class ListingSearchApiTest {
 	}
 
 	@Test
+	@DisplayName("표에 쓰는 칸: 최소 주문 수량·주문단위·카테고리 경로 이름이 내려온다")
+	void itemHasTableColumns() throws Exception {
+		productRepository.saveAndFlush(Product.builder().prodId("P-COL").majorCategory("P01").middleCategory("Q01").minorCategory("R001")
+			.prodName("칸확인").prodBrand("Dell").regDate(A).build());
+		listingRepository.saveAndFlush(Listing.builder().userId(userId).regDate(A).prodId("P-COL").tradeType("등록")
+			.prodState("양호").salesUnitPrice(500).salesQuantity(30).minOrderQuantity(5).orderUnit(10)
+			.stockQuantity(30).deliveryDate("2099-12-31").build());
+		mvc.perform(get("/api/v1/listings"))
+			.andExpect(jsonPath("$.data.items[0].minOrderQuantity").value(5))
+			.andExpect(jsonPath("$.data.items[0].orderUnit").value(10))
+			.andExpect(jsonPath("$.data.items[0].categoryPath").value("PC주요부품 > CPU/프로세서 > 인텔 CPU"));
+	}
+
+	@Test
 	@DisplayName("가격 범위·재고·납품일(납기일 없는 매물은 제외)")
 	void priceStockDelivery() throws Exception {
 		saveFour();
