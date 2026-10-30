@@ -385,7 +385,11 @@ public class ListingService {
 	public Map<ListingId, ListingSearchItemResponse> searchItems(Collection<ListingId> ids) {
 		List<Listing> found = listings.findAllById(ids);
 		Map<String, Product> productsById = products.getAll(found.stream().map(Listing::getProdId).collect(Collectors.toSet()));
-		return found.stream().collect(Collectors.toMap(Listing::getId, l -> toSearchItem(l, productsById.get(l.getProdId()))));
+		Map<String, String> paths = categories.namePaths(productsById.values());
+		return found.stream().collect(Collectors.toMap(Listing::getId, l -> {
+			Product product = productsById.get(l.getProdId());
+			return toSearchItem(l, product, paths.get(product.getProdId()));
+		}));
 	}
 
 	/** 상품ID → 상품명 (거래 메일 등, 거래 행의 prod_id 로) */
@@ -460,7 +464,9 @@ public class ListingService {
 		boolean hasMore = rows.size() > PAGE_SIZE;
 		List<Object[]> page = hasMore ? rows.subList(0, PAGE_SIZE) : rows;
 
-		List<ListingSearchItemResponse> items = page.stream().map(r -> toSearchItem((Listing) r[0], (Product) r[1])).toList();
+		Map<String, String> paths = categories.namePaths(page.stream().map(r -> (Product) r[1]).toList());
+		List<ListingSearchItemResponse> items = page.stream()
+			.map(r -> toSearchItem((Listing) r[0], (Product) r[1], paths.get(((Product) r[1]).getProdId()))).toList();
 		String nextCursor = hasMore ? encodeCursor((Listing) page.get(page.size() - 1)[0]) : null;
 		if (pageKeys != null) {
 			return new ListingPageResponse(items, nextCursor, pageKeys.total(), pageKeys.page(), pageKeys.totalPages());
@@ -511,7 +517,7 @@ public class ListingService {
 	private record Cursor(String regDate, UUID userId) {
 	}
 
-	private static ListingSearchItemResponse toSearchItem(Listing listing, Product product) {
+	private static ListingSearchItemResponse toSearchItem(Listing listing, Product product, String categoryPath) {
 		// 상세 화면과 같게 매물 값만 본다. 상품마스터 파일은 처음 등록한 다른 판매자의 것 (decisions.md 2026-10-02 매물 상세)
 		boolean hasPhoto = Stream
 			.of(listing.getProdPhoto1(), listing.getProdPhoto2(), listing.getProdPhoto3(), listing.getProdImage4())
@@ -523,7 +529,7 @@ public class ListingService {
 				listing.warrantyUntil(), listing.getWarrantyCoverage(),
 				listing.getReplaceProd() != null, listing.getTestReport() != null, listing.getCertificateOfAuthen() != null,
 				listing.getProdState(), listing.getStockQuantity(), listing.getSalesUnitPrice(), listing.getDeliveryDate(),
-				listing.tradeStatus());
+				listing.tradeStatus(), listing.getMinOrderQuantity(), listing.getOrderUnit(), categoryPath);
 	}
 
 	/**

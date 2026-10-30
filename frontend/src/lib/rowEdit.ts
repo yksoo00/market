@@ -133,6 +133,9 @@ export function applyDetailToItem(item: ListingSearchItem, d: ListingDetail): Li
     salesUnitPrice: d.salesUnitPrice,
     deliveryDate: d.deliveryDate,
     tradeStatus: d.tradeStatus,
+    minOrderQuantity: d.minOrderQuantity,
+    orderUnit: d.orderUnit,
+    categoryPath: d.categoryPath,
   };
 }
 

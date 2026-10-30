@@ -78,6 +78,10 @@ export interface ListingSearchItem {
   deliveryDate: string | null;
   /** 백엔드는 dt_expire가 비면 available, 있으면 completed (decisions.md 2026-10-01) */
   tradeStatus: TradeStatus;
+  minOrderQuantity: number | null;
+  orderUnit: number | null;
+  /** "대 > 중 > 소" 이름. 카테고리 목록에 없는 옛 코드면 null (그땐 category 코드를 보여 준다) */
+  categoryPath: string | null;
 }
 
 /** 검색 API 한 페이지. total 은 같은 조건의 전체 개수(커서와 무관) */

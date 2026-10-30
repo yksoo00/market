@@ -15,7 +15,7 @@ import { cartApi } from "@/lib/api/cart";
 import { cartActionable, notifyCartChanged } from "@/lib/cart";
 import { COMPARE_HREF, compareBlock, MAX_COMPARE, MIN_COMPARE } from "@/lib/compare";
 import { formatPrice } from "@/lib/format";
-import { isOwner } from "@/lib/listingDetail";
+import { formatRegDate, isOwner } from "@/lib/listingDetail";
 import { selection, selectionKey, useSelection } from "@/lib/selection";
 import { pendingLabel, salesHref } from "@/lib/tradeCounts";
 import { MAX_CART_ADD } from "@/lib/validation/cart";
@@ -57,9 +57,23 @@ interface Column {
 const alignClass = { left: "text-left", right: "text-right", center: "text-center" } as const;
 const c = t.columns;
 
-// 체크·상품명(왼쪽 고정) 뒤의 열. 순서·항목은 사용자가 정한 그대로(상품명·상품번호·제조사·제조일·상품상태·
+// 검색·내 판매의 열 (체크·상품명은 왼쪽 고정). 사용자 지시 2026-10-30: 상품명·제조사·단가·수량·상품상태·카테고리·
+// 최소 주문 수량·주문단위·납기일·등록일. 거래상태 칸은 두지 않는다(기본 검색이 거래 가능만 보여 준다)
+const listColumns: Column[] = [
+  { label: c.brand, width: "w-32", title: (i) => i.prodBrand, cell: (i) => i.prodBrand },
+  { label: c.price, width: "w-28", align: "right", mono: true, strong: true, cell: (i) => formatPrice(i.salesUnitPrice) },
+  { label: c.quantity, width: "w-20", align: "right", mono: true, cell: (i) => (i.stockQuantity === null ? DASH : qty.format(i.stockQuantity)) },
+  { label: c.state, width: "w-26", cell: (i, done) => (done ? <CompletedBadge /> : i.prodState) },
+  { label: c.category, width: "w-56", title: (i) => i.categoryPath ?? i.category, cell: (i) => i.categoryPath ?? i.category },
+  { label: c.minOrder, width: "w-28", align: "right", mono: true, cell: (i) => (i.minOrderQuantity === null ? DASH : qty.format(i.minOrderQuantity)) },
+  { label: c.orderUnit, width: "w-22", align: "right", mono: true, cell: (i) => (i.orderUnit === null ? DASH : qty.format(i.orderUnit)) },
+  { label: c.deliveryDate, width: "w-26", mono: true, muted: true, cell: (i) => i.deliveryDate ?? DASH },
+  { label: c.regDate, width: "w-26", mono: true, muted: true, cell: (i) => formatRegDate(i.regDate).slice(0, 10) },
+];
+
+// 장바구니의 열. 순서·항목은 사용자가 정한 그대로(상품명·상품번호·제조사·제조일·상품상태·
 // 상품설명·데이터시트·사진·보증기한·불량지원·대체품·테스트리포트·정품인증서). 상품설명은 유무(O/X)만, 내용은 마우스를 올리면
-const columns: Column[] = [
+const cartColumns: Column[] = [
   { label: c.prodNo, width: "w-36", mono: true, title: (i) => i.prodNo ?? undefined, cell: (i) => i.prodNo ?? DASH },
   { label: c.brand, width: "w-32", title: (i) => i.prodBrand, cell: (i) => i.prodBrand },
   { label: c.mufcDate, width: "w-26", mono: true, muted: true, cell: (i) => i.mufcDate ?? DASH },
@@ -102,6 +116,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   const openTile = useTileOpen();
   const mine = scope === "mine";
   const inCart = scope === "cart";
+  const columns = inCart ? cartColumns : listColumns;
   // 거래완료(재고 소진)된 매물은 서버가 수정을 막는다 (409 LISTING_COMPLETED) — 버튼도 그리지 않는다
   const canEdit = (item: ListingSearchItem) => mine && isOwner(ownerId, item.userId) && item.tradeStatus !== "completed";
   // "구매요청 N건" → 받은 구매요청을 그 매물로 걸러 연다. 같은 판매 그룹이라 옆 칸에 반반으로
@@ -390,7 +405,7 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
           표↔카드 기준은 @md(768)가 아니라 칸 폭 576 — 타일 반반 분할이면 칸이 768 미만(1440 창이면 720)이라
           카드로 줄어들었다. 분할에서도 표가 옆으로 펼쳐져야 한다 (사용자 지시). 폰(390)은 그대로 카드 */}
       <div className="hidden @min-[36rem]:block rounded-md border border-line bg-surface overflow-x-auto">
-        <table className="w-full min-w-334 table-fixed text-[13px]">
+        <table className={`w-full ${inCart ? "min-w-334" : mine ? "min-w-354" : "min-w-322"} table-fixed text-[13px]`}>
           <colgroup>
             {!mine && <col className="w-10" />}
             <col className="w-48" />

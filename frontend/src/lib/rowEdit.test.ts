@@ -188,6 +188,9 @@ describe("applyDetailToItem", () => {
     salesUnitPrice: 1,
     deliveryDate: null,
     tradeStatus: "available",
+    minOrderQuantity: 5,
+    orderUnit: 10,
+    categoryPath: "옛 > 경로",
   };
 
   it("저장 응답(상세)의 값으로 표의 행을 갱신한다 — 새 상품으로 옮겨졌으면 그 상품 값, 파일은 유무로", () => {
@@ -205,6 +208,9 @@ describe("applyDetailToItem", () => {
       hasCertificate: false,
       prodState: "신품대비 70%",
       salesUnitPrice: 1000,
+      minOrderQuantity: 1,
+      orderUnit: 1,
+      categoryPath: null,
       userId: detail.userId,
       regDate: detail.regDate,
     });
