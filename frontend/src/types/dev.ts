@@ -3,6 +3,8 @@ export interface DevColumn {
   name: string;
   type: string;
   nullable: boolean;
+  /** DB 기본값이 있어 생성 때 비워 두면 그 값이 들어간다 */
+  hasDefault: boolean;
 }
 
 export interface DevTable {

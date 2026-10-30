@@ -13,9 +13,11 @@ export const dev = {
   importTable: "이 테이블 엑셀 불러오기",
   importAll: "엑셀 전체 불러오기",
   empty: "조회된 행이 없습니다.",
+  pkMark: "PK",
+  prevPage: "이전",
+  nextPage: "다음",
+  pageRange: (from: number, to: number, total: number) => `${from.toLocaleString("ko-KR")}–${to.toLocaleString("ko-KR")} / ${total.toLocaleString("ko-KR")}행`,
   notQueried: "[조회하기]를 누르면 행이 나옵니다.",
-  total: (shown: number, total: number) => `${total.toLocaleString("ko-KR")}행 중 ${shown.toLocaleString("ko-KR")}행 표시`,
-  selectFirst: "먼저 표에서 행을 고르세요.",
   form: {
     createTitle: (table: string) => `${table} 행 생성`,
     updateTitle: (table: string) => `${table} 행 수정`,
@@ -35,7 +37,6 @@ export const dev = {
   result: {
     queryFailed: "조회하지 못했어요",
     saved: "저장했어요",
-    saveFailed: "저장하지 못했어요",
     deleted: "삭제했어요",
     deleteFailed: "삭제하지 못했어요",
     importDone: "불러오기를 마쳤어요",

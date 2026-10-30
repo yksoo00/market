@@ -31,7 +31,7 @@ export function DevRowForm({ table, row, onSubmit, onClose }: Props) {
   const [saving, setSaving] = useState(false);
 
   const missingRequired = table.columns.some(
-    (c) => !c.nullable && !(editing && table.primaryKey.includes(c.name)) && values[c.name].trim() === "",
+    (c) => !c.nullable && !c.hasDefault && !(editing && table.primaryKey.includes(c.name)) && values[c.name].trim() === "",
   );
 
   async function submit() {
@@ -40,7 +40,12 @@ export function DevRowForm({ table, row, onSubmit, onClose }: Props) {
     const out: Record<string, DevCell> = {};
     for (const c of table.columns) {
       if (editing && table.primaryKey.includes(c.name)) continue;
-      out[c.name] = values[c.name] === "" ? null : values[c.name];
+      // 생성에서 빈 칸은 보내지 않는다 — DB 기본값이 있으면 그 값, 없으면 null
+      if (values[c.name] === "") {
+        if (editing) out[c.name] = null;
+        continue;
+      }
+      out[c.name] = values[c.name];
     }
     const message = await onSubmit(out);
     setSaving(false);
@@ -65,7 +70,7 @@ export function DevRowForm({ table, row, onSubmit, onClose }: Props) {
               <div key={c.name} className="flex flex-col gap-1">
                 <Label htmlFor={`dev-${c.name}`} className="text-[13px]">
                   {c.name} <span className="text-ink-2">({c.type})</span>
-                  {!c.nullable && <span className="text-down"> · {dev.form.required}</span>}
+                  {!c.nullable && !c.hasDefault && <span className="text-down"> · {dev.form.required}</span>}
                   {readOnly && <span className="text-ink-2"> · {dev.form.pkReadonly}</span>}
                 </Label>
                 <Input

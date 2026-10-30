@@ -53,7 +53,8 @@ public class DevTableService {
 
 	private final JdbcTemplate jdbc;
 
-	public record ColumnInfo(String name, String type, boolean nullable) {
+	/** hasDefault: DB 기본값이 있어 생성 때 비워 두면 그 값이 들어간다 */
+	public record ColumnInfo(String name, String type, boolean nullable, boolean hasDefault) {
 	}
 
 	public record TableInfo(String name, List<ColumnInfo> columns, List<String> primaryKey) {
@@ -279,13 +280,24 @@ public class DevTableService {
 				case "integer", "smallint" -> new BigDecimal(text.trim()).intValueExact();
 				case "bigint" -> new BigDecimal(text.trim()).longValueExact();
 				case "numeric" -> new BigDecimal(text.trim());
-				case "boolean" -> Boolean.valueOf(text.trim());
+				case "boolean" -> parseBoolean(text.trim());
 				default -> text;
 			};
 		}
 		catch (IllegalArgumentException | ArithmeticException e) {
 			throw bad(where + col.name() + " 값 형식이 맞지 않습니다(" + col.type() + "): " + text);
 		}
+	}
+
+	/** Boolean.valueOf 는 오타도 false 로 삼켜서 true/false 만 받는다 */
+	private static Boolean parseBoolean(String text) {
+		if (text.equalsIgnoreCase("true")) {
+			return true;
+		}
+		if (text.equalsIgnoreCase("false")) {
+			return false;
+		}
+		throw new IllegalArgumentException(text);
 	}
 
 	private static String insertSql(TableInfo t, List<String> columns) {
@@ -314,10 +326,10 @@ public class DevTableService {
 	private List<TableInfo> load(List<String> names) {
 		String in = names.stream().map(n -> "?").collect(Collectors.joining(", "));
 		Map<String, List<ColumnInfo>> columns = new LinkedHashMap<>();
-		jdbc.query("select table_name, column_name, data_type, is_nullable from information_schema.columns "
+		jdbc.query("select table_name, column_name, data_type, is_nullable, column_default is not null from information_schema.columns "
 				+ "where table_schema = current_schema() and table_name in (" + in + ") order by table_name, ordinal_position", rs -> {
 					columns.computeIfAbsent(rs.getString(1), k -> new ArrayList<>())
-						.add(new ColumnInfo(rs.getString(2), rs.getString(3), "YES".equals(rs.getString(4))));
+						.add(new ColumnInfo(rs.getString(2), rs.getString(3), "YES".equals(rs.getString(4)), rs.getBoolean(5)));
 				}, names.toArray());
 		Map<String, List<String>> keys = new LinkedHashMap<>();
 		jdbc.query("select tc.table_name, kcu.column_name from information_schema.table_constraints tc "

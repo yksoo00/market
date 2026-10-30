@@ -26,9 +26,9 @@ export function DevTablePanel({ table, notify }: { table: DevTable; notify: (n: 
 
   const row = data !== null && selected !== null ? data.rows[selected] : null;
 
-  async function query() {
+  async function query(offset = data?.offset ?? 0) {
     setBusy(true);
-    const res = await fetchDevRows(table.name, LIMIT, 0);
+    const res = await fetchDevRows(table.name, LIMIT, offset);
     setBusy(false);
     if (!res.ok) return notify({ tone: "error", title: dev.result.queryFailed, message: res.message });
     setData(res.data);
@@ -76,7 +76,7 @@ export function DevTablePanel({ table, notify }: { table: DevTable; notify: (n: 
   return (
     <div className="flex flex-col gap-3">
       <div className="flex flex-wrap gap-2">
-        <Button type="button" disabled={busy} onClick={query}>
+        <Button type="button" disabled={busy} onClick={() => query(0)}>
           {dev.query}
         </Button>
         <Button type="button" variant="outline" disabled={busy} onClick={() => setForm("create")}>
@@ -97,7 +97,15 @@ export function DevTablePanel({ table, notify }: { table: DevTable; notify: (n: 
         <p className="py-8 text-center text-[13px] text-ink-2">{dev.empty}</p>
       ) : (
         <>
-          <p className="text-[13px] text-ink-2">{dev.total(data.rows.length, data.total)}</p>
+          <div className="flex items-center gap-2 text-[13px] text-ink-2">
+            <span>{dev.pageRange(data.offset + 1, data.offset + data.rows.length, data.total)}</span>
+            <Button type="button" variant="outline" size="sm" disabled={busy || data.offset === 0} onClick={() => query(Math.max(0, data.offset - LIMIT))}>
+              {dev.prevPage}
+            </Button>
+            <Button type="button" variant="outline" size="sm" disabled={busy || data.offset + data.rows.length >= data.total} onClick={() => query(data.offset + LIMIT)}>
+              {dev.nextPage}
+            </Button>
+          </div>
           <div className="overflow-auto max-h-[60dvh] border border-line rounded-md">
             <table className="text-[12px] whitespace-nowrap">
               <thead className="sticky top-0 bg-surface">
@@ -106,7 +114,7 @@ export function DevTablePanel({ table, notify }: { table: DevTable; notify: (n: 
                   {table.columns.map((c) => (
                     <th key={c.name} className="px-2 py-1 border-b border-line text-left font-medium">
                       {c.name}
-                      {table.primaryKey.includes(c.name) && " 🔑"}
+                      {table.primaryKey.includes(c.name) && ` ${dev.pkMark}`}
                     </th>
                   ))}
                 </tr>
