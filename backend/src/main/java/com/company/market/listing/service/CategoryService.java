@@ -79,8 +79,9 @@ public class CategoryService {
 		List<String> allCodes = productList.stream().map(Product::category)
 			.flatMap(c -> Stream.of(c.major(), c.middle(), c.minor())).filter(Objects::nonNull).distinct().toList();
 		Map<String, String> names = names(allCodes);
-		return productList.stream().distinct().map(p -> Map.entry(p.getProdId(), namePath(p, names)))
-			.filter(e -> e.getValue() != null).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+		// 같은 상품ID 가 여러 번 와도(매물 여러 건) 죽지 않게 합친다 — 같은 ID 면 경로도 같다
+		return productList.stream().map(p -> Map.entry(p.getProdId(), namePath(p, names)))
+			.filter(e -> e.getValue() != null).collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> a));
 	}
 
 	private static String namePath(Product product, Map<String, String> names) {
