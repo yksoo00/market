@@ -30,7 +30,7 @@ export const compare = {
     has: "있음",
     none: "없음",
     photos: (n: number) => `${n}장`,
-    available: "거래 가능",
+    available: "거래 중",
     completed: "거래완료",
   },
   best: {

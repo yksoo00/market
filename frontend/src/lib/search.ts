@@ -49,12 +49,12 @@ export interface SearchQuery {
 
 /**
  * search = 전체 검색(/search), mine = 내 판매글(내 활동내역 판매 탭 /my/activity?tab=sales). 같은 화면 부품을 쓰고 경로·거래상태 기본값·API 의 mine 만 다르다.
- * 내 글은 거래완료한 것도 보여야 해서 거래상태 기본값이 "전체"다 (검색은 "거래 가능").
+ * 내 판매글도 검색과 같이 거래상태 기본값이 "거래 중"이다 — 거래완료한 글은 필터로 고른다 (사용자 지시 2026-10-30, 내 활동내역은 진행 중 기준).
  */
 export type SearchScope = "search" | "mine";
 
-/** 내 판매글과 내 구매는 지나간(거래완료) 매물도 보여야 해서 거래상태 기본값이 "전체"다 */
-export const defaultStatus = (scope: SearchScope, purchased = false): StatusFilter => (scope === "mine" || purchased ? "all" : "available");
+/** 내 구매는 지나간(거래완료) 매물도 보여야 해서 거래상태 기본값이 "전체", 그 밖(검색·내 판매글)은 "거래 중" */
+export const defaultStatus = (_scope: SearchScope, purchased = false): StatusFilter => (purchased ? "all" : "available");
 
 export type RawSearchParams = Record<string, string | string[] | undefined>;
 
