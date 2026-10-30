@@ -22,10 +22,12 @@ final class TradeFilterRules {
 
 	static final String DATE_MAX = "99999999999999";
 
-	/** 상품명 검색으로 한 번에 거는 상품 수 상한. IN 조건이 끝없이 길어지지 않게 (PURCHASED_KEYS_MAX 와 같은 이유) */
+	/** 상품 검색으로 한 번에 거는 상품 수 상한. IN 조건이 끝없이 길어지지 않게 (PURCHASED_KEYS_MAX 와 같은 이유) */
 	static final int NAME_MATCH_MAX = 500;
 
 	static final int Q_MAX = 100;
+
+	static final List<String> FIELDS = List.of("all", "name", "brand");
 
 	static final List<String> SORTS = List.of("latest", "oldest", "amountDesc", "amountAsc");
 
@@ -37,7 +39,7 @@ final class TradeFilterRules {
 	}
 
 	/** 검증을 통과한 필터. from·to 는 14자리(yyyyMMddHHmmss) 경계, q 가 없으면 상품 조건은 안 건다 */
-	record Parsed(String q, String from, String to, int min, int max, String sort) {
+	record Parsed(String q, String field, String from, String to, int min, int max, String sort) {
 	}
 
 	/** 필터 검증 — 틀린 칸을 한 번에 모아 400. paged = page 파라미터가 있나 (최신순 아닌 정렬은 page 가 있어야 한다) */
@@ -56,6 +58,11 @@ final class TradeFilterRules {
 		String q = in.q() == null || in.q().isBlank() ? null : in.q().trim();
 		if (q != null && q.length() > Q_MAX) {
 			errors.put("q", "검색어는 " + Q_MAX + "자 이하로 입력하세요.");
+		}
+		// 검색 구분 — 매물 검색과 같은 범위 (2026-10-30)
+		String field = in.field() == null || in.field().isBlank() ? "all" : in.field();
+		if (!FIELDS.contains(field)) {
+			errors.put("field", "field 는 all, name, brand 중 하나여야 합니다.");
 		}
 
 		LocalDate from = parseDate(in.from(), "from", errors);
@@ -83,7 +90,7 @@ final class TradeFilterRules {
 			errors.put("sort", "최신순 말고 다른 정렬은 page 와 함께 써야 합니다.");
 		}
 
-		return new Parsed(q, from == null ? DATE_MIN : from.format(DAY) + "000000", to == null ? DATE_MAX : to.format(DAY) + "235959",
+		return new Parsed(q, field, from == null ? DATE_MIN : from.format(DAY) + "000000", to == null ? DATE_MAX : to.format(DAY) + "235959",
 				min == null ? 0 : min.intValue(), max == null ? Integer.MAX_VALUE : max.intValue(), sort);
 	}
 

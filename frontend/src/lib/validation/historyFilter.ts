@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { HISTORY_SORTS, isRealDate, MAX_AMOUNT, MAX_Q } from "@/lib/historyFilter";
+import { HISTORY_SORTS, isRealDate, MAX_AMOUNT, MAX_Q, SEARCH_FIELDS } from "@/lib/historyFilter";
 import { my } from "@/messages/my";
 
 const t = my.history.filter.validation;
@@ -16,6 +16,7 @@ export function listFilterSchema(statuses: readonly string[] | null) {
   return z
     .object({
       q: z.string().refine((s) => s.trim().length <= MAX_Q, t.q),
+      field: z.enum(SEARCH_FIELDS),
       from: date,
       to: date,
       min: amount,

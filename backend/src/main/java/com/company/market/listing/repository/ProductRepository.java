@@ -39,12 +39,4 @@ public interface ProductRepository extends JpaRepository<Product, String> {
 		""")
 	List<Product> search(@Param("pattern") String pattern, Pageable pageable);
 
-	/** 상품명만 부분 일치하는 상품ID (거래이력 상품명 검색). pattern 은 search 와 같은 이스케이프 규칙 */
-	@Query("""
-		select p.prodId from Product p
-		where lower(p.prodName) like lower(:pattern) escape '\\'
-		order by p.prodId
-		""")
-	List<String> findIdsByName(@Param("pattern") String pattern, Pageable pageable);
-
 }

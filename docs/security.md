@@ -111,11 +111,12 @@
 - 거래이력 검색·필터 (2026-10-30): `GET /api/v1/trades/history` 가 선택 파라미터를 더 받는다. 전부 본인 이력(구매자·판매자 조건) 안에서만 걸리고 값은 모두 파라미터 바인딩이다. 틀리면 400 `VALIDATION` + `fields.<이름>`.
   | 항목 | 규칙 |
   |---|---|
-  | `q` 상품명 | 앞뒤 공백 제거 후 100자 이하, 빈 값이면 안 건다. `% _ \`는 글자로 이스케이프(상품마스터 이름 부분 일치, 대소문자 무시). 맞는 상품이 500개를 넘으면 앞 500개만 쓴다 |
+  | `q` 검색어 | 앞뒤 공백 제거 후 100자 이하, 빈 값이면 안 건다. 공백으로 나눈 낱말이 전부 들어 있어야 맞는다(매물 검색과 같다). `% _ \`는 글자로 이스케이프(상품마스터 부분 일치, 대소문자 무시). 맞는 상품이 500개를 넘으면 앞 500개만 쓴다 |
+  | `field` 검색 구분 (2026-10-30) | `all`(기본, 상품명·상품번호·제조사) · `name`(상품명·상품번호) · `brand`(제조사). 그 밖은 `fields.field` |
   | `from`·`to` 확정일 | `yyyy-MM-dd` (존재하는 날짜), 양끝 날짜 포함. `from` > `to` 면 `fields.from` |
   | `minAmount`·`maxAmount` | 0 ~ 2,147,483,647 (금액 컬럼이 int). `min` > `max` 면 `fields.minAmount` |
   | `sort` | `latest`(기본) · `oldest` · `amountDesc` · `amountAsc`. 최신순이 아니면 `page` 필요(커서는 최신순 전용) → 없으면 `fields.sort` |
-- 활동내역 목록 검색·필터 (2026-10-30): `GET /api/v1/trades`(role=buyer·seller)가 위와 같은 `q`·`from`·`to`·`minAmount`·`maxAmount`·`sort` 규칙(한 곳 `TradeFilterRules`)에 `status` 를 더 받는다. `status` = 그 목록에서 볼 수 있는 상태 코드(`quoteRequested`·`quoteAccepted`·`quoteRejected`·`requested`, `active=true` 면 구매자 4종·판매자 `quoteRequested`·`requested`만) 중 하나 — 그 밖은 400 `fields.status`. 기간은 거래 등록일, 금액은 단가 × 수량. 키 목록은 자바에서 정렬하고 그 페이지 키만 읽는다(offset 아님). 본인 거래 조건 안에서만 걸린다.
+- 활동내역 목록 검색·필터 (2026-10-30): `GET /api/v1/trades`(role=buyer·seller)가 위와 같은 `q`·`field`·`from`·`to`·`minAmount`·`maxAmount`·`sort` 규칙(한 곳 `TradeFilterRules`)에 `status` 를 더 받는다. `status` = 그 목록에서 볼 수 있는 상태 코드(`quoteRequested`·`quoteAccepted`·`quoteRejected`·`requested`, `active=true` 면 구매자 4종·판매자 `quoteRequested`·`requested`만) 중 하나 — 그 밖은 400 `fields.status`. 기간은 거래 등록일, 금액은 단가 × 수량. 키 목록은 자바에서 정렬하고 그 페이지 키만 읽는다(offset 아님). 본인 거래 조건 안에서만 걸린다.
 - 페이지 번호 (2026-10-29, 설계 PR 5): `GET /api/v1/listings`·`/trades/listings`·`/trades`·`/trades/history` 가 `page`(정수 1 이상, 검색은 최대 1,000,000)를 받는다. 범위 밖(전체 페이지 수 초과)·0 은 400 `fields.page`, 숫자 아님도 400. 서버는 같은 조건의 정렬 키만 읽어 경계를 구하고(offset 아님, 값은 모두 파라미터 바인딩) 응답에 `page·totalPages·total` 을 더한다 — 본인 거래 범위는 그대로 인증 정보 기준이라 남의 건수가 새지 않는다. `page` 를 생략하면 커서 방식.
 - 매물 검색 `GET /api/v1/listings` (2026-10-02):
   | 항목 | 규칙 |

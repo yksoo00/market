@@ -336,6 +336,19 @@ class TradeActivityApiTest {
 	}
 
 	@Test
+	@DisplayName("이력 검색 구분: all(기본)은 제조사도, name 은 상품명만, brand 는 제조사만. 낱말은 순서 상관없이 전부 맞아야 한다")
+	void historySearchField() throws Exception {
+		filterFixture();
+		mvc.perform(get("/api/v1/trades/history?page=1&q=dell").cookie(buyer)).andExpect(jsonPath("$.data.total").value(2));
+		mvc.perform(get("/api/v1/trades/history?page=1&field=all&q=dell").cookie(buyer)).andExpect(jsonPath("$.data.total").value(2));
+		mvc.perform(get("/api/v1/trades/history?page=1&field=name&q=dell").cookie(buyer)).andExpect(jsonPath("$.data.total").value(0));
+		mvc.perform(get("/api/v1/trades/history?page=1&field=brand&q=cisco").cookie(buyer)).andExpect(jsonPath("$.data.total").value(2));
+		mvc.perform(get("/api/v1/trades/history?page=1&field=brand&q=C9300").cookie(buyer)).andExpect(jsonPath("$.data.total").value(0));
+		mvc.perform(get("/api/v1/trades/history?page=1").param("q", "R740 서버").cookie(buyer)).andExpect(jsonPath("$.data.total").value(2));
+		mvc.perform(get("/api/v1/trades/history?page=1").param("q", "R740 cisco").cookie(buyer)).andExpect(jsonPath("$.data.total").value(0));
+	}
+
+	@Test
 	@DisplayName("이력 필터: 기간은 양끝 날짜를 포함한다 (to 날짜 23:59:59 까지)")
 	void historyFilterByPeriod() throws Exception {
 		filterFixture();
@@ -414,6 +427,8 @@ class TradeActivityApiTest {
 			.andExpect(jsonPath("$.fields.q").exists());
 		mvc.perform(get("/api/v1/trades/history?page=1&sort=x").cookie(buyer)).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.sort").exists());
+		mvc.perform(get("/api/v1/trades/history?page=1&field=prodNo&q=a").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.field").exists());
 		mvc.perform(get("/api/v1/trades/history?sort=oldest").cookie(buyer)).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.sort").exists());
 		mvc.perform(get("/api/v1/trades/history?q=R740").cookie(buyer)).andExpect(status().isOk());
@@ -461,6 +476,14 @@ class TradeActivityApiTest {
 			.andExpect(jsonPath("$.data.total").value(0));
 		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1").param("q", "r740").cookie(stranger))
 			.andExpect(jsonPath("$.data.total").value(0));
+		// 검색 구분 — 이력과 같은 규칙
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1&q=cisco").cookie(buyer)).andExpect(jsonPath("$.data.total").value(1));
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1&field=name&q=cisco").cookie(buyer))
+			.andExpect(jsonPath("$.data.total").value(0));
+		mvc.perform(get("/api/v1/trades?role=seller&active=true&page=1&field=brand&q=dell").cookie(seller))
+			.andExpect(jsonPath("$.data.total").value(1));
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1&field=x&q=a").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.field").exists());
 	}
 
 	@Test

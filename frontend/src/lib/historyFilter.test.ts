@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { historyApiParams, isRealDate, MAX_AMOUNT, MAX_Q, parseHistoryFilter } from "@/lib/historyFilter";
 import { historyFilterSchema } from "@/lib/validation/historyFilter";
 
-const base = { q: "", from: "", to: "", min: "", max: "", sort: "latest" };
+const base = { q: "", field: "all", from: "", to: "", min: "", max: "", sort: "latest" };
 
 describe("parseHistoryFilter (주소 → 필터)", () => {
   it("값이 없으면 전부 비고 정렬은 최신순", () => {
@@ -12,6 +12,7 @@ describe("parseHistoryFilter (주소 → 필터)", () => {
   it("정상 값은 그대로, 검색어는 앞뒤 공백을 자른다", () => {
     expect(parseHistoryFilter({ q: " R740 ", from: "2026-10-01", to: "2026-10-31", min: "1000", max: "50000", sort: "amountDesc" })).toEqual({
       q: "R740",
+      field: "all",
       from: "2026-10-01",
       to: "2026-10-31",
       min: "1000",
@@ -21,7 +22,7 @@ describe("parseHistoryFilter (주소 → 필터)", () => {
   });
 
   it("손으로 고친 틀린 값은 버린다 (서버 400 으로 목록이 깨지지 않게)", () => {
-    const f = parseHistoryFilter({ from: "2026-02-30", to: "20261001", min: "-5", max: String(MAX_AMOUNT + 1), sort: "x", q: "가".repeat(MAX_Q + 1) });
+    const f = parseHistoryFilter({ from: "2026-02-30", to: "20261001", min: "-5", max: String(MAX_AMOUNT + 1), sort: "x", q: "가".repeat(MAX_Q + 1), field: "prodNo" });
     expect(f).toEqual(base);
   });
 
@@ -45,6 +46,23 @@ describe("historyApiParams (필터 → API)", () => {
       ["maxAmount", "20"],
       ["sort", "oldest"],
     ]);
+  });
+
+  it("검색 구분은 검색어가 있고 전체가 아닐 때만", () => {
+    expect(historyApiParams({ ...base, field: "brand" })).toEqual([]);
+    expect(historyApiParams({ ...base, q: "dell", field: "all" })).toEqual([["q", "dell"]]);
+    expect(historyApiParams({ ...base, q: "dell", field: "brand" })).toEqual([
+      ["q", "dell"],
+      ["field", "brand"],
+    ]);
+  });
+});
+
+describe("parseHistoryFilter 검색 구분", () => {
+  it("all·name·brand 만, 나머지는 all", () => {
+    expect(parseHistoryFilter({ field: "name" }).field).toBe("name");
+    expect(parseHistoryFilter({ field: "brand" }).field).toBe("brand");
+    expect(parseHistoryFilter({ field: "x" }).field).toBe("all");
   });
 });
 
@@ -75,6 +93,7 @@ describe("historyFilterSchema (백엔드와 같은 수치)", () => {
     expect(ok({ max: "1.5" }).success).toBe(false);
     expect(ok({ from: "2026-02-30" }).success).toBe(false);
     expect(ok({ sort: "x" }).success).toBe(false);
+    expect(ok({ field: "x" }).success).toBe(false);
   });
 
   it("앞뒤가 뒤집힌 기간·금액은 뒤 칸에 오류가 붙는다", () => {

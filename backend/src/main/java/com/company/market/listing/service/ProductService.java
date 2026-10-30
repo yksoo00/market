@@ -79,12 +79,6 @@ public class ProductService {
 			.toList();
 	}
 
-	/** 상품명에 word 가 들어 있는 상품ID, 최대 limit 개. %·_·\ 는 글자로 찾는다 (거래이력 검색) */
-	public List<String> idsByName(String word, int limit) {
-		String escaped = word.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
-		return products.findIdsByName("%" + escaped + "%", PageRequest.of(0, limit));
-	}
-
 	/** 리스팅이 FK로 갖고 있는 prod_id 는 항상 유효(제약) — 없으면 데이터 정합성 문제이므로 예외를 그대로 던진다 */
 	public Product get(String prodId) {
 		return products.findById(prodId).orElseThrow();
