@@ -53,6 +53,8 @@ public class SecurityConfig {
 				// 업로드 파일 열람: 공개/비공개(로그인) 판단은 FileController 가 폴더로 한다
 				.requestMatchers(HttpMethod.GET, "/api/v1/files/**").permitAll()
 				.requestMatchers(HttpMethod.HEAD, "/api/v1/files/**").permitAll()
+				// 로컬 전용 임시 테이블 관리. 컨트롤러 빈이 APP_ENV=local 일 때만 있어 그 밖에서는 404 (2026-10-30)
+				.requestMatchers("/api/v1/dev/**").permitAll()
 				.anyRequest().authenticated())
 			.exceptionHandling(e -> e
 				.authenticationEntryPoint((req, res, ex) -> write(res, json, ErrorCode.UNAUTHENTICATED))

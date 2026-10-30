@@ -1,0 +1,11 @@
+meta {
+  name: 행 조회 (로컬 전용)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/dev/tables/trd_ctgr_code/rows?limit=100&offset=0
+  body: none
+  auth: none
+}
