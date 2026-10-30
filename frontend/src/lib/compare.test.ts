@@ -139,6 +139,6 @@ describe("compareRows", () => {
     ]);
     expect(row(rows, "dataSheet").values).toEqual(["있음", "없음"]);
     expect(row(rows, "photoCount").values).toEqual(["2장", "0장"]);
-    expect(row(rows, "tradeStatus").values).toEqual(["거래 가능", "거래 가능"]);
+    expect(row(rows, "tradeStatus").values).toEqual(["거래 중", "거래 중"]);
   });
 });

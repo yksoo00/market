@@ -47,7 +47,7 @@ interface Column {
   align?: "left" | "right" | "center";
   mono?: boolean;
   strong?: boolean;
-  /** 거래 가능 행에서 보조 글자색 */
+  /** 거래 중 행에서 보조 글자색 */
   muted?: boolean;
   /** 말줄임되는 칸의 전체 값 (마우스 올리면) */
   title?: (item: ListingSearchItem) => string | undefined;

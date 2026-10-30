@@ -136,19 +136,19 @@ describe("searchApiParams", () => {
 });
 
 describe("내 판매글 범위(mine)", () => {
-  it("거래상태 기본값은 전체 — 거래완료한 내 글도 보여야 한다", () => {
-    expect(parseSearchParams({}, "mine").status).toBe("all");
+  it("거래상태 기본값은 거래 중 — 활동내역은 진행 중 기준, 거래완료한 글은 필터로 고른다", () => {
+    expect(parseSearchParams({}, "mine").status).toBe("available");
     expect(parseSearchParams({ status: "completed" }, "mine").status).toBe("completed");
-    expect(parseSearchParams({ status: "bogus" }, "mine").status).toBe("all");
+    expect(parseSearchParams({ status: "bogus" }, "mine").status).toBe("available");
     // 검색 화면은 그대로
     expect(parseSearchParams({}).status).toBe("available");
   });
 
-  it("주소는 /my/activity?tab=sales, 기본값(전체)은 생략하고 거래 가능만 status 를 붙인다", () => {
+  it("주소는 /my/activity?tab=sales, 기본값(거래 중)은 생략하고 다른 거래상태만 status 를 붙인다", () => {
     const base = parseSearchParams({}, "mine");
     expect(buildSearchHref(base, "mine")).toBe("/my/activity?tab=sales");
     expect(buildSearchHref({ ...base, q: "R740" }, "mine")).toBe("/my/activity?tab=sales&q=R740");
-    expect(buildSearchHref({ ...base, status: "available" }, "mine")).toBe("/my/activity?tab=sales&status=available");
+    expect(buildSearchHref({ ...base, status: "all" }, "mine")).toBe("/my/activity?tab=sales&status=all");
     expect(buildSearchHref({ ...base, status: "completed" }, "mine")).toBe("/my/activity?tab=sales&status=completed");
     // 검색 화면은 그대로
     expect(buildSearchHref(parseSearchParams({}))).toBe("/search");
@@ -157,15 +157,15 @@ describe("내 판매글 범위(mine)", () => {
   it("API 파라미터에 mine=true (검색 화면은 없음)", () => {
     const query = parseSearchParams({}, "mine");
     expect(new URLSearchParams(searchApiParams(query, "mine")).get("mine")).toBe("true");
-    expect(new URLSearchParams(searchApiParams(query, "mine")).get("status")).toBe("all");
+    expect(new URLSearchParams(searchApiParams(query, "mine")).get("status")).toBe("available");
     expect(new URLSearchParams(searchApiParams(parseSearchParams({}))).has("mine")).toBe(false);
   });
 
   it("필터 개수·초기화도 범위 기본값 기준", () => {
     const base = parseSearchParams({}, "mine");
     expect(activeFilterCount(base, "mine")).toBe(0);
-    expect(activeFilterCount({ ...base, status: "available" }, "mine")).toBe(1);
-    expect(clearFilters({ ...base, status: "available", minStock: 3 }, "mine").status).toBe("all");
+    expect(activeFilterCount({ ...base, status: "all" }, "mine")).toBe(1);
+    expect(clearFilters({ ...base, status: "all", minStock: 3 }, "mine").status).toBe("available");
     expect(clearFilters({ ...q(), status: "completed" }).status).toBe("available");
   });
 });
@@ -178,7 +178,7 @@ describe("검색 화면의 [전체 / 내 판매] (mine=1)", () => {
     expect(parseSearchParams({ mine: "1" }, "mine").mine).toBe(false);
   });
 
-  it("URL 왕복 — 거래상태 기본값은 검색 그대로(거래 가능)", () => {
+  it("URL 왕복 — 거래상태 기본값은 검색 그대로(거래 중)", () => {
     const query = parseSearchParams({ mine: "1", q: "R740" });
     expect(query.status).toBe("available");
     expect(buildSearchHref(query)).toBe("/search?q=R740&mine=1");

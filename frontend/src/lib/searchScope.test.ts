@@ -42,7 +42,7 @@ describe("scopeTabs — 지금 보는 범위는 항상 탭에 있다", () => {
 });
 
 describe("withScope — 거래상태 기본값", () => {
-  it("건드리지 않은 거래상태는 내 구매에서 전체, 다시 전체 검색으로 오면 거래 가능으로 따라간다", () => {
+  it("건드리지 않은 거래상태는 내 구매에서 전체, 다시 전체 검색으로 오면 거래 중으로 따라간다", () => {
     const search = parseSearchParams({ q: "R740" });
     expect(search.status).toBe("available");
     const bought = withScope(search, "purchased");
