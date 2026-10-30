@@ -97,9 +97,6 @@ public class TradeActivityService {
 			return empty == null ? new TradeHistoryPageResponse(List.of(), null, null, null, null)
 					: new TradeHistoryPageResponse(List.of(), null, empty.page(), empty.totalPages(), empty.total());
 		}
-		if (prodIds.isEmpty()) {
-			prodIds = List.of("");
-		}
 
 		List<TradeHistory> page;
 		PageKeys<Object[]> pageKeys = null;
