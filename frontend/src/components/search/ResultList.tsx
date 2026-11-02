@@ -15,7 +15,7 @@ import { cartApi } from "@/lib/api/cart";
 import { cartActionable, notifyCartChanged } from "@/lib/cart";
 import { COMPARE_HREF, compareBlock, MAX_COMPARE, MIN_COMPARE } from "@/lib/compare";
 import { formatPrice } from "@/lib/format";
-import { formatRegDate, isOwner } from "@/lib/listingDetail";
+import { formatRegDate } from "@/lib/listingDetail";
 import { selection, selectionKey, useSelection } from "@/lib/selection";
 import { pendingLabel, salesHref } from "@/lib/tradeCounts";
 import { MAX_CART_ADD } from "@/lib/validation/cart";
@@ -99,10 +99,6 @@ interface Props {
   onRemove?: (items: ListingSearchItem[]) => void;
   /** cart: 빼는 중 — [빼기]를 막아 두 번 보내지 않게 */
   removing?: boolean;
-  /** mine 모드에서 표의 [수정] 을 눌렀을 때 (행 안 수정). 없으면 [수정] 은 수정 화면 링크 */
-  onEdit?: (item: ListingSearchItem) => void;
-  /** mine 모드: 로그인한 사용자 id. 내 글에만 [수정]을 그린다 (서버가 mine=true 로 거르지 못해도 남의 글에 수정 버튼이 뜨지 않게) */
-  ownerId?: string | null;
   /** mine 모드: 매물별 구매요청 건수 (GET /api/v1/trades/pending-counts). 아직 모르면 null */
   pendingCounts?: PendingCounts | null;
   /** 구매요청 성공 — 목록이 그 매물 행을 다시 읽게 */
@@ -112,13 +108,11 @@ interface Props {
 }
 
 // 선택 상태는 결과 집합마다 새로 시작한다 — 페이지에서 key={buildSearchHref(query)}로 다시 마운트
-export function ResultList({ items, query, total, scope = "search", onEdit, ownerId = null, pendingCounts = null, onPurchased, onRemove, removing = false, cartDefaults }: Props) {
+export function ResultList({ items, query, total, scope = "search", pendingCounts = null, onPurchased, onRemove, removing = false, cartDefaults }: Props) {
   const openTile = useTileOpen();
   const mine = scope === "mine";
   const inCart = scope === "cart";
   const columns = inCart ? cartColumns : listColumns;
-  // 거래완료(재고 소진)된 매물은 서버가 수정을 막는다 (409 LISTING_COMPLETED) — 버튼도 그리지 않는다
-  const canEdit = (item: ListingSearchItem) => mine && isOwner(ownerId, item.userId) && item.tradeStatus !== "completed";
   // "구매요청 N건" → 받은 구매요청을 그 매물로 걸러 연다. 같은 판매 그룹이라 옆 칸에 반반으로
   const pendingLink = (item: ListingSearchItem) => {
     const label = pendingLabel(pendingCounts, item.regDate);
@@ -405,7 +399,7 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
           표↔카드 기준은 @md(768)가 아니라 칸 폭 576 — 타일 반반 분할이면 칸이 768 미만(1440 창이면 720)이라
           카드로 줄어들었다. 분할에서도 표가 옆으로 펼쳐져야 한다 (사용자 지시). 폰(390)은 그대로 카드 */}
       <div className="hidden @min-[36rem]:block rounded-md border border-line bg-surface overflow-x-auto">
-        <table className={`w-full ${inCart ? "min-w-334" : mine ? "min-w-354" : "min-w-322"} table-fixed text-[13px]`}>
+        <table className={`w-full ${inCart || mine ? "min-w-334" : "min-w-322"} table-fixed text-[13px]`}>
           <colgroup>
             {!mine && <col className="w-10" />}
             <col className="w-48" />
@@ -413,7 +407,6 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
               <col key={c.label} className={c.width} />
             ))}
             {mine && <col className="w-22" />}
-            {mine && <col className="w-20" />}
           </colgroup>
           <thead className="bg-bg text-xs text-ink-2">
             <tr className="h-10 text-left">
@@ -433,11 +426,6 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
               {mine && (
                 <th scope="col" className="px-2 font-medium text-center">
                   {trade.pending.column}
-                </th>
-              )}
-              {mine && (
-                <th scope="col" className="sticky right-0 z-10 bg-bg px-2 font-medium text-center border-l border-line-2">
-                  {my.mine.editColumn}
                 </th>
               )}
             </tr>
@@ -474,11 +462,6 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
                   {mine && (
                     <td className="px-2 text-center" onClick={stop}>
                       {pendingLink(item) ?? DASH}
-                    </td>
-                  )}
-                  {mine && (
-                    <td className="sticky right-0 z-10 bg-surface group-hover:bg-bg px-2 text-center border-l border-line-2" onClick={stop}>
-                      {canEdit(item) && <EditButton item={item} onEdit={onEdit} />}
                     </td>
                   )}
                 </tr>
@@ -523,18 +506,6 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
                 </div>
                 <ExtraChips item={item} />
                 {mine && pendingLink(item)}
-                {/* 좁은 카드는 칸 단위 편집이 어려워 행 안 수정 대신 수정 화면으로 간다 */}
-                {canEdit(item) && (
-                  <div onClick={stop}>
-                    <Link
-                      href={`${listingHref(item)}/edit`}
-                      aria-label={my.mine.editAria(item.prodName)}
-                      className="inline-flex h-8 px-3 items-center rounded-md border border-primary text-primary text-[13px] font-medium hover:bg-primary-soft"
-                    >
-                      {my.mine.edit}
-                    </Link>
-                  </div>
-                )}
               </div>
             </li>
           );
@@ -548,23 +519,6 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
         </div>
       )}
     </section>
-  );
-}
-
-/** 표의 [수정]. 행 안 수정(onEdit)이 연결되면 그걸 부르고, 아니면 수정 화면으로 가는 링크 */
-function EditButton({ item, onEdit }: { item: ListingSearchItem; onEdit?: (item: ListingSearchItem) => void }) {
-  const cls = "inline-flex h-7 px-2.5 items-center rounded-md border border-primary text-primary text-[13px] font-medium hover:bg-primary-soft";
-  if (onEdit) {
-    return (
-      <button type="button" onClick={() => onEdit(item)} aria-label={my.mine.editAria(item.prodName)} className={cls}>
-        {my.mine.edit}
-      </button>
-    );
-  }
-  return (
-    <Link href={`${listingHref(item)}/edit`} aria-label={my.mine.editAria(item.prodName)} className={cls}>
-      {my.mine.edit}
-    </Link>
   );
 }
 
