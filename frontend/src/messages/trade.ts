@@ -108,6 +108,10 @@ export const trade = {
   },
   // 내 구매목록·받은 구매요청 (TradeList)
   list: {
+    // 요청사항은 표에선 한 줄로 자르고 누르면 전체 글 팝업 (사용자 결정 2026-11-02)
+    remarksLabel: "요청사항",
+    remarksView: (name: string) => `${name} 요청사항 전체 보기`,
+    remarksClose: "닫기",
     loading: "불러오는 중…",
     loadFailed: "목록을 불러오지 못했어요.",
     retry: "다시 시도",

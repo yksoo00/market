@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import { cn } from "cn";
 import { DetailFilter } from "@/components/common/DetailFilter";
 import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Pager } from "@/components/common/Pager";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
@@ -72,6 +74,14 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
   // 거절된 견적 줄의 [재요청] — 같은 매물에 견적 요청 모달을 다시 연다 (서버가 기존 견적 행을 덮어쓴다)
   const [requoting, setRequoting] = useState<Trade | null>(null);
   const [requoted, setRequoted] = useState(false);
+  // 요청사항 전체 보기 팝업 (표에선 한 줄로 잘려 있다)
+  // 열림은 따로 둔다 — 닫힐 때 내용이 먼저 비면 닫히는 애니메이션 동안 빈 팝업이 보인다
+  const [remarksOf, setRemarksOf] = useState<Trade | null>(null);
+  const [remarksOpen, setRemarksOpen] = useState(false);
+  const showRemarks = (item: Trade) => {
+    setRemarksOf(item);
+    setRemarksOpen(true);
+  };
   const asBuyer = role === "buyer";
 
   useEffect(() => {
@@ -164,7 +174,19 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
         </div>
       )}
       <NoticeDialog notice={notice} onClose={closeNotice} />
-      <Body load={load} asBuyer={asBuyer} busy={busy} onAct={act} onRetry={reload} firstPageHref={page > 1 ? hrefFor(1) : null} filtered={filtered} />
+      <Dialog open={remarksOpen} onOpenChange={setRemarksOpen}>
+        <DialogContent className="max-w-md flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <DialogTitle>{t.remarksLabel}</DialogTitle>
+            <DialogDescription className="text-[13px]">{remarksOf?.prodName}</DialogDescription>
+          </div>
+          <p className="text-sm text-ink whitespace-pre-wrap wrap-break-word">{remarksOf?.remarks}</p>
+          <Button type="button" variant="outline" onClick={() => setRemarksOpen(false)} className="h-11">
+            {t.remarksClose}
+          </Button>
+        </DialogContent>
+      </Dialog>
+      <Body load={load} asBuyer={asBuyer} busy={busy} onAct={act} onRetry={reload} onShowRemarks={showRemarks} firstPageHref={page > 1 ? hrefFor(1) : null} filtered={filtered} />
       {buying && (
         <PurchaseDialog
           sellerId={buying.sellerId}
@@ -225,13 +247,15 @@ interface BodyProps {
   busy: string | null;
   onAct: (item: Trade, what: RowAction) => void;
   onRetry: () => void;
+  /** 요청사항 줄을 눌렀을 때 — 전체 글 팝업을 연다 */
+  onShowRemarks: (item: Trade) => void;
   /** 2페이지 이후를 못 읽었을 때(건수가 줄어 범위 밖이 된 경우 등) 1페이지로 가는 주소 */
   firstPageHref: string | null;
   /** 검색어·필터가 걸려 있나 — 빈 결과를 "아직 없어요"가 아니라 "조건에 맞는 게 없어요"로 */
   filtered: boolean;
 }
 
-function Body({ load, asBuyer, busy, onAct, onRetry, firstPageHref, filtered }: BodyProps) {
+function Body({ load, asBuyer, busy, onAct, onRetry, onShowRemarks, firstPageHref, filtered }: BodyProps) {
   if (load.kind === "loading") {
     return (
       <div className="py-16 text-center text-[13px] text-ink-2" aria-busy="true">
@@ -344,9 +368,14 @@ function Body({ load, asBuyer, busy, onAct, onRetry, firstPageHref, filtered }: 
                     {item.prodName}
                   </Link>
                   {item.remarks && (
-                    <p title={item.remarks} className="mt-0.5 max-w-80 truncate text-[12px] text-ink-2">
-                      {item.remarks}
-                    </p>
+                    <button
+                      type="button"
+                      onClick={() => onShowRemarks(item)}
+                      aria-label={t.remarksView(item.prodName)}
+                      className="mt-0.5 block max-w-80 truncate text-left text-[12px] text-ink-2 hover:text-primary hover:underline"
+                    >
+                      {t.remarksLabel}: {item.remarks}
+                    </button>
                   )}
                 </td>
                 <td className="px-3 py-2.5 truncate">{item.counterpartNickname ?? "-"}</td>
@@ -395,7 +424,11 @@ function Body({ load, asBuyer, busy, onAct, onRetry, firstPageHref, filtered }: 
                 {qty.format(item.orderQuantity)} × {unitPrice(item)} = <span className="font-bold">{formatPrice(item.amount)}</span>
               </p>
             )}
-            {item.remarks && <p className="text-[12px] text-ink-2 wrap-break-word">{item.remarks}</p>}
+            {item.remarks && (
+              <p className="text-[12px] text-ink-2 wrap-break-word">
+                {t.remarksLabel}: {item.remarks}
+              </p>
+            )}
             {actions(item)}
           </li>
         ))}
