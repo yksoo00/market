@@ -168,6 +168,8 @@ export const listing = {
     subtitle: "바꾼 칸만 저장돼요",
     readonlyTitle: "상품 정보",
     readonlyHint: " (수정할 수 없어요)",
+    sectionProduct: "상품 정보",
+    productSharedHint: "다른 판매자도 쓰는 상품이면 상품명·제조사는 바꿀 수 없어요.",
     sectionSale: "판매 조건",
     sectionDetail: "설명·파일",
     save: "저장",
