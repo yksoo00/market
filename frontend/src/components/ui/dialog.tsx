@@ -10,8 +10,9 @@ function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>)
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
 }
 
-// 보조·홈 칸(iframe) 안에서 모달이 열려 있는 동안 부모에게 알려, 그 칸을 창 전체로 키우게 한다 (사용자 지시 2026-11-02:
-// 어느 칸에서 열든 모달은 창 가운데). 겹쳐 열린 모달(구매 → 결과 팝업)은 개수로 세어 처음 열릴 때·마지막으로 닫힐 때만 알린다
+// 보조·홈 칸(iframe) 안에서 모달이 열려 있는 동안 부모에게 알려, 그 iframe 을 창 전체에 투명하게 덮게 한다 (사용자 지시 2026-11-02:
+// 어느 칸에서 열든 모달은 창 가운데, 레이아웃은 그대로). 부모가 보내 주는 칸 위치(modal-rect)에 이 문서의 body 를 그대로 앉혀
+// 칸 내용은 제자리에 보이고, 어두운 막·모달만 창 전체에 뜬다. 겹쳐 열린 모달(구매 → 결과 팝업)은 개수로 세어 처음 열릴 때·마지막으로 닫힐 때만 알린다
 let openModals = 0
 function reportModal(open: boolean) {
   if (typeof window === "undefined" || window.self === window.top) return
@@ -21,9 +22,24 @@ function reportModal(open: boolean) {
 // 닫혀도 계속 마운트돼 있어 닫힘을 못 알린다
 function ModalOpenReporter() {
   React.useEffect(() => {
+    const root = document.documentElement
+    const onRect = (e: MessageEvent) => {
+      if (e.source !== window.top || e.data?.source !== "market-tile" || e.data.type !== "modal-rect") return
+      const r = e.data.rect as { x: number; y: number; width: number; height: number }
+      root.style.setProperty("--modal-x", `${r.x}px`)
+      root.style.setProperty("--modal-y", `${r.y}px`)
+      root.style.setProperty("--modal-w", `${r.width}px`)
+      root.style.setProperty("--modal-h", `${r.height}px`)
+      root.dataset.modalOpen = ""
+    }
+    window.addEventListener("message", onRect)
     if (openModals++ === 0) reportModal(true)
     return () => {
-      if (--openModals === 0) reportModal(false)
+      window.removeEventListener("message", onRect)
+      if (--openModals === 0) {
+        delete root.dataset.modalOpen
+        reportModal(false)
+      }
     }
   }, [])
   return null

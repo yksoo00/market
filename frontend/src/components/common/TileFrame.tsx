@@ -30,6 +30,7 @@ export function TileFrame({ pane, closable = true }: { pane: Pane; closable?: bo
   const [src] = useState(pane.path);
   const [loadError, setLoadError] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
   // iframe 안에서 모달이 열려 있는 동안 이 칸을 창 전체로 키운다 — 모달이 그 칸 안에 갇히지 않고 창 가운데 뜨게 (2026-11-02)
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -43,7 +44,17 @@ export function TileFrame({ pane, closable = true }: { pane: Pane; closable?: bo
         return;
       }
       // iframe 안에서 다른 화면을 열면 부모 큐가 판단 (같은 화면 이동은 iframe이 스스로 하고 경로만 보고)
-      if (event.data.type === "modal") setModalOpen(event.data.open === true);
+      if (event.data.type === "modal") {
+        // 키우기 전에 칸 위치를 재서 iframe 에 알린다 — 그 자리에 칸 내용을 그대로 두고 막·모달만 창 전체에 뜬다
+        const rect = boxRef.current?.getBoundingClientRect();
+        if (event.data.open === true && rect) {
+          iframeRef.current?.contentWindow?.postMessage(
+            { source: "market-tile", type: "modal-rect", rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } },
+            window.location.origin,
+          );
+        }
+        setModalOpen(event.data.open === true);
+      }
       else if (event.data.type === "open") open(pane.key, event.data.path, event.data.reset === true);
       else updatePath(pane.key, event.data.pathname);
     };
@@ -65,7 +76,7 @@ export function TileFrame({ pane, closable = true }: { pane: Pane; closable?: bo
   }
 
   return (
-    <div className={modalOpen ? "fixed inset-0 z-60 bg-surface" : "relative h-full w-full min-h-0"}>
+    <div ref={boxRef} className={modalOpen ? "fixed inset-0 z-60" : "relative h-full w-full min-h-0"}>
       <iframe
         ref={iframeRef}
         src={src}

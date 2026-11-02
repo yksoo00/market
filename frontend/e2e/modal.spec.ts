@@ -5,7 +5,7 @@ import { my } from "@/messages/my";
 import { signup } from "@/messages/signup";
 import { trade } from "@/messages/trade";
 
-// 모달 위치 통일 (2026-11-02): 어느 칸에서 열든 모달은 창 가운데. 보조 칸(iframe)의 상세에서 [구매]를 눌러도
+// 모달 위치 통일 (2026-11-02): 어느 칸에서 열든 모달은 창 가운데, 레이아웃은 그대로. 보조 칸(iframe)의 상세에서 [구매]를 눌러도
 // 그 칸 안이 아니라 창 가운데에 뜬다. 가입 1번 + 로그인
 const password = "Test1234!@";
 
@@ -54,6 +54,9 @@ test("보조 칸 상세에서 구매 모달이 창 가운데에 뜨고, 닫으�
   expect(Math.abs(iframeBox.x)).toBeLessThan(2);
   expect(Math.abs(iframeBox.width - 1400)).toBeLessThan(2);
   expect(Math.abs(box.x + box.width / 2 - 700)).toBeLessThan(4);
+  // 레이아웃(홈·주기능 칸)은 그대로 보인다 — 보조 칸을 키우되 투명하게 덮을 뿐이다
+  await expect(page.getByRole("banner")).toBeVisible();
+  await expect(page.locator("iframe").first()).toBeVisible();
 
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();

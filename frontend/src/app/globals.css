@@ -38,6 +38,21 @@ html[data-framed] [data-hide-in-tile] {
 /* framed: — iframe 칸 안에서만. 하이드레이션 전에도 맞게 그려야 하는 분할 배치(TileWorkspace)가 쓴다 */
 @custom-variant framed (html[data-framed] &);
 
+/* 칸(iframe) 안에서 모달이 열린 동안: 부모가 이 iframe 을 창 전체에 투명하게 덮는다. body 를 원래 칸 위치·크기에 고정해 칸 내용은
+   제자리에 보이고, 모달 막·내용(position: fixed)만 창 전체 기준으로 뜬다. 위치 값은 ui/dialog.tsx 가 부모 메시지로 받아 둔다 */
+html[data-modal-open] {
+  /* transparent 로 두면 body 배경이 화면 전체로 번진다(캔버스 전파) — 거의 투명한 값으로 막는다 */
+  background-color: rgb(0 0 0 / 0.01);
+}
+html[data-modal-open] body {
+  position: fixed;
+  left: var(--modal-x);
+  top: var(--modal-y);
+  width: var(--modal-w);
+  height: var(--modal-h);
+  overflow: hidden;
+}
+
 html,
 body {
   height: 100%;
