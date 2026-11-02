@@ -534,7 +534,7 @@ class QuoteApiTest {
 	}
 
 	@Test
-	@DisplayName("수락과 구매자 취소가 동시에 오면 하나만 성공 — 단가는 수락이 이긴 경우에만 바뀐다")
+	@DisplayName("수락과 구매자 취소가 동시에 오면 교착·500 없이 정리된다 — 수량은 수락이 이긴 경우에만 묶인다(취소가 수락 뒤에 오면 둘 다 성공하고 풀린다)")
 	void concurrentAcceptAndCancel() throws Exception {
 		String tradeId = quoted(REG_A, 900);
 		java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
@@ -552,8 +552,14 @@ class QuoteApiTest {
 		int canceled = cancel.get();
 		pool.shutdown();
 
+		// 수락된 견적은 구매자도 취소할 수 있어(2026-11-02) 수락이 먼저 끝나고 취소가 그 뒤에 실행되면 둘 다 성공한다 — 수량은 도로 풀린다.
+		// 그 밖에는 하나만 성공하고, 진 쪽은 교착·500 이 아니라 409(이미 처리됨) 또는 404(취소로 행이 지워짐)
+		if (accepted == 200 && canceled == 204) {
+			assertThat(tradeCount()).isZero();
+			assertThat(stockOf(REG_A)).isEqualTo(10);
+			return;
+		}
 		assertThat((accepted == 200) ^ (canceled == 204)).isTrue();
-		// 진 쪽은 교착·500 이 아니라 409(이미 처리됨) 또는 404(취소로 행이 지워짐)
 		assertThat(accepted == 200 ? canceled : accepted).isIn(404, 409);
 		// 수락이 이겼으면 수량이 묶이고(9), 취소가 이겼으면 그대로(10)
 		assertThat(stockOf(REG_A)).isEqualTo(accepted == 200 ? 9 : 10);
