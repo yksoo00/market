@@ -15,7 +15,7 @@ const checkButton = (page: Page, name: string) =>
 // 방금 등록한 글의 표 행 (다른 글이 함께 보여도 이 행만 본다)
 const rowOf = (page: Page, name: string) => page.getByRole("table").getByRole("row").filter({ hasText: name });
 
-test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 내 판매글 행 수정", async ({ page }) => {
+test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 내 판매글 → 상세에서 수정", async ({ page }) => {
   // 아이디(영문 소문자·숫자 5~20)·닉네임(2~20)·휴대폰 뒤 8자리를 실행마다 다르게
   const stamp = Date.now().toString().slice(-8);
   const loginId = `e2e${stamp}`;
@@ -140,41 +140,33 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await expect(page.locator("iframe")).toHaveCount(1);
   });
 
-  await test.step("내 활동내역 판매 탭 — 검색 화면 모양으로 방금 글이 보이고, 행 안에서 상품상태를 고친다", async () => {
+  await test.step("내 활동내역 판매 탭 — 검색 화면 모양으로 방금 글이 보이고, 수정은 상세의 [수정]에서만 한다", async () => {
     await page.getByRole("button", { name: my.menu.label }).click();
     await page.getByRole("menuitem", { name: my.menu.myActivity }).click();
     await expect(page.getByRole("menu")).toBeHidden();
     await expect(page).toHaveURL(/\/my\/activity/);
-    // 행 안 수정은 칸이 넓은 전체 화면에서 확인한다
     await page.goto("/my/activity?tab=sales");
     // 표와 모바일 카드가 둘 다 그려지므로(하나는 CSS 로 숨김) 표 안에서 찾는다
     await expect(rowOf(page, prodName)).toBeVisible();
+    // 표에는 [수정]이 없다 (사용자 지시 2026-11-02 — 행 안 수정 폐지)
+    await expect(page.getByRole("table").getByRole("button", { name: /수정$/ })).toHaveCount(0);
 
-    // 표 행 끝 [수정] → 그 행의 입력칸 (거래상태 기본값이 전체라 방금 글이 보인다)
-    await page.getByRole("button", { name: my.mine.editAria(prodName) }).click();
-    await expect(page.getByLabel(search.columns.prodName)).toHaveValue(prodName);
-    const save = page.getByRole("button", { name: my.mine.row.save, exact: true });
+    // 상세 → [수정] → 수정 화면에서 상품상태·설명을 고친다 (칸 규칙과 무관하게 주소로 바로 연다)
+    const detailHref = await rowOf(page, prodName).getByRole("link", { name: prodName }).getAttribute("href");
+    await page.goto(detailHref!);
+    await expect(page.getByRole("link", { name: listing.detail.edit, exact: true })).toBeVisible();
+    await page.goto(`${detailHref}/edit`);
+    const save = page.getByRole("button", { name: listing.edit.save, exact: true });
     await expect(save).toBeDisabled();
-    await page.getByLabel(search.columns.state).selectOption("신품대비 80~89%");
-    // 상품설명 칸은 행 아래 폼 — 누르면 그 항목만 고치는 칸이 뜬다
-    await page.getByRole("button", { name: `${search.columns.prodDescription} ${my.mine.row.panelNone}` }).click();
+    await page.locator("#prodState").selectOption("신품대비 80~89%");
     await page.getByLabel(listing.form.description, { exact: false }).fill("E2E 설명");
     await expect(save).toBeEnabled();
     await save.click();
+    await expect(page).toHaveURL(new RegExp(`${detailHref}$`));
 
-    // 저장하면 목록으로 돌아오고 그 행이 바뀐 값으로 보인다
+    // 판매 탭 표에 바뀐 값이 보인다
+    await page.goto("/my/activity?tab=sales");
     await expect(rowOf(page, prodName).getByText("신품대비 80~89%")).toBeVisible();
-    await expect(rowOf(page, prodName)).toBeVisible();
-
-    // 다시 열면 방금 저장한 설명이 채워져 있다 (열 때 상세를 다시 받는다)
-    await page.getByRole("button", { name: my.mine.editAria(prodName) }).click();
-    await expect(page.getByRole("button", { name: `${search.columns.prodDescription} ${my.mine.row.panelHas}` })).toBeVisible();
-    await page.getByRole("button", { name: my.mine.row.cancel, exact: true }).click();
-    await expect(rowOf(page, prodName)).toBeVisible();
-  });
-
-  await test.step("[수정]은 내 글에만 — 남의 글이 섞여 나와도 수정 버튼은 내 글 한 줄뿐", async () => {
-    await expect(page.getByRole("table").getByRole("button", { name: /수정$/ })).toHaveCount(1);
   });
 
   await test.step("내 글만 보인다 — 헤더 줄 + 방금 등록한 글 한 줄 (다른 사용자 글은 없다)", async () => {
