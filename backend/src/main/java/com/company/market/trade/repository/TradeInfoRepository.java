@@ -177,6 +177,22 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			@Param("fromDate") String fromDate, @Param("toDate") String toDate, @Param("minAmount") int minAmount,
 			@Param("maxAmount") int maxAmount, @Param("useProds") boolean useProds, @Param("prodIds") Collection<String> prodIds);
 
+	/** findBuyerPage 범위(검색 조건 빼고)에 나온 상품ID — 검색어는 이 상품들 안에서만 맞춰 본다 (decisions.md 2026-11-02) */
+	@Query("""
+			select distinct t.prodId from TradeInfo t
+			 where t.userId = :buyerId and t.tradeType <> :hidden and t.tradeStats in :stats and t.prodId is not null
+			""")
+	List<String> findBuyerProdIds(@Param("buyerId") UUID buyerId, @Param("hidden") TradeType hidden, @Param("stats") Collection<TradeStats> stats);
+
+	/** findSellerPage 범위(검색 조건 빼고)에 나온 상품ID */
+	@Query("""
+			select distinct t.prodId from TradeInfo t
+			 where t.sellerId = :sellerId and t.tradeType <> :hidden and t.tradeStats in :stats
+			   and (:regDate is null or t.prodRegDate = :regDate) and t.prodId is not null
+			""")
+	List<String> findSellerProdIds(@Param("sellerId") UUID sellerId, @Param("hidden") TradeType hidden,
+			@Param("stats") Collection<TradeStats> stats, @Param("regDate") String regDate);
+
 	/** 판매자 매물별 그 상태들 건수 → [매물 등록일시, count]. 한 판매자 안에서 등록일시는 매물 하나 (같은 초 등록 409) */
 	@Query("""
 			select t.prodRegDate, count(t) from TradeInfo t

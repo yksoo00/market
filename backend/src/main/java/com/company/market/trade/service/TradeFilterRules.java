@@ -22,9 +22,6 @@ final class TradeFilterRules {
 
 	static final String DATE_MAX = "99999999999999";
 
-	/** 상품 검색으로 한 번에 거는 상품 수 상한. IN 조건이 끝없이 길어지지 않게 (PURCHASED_KEYS_MAX 와 같은 이유) */
-	static final int NAME_MATCH_MAX = 500;
-
 	static final int Q_MAX = 100;
 
 	static final List<String> FIELDS = List.of("all", "name", "brand");
