@@ -397,9 +397,9 @@ public class ListingService {
 		return products.getAll(prodIds).values().stream().collect(Collectors.toMap(Product::getProdId, Product::getProdName));
 	}
 
-	/** 상품명에 word 가 들어 있는 상품ID, 최대 limit 개 (거래이력 상품명 검색 — 이력 줄은 prod_id 만 갖고 있다) */
-	public List<String> productIdsByName(String word, int limit) {
-		return products.idsByName(word, limit);
+	/** 검색어가 field 범위(all·name·brand)에 맞는 상품ID, 최대 limit 개 (거래 검색 — 매물 검색과 같은 규칙) */
+	public List<String> productIdsMatching(String field, String q, int limit) {
+		return searchRepository.findProductIds(field, q, limit);
 	}
 
 	/** 구매요청의 재고 차감. 재고 부족·거래완료면 TRADE_OUT_OF_STOCK (호출자 트랜잭션에 합류해 같이 롤백) */

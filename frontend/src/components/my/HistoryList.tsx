@@ -8,7 +8,7 @@ import { Pager } from "@/components/common/Pager";
 import { tradesApi } from "@/lib/api/trades";
 import { formatPrice } from "@/lib/format";
 import { filterParams, type FilterValues } from "@/lib/detailFilter";
-import { emptyHistoryFilter, historyFieldFromApi, historyFields } from "@/lib/historyFilter";
+import { emptyHistoryFilter, historyFieldFromApi, historyFields, tradeSearchField } from "@/lib/historyFilter";
 import { formatTradeDate } from "@/lib/historyFormat";
 import { tabPageHref } from "@/lib/myTabs";
 import { historyFilterSchema } from "@/lib/validation/historyFilter";
@@ -27,10 +27,10 @@ type Load = { kind: "loading" } | { kind: "error"; fields?: Record<string, strin
  */
 export function HistoryList({ side, page, filter }: { side: HistorySide; page: number; filter: FilterValues }) {
   const router = useRouter();
-  const params = filterParams(historyFields, filter, "q");
+  const params = filterParams(historyFields, filter, "q", tradeSearchField);
   const filtered = Object.keys(params).length > 0;
   const hrefFor = (n: number) => tabPageHref("/my/history", { tab: side, ...params }, n);
-  const apply = (values: FilterValues) => router.push(tabPageHref("/my/history", { tab: side, ...filterParams(historyFields, values, "q") }, 1));
+  const apply = (values: FilterValues) => router.push(tabPageHref("/my/history", { tab: side, ...filterParams(historyFields, values, "q", tradeSearchField) }, 1));
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
 
@@ -65,6 +65,7 @@ export function HistoryList({ side, page, filter }: { side: HistorySide; page: n
         clear: t.filter.clear,
       }}
       searchKey="q"
+      searchField={tradeSearchField}
       fields={historyFields}
       schema={historyFilterSchema}
       values={filter}

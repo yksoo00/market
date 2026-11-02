@@ -1,5 +1,7 @@
-import { firstParam, type FilterField, type FilterValues } from "@/lib/detailFilter";
+import { firstParam, type FilterField, type FilterValues, type SearchScopeSelect } from "@/lib/detailFilter";
+import { SEARCH_FIELDS } from "@/lib/search";
 import { my } from "@/messages/my";
+import { search } from "@/messages/search";
 
 // 내 거래이력 검색·필터 (계획 2026-10-30). 수치는 docs/security.md "입력 검증" 거래이력이 원본 — 백엔드와 같은 값.
 
@@ -10,7 +12,7 @@ export const HISTORY_SORTS = ["latest", "oldest", "amountDesc", "amountAsc"] as 
 export type HistorySort = (typeof HISTORY_SORTS)[number];
 
 /** 주소 파라미터 이름 = 폼 값 키. API 는 min·max 를 minAmount·maxAmount 로 보낸다 */
-export const HISTORY_KEYS = { q: "q", from: "from", to: "to", min: "min", max: "max", sort: "sort" } as const;
+export const HISTORY_KEYS = { q: "q", field: "field", from: "from", to: "to", min: "min", max: "max", sort: "sort" } as const;
 
 const t = my.history.filter;
 
@@ -20,7 +22,15 @@ export const historyFields: FilterField[] = [
   { kind: "select", label: t.sort, key: "sort", defaultValue: "latest", options: HISTORY_SORTS.map((s) => ({ value: s, label: t.sorts[s] })) },
 ];
 
-export const emptyHistoryFilter = (): FilterValues => ({ q: "", from: "", to: "", min: "", max: "", sort: "latest" });
+/** 검색창 왼쪽 구분 select (DetailFilter searchField) — 범위·문구는 매물 검색창과 같다 (2026-10-30) */
+export const tradeSearchField: SearchScopeSelect = {
+  key: "field",
+  label: search.form.fieldLabel,
+  defaultValue: "all",
+  options: SEARCH_FIELDS.map((f) => ({ value: f, label: search.form.fields[f] })),
+};
+
+export const emptyHistoryFilter = (): FilterValues => ({ q: "", field: "all", from: "", to: "", min: "", max: "", sort: "latest" });
 
 /** 존재하는 yyyy-MM-dd 인가 (2026-02-30 같은 날짜 거름) */
 export function isRealDate(s: string): boolean {
@@ -32,7 +42,7 @@ export function isRealDate(s: string): boolean {
 const isAmount = (s: string) => /^\d{1,10}$/.test(s) && Number(s) <= MAX_AMOUNT;
 
 /**
- * 주소(?q=&from=&to=&min=&max=&sort=)에서 필터 값. 손으로 고친 틀린 값은 버린다 — 그대로 보내면 서버가 400 을 돌려
+ * 주소(?q=&field=&from=&to=&min=&max=&sort=)에서 필터 값. 손으로 고친 틀린 값은 버린다 — 그대로 보내면 서버가 400 을 돌려
  * 목록이 오류 화면이 된다. 앞뒤가 뒤집힌 범위는 뒤쪽 값을 버린다
  */
 export function parseHistoryFilter(raw: Record<string, string | string[] | undefined>): FilterValues {
@@ -42,6 +52,7 @@ export function parseHistoryFilter(raw: Record<string, string | string[] | undef
   let min = firstParam(raw.min);
   let max = firstParam(raw.max);
   const sort = firstParam(raw.sort);
+  const field = firstParam(raw.field);
   if (!isRealDate(from)) from = "";
   if (!isRealDate(to)) to = "";
   if (from && to && from > to) to = "";
@@ -50,6 +61,7 @@ export function parseHistoryFilter(raw: Record<string, string | string[] | undef
   if (min && max && Number(min) > Number(max)) max = "";
   return {
     q: q.length <= MAX_Q ? q : "",
+    field: SEARCH_FIELDS.find((f) => f === field) ?? "all",
     from,
     to,
     min,
@@ -58,10 +70,11 @@ export function parseHistoryFilter(raw: Record<string, string | string[] | undef
   };
 }
 
-/** API 쿼리 파라미터 (값이 있는 것만). 정렬이 기본이면 보내지 않는다 */
+/** API 쿼리 파라미터 (값이 있는 것만). 정렬·구분이 기본이면 보내지 않고, 검색어가 없으면 구분도 안 보낸다 */
 export function historyApiParams(f: FilterValues): [string, string][] {
   const out: [string, string][] = [];
   if (f.q) out.push(["q", f.q]);
+  if (f.q && f.field && f.field !== "all") out.push(["field", f.field]);
   if (f.from) out.push(["from", f.from]);
   if (f.to) out.push(["to", f.to]);
   if (f.min) out.push(["minAmount", f.min]);
@@ -71,4 +84,4 @@ export function historyApiParams(f: FilterValues): [string, string][] {
 }
 
 /** 서버가 돌려준 필드 오류의 이름(API)을 폼 키로 */
-export const historyFieldFromApi: Record<string, string> = { q: "q", from: "from", to: "to", minAmount: "min", maxAmount: "max", sort: "sort" };
+export const historyFieldFromApi: Record<string, string> = { q: "q", field: "field", from: "from", to: "to", minAmount: "min", maxAmount: "max", sort: "sort" };

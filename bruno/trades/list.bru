@@ -27,7 +27,7 @@ docs {
   role=buyer: 내가 구매자인 거래(내 구매목록). role=seller: 내 매물에 들어온 거래(받은 구매요청), reg=<매물 regDate> 로 한 매물만.
   active=true: 진행 중 상태만(내 활동내역) — 구매자 견적요청·견적수락·견적거절·구매요청, 판매자 견적요청·구매요청. 생략하면 확정된 것까지 전부.
   최신순(tradeId 내림차순) 20개 + nextCursor(마지막 tradeId). 다음 페이지는 cursor=<nextCursor>. page=N 이면 페이지 번호 방식(page·totalPages·total 추가).
-  필터(전부 선택): status=quoteRequested|quoteAccepted|quoteRejected|requested(그 목록에서 볼 수 있는 상태만, 아니면 400), q 상품명 부분 일치(100자), from·to 거래 등록일 yyyy-MM-dd 양끝 포함, minAmount·maxAmount 금액(단가×수량) 0~2147483647, sort=latest(기본)|oldest|amountDesc|amountAsc (latest 아니면 page 필수).
+  필터(전부 선택): status=quoteRequested|quoteAccepted|quoteRejected|requested(그 목록에서 볼 수 있는 상태만, 아니면 400), q 검색어(100자, 공백으로 나눈 낱말 전부 포함), field=all(기본, 상품명·상품번호·제조사)|name(상품명·상품번호)|brand(제조사), from·to 거래 등록일 yyyy-MM-dd 양끝 포함, minAmount·maxAmount 금액(단가×수량) 0~2147483647, sort=latest(기본)|oldest|amountDesc|amountAsc (latest 아니면 page 필수).
   200 { ok, data: { items: TradeResponse[], nextCursor } } — 상대방은 counterpartNickname 만(이메일·전화 없음).
   400 fields.role: role 없음·다른 값. 401: 비로그인.
 }

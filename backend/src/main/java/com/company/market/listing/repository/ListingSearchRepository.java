@@ -105,20 +105,7 @@ public class ListingSearchRepository {
 			jpql.append(" and l.userId = :owner");
 			params.put("owner", ownerId);
 		}
-		String scope = switch (c.field()) {
-			case "name" -> "concat(p.prodName, ' ', coalesce(p.prodNo, ''))";
-			case "brand" -> "p.prodBrand";
-			default -> "concat(p.prodName, ' ', coalesce(p.prodNo, ''), ' ', p.prodBrand)";
-		};
-		// 공백으로 나눈 낱말이 전부 들어 있어야 매칭 (프론트 10-01 규칙과 같음: "DDR4 ECC 32GB" ↔ "DDR4 32GB ECC RDIMM")
-		// (?U): 한글 IME 의 전각 공백(U+3000)·NBSP 도 나눈다 (JS /\s+/ 와 같게)
-		List<String> words = c.q() == null ? List.of()
-				: List.of(c.q().split("(?U)\\s+")).stream().filter(w -> !w.isEmpty()).toList();
-		for (int i = 0; i < words.size(); i++) {
-			// 소문자 변환은 양쪽 다 DB lower() 로 — Java 와 PostgreSQL 은 İ·Σ 같은 글자를 다르게 바꿔 매칭이 어긋난다
-			jpql.append(" and lower(").append(scope).append(") like lower(:w").append(i).append(") escape '\\'");
-			params.put("w" + i, "%" + escapeLike(words.get(i)) + "%");
-		}
+		appendWords(jpql, params, c.field(), c.q());
 		switch (c.status()) {
 			case "available" -> jpql.append(" and l.dtExpire is null");
 			case "completed" -> jpql.append(" and l.dtExpire is not null");
@@ -194,6 +181,38 @@ public class ListingSearchRepository {
 		if (c.maxMinOrder() != null) {
 			jpql.append(" and l.minOrderQuantity <= :maxMinOrder");
 			params.put("maxMinOrder", c.maxMinOrder());
+		}
+	}
+
+	/**
+	 * 검색어 q 가 field 범위(all·name·brand)에 맞는 상품ID, 최대 limit 개 (거래 검색 — 거래 줄은 prod_id 만 갖고 있다).
+	 * 맞추는 규칙은 매물 검색과 같다 (appendWords)
+	 */
+	public List<String> findProductIds(String field, String q, int limit) {
+		Map<String, Object> params = new HashMap<>();
+		StringBuilder jpql = new StringBuilder("select p.prodId from Product p where 1=1");
+		appendWords(jpql, params, field, q);
+		jpql.append(" order by p.prodId");
+		TypedQuery<String> query = em.createQuery(jpql.toString(), String.class);
+		params.forEach(query::setParameter);
+		return query.setMaxResults(limit).getResultList();
+	}
+
+	/** p(Product)의 field 범위에 q 의 낱말이 전부 들어 있어야 맞는다 */
+	private static void appendWords(StringBuilder jpql, Map<String, Object> params, String field, String q) {
+		String scope = switch (field == null ? "all" : field) {
+			case "name" -> "concat(p.prodName, ' ', coalesce(p.prodNo, ''))";
+			case "brand" -> "p.prodBrand";
+			default -> "concat(p.prodName, ' ', coalesce(p.prodNo, ''), ' ', p.prodBrand)";
+		};
+		// 공백으로 나눈 낱말이 전부 들어 있어야 매칭 (프론트 10-01 규칙과 같음: "DDR4 ECC 32GB" ↔ "DDR4 32GB ECC RDIMM")
+		// (?U): 한글 IME 의 전각 공백(U+3000)·NBSP 도 나눈다 (JS /\s+/ 와 같게)
+		List<String> words = q == null ? List.of()
+				: List.of(q.split("(?U)\\s+")).stream().filter(w -> !w.isEmpty()).toList();
+		for (int i = 0; i < words.size(); i++) {
+			// 소문자 변환은 양쪽 다 DB lower() 로 — Java 와 PostgreSQL 은 İ·Σ 같은 글자를 다르게 바꿔 매칭이 어긋난다
+			jpql.append(" and lower(").append(scope).append(") like lower(:w").append(i).append(") escape '\\'");
+			params.put("w" + i, "%" + escapeLike(words.get(i)) + "%");
 		}
 	}
 

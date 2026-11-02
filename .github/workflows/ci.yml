@@ -5,9 +5,9 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, dev]
 
-# PR 에 새 커밋이 오면 이전 실행은 끊는다. main 푸시는 끊지 않는다 (머지가 연달아 되면 앞 실행이 "canceled" 로 남음)
+# PR 에 새 커밋이 오면 이전 실행은 끊는다. main·dev 푸시는 끊지 않는다 (머지가 연달아 되면 앞 실행이 "canceled" 로 남음)
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}

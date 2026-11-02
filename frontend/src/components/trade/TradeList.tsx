@@ -13,7 +13,7 @@ import { QuoteDialog } from "@/components/trade/QuoteDialog";
 import { tradesApi } from "@/lib/api/trades";
 import { notifyCartChanged } from "@/lib/cart";
 import { filterParams, type FilterValues } from "@/lib/detailFilter";
-import { historyFieldFromApi } from "@/lib/historyFilter";
+import { historyFieldFromApi, tradeSearchField } from "@/lib/historyFilter";
 import { formatPrice } from "@/lib/format";
 import { tabPageHref } from "@/lib/myTabs";
 import { listingHref } from "@/lib/search";
@@ -55,11 +55,11 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
   const router = useRouter();
   const fields = useMemo(() => tradeFields(role), [role]);
   const schema = useMemo(() => listFilterSchema(TRADE_STATUS_VALUES[role]), [role]);
-  const fparams = filterParams(fields, filter, "q");
+  const fparams = filterParams(fields, filter, "q", tradeSearchField);
   const filtered = Object.keys(fparams).length > 0;
   const hrefFor = (n: number) => tabPageHref(pagePath, { ...pageParams, ...fparams }, n);
   const applyFilter = (values: FilterValues) =>
-    router.push(tabPageHref(pagePath, { ...pageParams, ...filterParams(fields, values, "q") }, 1));
+    router.push(tabPageHref(pagePath, { ...pageParams, ...filterParams(fields, values, "q", tradeSearchField) }, 1));
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   // 올리면 지금 페이지를 다시 읽는다
   const [attempt, setAttempt] = useState(0);
@@ -146,6 +146,7 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
           clear: my.history.filter.clear,
         }}
         searchKey="q"
+        searchField={tradeSearchField}
         fields={fields}
         schema={schema}
         values={filter}

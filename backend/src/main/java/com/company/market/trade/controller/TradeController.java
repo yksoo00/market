@@ -108,22 +108,27 @@ public class TradeController {
 			@RequestParam(required = false) String role, @RequestParam(required = false) String reg,
 			@RequestParam(required = false) String cursor, @RequestParam(defaultValue = "false") boolean active,
 			@RequestParam(required = false) Integer page, @RequestParam(required = false) String status,
-			@RequestParam(required = false) String q, @RequestParam(required = false) String from,
-			@RequestParam(required = false) String to, @RequestParam(required = false) Long minAmount,
-			@RequestParam(required = false) Long maxAmount, @RequestParam(required = false) String sort) {
+			@RequestParam(required = false) String q, @RequestParam(required = false) String field,
+			@RequestParam(required = false) String from, @RequestParam(required = false) String to,
+			@RequestParam(required = false) Long minAmount, @RequestParam(required = false) Long maxAmount,
+			@RequestParam(required = false) String sort) {
 		return ApiResponse.of(trades.list(me.id(), role, reg, cursor, active, page, status,
-				new TradeFilter(q, from, to, minAmount, maxAmount, sort)));
+				new TradeFilter(q, field, from, to, minAmount, maxAmount, sort)));
 	}
 
-	/** 내 거래이력(구매확정만). side = all(기본) | buy | sell. q·from·to·minAmount·maxAmount·sort 는 선택 필터. 본인 id 는 인증 정보에서만 */
+	/**
+	 * 내 거래이력(구매확정만). side = all(기본) | buy | sell. q·field(all|name|brand)·from·to·minAmount·maxAmount·sort 는 선택 필터.
+	 * 본인 id 는 인증 정보에서만
+	 */
 	@GetMapping("/history")
 	public ApiResponse<TradeHistoryPageResponse> history(@AuthenticationPrincipal AuthenticatedUser me,
 			@RequestParam(required = false) String side, @RequestParam(required = false) String cursor,
 			@RequestParam(required = false) Integer page, @RequestParam(required = false) String q,
-			@RequestParam(required = false) String from, @RequestParam(required = false) String to,
-			@RequestParam(required = false) Long minAmount, @RequestParam(required = false) Long maxAmount,
-			@RequestParam(required = false) String sort) {
-		return ApiResponse.of(activity.history(me.id(), side, cursor, page, new TradeFilter(q, from, to, minAmount, maxAmount, sort)));
+			@RequestParam(required = false) String field, @RequestParam(required = false) String from,
+			@RequestParam(required = false) String to, @RequestParam(required = false) Long minAmount,
+			@RequestParam(required = false) Long maxAmount, @RequestParam(required = false) String sort) {
+		return ApiResponse.of(activity.history(me.id(), side, cursor, page,
+				new TradeFilter(q, field, from, to, minAmount, maxAmount, sort)));
 	}
 
 	/** 검색 범위 탭 판정 { sales, purchases } */
