@@ -70,7 +70,12 @@ export function TileFrame({ pane, closable = true }: { pane: Pane; closable?: bo
         ref={iframeRef}
         src={src}
         title={t.tileFrameTitle}
-        onError={() => setLoadError(true)}
+        // 새로 불러온 문서에는 열린 모달이 없다 — F5·뒤로 가기·재시도로 "닫힘" 메시지 없이 문서가 사라져도 칸이 커진 채 남지 않게
+        onLoad={() => setModalOpen(false)}
+        onError={() => {
+          setModalOpen(false);
+          setLoadError(true);
+        }}
         className="h-full w-full border-0"
       />
       {closable && !modalOpen && <TileCloseButton onClick={() => close(pane.key)} />}
