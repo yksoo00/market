@@ -13,6 +13,7 @@ import { QuoteDialog, type QuoteTarget } from "@/components/trade/QuoteDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cartApi } from "@/lib/api/cart";
 import { cartActionable, notifyCartChanged } from "@/lib/cart";
+import { leafCategoryName } from "@/lib/categories";
 import { COMPARE_HREF, compareBlock, MAX_COMPARE, MIN_COMPARE } from "@/lib/compare";
 import { formatPrice } from "@/lib/format";
 import { formatRegDate, isOwner } from "@/lib/listingDetail";
@@ -64,7 +65,7 @@ const listColumns: Column[] = [
   { label: c.price, width: "w-28", align: "right", mono: true, strong: true, cell: (i) => formatPrice(i.salesUnitPrice) },
   { label: c.quantity, width: "w-20", align: "right", mono: true, cell: (i) => (i.stockQuantity === null ? DASH : qty.format(i.stockQuantity)) },
   { label: c.state, width: "w-26", cell: (i, done) => (done ? <CompletedBadge /> : i.prodState) },
-  { label: c.category, width: "w-56", title: (i) => i.categoryPath ?? i.category, cell: (i) => i.categoryPath ?? i.category },
+  { label: c.category, width: "w-56", title: (i) => i.categoryPath ?? i.category, cell: (i) => (i.categoryPath ? leafCategoryName(i.categoryPath) : i.category) },
   { label: c.minOrder, width: "w-28", align: "right", mono: true, cell: (i) => (i.minOrderQuantity === null ? DASH : qty.format(i.minOrderQuantity)) },
   { label: c.orderUnit, width: "w-22", align: "right", mono: true, cell: (i) => (i.orderUnit === null ? DASH : qty.format(i.orderUnit)) },
   { label: c.deliveryDate, width: "w-26", mono: true, muted: true, cell: (i) => i.deliveryDate ?? DASH },
