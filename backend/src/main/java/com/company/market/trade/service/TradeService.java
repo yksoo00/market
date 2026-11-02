@@ -451,7 +451,11 @@ public class TradeService {
 		String after = cursor == null || cursor.isEmpty() ? null : cursor;
 		String reg = regDate == null || regDate.isBlank() ? null : regDate;
 		boolean useProds = f.q() != null;
-		List<String> prodIds = useProds ? listings.productIdsMatching(f.field(), f.q(), TradeFilterRules.NAME_MATCH_MAX) : List.of("");
+		// 검색어는 이 목록 범위에 나온 상품 안에서만 맞춰 본다 — 전체 상품에서 찾으면 상한이 필요해 결과가 빠진다 (decisions.md 2026-11-02)
+		List<String> prodIds = !useProds ? List.of("")
+				: listings.productIdsMatching(f.field(), f.q(), asBuyer
+						? trades.findBuyerProdIds(me, TradeType.REVIEW, stats)
+						: trades.findSellerProdIds(me, TradeType.REVIEW, stats, reg));
 		if (useProds && prodIds.isEmpty()) {
 			// 맞는 상품이 없으면 쿼리 없이 빈 결과. 페이지 번호면 1페이지만 있다
 			PageKeys<Object[]> empty = pageNo == null ? null : PageKeys.of(List.of(), pageNo, PAGE_SIZE);

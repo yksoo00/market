@@ -349,6 +349,21 @@ class TradeActivityApiTest {
 	}
 
 	@Test
+	@DisplayName("검색어에 맞는 상품이 아주 많아도(600개) 내 거래 상품은 빠지지 않는다 — 내 거래 상품 안에서만 찾는다 (2026-11-02)")
+	void searchDoesNotDropMyProductsWhenManyMatch() throws Exception {
+		filterFixture();
+		// 내 거래 상품(ACTAPI01, Dell)보다 상품ID 가 앞서는 남의 Dell 상품 600개 — 예전엔 앞 500개만 걸어 내 거래가 빠졌다
+		jdbc.batchUpdate("""
+				insert into trd_prod_master (prod_id, major_category, middle_category, minor_category, prod_name, prod_brand, reg_date)
+				values (?, 'P01', 'Q01', 'R001', ?, 'Dell', '20261001000000')
+				""", java.util.stream.IntStream.range(0, 600).mapToObj(i -> new Object[] { "AAAA%04d".formatted(i), "다른 상품 " + i }).toList());
+		mvc.perform(get("/api/v1/trades/history?page=1&field=brand&q=dell").cookie(buyer)).andExpect(jsonPath("$.data.total").value(2));
+		buy(buyerId, REG_A, 1); // 서버 R740 (Dell)
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1&field=brand&q=dell").cookie(buyer)).andExpect(jsonPath("$.data.total").value(1));
+		mvc.perform(get("/api/v1/trades?role=seller&active=true&page=1&q=dell").cookie(seller)).andExpect(jsonPath("$.data.total").value(1));
+	}
+
+	@Test
 	@DisplayName("이력 필터: 기간은 양끝 날짜를 포함한다 (to 날짜 23:59:59 까지)")
 	void historyFilterByPeriod() throws Exception {
 		filterFixture();

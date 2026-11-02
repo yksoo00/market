@@ -55,6 +55,9 @@ public class ListingService {
 
 	private static final int PAGE_SIZE = 20;
 
+	/** 상품ID 후보를 한 쿼리에 묶는 수 (IN 바인딩이 Postgres 파라미터 상한 32767 을 넘지 않게) */
+	private static final int PRODUCT_ID_CHUNK = 10_000;
+
 	/** 판매정보 추가등록 보증기간 드롭다운(없음·1·3·6·12·24·36개월 × 30일). 자유 숫자를 받으면 365·360 처럼 같은 뜻의 값이 흩어진다 (decisions.md 2026-10-06) */
 	static final Set<Integer> WARRANTY_DAYS = Set.of(0, 30, 90, 180, 360, 720, 1080);
 
@@ -397,9 +400,16 @@ public class ListingService {
 		return products.getAll(prodIds).values().stream().collect(Collectors.toMap(Product::getProdId, Product::getProdName));
 	}
 
-	/** 검색어가 field 범위(all·name·brand)에 맞는 상품ID, 최대 limit 개 (거래 검색 — 매물 검색과 같은 규칙) */
-	public List<String> productIdsMatching(String field, String q, int limit) {
-		return searchRepository.findProductIds(field, q, limit);
+	/**
+	 * candidates(호출자가 고른 상품 — 내 거래에 나온 것) 중 검색어가 field 범위(all·name·brand)에 맞는 상품ID (거래 검색 — 매물 검색과 같은 규칙).
+	 * 바인딩 파라미터 수 상한(Postgres 32767)을 넘지 않게 나눠 묻는다
+	 */
+	public List<String> productIdsMatching(String field, String q, List<String> candidates) {
+		List<String> out = new ArrayList<>();
+		for (int i = 0; i < candidates.size(); i += PRODUCT_ID_CHUNK) {
+			out.addAll(searchRepository.findProductIds(field, q, candidates.subList(i, Math.min(i + PRODUCT_ID_CHUNK, candidates.size()))));
+		}
+		return out;
 	}
 
 	/** 구매요청의 재고 차감. 재고 부족·거래완료면 TRADE_OUT_OF_STOCK (호출자 트랜잭션에 합류해 같이 롤백) */

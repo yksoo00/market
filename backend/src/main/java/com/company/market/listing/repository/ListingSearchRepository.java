@@ -216,17 +216,20 @@ public class ListingSearchRepository {
 	}
 
 	/**
-	 * 검색어 q 가 field 범위(all·name·brand)에 맞는 상품ID, 최대 limit 개 (거래 검색 — 거래 줄은 prod_id 만 갖고 있다).
-	 * 맞추는 규칙은 매물 검색과 같다 (appendWords)
+	 * candidates 상품 중 검색어 q 가 field 범위(all·name·brand)에 맞는 상품ID (거래 검색 — 거래 줄은 prod_id 만 갖고 있다).
+	 * 맞추는 규칙은 매물 검색과 같다 (appendWords). 후보 안에서만 찾으므로 상한이 없다
 	 */
-	public List<String> findProductIds(String field, String q, int limit) {
+	public List<String> findProductIds(String field, String q, Collection<String> candidates) {
+		if (candidates.isEmpty()) {
+			return List.of();
+		}
 		Map<String, Object> params = new HashMap<>();
-		StringBuilder jpql = new StringBuilder("select p.prodId from Product p where 1=1");
+		StringBuilder jpql = new StringBuilder("select p.prodId from Product p where p.prodId in :candidates");
+		params.put("candidates", candidates);
 		appendWords(jpql, params, field, q);
-		jpql.append(" order by p.prodId");
 		TypedQuery<String> query = em.createQuery(jpql.toString(), String.class);
 		params.forEach(query::setParameter);
-		return query.setMaxResults(limit).getResultList();
+		return query.getResultList();
 	}
 
 	/** p(Product)의 field 범위에 q 의 낱말이 전부 들어 있어야 맞는다 */

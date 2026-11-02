@@ -53,4 +53,14 @@ public interface TradeHistoryRepository extends JpaRepository<TradeHistory, Trad
 			@Param("maxAmount") int maxAmount, @Param("useProds") boolean useProds, @Param("prodIds") Collection<String> prodIds,
 			Sort sort);
 
+	/**
+	 * 내 이력에 나온 상품ID (겹침 없이). 검색어는 이 상품들 안에서만 상품마스터에 맞춰 본다 — 전체 상품에서 찾으면
+	 * 상한을 둬야 해 결과가 빠졌다 (decisions.md 2026-11-02)
+	 */
+	@Query("""
+			select distinct h.prodId from TradeHistory h
+			 where ((:buy = true and h.userId = :me) or (:sell = true and h.sellerId = :me)) and h.prodId is not null
+			""")
+	List<String> findProdIds(@Param("me") UUID me, @Param("buy") boolean buy, @Param("sell") boolean sell);
+
 }
