@@ -60,6 +60,11 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			@Param("orderQuantity") int orderQuantity, @Param("reqDeliDate") String reqDeliDate,
 			@Param("remarks") String remarks, @Param("tradeStats") String tradeStats);
 
+	/** 장바구니 줄의 담은 수량만 바꾼다 (담은 시각·납품희망일·요청사항은 그대로). 줄은 호출자가 잠가 두었다 */
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("update TradeInfo t set t.orderQuantity = :quantity where t.tradeId = :tradeId and t.tradeStats = :stats")
+	int updateCartQuantity(@Param("tradeId") String tradeId, @Param("quantity") int quantity, @Param("stats") TradeStats stats);
+
 	/** 장바구니 빼기 — 내 행만 지운다. 지운 수가 요청 수보다 적으면 호출자가 404 로 되돌린다 */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("delete from TradeInfo t where t.userId = :buyerId and t.tradeId in :tradeIds and t.tradeStats = :stats")

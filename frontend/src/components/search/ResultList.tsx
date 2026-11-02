@@ -12,7 +12,7 @@ import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog, type QuoteTarget } from "@/components/trade/QuoteDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cartApi } from "@/lib/api/cart";
-import { cartActionable, notifyCartChanged } from "@/lib/cart";
+import { cartActionable, nextCartQuantity, notifyCartChanged } from "@/lib/cart";
 import { leafCategoryName } from "@/lib/categories";
 import { COMPARE_HREF, compareBlock, MAX_COMPARE, MIN_COMPARE } from "@/lib/compare";
 import { formatPrice } from "@/lib/format";
@@ -62,6 +62,8 @@ interface Column {
   muted?: boolean;
   /** 말줄임되는 칸의 전체 값 (마우스 올리면) */
   title?: (item: ListingSearchItem) => string | undefined;
+  /** 칸 안의 버튼이 줄 이동(go)을 일으키지 않게 클릭을 막는다 */
+  interactive?: boolean;
   cell: (item: ListingSearchItem, done: boolean) => ReactNode;
 }
 
@@ -99,28 +101,50 @@ interface Props {
   onPurchased?: (key: { userId: string; regDate: string }) => void;
   /** cart: 담을 때 입력한 값 (키 = userId/regDate) — 구매·견적 모달의 기본값 */
   cartDefaults?: ReadonlyMap<string, CartDefaults>;
+  /** cart: +/- — 이 줄의 담은 수량을 바꿔 달라는 요청 (부모가 서버에 저장하고 다시 읽는다) */
+  onChangeQuantity?: (item: ListingSearchItem, quantity: number) => void;
+  /** cart: 수량을 저장하는 중인 줄의 거래ID — 그 줄의 +/- 를 막아 겹쳐 보내지 않게 */
+  quantityBusy?: string | null;
 }
 
 // 선택 상태는 결과 집합마다 새로 시작한다 — 페이지에서 key={buildSearchHref(query)}로 다시 마운트
-export function ResultList({ items, query, total, scope = "search", pendingCounts = null, onPurchased, onRemove, removing = false, cartDefaults }: Props) {
+export function ResultList({ items, query, total, scope = "search", pendingCounts = null, onPurchased, onRemove, removing = false, cartDefaults, onChangeQuantity, quantityBusy = null }: Props) {
   const openTile = useTileOpen();
   const mine = scope === "mine";
   const inCart = scope === "cart";
   // 장바구니도 검색·내 판매와 같은 열 (사용자 지시 2026-11-02 — 옛 14열을 없앴다) + 내가 담은 수량·납품희망일·남은 시간
   const columns: Column[] = inCart
     ? [
-        ...listColumns,
+        // 담은 수량이 제일 먼저 — 쿠팡처럼 +/- 로 바로 바꾼다 (사용자 지시 2026-11-02)
         {
           label: cart.page.columns.quantity,
-          width: "w-24",
-          align: "right",
-          mono: true,
-          strong: true,
+          width: "w-36",
+          align: "center",
+          interactive: true,
           cell: (i) => {
             const q = cartDefaults?.get(keyOf(i))?.orderQuantity;
-            return q === undefined ? DASH : qty.format(q);
+            if (q === undefined) return DASH;
+            // 저장 중인 그 줄만 막는다 — 다른 줄은 계속 바꿀 수 있다
+            const busy = quantityBusy !== null && quantityBusy === i.cartTradeId;
+            const down = nextCartQuantity(i, q, "down");
+            const up = nextCartQuantity(i, q, "up");
+            const btn = "size-7 inline-flex items-center justify-center rounded-md border border-line text-ink hover:bg-bg disabled:text-ink-3 disabled:hover:bg-transparent";
+            return (
+              <span className="inline-flex items-center gap-1.5">
+                <button type="button" className={btn} disabled={busy || down === null} aria-label={cart.page.quantityDown(i.prodName)} onClick={() => down !== null && onChangeQuantity?.(i, down)}>
+                  {cart.page.quantityDownGlyph}
+                </button>
+                <span className="num w-10 text-center font-semibold" aria-live="polite">
+                  {qty.format(q)}
+                </span>
+                <button type="button" className={btn} disabled={busy || up === null} aria-label={cart.page.quantityUp(i.prodName)} onClick={() => up !== null && onChangeQuantity?.(i, up)}>
+                  {cart.page.quantityUpGlyph}
+                </button>
+              </span>
+            );
           },
         },
+        ...listColumns,
         { label: cart.page.columns.reqDeliDate, width: "w-28", mono: true, muted: true, cell: (i) => cartDefaults?.get(keyOf(i))?.reqDeliDate ?? DASH },
         {
           label: cart.page.columns.remaining,
@@ -423,7 +447,7 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
           표↔카드 기준은 @md(768)가 아니라 칸 폭 576 — 타일 반반 분할이면 칸이 768 미만(1440 창이면 720)이라
           카드로 줄어들었다. 분할에서도 표가 옆으로 펼쳐져야 한다 (사용자 지시). 폰(390)은 그대로 카드 */}
       <div className="hidden @min-[36rem]:block rounded-md border border-line bg-surface overflow-x-auto">
-        <table className={`w-full ${inCart ? "min-w-398" : mine ? "min-w-334" : "min-w-322"} table-fixed text-[13px]`}>
+        <table className={`w-full ${inCart ? "min-w-410" : mine ? "min-w-334" : "min-w-322"} table-fixed text-[13px]`}>
           <colgroup>
             {!mine && <col className="w-10" />}
             <col className="w-48" />
@@ -478,6 +502,7 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
                     <td
                       key={c.label}
                       title={c.title?.(item)}
+                      onClick={c.interactive ? stop : undefined}
                       className={`px-2 truncate ${alignClass[c.align ?? "left"]} ${c.mono ? "num" : ""} ${c.strong ? "font-semibold" : ""} ${c.muted && !done ? "text-ink-2" : ""} ${i === columns.length - 1 ? "pr-3" : ""}`}
                     >
                       {c.cell(item, done)}

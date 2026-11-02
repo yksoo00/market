@@ -189,6 +189,14 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     await expect(rowOf(nameB)).toHaveCount(2);
     await expect(page.getByRole("columnheader", { name: cart.page.columns.quantity })).toBeVisible();
     await expect(page.getByText(cart.page.autoRemoveHint)).toBeVisible();
+    // 담은 수량은 상품명 바로 옆 첫 열이고 +/- 로 바로 바뀐다 (주문단위 1 — 재고 2 가 남아 한 번 늘릴 수 있다)
+    const first = rowOf(nameB).first();
+    const shown = first.locator("[aria-live=polite]");
+    await expect(shown).toHaveText("2");
+    await first.getByRole("button", { name: cart.page.quantityUp(nameB) }).click();
+    await expect(shown).toHaveText("3");
+    await first.getByRole("button", { name: cart.page.quantityDown(nameB) }).click();
+    await expect(shown).toHaveText("2");
     // 최근에 담은 줄(수량 2)이 먼저 — 그 줄만 골라 구매하면 그 줄이 구매요청이 되고 다른 줄(수량 1)은 남는다
     await rowOf(nameB).first().getByRole("checkbox", { name: search.result.selectRow(nameB) }).check();
     await page.getByRole("button", { name: search.result.buy, exact: true }).first().click();

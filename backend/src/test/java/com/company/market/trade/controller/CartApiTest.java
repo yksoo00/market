@@ -37,6 +37,7 @@ import org.springframework.test.web.servlet.ResultActions;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -449,6 +450,116 @@ class CartApiTest {
 				.formatted(sellerId, regDate, price, cartTradeId == null ? "" : ",\"cartTradeId\":\"" + cartTradeId + "\"")));
 	}
 
+	private ResultActions changeQuantity(Cookie who, String tradeId, int quantity) throws Exception {
+		return mvc.perform(patch("/api/v1/cart/" + tradeId).cookie(who).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"orderQuantity\":%d}".formatted(quantity)));
+	}
+
+	private int cartQuantityOf(String tradeId) {
+		return jdbc.queryForObject("select order_quantity from trd_trade_info where trade_id = ?", Integer.class, tradeId);
+	}
+
+	@Test
+	@DisplayName("수량 바꾸기: 늘린 만큼만 재고를 더 묶고 줄인 만큼만 푼다 — 거래·장바구니 두 행이 같이 바뀌고 담은 시각·납품희망일·요청사항은 그대로")
+	void changeQuantityMovesStock() throws Exception {
+		addItems(buyer, item(REG_A, 3, "2099-11-01", "빨리")).andExpect(status().isOk());
+		String id = cartTradeId(buyerId, REG_A);
+		String addedAt = jdbc.queryForObject("select reg_date from trd_trade_info where trade_id = ?", String.class, id);
+		changeQuantity(buyer, id, 6).andExpect(status().isOk()).andExpect(jsonPath("$.data.orderQuantity").value(6));
+		assertThat(stockOf(REG_A)).isEqualTo(4);
+		changeQuantity(buyer, id, 2).andExpect(status().isOk());
+		assertThat(stockOf(REG_A)).isEqualTo(8);
+		assertThat(cartQuantityOf(id)).isEqualTo(2);
+		assertThat(jdbc.queryForObject("select order_quantity from trd_cart_info where trade_id = ?", Integer.class, id)).isEqualTo(2);
+		assertThat(jdbc.queryForObject("select reg_date from trd_trade_info where trade_id = ?", String.class, id)).isEqualTo(addedAt);
+		assertThat(jdbc.queryForObject("select req_deli_date from trd_trade_info where trade_id = ?", String.class, id)).isEqualTo("2099-11-01");
+		assertThat(jdbc.queryForObject("select remarks from trd_trade_info where trade_id = ?", String.class, id)).isEqualTo("빨리");
+	}
+
+	@Test
+	@DisplayName("수량 바꾸기: 재고를 넘기면 400(orderQuantity) 이고 수량·재고 그대로 — 내가 이미 묶은 수량은 쓸 수 있다")
+	void changeQuantityOverStock() throws Exception {
+		addItems(buyer, item(REG_A, 4, "2099-12-31", null)).andExpect(status().isOk());
+		String id = cartTradeId(buyerId, REG_A);
+		changeQuantity(buyer, id, 11).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.orderQuantity").value("현재 재고(6)보다 많이 담을 수 없습니다."));
+		assertThat(cartQuantityOf(id)).isEqualTo(4);
+		assertThat(stockOf(REG_A)).isEqualTo(6);
+		changeQuantity(buyer, id, 10).andExpect(status().isOk());
+		assertThat(stockOf(REG_A)).isZero();
+	}
+
+	@Test
+	@DisplayName("수량 바꾸기: 최소주문량 미만·주문단위 아님·0 은 400 이고 그대로")
+	void changeQuantityRules() throws Exception {
+		jdbc.update("update trd_prod_reg set min_order_quantity = 2, order_unit = 2 where reg_date = ?", REG_B);
+		addItems(buyer, item(REG_B, 4, "2099-12-31", null)).andExpect(status().isOk());
+		String id = cartTradeId(buyerId, REG_B);
+		changeQuantity(buyer, id, 1).andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.orderQuantity").exists());
+		changeQuantity(buyer, id, 5).andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.orderQuantity").exists());
+		changeQuantity(buyer, id, 0).andExpect(status().isBadRequest());
+		assertThat(cartQuantityOf(id)).isEqualTo(4);
+		assertThat(stockOf(REG_B)).isEqualTo(96);
+		changeQuantity(buyer, id, 6).andExpect(status().isOk());
+		assertThat(stockOf(REG_B)).isEqualTo(94);
+	}
+
+	@Test
+	@DisplayName("수량 바꾸기: 남의 줄·없는 줄은 404, 장바구니가 아닌 줄(구매요청)도 404, 거래완료 매물은 409")
+	void changeQuantityGuards() throws Exception {
+		UUID otherId = newUser("cartother4", "01033330055");
+		add(cookieOf(otherId), REG_A).andExpect(status().isOk());
+		String othersRow = cartTradeId(otherId, REG_A);
+		changeQuantity(buyer, othersRow, 2).andExpect(status().isNotFound());
+		changeQuantity(buyer, "NOPE", 2).andExpect(status().isNotFound());
+		add(buyer, REG_B).andExpect(status().isOk());
+		String mine = cartTradeId(buyerId, REG_B);
+		jdbc.update("update trd_prod_reg set dt_expire = '20261021100000', stock_quantity = 0 where reg_date = ?", REG_B);
+		changeQuantity(buyer, mine, 2).andExpect(status().isConflict());
+		assertThat(cartQuantityOf(othersRow)).isEqualTo(1);
+		mvc.perform(patch("/api/v1/cart/" + mine).contentType(MediaType.APPLICATION_JSON).content("{\"orderQuantity\":2}"))
+			.andExpect(status().isUnauthorized());
+	}
+
+	@Test
+	@DisplayName("수량 바꾸기 뒤 장바구니에서 구매하면 바뀐 수량이 기본값(목록)이고 구매는 그 줄을 요청 수량으로 바꾼다")
+	void changedQuantityShowsInList() throws Exception {
+		addItems(buyer, item(REG_A, 2, "2099-12-31", null)).andExpect(status().isOk());
+		String id = cartTradeId(buyerId, REG_A);
+		changeQuantity(buyer, id, 5).andExpect(status().isOk());
+		mvc.perform(get("/api/v1/cart").cookie(buyer)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.items[0].orderQuantity").value(5));
+		buy(REG_A, 5, id).andExpect(status().isCreated());
+		assertThat(stockOf(REG_A)).isEqualTo(5);
+		assertThat(cartRows()).isZero();
+	}
+
+	@Test
+	@DisplayName("수량 바꾸기: 재고 4 에서 두 줄이 동시에 3 → 6 으로 늘리면 한 쪽만 된다 — 재고는 음수가 안 된다")
+	void concurrentChangeQuantity() throws Exception {
+		addItems(buyer, item(REG_A, 3, "2099-12-31", null), item(REG_A, 3, "2099-12-31", null)).andExpect(status().isOk());
+		List<String> ids = jdbc.queryForList("select trade_id from trd_trade_info where trade_stats = '장바구니' order by trade_id", String.class);
+		ExecutorService pool = Executors.newFixedThreadPool(2);
+		CountDownLatch start = new CountDownLatch(1);
+		List<Future<Integer>> results = new ArrayList<>();
+		for (String id : ids) {
+			results.add(pool.submit(() -> {
+				start.await();
+				return changeQuantity(buyer, id, 6).andReturn().getResponse().getStatus();
+			}));
+		}
+		start.countDown();
+		int ok = 0;
+		for (Future<Integer> r : results) {
+			if (r.get() == 200) {
+				ok++;
+			}
+		}
+		pool.shutdown();
+		assertThat(ok).isEqualTo(1);
+		assertThat(stockOf(REG_A)).isEqualTo(1);
+	}
+
 	@Test
 	@DisplayName("직접 구매(장바구니 줄을 안 가리킴)는 장바구니 줄을 건드리지 않고 새 구매요청을 만든다")
 	void directPurchaseLeavesCartAlone() throws Exception {
@@ -595,6 +706,17 @@ class CartApiTest {
 		assertThat(stockOf(REG_A)).isEqualTo(9);
 		quote(REG_A, 800).andExpect(status().isCreated());
 		assertThat(stockOf(REG_A)).isEqualTo(10);
+	}
+
+	@Test
+	@DisplayName("수량 바꾸기: 담은 지 1시간이 지난(아직 안 쓸려난) 줄은 404 — 새 재고를 묶지 않는다")
+	void changeQuantityRejectsStaleRow() throws Exception {
+		addItems(buyer, item(REG_A, 3, "2099-12-31", null)).andExpect(status().isOk());
+		String id = cartTradeId(buyerId, REG_A);
+		String twoHoursAgo = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(2).format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+		jdbc.update("update trd_trade_info set reg_date = ? where trade_id = ?", twoHoursAgo, id);
+		changeQuantity(buyer, id, 5).andExpect(status().isNotFound());
+		assertThat(stockOf(REG_A)).isEqualTo(7);
 	}
 
 	@Test

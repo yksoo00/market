@@ -43,6 +43,11 @@ public interface CartInfoRepository extends JpaRepository<CartInfo, CartInfoId> 
 	@Query("delete from CartInfo c where c.tradeId = :tradeId")
 	int deleteByTradeId(@Param("tradeId") String tradeId);
 
+	/** 담은 수량 바꾸기 — trd_trade_info 의 같은 줄과 함께 바꾼다 */
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query("update CartInfo c set c.orderQuantity = :quantity where c.tradeId = :tradeId")
+	int updateQuantity(@Param("tradeId") String tradeId, @Param("quantity") int quantity);
+
 	/** 매물 삭제 때 그 매물의 장바구니·비교 행 전부 */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("delete from CartInfo c where c.sellerId = :sellerId and c.prodDate = :prodDate and c.prodNo = :prodNo")
