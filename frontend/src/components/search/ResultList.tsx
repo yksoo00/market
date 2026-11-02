@@ -72,23 +72,6 @@ const listColumns: Column[] = [
   { label: c.regDate, width: "w-26", mono: true, muted: true, cell: (i) => formatRegDate(i.regDate).slice(0, 10) },
 ];
 
-// 장바구니의 열. 순서·항목은 사용자가 정한 그대로(상품명·상품번호·제조사·제조일·상품상태·
-// 상품설명·데이터시트·사진·보증기한·불량지원·대체품·테스트리포트·정품인증서). 상품설명은 유무(O/X)만, 내용은 마우스를 올리면
-const cartColumns: Column[] = [
-  { label: c.prodNo, width: "w-36", mono: true, title: (i) => i.prodNo ?? undefined, cell: (i) => i.prodNo ?? DASH },
-  { label: c.brand, width: "w-32", title: (i) => i.prodBrand, cell: (i) => i.prodBrand },
-  { label: c.mufcDate, width: "w-26", mono: true, muted: true, cell: (i) => i.mufcDate ?? DASH },
-  { label: c.state, width: "w-26", cell: (i, done) => (done ? <CompletedBadge /> : i.prodState) },
-  { label: c.prodDescription, width: "w-18", align: "center", title: (i) => i.prodDescription ?? undefined, cell: (i) => <Mark on={i.prodDescription !== null} label={c.prodDescription} /> },
-  { label: c.dataSheet, width: "w-20", align: "center", cell: (i) => <Has on={i.hasDataSheet} icon="file" label={c.dataSheet} /> },
-  { label: c.photo, width: "w-12", align: "center", cell: (i) => <Has on={i.hasPhoto} icon="image" label={c.photo} /> },
-  { label: c.warranty, width: "w-26", mono: true, muted: true, cell: (i) => i.warrantyUntil ?? DASH },
-  { label: c.coverage, width: "w-18", align: "center", cell: (i) => i.warrantyCoverage ?? DASH },
-  { label: c.replaceProd, width: "w-16", align: "center", cell: (i) => <Mark on={i.hasReplaceProd} label={c.replaceProd} /> },
-  { label: c.testReport, width: "w-24", align: "center", cell: (i) => <Mark on={i.hasTestReport} label={c.testReport} /> },
-  { label: c.certificate, width: "w-22", align: "center", cell: (i) => <Mark on={i.hasCertificate} label={c.certificate} /> },
-];
-
 interface Props {
   items: ListingSearchItem[];
   query: SearchQuery;
@@ -113,7 +96,8 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
   const openTile = useTileOpen();
   const mine = scope === "mine";
   const inCart = scope === "cart";
-  const columns = inCart ? cartColumns : listColumns;
+  // 장바구니도 검색·내 판매와 같은 열 (사용자 지시 2026-11-02 — 옛 14열을 없앴다)
+  const columns = listColumns;
   // "구매요청 N건" → 받은 구매요청을 그 매물로 걸러 연다. 같은 판매 그룹이라 옆 칸에 반반으로
   const pendingLink = (item: ListingSearchItem) => {
     const label = pendingLabel(pendingCounts, item.regDate);
@@ -400,7 +384,7 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
           표↔카드 기준은 @md(768)가 아니라 칸 폭 576 — 타일 반반 분할이면 칸이 768 미만(1440 창이면 720)이라
           카드로 줄어들었다. 분할에서도 표가 옆으로 펼쳐져야 한다 (사용자 지시). 폰(390)은 그대로 카드 */}
       <div className="hidden @min-[36rem]:block rounded-md border border-line bg-surface overflow-x-auto">
-        <table className={`w-full ${inCart || mine ? "min-w-334" : "min-w-322"} table-fixed text-[13px]`}>
+        <table className={`w-full ${mine ? "min-w-334" : "min-w-322"} table-fixed text-[13px]`}>
           <colgroup>
             {!mine && <col className="w-10" />}
             <col className="w-48" />
@@ -556,19 +540,6 @@ function ExtraChips({ item }: { item: ListingSearchItem }) {
 }
 
 // 유무만 보이는 열(제조일·상품설명·대체품·테스트리포트·정품인증서). 요구 화면대로 O / X
-function Mark({ on, label }: { on: boolean; label: string }) {
-  return on ? (
-    <span role="img" aria-label={label} className="text-primary font-semibold">
-      ○
-    </span>
-  ) : (
-    <span className="text-ink-3">
-      <span aria-hidden="true">✕</span>
-      <span className="sr-only">{`${label} ${r.none}`}</span>
-    </span>
-  );
-}
-
 function CompletedBadge() {
   return (
     <span className="inline-flex items-center h-5 px-1.5 rounded-[5px] bg-line-2 text-ink-2 text-[11px] font-semibold">
