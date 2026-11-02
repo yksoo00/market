@@ -1,5 +1,7 @@
 // 로컬 전용 임시 테이블 관리 화면 문구 (계획 2026-10-30-dev-table-admin.md)
 export const dev = {
+  // 헤더 바로가기 (NEXT_PUBLIC_DEV_TOOLS=true 일 때만)
+  headerLink: "임시 테이블",
   page: {
     title: "임시 테이블 관리",
     subtitle: "테스트용입니다. 서비스 검증 없이 DB에 바로 읽고 씁니다. 로컬(APP_ENV=local)에서만 동작합니다.",

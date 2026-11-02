@@ -41,6 +41,17 @@ describe("decideOpen — 홈 칸·헤더에서 열기 (새 주기능)", () => {
   });
 });
 
+describe("decideOpen — 혼자 뜨는 화면 (임시 테이블)", () => {
+  it("주기능 칸에서 열어도 보조가 아니라 새 주기능", () => {
+    expect(decideOpen([P("a", "/search")], "a", "/dev/tables", wide)).toEqual({ kind: "main", path: "/dev/tables" });
+  });
+
+  it("그 화면에서 다른 화면(홈 포함)을 열면 새 주기능 — 홈 칸이 안 보이므로 홈도 연다", () => {
+    expect(decideOpen([P("a", "/dev/tables")], "a", "/search", wide)).toEqual({ kind: "main", path: "/search" });
+    expect(decideOpen([P("a", "/dev/tables")], HOME_KEY, "/", wide)).toEqual({ kind: "main", path: "/" });
+  });
+});
+
 describe("decideOpen — 주기능·보조 칸에서 열기", () => {
   it("연관 화면은 보조 자리 → 홈 | 주기능 | X", () => {
     expect(decideOpen([P("a", "/search")], "a", DETAIL, wide)).toEqual({ kind: "sub", path: DETAIL });

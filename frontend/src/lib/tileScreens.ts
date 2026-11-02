@@ -11,7 +11,7 @@ export interface Screen {
 }
 
 // 배열 순서대로 매칭하므로 더 구체적인 경로를 위에 둔다 (/listings/new 가 상세보다, /quotes/adjust 가 /quotes 보다 먼저)
-const SCREENS: { id: string; group: TileGroup; pattern: RegExp }[] = [
+const SCREENS: { id: string; group: TileGroup; pattern: RegExp; solo?: true }[] = [
   { id: "home", group: "common", pattern: /^\/$/ },
   // 로그인·가입은 같은 화면(auth): 로그인 칸에서 [회원가입]을 누르면 칸을 더 쌓지 않고 그 칸이 가입으로 바뀐다 (decisions.md 2026-10-13)
   { id: "auth", group: "common", pattern: /^\/(login|signup)(\/.*)?$/ },
@@ -30,9 +30,15 @@ const SCREENS: { id: string; group: TileGroup; pattern: RegExp }[] = [
   { id: "buyQuotes", group: "buy", pattern: /^\/quotes$/ },
   { id: "search", group: "buy", pattern: /^\/search$/ },
   { id: "buyRequest", group: "buy", pattern: /^\/requests(\/.*)?$/ },
-  // 로컬 전용 임시 테이블 관리. 어느 칸 옆에서 열어도 되는 도구 화면이라 공통 (2026-10-30)
-  { id: "devTables", group: "common", pattern: /^\/dev\/tables$/ },
+  // 로컬 전용 임시 테이블 관리. 표가 넓어 홈·보조 칸 없이 혼자 전체화면 (사용자 지시 2026-10-30)
+  { id: "devTables", group: "common", pattern: /^\/dev\/tables$/, solo: true },
 ];
+
+/** 혼자 전체화면으로 뜨는 화면인가 — 홈 칸·보조 칸을 붙이지 않는다 (path 는 쿼리·해시가 붙어도 된다) */
+export function isSolo(path: string): boolean {
+  const pathname = path.split(/[?#]/)[0] || "/";
+  return SCREENS.find((s) => s.pattern.test(pathname))?.solo === true;
+}
 
 /** path는 쿼리·해시가 붙어 있어도 된다 */
 export function screenOf(path: string): Screen {
