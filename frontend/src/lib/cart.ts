@@ -29,6 +29,9 @@ export function onCartChanged(listener: () => void): () => void {
   return () => channel.close();
 }
 
+/** 서버가 한 줄에 받는 수량 상한 (CartAddRequest·CartQuantityRequest) */
+const MAX_QUANTITY = 100_000;
+
 /**
  * 장바구니 줄의 +/- 가 바꿀 다음 수량 (주문단위만큼). 못 바꾸면 null — 버튼을 비활성으로 둔다.
  * 내릴 때는 최소주문량 아래로 못 가고(없애려면 [빼기]), 올릴 때는 지금 묶이지 않은 재고(item.stockQuantity)가 주문단위 이상이어야 한다.
@@ -39,7 +42,8 @@ export function nextCartQuantity(item: ListingSearchItem, current: number, direc
   const unit = item.orderUnit ?? 1;
   const min = item.minOrderQuantity ?? 1;
   if (direction === "down") return current - unit >= min ? current - unit : null;
-  return unit <= (item.stockQuantity ?? 0) ? current + unit : null;
+  // 담기와 같은 한 줄 상한(서버 100000)을 넘기는 + 도 막는다
+  return unit <= (item.stockQuantity ?? 0) && current + unit <= MAX_QUANTITY ? current + unit : null;
 }
 
 /** 거래완료 매물은 장바구니에 남지만 견적·구매 대상이 아니다 (빼기만) */

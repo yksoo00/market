@@ -709,6 +709,17 @@ class CartApiTest {
 	}
 
 	@Test
+	@DisplayName("수량 바꾸기: 담은 지 1시간이 지난(아직 안 쓸려난) 줄은 404 — 새 재고를 묶지 않는다")
+	void changeQuantityRejectsStaleRow() throws Exception {
+		addItems(buyer, item(REG_A, 3, "2099-12-31", null)).andExpect(status().isOk());
+		String id = cartTradeId(buyerId, REG_A);
+		String twoHoursAgo = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(2).format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+		jdbc.update("update trd_trade_info set reg_date = ? where trade_id = ?", twoHoursAgo, id);
+		changeQuantity(buyer, id, 5).andExpect(status().isNotFound());
+		assertThat(stockOf(REG_A)).isEqualTo(7);
+	}
+
+	@Test
 	@DisplayName("1시간이 지난 장바구니 줄은 자동으로 지워지고 묶인 수량이 풀린다 — 한 번만(두 번 불러도), 새 줄·전환된 줄은 건드리지 않는다")
 	void expireReleasesStaleRows() throws Exception {
 		addItems(buyer, item(REG_A, 3, "2099-12-31", null), item(REG_A, 2, "2099-12-31", null), item(REG_B, 4, "2099-12-31", null)).andExpect(status().isOk());

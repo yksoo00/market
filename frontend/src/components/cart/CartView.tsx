@@ -103,8 +103,8 @@ export function CartView() {
     const res = await cartApi.changeQuantity(item.cartTradeId, quantity);
     setQuantityBusy(null);
     if (!res.ok) setRemoveError(res.fields?.orderQuantity ?? trade.errors[res.code] ?? res.message);
+    // 신호가 이 칸에도 와서 다시 읽는다 (reload 를 또 부르면 읽기가 겹쳐 오래된 응답이 나중에 올 수 있다)
     notifyCartChanged();
-    reload();
   };
   const remove = async (chosen: ListingSearchItem[]) => {
     setRemoving(true);

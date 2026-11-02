@@ -49,6 +49,8 @@ export const cart = {
     retry: "다시 시도",
     // 담은 수량은 그 시간 동안 내 몫으로 잡혀 있고, 지나면 자동으로 빠지며 수량이 풀린다 (2026-11-02)
     autoRemoveHint: "담은 지 1시간이 지나면 자동으로 빠지고, 잡아 둔 수량이 풀려요.",
+    quantityDownGlyph: "−",
+    quantityUpGlyph: "+",
     quantityDown: (name: string) => `${name} 수량 줄이기`,
     quantityUp: (name: string) => `${name} 수량 늘리기`,
     columns: { quantity: "담은 수량", reqDeliDate: "납품희망일", remaining: "남은 시간" },

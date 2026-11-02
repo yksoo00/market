@@ -124,20 +124,21 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
           cell: (i) => {
             const q = cartDefaults?.get(keyOf(i))?.orderQuantity;
             if (q === undefined) return DASH;
-            const busy = quantityBusy !== null;
+            // 저장 중인 그 줄만 막는다 — 다른 줄은 계속 바꿀 수 있다
+            const busy = quantityBusy !== null && quantityBusy === i.cartTradeId;
             const down = nextCartQuantity(i, q, "down");
             const up = nextCartQuantity(i, q, "up");
             const btn = "size-7 inline-flex items-center justify-center rounded-md border border-line text-ink hover:bg-bg disabled:text-ink-3 disabled:hover:bg-transparent";
             return (
               <span className="inline-flex items-center gap-1.5">
                 <button type="button" className={btn} disabled={busy || down === null} aria-label={cart.page.quantityDown(i.prodName)} onClick={() => down !== null && onChangeQuantity?.(i, down)}>
-                  −
+                  {cart.page.quantityDownGlyph}
                 </button>
                 <span className="num w-10 text-center font-semibold" aria-live="polite">
                   {qty.format(q)}
                 </span>
                 <button type="button" className={btn} disabled={busy || up === null} aria-label={cart.page.quantityUp(i.prodName)} onClick={() => up !== null && onChangeQuantity?.(i, up)}>
-                  +
+                  {cart.page.quantityUpGlyph}
                 </button>
               </span>
             );

@@ -191,6 +191,10 @@ public class CartService {
 		TradeInfo row = trades.findForUpdateByTradeId(tradeId)
 			.filter(t -> buyerId.equals(t.getUserId()) && t.getTradeType() == TradeType.REVIEW && t.getTradeStats() == TradeStats.CART)
 			.orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
+		// 담은 지 1시간이 지났으면 곧 자동 삭제될 줄이다 — 그 사이에 새 재고를 묶지 않는다
+		if (row.getRegDate() == null || row.getRegDate().compareTo(LocalDateTime.now(clock).minus(EXPIRE_AFTER).format(TIMESTAMP_FORMAT)) < 0) {
+			throw new ApiException(ErrorCode.TRADE_NOT_FOUND);
+		}
 		ListingId listingId = row.listingId();
 		int before = row.getOrderQuantity();
 		ListingTradeSnapshot listing = listings.lockForTrade(listingId);
@@ -200,7 +204,8 @@ public class CartService {
 		String failure = rules.quantityFailure(listing, quantity, listing.salesUnitPrice() == null ? 0 : listing.salesUnitPrice());
 		int delta = quantity - before;
 		if (failure == null && delta > 0 && !listings.tryReserveStock(listingId, delta)) {
-			failure = stockFailure(currentStock(listing));
+			// 줄·매물을 잠근 채 읽은 스냅샷이라 지금 재고다
+			failure = stockFailure(listing.stockQuantity());
 		}
 		if (failure != null) {
 			throw new ValidationException(Map.of("orderQuantity", failure));

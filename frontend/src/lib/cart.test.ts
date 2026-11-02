@@ -57,6 +57,11 @@ describe("nextCartQuantity", () => {
     expect(nextCartQuantity(item({ stockQuantity: null }), 15, "up")).toBeNull();
   });
 
+  it("한 줄 상한(100000)을 넘기는 +는 막는다", () => {
+    expect(nextCartQuantity(item({ orderUnit: 5, stockQuantity: 999_999 }), 99_995, "up")).toBe(100_000);
+    expect(nextCartQuantity(item({ orderUnit: 5, stockQuantity: 999_999 }), 100_000, "up")).toBeNull();
+  });
+
   it("주문단위·최소주문량이 없으면 1 단위, 거래완료 매물은 둘 다 못 바꾼다", () => {
     expect(nextCartQuantity(item({ orderUnit: null, minOrderQuantity: null }), 3, "down")).toBe(2);
     expect(nextCartQuantity(item({ orderUnit: null, minOrderQuantity: null }), 1, "down")).toBeNull();
