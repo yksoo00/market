@@ -518,6 +518,38 @@ class TradeApiTest {
 	}
 
 	@Test
+	@DisplayName("마지막 두 건이 동시에 확정돼도 판매완료가 빠지지 않는다 — 재고 0 인데 거래 중으로 남지 않는다")
+	void concurrentLastConfirmationsStillMarkSoldOut() throws Exception {
+		for (int round = 0; round < 5; round++) {
+			jdbc.update("delete from trd_trade_history");
+			jdbc.update("delete from trd_trade_info");
+			jdbc.update("delete from trd_prod_reg");
+			jdbc.update("delete from trd_prod_master");
+			listing(1000, 2, 1, 1, null);
+			UUID otherId = newUser("tradeconc" + round, "0101234" + (7100 + round));
+			Cookie other = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(otherId));
+			String first = requested(1);
+			String second = tradeService.request(otherId, new TradeCreateRequest(sellerId, REG_DATE, 1, future(), null)).tradeId();
+			CountDownLatch start = new CountDownLatch(1);
+			ExecutorService pool = Executors.newFixedThreadPool(2);
+			var a = pool.submit(() -> {
+				start.await();
+				return action(buyer, first, "complete").andReturn().getResponse().getStatus();
+			});
+			var b = pool.submit(() -> {
+				start.await();
+				return action(other, second, "complete").andReturn().getResponse().getStatus();
+			});
+			start.countDown();
+			assertThat(a.get()).isEqualTo(200);
+			assertThat(b.get()).isEqualTo(200);
+			pool.shutdown();
+			assertThat(stock()).isZero();
+			assertThat(expireOf()).isNotNull();
+		}
+	}
+
+	@Test
 	@DisplayName("묶인 건이 더 남아 있으면 확정해도 판매완료가 아니다 — 마지막 건이 확정될 때 판매완료, 먼저 취소된 건의 수량이 돌아오면 계속 거래 중")
 	void notSoldOutWhileOtherHoldsRemain() throws Exception {
 		listing(1000, 2, 1, 1, null);

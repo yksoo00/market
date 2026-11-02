@@ -394,6 +394,22 @@ class QuoteApiTest {
 		assertThat(stockOf(REG_A)).isEqualTo(10);
 	}
 
+	@Test
+	@DisplayName("수락된 견적이 있는 매물은 삭제할 수 없다 409 LISTING_HAS_TRADES(구매자 몫으로 수량이 묶여 있다). 요청·거절 견적만 있으면 지워진다")
+	void listingWithAcceptedQuoteCannotBeDeleted() throws Exception {
+		String accepted = acceptedQuote(REG_A, 900);
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/listings/" + sellerId + "/" + REG_A).cookie(seller))
+			.andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("LISTING_HAS_TRADES"));
+		assertThat(statsOf(accepted)).isEqualTo("견적수락");
+		assertThat(stockOf(REG_A)).isEqualTo(9);
+
+		action(buyer, accepted, "cancel").andExpect(status().isNoContent());
+		quoted(REG_A, 900);
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/listings/" + sellerId + "/" + REG_A).cookie(seller))
+			.andExpect(status().isNoContent());
+		assertThat(tradeCount()).isZero();
+	}
+
 	// ---- 수락된 견적에서 [구매] — 같은 행이 구매요청 → 구매확정으로 이어진다 (사용자 결정 2026-10-21) ----
 
 	private ResultActions buyFromQuote(Cookie who, String tradeId, int quantity) throws Exception {

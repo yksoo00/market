@@ -274,6 +274,9 @@ public class TradeService {
 			.tradeAmount(trade.getOrderUnitPrice() * trade.getOrderQuantity())
 			.build());
 		// 판매완료는 재고가 0 이 된 때가 아니라 구매 확정 때 정한다 — 더 묶인 건(구매요청·수락된 견적)이 없고 재고가 0 일 때만 (2026-11-02)
+		// 같이 확정하는 다른 구매자와 서로의 확정이 안 보여 둘 다 "아직 묶인 건이 있다"고 판단하지 않게, 매물 행을 잠가 차례로 본다
+		// (뒤에 온 쪽은 앞 쪽의 커밋을 보고 판정한다)
+		listings.lockForTrade(trade.listingId());
 		if (!trades.existsBySellerIdAndProdRegDateAndProdIdAndTradeStatsIn(trade.getSellerId(), trade.getProdRegDate(), trade.getProdId(),
 				HOLDING_STATS)) {
 			listings.markSoldOutIfEmpty(trade.listingId());
@@ -364,7 +367,7 @@ public class TradeService {
 			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 		}
 		TradeInfo continued = trades.findByTradeId(tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
-		continued.continueQuoteAsPurchase(listing.prodId(), listing.prodState(), listing.salesUnitPrice(), listing.stockQuantity(),
+		continued.continueQuoteAsPurchase(listing.prodId(), listing.prodState(), listing.salesUnitPrice(),
 				listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), reqDeliDate,
 				req.remarks() == null || req.remarks().isBlank() ? null : req.remarks().trim());
 		trades.saveAndFlush(continued);

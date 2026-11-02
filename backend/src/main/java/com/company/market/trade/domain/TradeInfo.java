@@ -158,12 +158,12 @@ public class TradeInfo implements Persistable<TradeInfoId> {
 	 * 수락된 견적에서 구매요청으로 — 단가와 수량은 수락된 값 그대로(매물 단가가 아니라 이 거래의 수락 단가, 수량은 수락 때 이미 묶였다).
 	 * 매물 스냅샷·납품희망일·요청사항만 새로 채우고 상태를 구매요청으로 (2026-11-02)
 	 */
-	public void continueQuoteAsPurchase(String prodId, String prodState, Integer salesUnitPrice, Integer stockQuantity,
+	public void continueQuoteAsPurchase(String prodId, String prodState, Integer salesUnitPrice,
 			Integer minOrderQuantity, Integer orderUnit, String provDate, String reqDeliDate, String remarks) {
 		this.prodId = prodId;
 		this.prodState = prodState;
 		this.salesUnitPrice = salesUnitPrice;
-		this.stockQuantity = stockQuantity;
+		// stockQuantity(그때의 재고 스냅샷)는 안 덮는다 — 지금 재고는 이 거래가 이미 묶은 수량을 뺀 값이라 주문량보다 작을 수 있다
 		this.minOrderQuantity = minOrderQuantity;
 		this.orderUnit = orderUnit;
 		this.provDate = provDate;
