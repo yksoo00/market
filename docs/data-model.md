@@ -149,7 +149,7 @@
 
 | trade_type | trade_stats 흐름 |
 |---|---|
-| `구매검토` | `장바구니`/`비교용` — 구매자·매물·거래상태당 하나(`ux_trd_trade_info_one_cart`, V202610291000). `trd_cart_info` 행과 짝(위). 빼기·매물 삭제는 두 행 삭제, 구매·견적은 장바구니 행을 같은 거래ID 로 바꿔 쓴다(2026-10-29). 내 구매목록·판매자 화면에 안 나온다. 단가는 담을 때 등록단가, 수량·납품희망일·요청사항은 담을 때 입력(장바구니) 또는 최소주문량·제공가능일(비교)이고, 화면엔 지금 매물 값을 보인다. |
+| `구매검토` | `장바구니`/`비교용` — **비교용만** 구매자·매물당 하나(`ux_trd_trade_info_one_compare`, V202611021000). 장바구니는 같은 매물도 담을 때마다 새 줄(새 거래, 2026-11-02 — 전엔 `ux_trd_trade_info_one_cart` 가 장바구니도 매물당 하나로 막았다). `trd_cart_info` 행과 짝(위). 빼기·매물 삭제는 두 행 삭제, 구매·견적은 장바구니 행을 같은 거래ID 로 바꿔 쓴다(2026-10-29). 내 구매목록·판매자 화면에 안 나온다. 단가는 담을 때 등록단가, 수량·납품희망일·요청사항은 담을 때 입력(장바구니) 또는 최소주문량·제공가능일(비교)이고, 화면엔 지금 매물 값을 보인다. |
 | `견적조정` | `견적요청` → `견적수락` 또는 `견적거절` (판매자 수락·거절. 거절 뒤 구매자 재요청은 같은 행이 `견적요청`으로 돌아간다). 수락된 견적에서 [구매]하면 같은 행이 `구매요청` → `구매확정`으로 이어진다(TYPE 은 그대로, 사용자 결정 2026-10-21). 구매자·매물당 견적 단계(`견적요청`·`견적수락`·`견적거절`) 행은 하나(`ux_trd_trade_info_one_quote`, V202610211200) |
 | `거래` | `구매요청` → `구매확정` |
 
@@ -177,7 +177,7 @@
 | trade_stats | varchar(10) | not null | 거래상태: 위 표 |
 | spare_col | varchar(100) | | |
 
-인덱스: `ix_trd_trade_info_listing (seller_id, prod_reg_date, prod_id)` (판매자 목록·매물별 요청 건수). `ix_trd_trade_info_trade_id (trade_id)` — 거래ID 로만 찾는 조회용 일반 인덱스(중복 금지 아님, 정의서 밖, 2026-10-27 사용자 승인). 부분 unique `ux_trd_trade_info_one_quote`·`ux_trd_trade_info_one_cart` 도 `(user_id, seller_id, prod_reg_date, prod_id)`. 외래키 없음 — 매물 삭제 때 남은 거래 행이 있으면 서버가 409 `LISTING_HAS_TRADES`. 구매자 목록은 PK 앞부분 `user_id`.
+인덱스: `ix_trd_trade_info_listing (seller_id, prod_reg_date, prod_id)` (판매자 목록·매물별 요청 건수). `ix_trd_trade_info_trade_id (trade_id)` — 거래ID 로만 찾는 조회용 일반 인덱스(중복 금지 아님, 정의서 밖, 2026-10-27 사용자 승인). 부분 unique `ux_trd_trade_info_one_quote`(견적)·`ux_trd_trade_info_one_compare`(비교용) 도 `(user_id, seller_id, prod_reg_date, prod_id)`. 외래키 없음 — 매물 삭제 때 남은 거래 행이 있으면 서버가 409 `LISTING_HAS_TRADES`. 구매자 목록은 PK 앞부분 `user_id`.
 
 ### trd_cart_info (TRD_CART_INFO — 장바구니 정보)
 

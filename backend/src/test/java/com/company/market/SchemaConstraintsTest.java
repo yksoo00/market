@@ -294,18 +294,20 @@ class SchemaConstraintsTest {
 	}
 
 	@Test
-	@DisplayName("장바구니 행은 구매자·매물당 하나 — 같은 매물의 견적 행과는 같이 있을 수 있다 (V202610211300)")
-	void oneCartRowPerListing() {
+	@DisplayName("장바구니 행은 같은 매물도 여러 줄(V202611021000 — 전엔 구매자·매물당 하나), 비교용 행은 하나. 견적 행과는 같이 있을 수 있다")
+	void cartRowsRepeatPerListing() {
 		UUID[] ids = insertListingAndBuyer();
 		insertRow(ids[0], ids[1], "26102113001", "구매검토", "장바구니");
-		assertThatThrownBy(() -> insertRow(ids[0], ids[1], "26102113002", "구매검토", "장바구니"))
+		insertRow(ids[0], ids[1], "26102113002", "구매검토", "장바구니");
+		insertRow(ids[0], ids[1], "26102113005", "구매검토", "비교용");
+		assertThatThrownBy(() -> insertRow(ids[0], ids[1], "26102113006", "구매검토", "비교용"))
 			.isInstanceOf(DuplicateKeyException.class);
 		insertRow(ids[0], ids[1], "26102113003", "견적조정", "견적요청");
 		// 다른 구매자는 같은 매물을 따로 담는다
 		insertUser("buyer02", "buyer2@example.com", "personal", null);
 		UUID other = jdbc.queryForObject("select uid from trd_user_info where user_id = 'buyer02'", UUID.class);
 		insertRow(other, ids[1], "26102113004", "구매검토", "장바구니");
-		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class)).isEqualTo(3);
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class)).isEqualTo(5);
 	}
 
 }

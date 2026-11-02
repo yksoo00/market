@@ -123,13 +123,13 @@ class CartInfoMigrationTest {
 	}
 
 	@Test
-	@DisplayName("같은 매물은 장바구니 1행 + 비교용 1행까지, 같은 상태 둘째는 거부")
-	void oneCartIndexCoversStats() {
+	@DisplayName("같은 매물의 비교용 행은 1행만(둘째 거부), 장바구니 행은 여러 줄 가능 (V202611021000)")
+	void compareRowsAreUniqueButCartRowsRepeat() {
 		insertTrade("26102910004", "구매검토", "비교용", "20261015100000", "CARTMIG01", 1);
 		assertThatThrownBy(() -> insertTrade("26102910005", "구매검토", "비교용", "20261015100000", "CARTMIG01", 1))
 			.isInstanceOf(DuplicateKeyException.class);
-		assertThatThrownBy(() -> insertTrade("26102910006", "구매검토", "장바구니", "20261015100000", "CARTMIG01", 1))
-			.isInstanceOf(DuplicateKeyException.class);
+		insertTrade("26102910006", "구매검토", "장바구니", "20261015100000", "CARTMIG01", 1);
+		insertTrade("26102910007", "구매검토", "장바구니", "20261015100000", "CARTMIG01", 1);
 	}
 
 }

@@ -120,6 +120,26 @@ class CartApiTest {
 			.minOrderQuantity(1).orderUnit(1).deliveryDate("2099-12-31").build());
 	}
 
+	private void reviewRow(String tradeId, String stats) {
+		jdbc.update("""
+				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id, order_unit_price,
+					order_quantity, prov_date, req_deli_date, trade_stats)
+				values (?, ?, '구매검토', ?, ?, 'CARTAPI01', 1000, 1, '2099-12-31', '2099-12-31', ?)
+				""", buyerId, tradeId, sellerId, REG_A, stats);
+	}
+
+	@Test
+	@DisplayName("DB: 같은 매물의 장바구니 행은 여러 줄이 되고(마이그레이션 2026-11-02), 비교용 행은 매물당 1줄만 된다")
+	void cartRowsCanRepeatButCompareRowsCannot() {
+		reviewRow("26110210001", "장바구니");
+		reviewRow("26110210002", "장바구니");
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info where trade_stats = '장바구니'", Integer.class)).isEqualTo(2);
+
+		reviewRow("26110210003", "비교용");
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> reviewRow("26110210004", "비교용"))
+			.isInstanceOf(org.springframework.dao.DuplicateKeyException.class);
+	}
+
 	private String item(String regDate, int quantity, String reqDeliDate, String remarks) {
 		return "{\"sellerId\":\"%s\",\"regDate\":\"%s\",\"orderQuantity\":%d,\"reqDeliDate\":\"%s\"%s}".formatted(sellerId, regDate,
 				quantity, reqDeliDate, remarks == null ? "" : ",\"remarks\":\"" + remarks + "\"");
@@ -200,27 +220,6 @@ class CartApiTest {
 	@DisplayName("한 요청에 같은 매물이 두 번이어도 한 번만 담는다")
 	void sameListingTwiceInOneRequest() throws Exception {
 		add(buyer, REG_A, REG_A).andExpect(status().isOk()).andExpect(jsonPath("$.data.added").value(1));
-		assertThat(cartInfoRows("장바구니")).isEqualTo(1);
-	}
-
-	@Test
-	@DisplayName("두 칸에서 동시에 같은 매물 담기 → 둘 다 성공, 두 테이블 모두 1행")
-	void concurrentAddSameListing() throws Exception {
-		ExecutorService pool = Executors.newFixedThreadPool(2);
-		CountDownLatch start = new CountDownLatch(1);
-		List<Future<Integer>> results = new ArrayList<>();
-		for (int i = 0; i < 2; i++) {
-			results.add(pool.submit(() -> {
-				start.await();
-				return add(buyer, REG_A).andReturn().getResponse().getStatus();
-			}));
-		}
-		start.countDown();
-		for (Future<Integer> r : results) {
-			assertThat(r.get()).isEqualTo(200);
-		}
-		pool.shutdown();
-		assertThat(cartRows()).isEqualTo(1);
 		assertThat(cartInfoRows("장바구니")).isEqualTo(1);
 	}
 
