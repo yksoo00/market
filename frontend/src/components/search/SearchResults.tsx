@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
-import { RowEditor } from "@/components/my/RowEditor";
+import { useEffect, useState } from "react";
 import { Pager } from "@/components/common/Pager";
 import { ResultList } from "@/components/search/ResultList";
-import { authApi } from "@/lib/api/auth";
 import { listingsApi } from "@/lib/api/listings";
 import { tradesApi } from "@/lib/api/trades";
 import { replaceRow } from "@/lib/rowEdit";
@@ -25,32 +23,20 @@ type State =
 export function SearchResults({
   query: initialQuery,
   scope = "search",
-  onEditingChange,
 }: {
   query: SearchQuery;
   scope?: SearchScope;
-  /** 내 판매글: 행 수정을 시작·끝낼 때. 부모가 수정 중에 검색창·필터를 숨긴다 */
-  onEditingChange?: (editing: boolean) => void;
 }) {
-  // 같은 URL 로 다시 이동해도 서버가 새 query 객체를 주므로, 마운트 때 값으로 고정해 행 수정으로 바뀐 결과가 조용히 리셋되지 않게
+  // 같은 URL 로 다시 이동해도 서버가 새 query 객체를 주므로, 마운트 때 값으로 고정해 구매 뒤 갱신한 행이 조용히 리셋되지 않게
   const [query] = useState(initialQuery);
   const [state, setState] = useState<State>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
-  // 내 판매글(mine): 수정 중인 행. 있으면 목록 대신 그 행의 편집기만 보인다 (다른 행·페이지 번호는 숨김)
-  const [editing, setEditing] = useState<ListingSearchItem | null>(null);
-  const rootRef = useRef<HTMLDivElement>(null);
-  const savedScroll = useRef(0);
-  // 내 판매글: 내 글에만 [수정]을 그리려고 로그인한 사용자 id 를 안다 (아직 모르면 버튼을 그리지 않는다)
-  const [meId, setMeId] = useState<string | null>(null);
   // 내 판매글: 매물별 구매요청 건수. 매물 검색 응답이 아니라 거래 API 에서 따로 받는다 (매물 → 거래 순환 의존 방지).
   // 실패하면 건수 칸이 비어 보일 뿐 목록은 그대로
   const [pendingCounts, setPendingCounts] = useState<PendingCounts | null>(null);
   useEffect(() => {
     if (scope !== "mine") return;
     let alive = true;
-    void authApi.me().then((res) => {
-      if (alive && res.ok) setMeId(res.data.id);
-    });
     void tradesApi.pendingCounts().then((res) => {
       if (alive && res.ok) setPendingCounts(res.data);
     });
@@ -58,23 +44,6 @@ export function SearchResults({
       alive = false;
     };
   }, [scope]);
-  // 뒤로가기 등으로 이 화면이 다시 마운트되면 부모가 "수정 중"으로 남지 않게
-  useEffect(() => () => onEditingChange?.(false), [onEditingChange]);
-
-  // 수정을 시작·끝낼 때 칸(main)의 스크롤 위치를 되돌려 보던 자리로 돌아오게
-  const scroller = () => rootRef.current?.closest("main") ?? null;
-  const startEdit = (item: ListingSearchItem) => {
-    savedScroll.current = scroller()?.scrollTop ?? 0;
-    setEditing(item);
-    onEditingChange?.(true);
-    scroller()?.scrollTo({ top: 0 });
-  };
-  const stopEdit = () => {
-    setEditing(null);
-    onEditingChange?.(false);
-    requestAnimationFrame(() => scroller()?.scrollTo({ top: savedScroll.current }));
-  };
-
   useEffect(() => {
     let alive = true;
     void listingsApi.search(query, scope).then((res) => {
@@ -117,27 +86,11 @@ export function SearchResults({
     if (res.ok) setState((prev) => (prev.kind === "ready" ? { ...prev, items: replaceRow(prev.items, res.data) } : prev));
   };
 
-  if (editing) {
-    return (
-      <div ref={rootRef}>
-        <RowEditor
-          item={editing}
-          onCancel={stopEdit}
-          onSaved={(detail) => {
-            // 저장 응답으로 그 행만 갱신 (새 상품으로 옮겨졌으면 그 상품 값)
-            setState((prev) => (prev.kind === "ready" ? { ...prev, items: replaceRow(prev.items, detail) } : prev));
-            stopEdit();
-          }}
-        />
-      </div>
-    );
-  }
-
   return (
-    <div ref={rootRef} className="contents">
-      <ResultList items={items} query={query} total={total} scope={scope} onEdit={scope === "mine" ? startEdit : undefined} ownerId={meId} pendingCounts={pendingCounts} onPurchased={refreshRow} />
+    <>
+      <ResultList items={items} query={query} total={total} scope={scope} pendingCounts={pendingCounts} onPurchased={refreshRow} />
       <Pager page={page} totalPages={totalPages} hrefFor={(n) => buildSearchHref({ ...query, page: n }, scope)} />
-    </div>
+    </>
   );
 }
 
