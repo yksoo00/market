@@ -9,6 +9,8 @@ export interface CartItem {
   orderQuantity: number;
   reqDeliDate: string;
   remarks: string | null;
+  /** 담은 시각 yyyyMMddHHmmss (UTC). 장바구니는 담은 지 1시간 뒤 자동으로 빠진다 */
+  addedAt: string;
   listing: ListingSearchItem;
 }
 
@@ -16,11 +18,10 @@ export interface CartCount {
   count: number;
 }
 
-/** 담기 결과 (백엔드 CartAddResponse): 지금 합계, 새로 담은 수, 이미 담겨 있어 건너뛴 수 */
+/** 담기 결과 (백엔드 CartAddResponse): 지금 합계, 이번에 담은 줄 수 (같은 매물도 담을 때마다 새 줄이라 건너뛰지 않는다) */
 export interface CartAddResult {
   count: number;
   added: number;
-  skipped: number;
 }
 
 /** 담을 매물 한 건 + 그 입력 */

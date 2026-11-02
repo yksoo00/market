@@ -20,6 +20,14 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	/** 거래ID 는 생성기(시간대 + 순번, 잠금)가 겹치지 않게 만들어 구매자 없이 하나로 찾는다 (DB unique 는 2026-10-27 에 뺐다) */
 	Optional<TradeInfo> findByTradeId(String tradeId);
 
+	/**
+	 * 거래 행을 잠그고 읽는다 — 장바구니 줄을 구매·견적으로 바꿀 때. 같은 줄을 1시간 자동 삭제(CartService.expire)가 동시에 지우면 묶은
+	 * 수량이 두 번 풀리거나 지워진 행을 갱신하게 되므로, 먼저 온 쪽이 끝난 뒤에 다른 쪽이 보게 한다 (2026-11-02)
+	 */
+	@org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+	@Query("select t from TradeInfo t where t.tradeId = :tradeId")
+	Optional<TradeInfo> findForUpdateByTradeId(@Param("tradeId") String tradeId);
+
 	/** 구매자·매물당 견적 단계 행은 하나(ux_trd_trade_info_one_quote) — 재요청이 덮어쓸 행. 구매 단계로 넘어간 행은 찾지 않는다 */
 	Optional<TradeInfo> findByUserIdAndSellerIdAndProdRegDateAndProdIdAndTradeTypeAndTradeStatsIn(UUID userId,
 			UUID sellerId, String prodRegDate, String prodId, TradeType tradeType, Collection<TradeStats> stats);
@@ -200,6 +208,10 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	 */
 	boolean existsBySellerIdAndProdRegDateAndProdIdAndTradeStatsIn(UUID sellerId, String prodRegDate, String prodId,
 			Collection<TradeStats> stats);
+
+	/** 담은 지 오래된 장바구니 줄의 거래ID (reg_date = 담은 시각 14자리, cutoff 보다 이르면) — 1시간 자동 정리용 */
+	@Query("select t.tradeId from TradeInfo t where t.tradeType = :type and t.tradeStats = :stats and t.regDate < :cutoff order by t.tradeId")
+	List<String> findStaleTradeIds(@Param("type") TradeType type, @Param("stats") TradeStats stats, @Param("cutoff") String cutoff);
 
 	/** 판매자 매물별 그 상태들 건수 → [매물 등록일시, count]. 한 판매자 안에서 등록일시는 매물 하나 (같은 초 등록 409) */
 	@Query("""

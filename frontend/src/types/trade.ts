@@ -17,6 +17,8 @@ export interface TradeCreateRequest {
   /** YYYY-MM-DD */
   reqDeliDate: string;
   remarks?: string;
+  /** 장바구니에서 누른 구매면 그 줄의 거래ID — 있으면 그 줄이 구매요청이 된다 */
+  cartTradeId?: string;
 }
 
 /** POST /api/v1/trades/quotes 한 줄. 납품희망일 필수 (2026-10-27) */
@@ -28,6 +30,8 @@ export interface QuoteItem {
   /** YYYY-MM-DD */
   reqDeliDate: string;
   remarks?: string;
+  /** 장바구니에서 누른 견적이면 그 줄의 거래ID — 있으면 그 줄이 견적요청이 된다 */
+  cartTradeId?: string;
 }
 
 /** 백엔드 TradeResponse. counterpartNickname = 보는 사람의 상대방(구매자에겐 판매자) */

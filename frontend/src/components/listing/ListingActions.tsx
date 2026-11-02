@@ -192,8 +192,7 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
         open={added !== null}
         tone="success"
         title={cart.add.doneTitle}
-        message={added && added.skipped > 0 ? `${cart.add.doneMessage}
-${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
+        message={cart.add.doneMessage}
         actionLabel={cart.add.toCart}
         onAction={() => {
           setAdded(null);

@@ -109,6 +109,11 @@ describe("purchaseBlockReason", () => {
     expect(purchaseBlockReason(buyable, UUID.toUpperCase())).toBe("own");
   });
 
+  it("장바구니 줄이 이미 묶은 수량은 쓸 수 있는 재고에 더한다 — 재고 0 이어도 줄 수량이 최소주문량 이상이면 살 수 있다", () => {
+    expect(purchaseBlockReason({ ...buyable, stockQuantity: 0, minOrderQuantity: 2 }, OTHER)).toBe("lowStock");
+    expect(purchaseBlockReason({ ...buyable, stockQuantity: 0, minOrderQuantity: 2 }, OTHER, 2)).toBeNull();
+  });
+
   it("재고가 최소주문량보다 적으면 lowStock", () => {
     expect(purchaseBlockReason({ ...buyable, stockQuantity: 1 }, OTHER)).toBe("lowStock");
     expect(purchaseBlockReason({ ...buyable, stockQuantity: null }, OTHER)).toBe("lowStock");

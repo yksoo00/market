@@ -165,4 +165,68 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     await expect(cartLink(1)).toBeVisible();
     await other.close();
   });
+
+  // 같은 매물도 담을 때마다 새 줄이고 담은 수량만큼 재고가 묶인다 (2026-11-02). 장바구니에는 B 한 줄(수량 1)이 있다
+  await test.step("같은 상품을 또 담으면 새 줄 — 담은 수량 열, 재고 초과는 그 칸에 오류, 줄을 가리킨 구매", async () => {
+    await page.goto(`/search?q=${encodeURIComponent(word)}`);
+    await rowOf(nameB).getByRole("checkbox", { name: search.result.selectRow(nameB) }).check();
+    await page.getByRole("button", { name: cart.add.button, exact: true }).first().click();
+    const addDialog = page.getByRole("dialog", { name: cart.add.dialog.title });
+    await expect(addDialog).toBeVisible();
+    // 재고(5)보다 많이 담으려 하면 그 칸에 바로 오류, [담기] 는 막힌다
+    const qtyInput = addDialog.locator('input[name="items.0.orderQuantity"]');
+    await qtyInput.fill("999");
+    await qtyInput.blur();
+    await expect(addDialog.getByText(/재고/).first()).toBeVisible();
+    await expect(addDialog.getByRole("button", { name: cart.add.dialog.submit(1), exact: true })).toBeDisabled();
+    await qtyInput.fill("2");
+    await addDialog.getByRole("button", { name: cart.add.dialog.submit(1), exact: true }).click();
+    await expect(page.getByRole("dialog", { name: cart.add.doneTitle })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(cartLink(2)).toBeVisible();
+
+    await page.goto("/my/cart");
+    await expect(rowOf(nameB)).toHaveCount(2);
+    await expect(page.getByRole("columnheader", { name: cart.page.columns.quantity })).toBeVisible();
+    await expect(page.getByText(cart.page.autoRemoveHint)).toBeVisible();
+    // 최근에 담은 줄(수량 2)이 먼저 — 그 줄만 골라 구매하면 그 줄이 구매요청이 되고 다른 줄(수량 1)은 남는다
+    await rowOf(nameB).first().getByRole("checkbox", { name: search.result.selectRow(nameB) }).check();
+    await page.getByRole("button", { name: search.result.buy, exact: true }).first().click();
+    const dialog = page.getByRole("dialog", { name: trade.purchase.title });
+    await expect(dialog.locator('input[name="orderQuantity"]')).toHaveValue("2");
+    await dialog.locator('input[name="reqDeliDate"]').fill(
+      new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(Date.now() + 7 * 86_400_000)),
+    );
+    await dialog.getByRole("button", { name: trade.purchase.submit, exact: true }).click();
+    await expect(page.getByRole("dialog", { name: trade.purchase.doneTitle })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(rowOf(nameB)).toHaveCount(1);
+    await expect(cartLink(1)).toBeVisible();
+  });
+
+  // 재고 전량(남은 2개)을 담은 줄도 그 줄로 구매할 수 있다 — 그 줄이 묶은 수량은 쓸 수 있는 재고다 (코드리뷰)
+  await test.step("재고 전량을 담은 줄로도 구매할 수 있다", async () => {
+    await page.goto(`/search?q=${encodeURIComponent(word)}`);
+    await rowOf(nameB).getByRole("checkbox", { name: search.result.selectRow(nameB) }).check();
+    await page.getByRole("button", { name: cart.add.button, exact: true }).first().click();
+    const addDialog = page.getByRole("dialog", { name: cart.add.dialog.title });
+    await addDialog.locator('input[name="items.0.orderQuantity"]').fill("2");
+    await addDialog.getByRole("button", { name: cart.add.dialog.submit(1), exact: true }).click();
+    await expect(page.getByRole("dialog", { name: cart.add.doneTitle })).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await page.goto("/my/cart");
+    await rowOf(nameB).first().getByRole("checkbox", { name: search.result.selectRow(nameB) }).check();
+    await page.getByRole("button", { name: search.result.buy, exact: true }).first().click();
+    const dialog = page.getByRole("dialog", { name: trade.purchase.title });
+    await expect(dialog.locator('input[name="orderQuantity"]')).toHaveValue("2");
+    await dialog.locator('input[name="reqDeliDate"]').fill(
+      new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(Date.now() + 7 * 86_400_000)),
+    );
+    // 재고가 0 이어도 그 줄의 수량(2)까지 살 수 있어 [구매요청] 이 켜져 있다
+    const submit = dialog.getByRole("button", { name: trade.purchase.submit, exact: true });
+    await expect(submit).toBeEnabled();
+    await submit.click();
+    await expect(page.getByRole("dialog", { name: trade.purchase.doneTitle })).toBeVisible();
+  });
 });

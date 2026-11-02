@@ -420,6 +420,12 @@ public class ListingService {
 		}
 	}
 
+	/** 재고 묶기를 시도한다 — 부족·거래완료면 false (장바구니 담기가 줄마다 오류를 모아 알리려고). 호출자 트랜잭션에 합류 */
+	@Transactional
+	public boolean tryReserveStock(ListingId id, int quantity) {
+		return listings.reserveStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity) > 0;
+	}
+
 	/**
 	 * 구매 확정 뒤 판매완료 판정 — 재고가 0 이면 판매완료로 표시한다. "더 묶인 건이 없을 때만"은 호출하는 거래 쪽이 확인한다
 	 * (묶인 건은 거래 행이라). 재고가 남았거나 이미 거래완료면 아무 일도 안 한다
@@ -436,6 +442,15 @@ public class ListingService {
 		if (listings.releaseStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity) == 0) {
 			throw new ApiException(ErrorCode.LISTING_NOT_FOUND);
 		}
+	}
+
+	/**
+	 * 재고 복원을 시도한다 — 매물이 이미 없으면 false (던지지 않는다). 장바구니 자동 삭제처럼 매물이 없어도 줄은 지워야 하는 곳용:
+	 * 던지면 이 메서드의 @Transactional 이 호출자 트랜잭션을 롤백 전용으로 만들어 줄이 영영 안 지워진다
+	 */
+	@Transactional
+	public boolean releaseStockIfPresent(ListingId id, int quantity) {
+		return listings.releaseStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity) > 0;
 	}
 
 	public ListingResponse get(UUID userId, String regDate) {

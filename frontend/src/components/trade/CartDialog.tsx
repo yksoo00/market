@@ -149,7 +149,9 @@ function CartForm({ sendable, skipped, onClose, onAdded }: FormProps) {
   const [today] = useState(() => todayInSeoul());
   const form = useForm<CartAddFormInput, unknown, CartAddFormOutput>({
     resolver: zodResolver(
-      cartAddSchema(sendable.map((d) => ({ minOrder: d.minOrderQuantity, unit: d.orderUnit, unitPrice: d.salesUnitPrice, today }))),
+      cartAddSchema(
+        sendable.map((d) => ({ stock: d.stockQuantity ?? 0, minOrder: d.minOrderQuantity, unit: d.orderUnit, unitPrice: d.salesUnitPrice, today })),
+      ),
     ),
     mode: "onTouched",
     reValidateMode: "onChange",
@@ -161,6 +163,7 @@ function CartForm({ sendable, skipped, onClose, onAdded }: FormProps) {
   const {
     handleSubmit,
     setError,
+    setFocus,
     formState: { isValid, isSubmitting },
   } = form;
   const [formError, setFormError] = useState<string | null>(null);
@@ -192,6 +195,9 @@ function CartForm({ sendable, skipped, onClose, onAdded }: FormProps) {
       ? { ...result, fields: Object.fromEntries(Object.entries(result.fields).map(([k, m]) => [toFormPath(k), m])) }
       : result;
     setFormError(applyServerError(fail, setError, fieldPaths, trade.errors));
+    // 틀린 줄이 여럿이면 처음 틀린 칸으로 바로 가 준다 (줄이 많아도 찾을 필요 없게)
+    const firstBad = Object.keys(fail.fields ?? {}).find((k) => (fieldPaths as readonly string[]).includes(k));
+    if (firstBad) setFocus(firstBad as Path<CartAddFormInput>);
   });
 
   return (

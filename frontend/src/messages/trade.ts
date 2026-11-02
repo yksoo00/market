@@ -86,6 +86,8 @@ export const trade = {
     remarks: "비고",
     remarksPlaceholder: "판매자에게 전할 말 (선택, 100자)",
     skipped: "보내지 않는 매물",
+    // 장바구니에 같은 매물이 여러 줄이어도 견적은 매물당 한 건이다
+    sameListing: "같은 상품은 견적을 한 번만 보낼 수 있어요. 한 줄만 골라 주세요.",
     blocked: {
       completed: "거래가 끝난 매물",
       own: "내 매물",

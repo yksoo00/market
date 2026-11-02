@@ -15,7 +15,6 @@ type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; items: C
 
 // 검색 결과 표에 쓰는 조건은 장바구니에선 의미가 없다 — 빈 조건 하나로 고정
 const NO_QUERY = parseSearchParams({});
-const keyOf = (i: ListingSearchItem) => `${i.userId}/${i.regDate}`;
 
 /**
  * 내 장바구니 (스펙 2026-10-21). 검색 결과 표(scope="cart")를 그대로 쓰고, 100개까지라 [더 보기] 없이 한 번에 읽는다.
@@ -44,6 +43,12 @@ export function CartView() {
   }, [attempt]);
 
   useEffect(() => onCartChanged(() => setAttempt((n) => n + 1)), []);
+
+  // 담은 지 1시간이 지난 줄은 서버가 자동으로 지운다 — 1분마다 다시 읽어 빠진 줄과 "남은 시간"을 맞춘다 (2026-11-02)
+  useEffect(() => {
+    const timer = setInterval(() => setAttempt((n) => n + 1), 60_000);
+    return () => clearInterval(timer);
+  }, []);
 
   if (state.kind === "loading") return <div className="h-40 rounded-md bg-line-2 animate-pulse" aria-busy="true" />;
   if (state.kind === "error") {
@@ -80,15 +85,19 @@ export function CartView() {
     );
   }
 
-  const tradeIdByKey = new Map(items.map((i) => [keyOf(i.listing), i.tradeId]));
-  // 구매·견적 모달의 기본값 = 담을 때 입력한 값
+  // 같은 매물도 담을 때마다 새 줄이라 줄의 거래ID 로 가리킨다 (표 선택·빼기·구매·견적 모두)
+  const rows: ListingSearchItem[] = items.map((i) => ({ ...i.listing, cartTradeId: i.tradeId }));
+  // 구매·견적 모달의 기본값 = 담을 때 입력한 값 (+ 그 줄을 가리키는 거래ID, 표의 남은 시간용 담은 시각)
   const cartDefaults = new Map(
-    items.map((i) => [keyOf(i.listing), { orderQuantity: i.orderQuantity, reqDeliDate: i.reqDeliDate, remarks: i.remarks }] as const),
+    items.map(
+      (i) =>
+        [i.tradeId, { orderQuantity: i.orderQuantity, reqDeliDate: i.reqDeliDate, remarks: i.remarks, cartTradeId: i.tradeId, addedAt: i.addedAt }] as const,
+    ),
   );
   const remove = async (chosen: ListingSearchItem[]) => {
     setRemoving(true);
     setRemoveError(null);
-    const ids = chosen.map((i) => tradeIdByKey.get(keyOf(i))).filter((id): id is string => id !== undefined);
+    const ids = chosen.map((i) => i.cartTradeId).filter((id): id is string => id !== undefined);
     const res = await cartApi.remove(ids);
     setRemoving(false);
     if (!res.ok) setRemoveError(trade.errors[res.code] ?? res.message);
@@ -104,8 +113,9 @@ export function CartView() {
           {removeError}
         </p>
       )}
+      <p className="px-1 text-[13px] text-ink-2">{t.page.autoRemoveHint}</p>
       <ResultList
-        items={items.map((i) => i.listing)}
+        items={rows}
         total={items.length}
         query={NO_QUERY}
         scope="cart"

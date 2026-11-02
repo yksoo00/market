@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { cartAddSchema, MAX_CART_ADD, type CartAddLimits } from "./cartAdd";
 
 const today = "2026-10-29";
-const limits = (over: Partial<CartAddLimits> = {}): CartAddLimits => ({ minOrder: 2, unit: 2, unitPrice: 1000, today, ...over });
+const limits = (over: Partial<CartAddLimits> = {}): CartAddLimits => ({ stock: 100_000, minOrder: 2, unit: 2, unitPrice: 1000, today, ...over });
 const parse = (rows: object[], ls: CartAddLimits[] = rows.map(() => limits())) =>
   cartAddSchema(ls).safeParse({ items: rows });
 const row = (over: object = {}) => ({ orderQuantity: "4", reqDeliDate: "2026-11-01", remarks: "", ...over });
@@ -31,8 +31,11 @@ describe("cartAddSchema", () => {
     ]);
   });
 
-  it("재고는 보지 않는다 — 재고보다 많아도 통과", () => {
-    expect(paths([row({ orderQuantity: "99998" })], [limits({ minOrder: 1, unit: 2, unitPrice: 1 })])).toEqual([]);
+  it("담으면 재고에서 묶이므로 재고보다 많이 담을 수 없다 (2026-11-02) — 재고와 같으면 통과", () => {
+    const at = (stock: number) => [limits({ stock, minOrder: 1, unit: 1, unitPrice: 1 })];
+    expect(paths([row({ orderQuantity: "11" })], at(10))).toEqual(["items.0.orderQuantity"]);
+    expect(paths([row({ orderQuantity: "10" })], at(10))).toEqual([]);
+    expect(paths([row({ orderQuantity: "1" })], at(0))).toEqual(["items.0.orderQuantity"]);
   });
 
   it("납품희망일: 비어 있음·없는 날짜·지난 날짜는 오류, 오늘은 통과", () => {
