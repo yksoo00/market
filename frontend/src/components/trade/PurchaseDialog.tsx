@@ -34,8 +34,10 @@ interface Props {
   onPurchased: (created: Trade) => void;
   /** 수락된 견적에서 [구매]: 그 거래ID. 있으면 새 거래를 만들지 않고 그 견적이 구매요청이 된다 (견적서 한 건 = 한 행) */
   quoteTradeId?: string;
-  /** 견적에서 연 모달의 주문량 기본값(견적 수량). 없으면 최소주문량 */
+  /** 견적에서 연 모달의 주문량 기본값(견적 수량). 없으면 최소주문량. quoteTradeId 가 있으면 이 수량으로 고정(수정 불가) */
   defaultQuantity?: number;
+  /** 수락된 견적의 수락 단가 — 견적에서 연 모달은 매물 단가가 아니라 이 값으로 금액을 보여 준다 (2026-11-02) */
+  quoteUnitPrice?: number;
   /** 장바구니에서 연 모달의 기본값(담을 때 입력한 값). 없으면 제공가능일·빈 요청사항 */
   defaultReqDeliDate?: string;
   defaultRemarks?: string;
@@ -45,7 +47,7 @@ interface Props {
  * 구매요청 모달 (스펙 2026-10-15-purchase-design.md "구매 모달"). 상세·검색 결과가 같이 쓴다.
  * 열 때마다 매물을 다시 읽는다 — 검색 결과엔 최소주문량·주문단위가 없고, 재고는 최신이어야 해서.
  */
-export function PurchaseDialog({ sellerId, regDate, open, onOpenChange, onPurchased, quoteTradeId, defaultQuantity, defaultReqDeliDate, defaultRemarks }: Props) {
+export function PurchaseDialog({ sellerId, regDate, open, onOpenChange, onPurchased, quoteTradeId, defaultQuantity, quoteUnitPrice, defaultReqDeliDate, defaultRemarks }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* 3분할 아래 칸(iframe)은 창 높이의 절반도 안 된다 — 낮은 칸에선 여백을 줄이고, 그래도 넘치면 모달 안에서 스크롤 (dialog.tsx max-h) */}
@@ -61,6 +63,7 @@ export function PurchaseDialog({ sellerId, regDate, open, onOpenChange, onPurcha
             regDate={regDate}
             quoteTradeId={quoteTradeId}
             defaultQuantity={defaultQuantity}
+            quoteUnitPrice={quoteUnitPrice}
             defaultReqDeliDate={defaultReqDeliDate}
             defaultRemarks={defaultRemarks}
             onClose={() => onOpenChange(false)}
@@ -77,7 +80,7 @@ type Load =
   | { kind: "error" }
   | { kind: "ready"; detail: ListingDetail; meId: string | null; anonymous: boolean; version: number };
 
-function PurchaseBody({ sellerId, regDate, quoteTradeId, defaultQuantity, defaultReqDeliDate, defaultRemarks, onClose, onPurchased }: Omit<Props, "open" | "onOpenChange"> & { onClose: () => void }) {
+function PurchaseBody({ sellerId, regDate, quoteTradeId, defaultQuantity, quoteUnitPrice, defaultReqDeliDate, defaultRemarks, onClose, onPurchased }: Omit<Props, "open" | "onOpenChange"> & { onClose: () => void }) {
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const pathname = usePathname();
   const [notice, setNotice] = useState<string | null>(null);
@@ -161,6 +164,7 @@ function PurchaseBody({ sellerId, regDate, quoteTradeId, defaultQuantity, defaul
       detail={load.detail}
       quoteTradeId={quoteTradeId}
       defaultQuantity={defaultQuantity}
+      quoteUnitPrice={quoteUnitPrice}
       defaultReqDeliDate={defaultReqDeliDate}
       defaultRemarks={defaultRemarks}
       notice={notice}
@@ -178,6 +182,7 @@ interface FormProps {
   detail: ListingDetail;
   quoteTradeId?: string;
   defaultQuantity?: number;
+  quoteUnitPrice?: number;
   defaultReqDeliDate?: string;
   defaultRemarks?: string;
   notice: string | null;
@@ -186,17 +191,20 @@ interface FormProps {
   onPurchased: (created: Trade) => void;
 }
 
-function PurchaseForm({ detail, quoteTradeId, defaultQuantity, defaultReqDeliDate, defaultRemarks, notice, onStockChanged, onClose, onPurchased }: FormProps) {
+function PurchaseForm({ detail, quoteTradeId, defaultQuantity, quoteUnitPrice, defaultReqDeliDate, defaultRemarks, notice, onStockChanged, onClose, onPurchased }: FormProps) {
   // 날짜 기준·중복 방지 키는 폼을 연 동안 고정
   const [today] = useState(() => todayInSeoul());
   const [idempotencyKey] = useState(() => crypto.randomUUID());
+  // 수락된 견적: 수량은 수락 때 이미 묶였다 — 남은 재고·최소주문량·주문단위로 다시 막지 않고, 수락된 수량·단가 그대로 (2026-11-02)
+  const quoteFixed = quoteTradeId !== undefined && defaultQuantity !== undefined;
+  const unitPrice = quoteFixed && quoteUnitPrice !== undefined ? quoteUnitPrice : detail.salesUnitPrice;
   const form = useForm<PurchaseFormInput, unknown, PurchaseFormOutput>({
     resolver: zodResolver(
       purchaseSchema({
-        stock: detail.stockQuantity ?? 0,
-        minOrder: detail.minOrderQuantity,
-        unit: detail.orderUnit,
-        unitPrice: detail.salesUnitPrice,
+        stock: quoteFixed ? defaultQuantity : (detail.stockQuantity ?? 0),
+        minOrder: quoteFixed ? 1 : detail.minOrderQuantity,
+        unit: quoteFixed ? 1 : detail.orderUnit,
+        unitPrice,
         today,
       }),
     ),
@@ -217,7 +225,7 @@ function PurchaseForm({ detail, quoteTradeId, defaultQuantity, defaultReqDeliDat
   const [formError, setFormError] = useState<string | null>(null);
   const [unreachable, setUnreachable] = useState(false);
   const quantity = useWatch({ control, name: "orderQuantity" });
-  const amount = isInt(quantity) ? orderAmount(detail.salesUnitPrice, Number(quantity)) : null;
+  const amount = isInt(quantity) ? orderAmount(unitPrice, Number(quantity)) : null;
 
   const submit = handleSubmit(async (values) => {
     setFormError(null);
@@ -243,13 +251,18 @@ function PurchaseForm({ detail, quoteTradeId, defaultQuantity, defaultReqDeliDat
     setFormError(applyServerError(result, setError, FIELDS, trade.errors));
   });
 
-  const info: [string, string][] = [
-    [t.unitPrice, formatPrice(detail.salesUnitPrice)],
-    [t.stock, t.count(detail.stockQuantity ?? 0)],
-    [t.minOrder, t.count(detail.minOrderQuantity)],
-    [t.unit, t.count(detail.orderUnit)],
-    [t.provDate, detail.deliveryDate ?? t.none],
-  ];
+  const info: [string, string][] = quoteFixed
+    ? [
+        [t.unitPrice, formatPrice(unitPrice)],
+        [t.provDate, detail.deliveryDate ?? t.none],
+      ]
+    : [
+        [t.unitPrice, formatPrice(detail.salesUnitPrice)],
+        [t.stock, t.count(detail.stockQuantity ?? 0)],
+        [t.minOrder, t.count(detail.minOrderQuantity)],
+        [t.unit, t.count(detail.orderUnit)],
+        [t.provDate, detail.deliveryDate ?? t.none],
+      ];
 
   return (
     <FormProvider {...form}>
@@ -273,7 +286,15 @@ function PurchaseForm({ detail, quoteTradeId, defaultQuantity, defaultReqDeliDat
           </dl>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 [@media(max-height:640px)]:gap-3">
-          <FormField<PurchaseFormInput> name="orderQuantity" label={t.orderQuantity} inputMode="numeric" maxLength={6} className="font-mono tabular-nums" />
+          <FormField<PurchaseFormInput>
+            name="orderQuantity"
+            label={t.orderQuantity}
+            inputMode="numeric"
+            maxLength={6}
+            className="font-mono tabular-nums"
+            readOnly={quoteFixed}
+            hint={quoteFixed ? trade.list.quoteFixedHint : undefined}
+          />
           <FormField<PurchaseFormInput>
             name="reqDeliDate"
             label={t.reqDeliDate}

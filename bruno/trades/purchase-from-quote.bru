@@ -27,6 +27,7 @@ vars:pre-request {
 }
 
 docs {
+  수량·단가는 수락된 그대로(수락 단가는 이 거래 안에서만, 수량은 수락 때 이미 묶였다) — orderQuantity 가 수락된 수량과 다르면 400 fields.orderQuantity. (2026-11-02)
   구매자(견적을 보낸 사람) 로그인 먼저. tradeId 는 accept.bru 로 수락된 견적의 거래ID (예시 값은 자리표시).
   새 거래를 만들지 않고 그 견적이 구매요청이 된다(견적서 한 건 = 한 행): tradeStats "requested", tradeType 은 "quote" 그대로. 단가는 받지 않고 지금 매물 단가(수락으로 내려간 값). 재고를 줄인다.
   보낸 구매자만(판매자·제3자 403). 견적수락 상태에서만 — 아니면 409 TRADE_NOT_PENDING. 매물 거래완료 409 LISTING_COMPLETED, 재고 초과 409 TRADE_OUT_OF_STOCK.

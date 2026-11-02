@@ -110,7 +110,8 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
 
   const confirmText: Record<Exclude<RowAction, "buy" | "requote">, (item: Trade) => string> = {
     complete: () => t.confirmComplete,
-    cancel: (item) => (item.tradeStats.startsWith("quote") ? t.confirmCancelQuote : t.confirmCancel),
+    cancel: (item) =>
+      item.tradeStats === "quoteAccepted" ? t.confirmCancelAccepted : item.tradeStats.startsWith("quote") ? t.confirmCancelQuote : t.confirmCancel,
     accept: () => t.confirmAccept,
     reject: () => t.confirmReject,
   };
@@ -194,6 +195,8 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
           // 수락된 견적이면 그 행이 구매요청이 된다 — 새 줄이 생기지 않는다
           quoteTradeId={buying.tradeId}
           defaultQuantity={buying.orderQuantity}
+          // 수락된 견적은 수락 단가·수량 그대로 (매물 단가가 아니다)
+          quoteUnitPrice={buying.orderUnitPrice}
           open
           onOpenChange={(open) => !open && setBuying(null)}
           // 그 줄이 구매요청으로 바뀌었으니 목록을 다시 읽고, 구매 모달을 연 다른 곳과 같은 완료 안내를 띄운다

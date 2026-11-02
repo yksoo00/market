@@ -73,7 +73,7 @@ export const trade = {
   // 견적 모달 (검색 결과·상세의 [견적 요청], 스펙 2026-10-20)
   quote: {
     title: "견적 요청",
-    desc: "희망단가를 보내면 판매자가 수락하거나 거절해요. 수락하면 매물 단가가 바뀌고, 그 뒤 [구매]로 사면 돼요.",
+    desc: "희망단가를 보내면 판매자가 수락하거나 거절해요. 수락하면 그 수량이 내 몫으로 묶이고, 그 뒤 [구매]로 사면 돼요. 매물 단가는 그대로예요.",
     loading: "매물 정보를 불러오는 중…",
     loadFailed: "매물 정보를 불러오지 못했어요.",
     retry: "다시 시도",
@@ -151,11 +151,14 @@ export const trade = {
     acceptAria: (name: string) => `${name} 견적 수락`,
     rejectAria: (name: string) => `${name} 견적 거절`,
     buyAria: (name: string) => `${name} 구매`,
+    // 수락된 견적 줄의 [구매] 모달 — 수량·단가는 수락된 값 그대로
+    quoteFixedHint: "수락된 수량·단가 그대로 구매해요. 바꾸려면 취소하고 다시 견적하세요.",
     requoteAria: (name: string) => `${name} 견적 재요청`,
     confirmComplete: "물건을 받으셨나요?\n거래완료하면 구매가 확정되고 더는 취소할 수 없어요.",
     confirmCancel: "이 구매요청을 취소할까요?\n주문한 수량은 판매자 재고로 돌아가요.",
     confirmCancelQuote: "이 견적 요청을 취소할까요?",
-    confirmAccept: "견적을 수락할까요?\n매물 단가가 희망단가로 바뀌고, 다른 구매자에게도 그 가격으로 보여요.",
+    confirmCancelAccepted: "수락된 견적을 취소할까요?\n묶여 있던 수량은 판매자 재고로 돌아가요.",
+    confirmAccept: "견적을 수락할까요?\n그 수량이 구매자 몫으로 묶이고, 구매자가 구매하거나 취소할 때까지 묶여 있어요. 매물 단가는 그대로예요.",
     confirmReject: "견적을 거절할까요?\n매물 단가는 그대로예요.",
     reloaded: "목록을 새로 불러왔어요.",
     confirmDone: "확인",

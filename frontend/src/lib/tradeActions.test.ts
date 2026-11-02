@@ -22,12 +22,12 @@ const row = (tradeType: TradeType, tradeStats: TradeStats): Trade => ({
 describe("rowActions", () => {
   it.each([
     ["quote", "quoteRequested", true, ["cancel"]],
-    ["quote", "quoteAccepted", true, ["buy"]],
+    ["quote", "quoteAccepted", true, ["buy", "cancel"]],
     ["quote", "quoteRejected", true, ["requote", "cancel"]],
     ["purchase", "requested", true, ["complete", "cancel"]],
     ["purchase", "confirmed", true, []],
     ["quote", "quoteRequested", false, ["accept", "reject"]],
-    ["quote", "quoteAccepted", false, []],
+    ["quote", "quoteAccepted", false, ["cancel"]],
     ["quote", "quoteRejected", false, []],
     ["purchase", "requested", false, ["cancel"]],
     ["purchase", "confirmed", false, []],

@@ -197,6 +197,25 @@ class TradeMailTest {
 	}
 
 	@Test
+	@DisplayName("수락된 견적 취소 → 취소한 쪽의 상대에게: 판매자가 취소하면 구매자에게, 구매자가 취소하면 판매자에게 (2026-11-02)")
+	void acceptedQuoteCancelMailsTheOtherSide() throws Exception {
+		quote(900);
+		action(seller, quoteId(), "accept").andExpect(status().isOk());
+		mailer.sent.clear();
+		action(seller, quoteId(), "cancel").andExpect(status().isNoContent());
+		assertThat(mailer.sent).singleElement().satisfies(m -> {
+			assertThat(m.to()).isEqualTo("mailbuyer@example.com");
+			assertThat(m.subject()).contains("취소");
+		});
+
+		quote(800);
+		action(seller, quoteId(), "accept").andExpect(status().isOk());
+		mailer.sent.clear();
+		action(buyer, quoteId(), "cancel").andExpect(status().isNoContent());
+		assertThat(mailer.sent).singleElement().satisfies(m -> assertThat(m.to()).isEqualTo("mailseller@example.com"));
+	}
+
+	@Test
 	@DisplayName("견적 취소 → 판매자, 구매요청 → 판매자, 거래 취소 → 상대, 거래완료 → 둘 다")
 	void otherSteps() throws Exception {
 		quote(900);

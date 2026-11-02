@@ -68,9 +68,10 @@ public class TradeMailListener {
 
 	private static List<UUID> recipients(TradeMailEvent e) {
 		return switch (e.kind()) {
-			case QUOTE_REQUESTED, QUOTE_CANCELED, PURCHASE_REQUESTED -> List.of(e.sellerId());
+			case QUOTE_REQUESTED, PURCHASE_REQUESTED -> List.of(e.sellerId());
 			case QUOTE_ACCEPTED, QUOTE_REJECTED -> List.of(e.buyerId());
-			case PURCHASE_CANCELED -> List.of(e.buyerId().equals(e.actorId()) ? e.sellerId() : e.buyerId());
+			// 견적 취소: 구매자가 거두면 판매자에게, 수락된 견적을 판매자가 취소하면 구매자에게 (2026-11-02) — 한 쪽이 한 일은 상대에게 알린다
+			case QUOTE_CANCELED, PURCHASE_CANCELED -> List.of(e.buyerId().equals(e.actorId()) ? e.sellerId() : e.buyerId());
 			case PURCHASE_CONFIRMED -> List.of(e.sellerId(), e.buyerId());
 		};
 	}

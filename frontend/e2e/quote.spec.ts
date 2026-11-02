@@ -7,7 +7,7 @@ import { signup } from "@/messages/signup";
 import { trade } from "@/messages/trade";
 
 // 견적 흐름: 판매자 등록(단가 10000) → 구매자 검색 결과에서 [견적 요청](희망단가 9000) → 판매자 받은 구매요청에서 [수락]
-// → 매물 단가가 9000 으로 바뀜 → 구매자 내 구매목록의 [구매]. 가입이 2번(판매자·구매자)
+// → 매물 단가는 그대로(수락 단가는 이 거래 안에서만), 수량은 구매자 몫으로 묶임 → 구매자 [취소]/[구매]. 가입이 2번(판매자·구매자)
 const password = "Test1234!@";
 const t = trade.list;
 const q = trade.quote;
@@ -47,7 +47,7 @@ async function logOut(page: Page) {
   await expect(page.getByRole("button", { name: my.menu.label })).toBeHidden();
 }
 
-test("견적 요청 → 판매자 수락(매물 단가 변경) → 구매자 [구매]", async ({ page }) => {
+test("견적 요청 → 판매자 수락(매물 단가 그대로·수량 묶임) → 구매자 [취소] 후 다시 → [구매]", async ({ page }) => {
   const stamp = Date.now().toString().slice(-8);
   const seller = `e2eqs${stamp}`;
   const buyer = `e2eqb${stamp}`;
@@ -117,7 +117,7 @@ test("견적 요청 → 판매자 수락(매물 단가 변경) → 구매자 [�
     await logOut(page);
   });
 
-  await test.step("판매자 받은 구매요청: [수락] → 매물 단가 9000", async () => {
+  await test.step("판매자 받은 구매요청: [수락] → 매물 단가는 그대로 10000, 수락한 줄엔 [취소]", async () => {
     await logIn(page, seller);
     await page.goto("/my/activity?tab=requests");
     await page.getByRole("button", { name: t.acceptAria(prodName) }).click();
@@ -125,8 +125,33 @@ test("견적 요청 → 판매자 수락(매물 단가 변경) → 구매자 [�
     await expect(row.getByText(t.stats.quoteAccepted)).toBeVisible();
     // 답한 뒤엔 수락·거절 버튼이 없다 (두 번 누를 수 없음)
     await expect(page.getByRole("button", { name: t.acceptAria(prodName) })).toHaveCount(0);
+    // 수락 단가는 이 거래 안에서만 쓴다 — 매물 단가는 그대로 (다른 구매자가 그 값으로 못 산다)
     await page.goto(listingPath);
-    await expect(page.getByText("9,000").first()).toBeVisible();
+    await expect(page.getByText("10,000").first()).toBeVisible();
+    await expect(page.getByText("9,000")).toHaveCount(0);
+    await logOut(page);
+  });
+
+  await test.step("구매자: 수락된 줄엔 [구매]·[취소] — [취소]하면 줄이 지워지고 수량이 풀리며, 다시 견적·수락한다", async () => {
+    await logIn(page, buyer);
+    await page.goto("/my/activity?tab=purchases");
+    await expect(page.getByRole("button", { name: t.buyAria(prodName) })).toBeVisible();
+    await page.getByRole("button", { name: t.cancelAria(prodName) }).click();
+    await expect(page.getByRole("table").getByRole("row").filter({ hasText: prodName })).toHaveCount(0);
+    // 다시 견적 → 판매자 수락
+    await page.goto(`/search?q=${encodeURIComponent(prodName)}`);
+    await page.getByRole("checkbox", { name: search.result.selectRow(prodName) }).first().check();
+    await page.getByRole("button", { name: search.result.quote, exact: true }).first().click();
+    const quoteDialog = page.getByRole("dialog", { name: q.title });
+    await quoteDialog.locator('input[name="items.0.orderUnitPrice"]').fill("9000");
+    await quoteDialog.getByRole("button", { name: q.submit(1), exact: true }).click();
+    await expect(page.getByRole("dialog", { name: q.doneTitle })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await logOut(page);
+    await logIn(page, seller);
+    await page.goto("/my/activity?tab=requests");
+    await page.getByRole("button", { name: t.acceptAria(prodName) }).click();
+    await expect(page.getByRole("table").getByRole("row").filter({ hasText: prodName }).getByText(t.stats.quoteAccepted)).toBeVisible();
     await logOut(page);
   });
 
@@ -136,14 +161,16 @@ test("견적 요청 → 판매자 수락(매물 단가 변경) → 구매자 [�
     await page.getByRole("button", { name: t.buyAria(prodName) }).click();
     const dialog = page.getByRole("dialog", { name: trade.purchase.title });
     await expect(dialog).toBeVisible();
-    await dialog.locator('input[name="orderQuantity"]').fill("1");
+    // 수락된 수량·단가 그대로 — 수량 칸은 읽기 전용, 금액은 수락 단가
+    await expect(dialog.locator('input[name="orderQuantity"]')).toHaveAttribute("readonly", "");
+    await expect(dialog.getByText("9,000").first()).toBeVisible();
     await dialog.locator('input[name="reqDeliDate"]').fill(
       new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(Date.now() + 7 * 86_400_000)),
     );
     await dialog.getByRole("button", { name: trade.purchase.submit, exact: true }).click();
     await expect(page.getByRole("dialog", { name: trade.purchase.doneTitle })).toBeVisible();
     await page.keyboard.press("Escape");
-    // 새 줄이 아니라 그 견적 줄이 구매요청으로 이어진다(견적서 한 건 = 한 행). 단가는 바뀐 9000
+    // 새 줄이 아니라 그 견적 줄이 구매요청으로 이어진다(견적서 한 건 = 한 행). 단가는 수락된 9000
     await expect(page.getByRole("table").getByRole("row").filter({ hasText: prodName })).toHaveCount(1);
     const bought = page.getByRole("table").getByRole("row").filter({ hasText: prodName }).filter({ hasText: t.stats.requested });
     await expect(bought).toHaveCount(1);

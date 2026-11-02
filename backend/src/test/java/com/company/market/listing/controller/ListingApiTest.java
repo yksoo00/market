@@ -975,14 +975,14 @@ class ListingApiTest {
 	}
 
 	@Test
-	@DisplayName("견적 행만 있는 매물은 삭제되고 견적 행도 같이 지워진다 (회신 뒤에도)")
+	@DisplayName("견적요청·견적거절 행만 있는 매물은 삭제되고 견적 행도 같이 지워진다 (수락된 견적은 수량이 묶여 있어 삭제를 막는다 — QuoteApiTest)")
 	void listingWithOnlyQuotesIsDeletedWithThem() throws Exception {
 		String regDate = createListing(authCookie);
 		UUID buyer = userIdOf(otherUserCookie());
 		jdbc.update("""
 				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id, order_unit_price,
 					order_quantity, prov_date, req_deli_date, trade_stats)
-				values (?, '26101510001', '견적조정', ?, ?, ?, 500000, 1, '2099-12-31', '2099-12-31', '견적수락')
+				values (?, '26101510001', '견적조정', ?, ?, ?, 500000, 1, '2099-12-31', '2099-12-31', '견적거절')
 				""", buyer, userId, regDate, prodIdOf(regDate));
 
 		mvc.perform(delete("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie))

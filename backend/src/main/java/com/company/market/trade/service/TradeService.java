@@ -59,6 +59,9 @@ public class TradeService {
 
 	private static final int PAGE_SIZE = 20;
 
+	/** 수량을 묶고 있는 거래 상태 — 구매요청·수락된 견적 (장바구니 묶기는 PR 2). 이게 없고 재고가 0 일 때만 구매 확정이 판매완료로 만든다 */
+	private static final List<TradeStats> HOLDING_STATS = List.of(TradeStats.REQUESTED, TradeStats.QUOTE_ACCEPTED);
+
 	private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
 	private final TradeInfoRepository trades;
@@ -270,6 +273,14 @@ public class TradeService {
 			// 요청 때 int 범위를 넘는 금액은 거절했으므로 넘치지 않는다
 			.tradeAmount(trade.getOrderUnitPrice() * trade.getOrderQuantity())
 			.build());
+		// 판매완료는 재고가 0 이 된 때가 아니라 구매 확정 때 정한다 — 더 묶인 건(구매요청·수락된 견적)이 없고 재고가 0 일 때만 (2026-11-02)
+		// 같이 확정하는 다른 구매자와 서로의 확정이 안 보여 둘 다 "아직 묶인 건이 있다"고 판단하지 않게, 매물 행을 잠가 차례로 본다
+		// (뒤에 온 쪽은 앞 쪽의 커밋을 보고 판정한다)
+		listings.lockForTrade(trade.listingId());
+		if (!trades.existsBySellerIdAndProdRegDateAndProdIdAndTradeStatsIn(trade.getSellerId(), trade.getProdRegDate(), trade.getProdId(),
+				HOLDING_STATS)) {
+			listings.markSoldOutIfEmpty(trade.listingId());
+		}
 		TradeResponse confirmed = respond(me, trade, TradeStats.CONFIRMED);
 		mail(Kind.PURCHASE_CONFIRMED, trade, me, confirmed.prodName());
 		return confirmed;
@@ -298,7 +309,19 @@ public class TradeService {
 			}
 			return;
 		}
-		// 구매 단계: 구매자·판매자 누구나 (견적에서 이어진 행도 같다). 견적수락·구매확정은 취소할 수 없다
+		// 수락된 견적: 구매자·판매자 누구나 (구매요청 취소와 같다). 수락 때 묶은 수량을 돌려준다 (2026-11-02)
+		if (stats == TradeStats.QUOTE_ACCEPTED) {
+			if (!me.equals(trade.getUserId()) && !me.equals(trade.getSellerId())) {
+				throw new ApiException(ErrorCode.FORBIDDEN);
+			}
+			if (trades.deleteIfStatus(tradeId, TradeStats.QUOTE_ACCEPTED) == 0) {
+				throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
+			}
+			listings.releaseStock(trade.listingId(), trade.getOrderQuantity());
+			mail(Kind.QUOTE_CANCELED, trade, me, productNameOf(trade));
+			return;
+		}
+		// 구매 단계: 구매자·판매자 누구나 (견적에서 이어진 행도 같다). 구매확정은 취소할 수 없다
 		if (stats != TradeStats.REQUESTED) {
 			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 		}
@@ -314,7 +337,8 @@ public class TradeService {
 
 	/**
 	 * 수락된 견적에서 구매자 [구매] — 새 행을 만들지 않고 그 행이 구매요청이 된다 (견적서 한 건 = 한 행, 사용자 결정 2026-10-21).
-	 * 단가는 지금 매물 단가(수락으로 내려간 값), 재고는 이때 예약한다. 두 번 눌러도 하나만 — 상태 조건부 UPDATE
+	 * 단가·수량은 수락된 값 그대로(수락 단가는 이 거래 안에서만 쓴다 — 매물 단가는 안 바뀐다), 재고는 수락 때 이미 묶였다.
+	 * 두 번 눌러도 하나만 — 상태 조건부 UPDATE (2026-11-02)
 	 */
 	@Transactional
 	public TradeResponse purchaseFromQuote(UUID buyerId, String tradeId, QuotePurchaseRequest req) {
@@ -330,20 +354,23 @@ public class TradeService {
 			throw new ApiException(ErrorCode.LISTING_COMPLETED);
 		}
 		String reqDeliDate = req.reqDeliDate();
-		rules.validate(listing, req.orderQuantity(), reqDeliDate);
-		if (listing.stockQuantity() == null || req.orderQuantity() > listing.stockQuantity()) {
-			throw new ApiException(ErrorCode.TRADE_OUT_OF_STOCK);
+		// 수량은 수락된 그대로 — 바꾸려면 취소하고 새로 견적한다
+		if (!req.orderQuantity().equals(trade.getOrderQuantity())) {
+			throw new ValidationException(Map.of("orderQuantity", "수락된 수량(%d) 그대로 구매해야 합니다.".formatted(trade.getOrderQuantity())));
 		}
-		// 같이 눌린 [구매]·재요청 덮어쓰기 중 하나만 — 지면 0행. 재고 예약이 실패하면 이 상태 변경도 같이 롤백된다
+		String dateFailure = rules.reqDeliDateFailure(reqDeliDate);
+		if (dateFailure != null) {
+			throw new ValidationException(Map.of("reqDeliDate", dateFailure));
+		}
+		// 같이 눌린 [구매]·재요청 덮어쓰기 중 하나만 — 지면 0행
 		if (trades.updateStatus(tradeId, TradeStats.QUOTE_ACCEPTED, TradeStats.REQUESTED) == 0) {
 			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 		}
 		TradeInfo continued = trades.findByTradeId(tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
-		continued.continueAsPurchase(listing.prodId(), listing.prodState(), listing.salesUnitPrice(), listing.stockQuantity(),
-				listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), req.orderQuantity(), reqDeliDate,
+		continued.continueQuoteAsPurchase(listing.prodId(), listing.prodState(), listing.salesUnitPrice(),
+				listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), reqDeliDate,
 				req.remarks() == null || req.remarks().isBlank() ? null : req.remarks().trim());
 		trades.saveAndFlush(continued);
-		listings.reserveStock(listing.id(), req.orderQuantity());
 		dropCartRow(buyerId, listing);
 		mail(Kind.PURCHASE_REQUESTED, continued, buyerId, listing.prodName());
 		return toResponse(continued, TradeStats.REQUESTED, listing.prodName(), listing.photo(), nicknameOf(listing.sellerId()));
@@ -369,10 +396,12 @@ public class TradeService {
 		if (trade.getTradeType() != TradeType.QUOTE) {
 			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
 		}
+		// 수락하면 그 수량을 구매자 몫으로 묶는다 (재고 부족·거래완료면 409 — 판매자에게 알린다). 매물 단가는 안 바꾼다:
+		// 수락 단가는 이 거래 안에서만 쓴다 (2026-11-02)
 		if (accepted) {
-			listings.applyQuotePrice(trade.listingId(), trade.getOrderUnitPrice());
+			listings.reserveStock(trade.listingId(), trade.getOrderQuantity());
 		}
-		// 동시 수락·거절·취소 중 하나만 — 지면 단가 변경도 같이 롤백된다
+		// 동시 수락·거절·취소 중 하나만 — 지면 묶은 수량도 같이 롤백된다
 		TradeStats result = accepted ? TradeStats.QUOTE_ACCEPTED : TradeStats.QUOTE_REJECTED;
 		if (trades.updateStatus(tradeId, TradeStats.QUOTE_REQUESTED, result) == 0) {
 			throw new ApiException(ErrorCode.TRADE_NOT_PENDING);
