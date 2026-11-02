@@ -75,7 +75,13 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
   const [requoting, setRequoting] = useState<Trade | null>(null);
   const [requoted, setRequoted] = useState(false);
   // 요청사항 전체 보기 팝업 (표에선 한 줄로 잘려 있다)
+  // 열림은 따로 둔다 — 닫힐 때 내용이 먼저 비면 닫히는 애니메이션 동안 빈 팝업이 보인다
   const [remarksOf, setRemarksOf] = useState<Trade | null>(null);
+  const [remarksOpen, setRemarksOpen] = useState(false);
+  const showRemarks = (item: Trade) => {
+    setRemarksOf(item);
+    setRemarksOpen(true);
+  };
   const asBuyer = role === "buyer";
 
   useEffect(() => {
@@ -168,19 +174,19 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
         </div>
       )}
       <NoticeDialog notice={notice} onClose={closeNotice} />
-      <Dialog open={remarksOf !== null} onOpenChange={(open) => !open && setRemarksOf(null)}>
+      <Dialog open={remarksOpen} onOpenChange={setRemarksOpen}>
         <DialogContent className="max-w-md flex flex-col gap-4">
           <div className="flex flex-col gap-1">
             <DialogTitle>{t.remarksLabel}</DialogTitle>
             <DialogDescription className="text-[13px]">{remarksOf?.prodName}</DialogDescription>
           </div>
           <p className="text-sm text-ink whitespace-pre-wrap wrap-break-word">{remarksOf?.remarks}</p>
-          <Button type="button" variant="outline" onClick={() => setRemarksOf(null)} className="h-11">
+          <Button type="button" variant="outline" onClick={() => setRemarksOpen(false)} className="h-11">
             {t.remarksClose}
           </Button>
         </DialogContent>
       </Dialog>
-      <Body load={load} asBuyer={asBuyer} busy={busy} onAct={act} onRetry={reload} onShowRemarks={setRemarksOf} firstPageHref={page > 1 ? hrefFor(1) : null} filtered={filtered} />
+      <Body load={load} asBuyer={asBuyer} busy={busy} onAct={act} onRetry={reload} onShowRemarks={showRemarks} firstPageHref={page > 1 ? hrefFor(1) : null} filtered={filtered} />
       {buying && (
         <PurchaseDialog
           sellerId={buying.sellerId}
