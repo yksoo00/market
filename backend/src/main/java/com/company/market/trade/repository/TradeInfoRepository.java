@@ -30,7 +30,8 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	/**
 	 * 구매검토 1행 — 장바구니(거래상태 '장바구니')나 비교용('비교용'). 이미 있으면(동시에 담은 다른 요청 포함) 아무것도 안 한다 → 0.
 	 * 예외를 잡아 넘기지 않는 이유: Postgres 는 실패한 문장 뒤로 그 트랜잭션을 못 쓴다.
-	 * on conflict 절은 ux_trd_trade_info_one_cart(V202610291000)와 같아야 한다
+	 * on conflict 절에 대상을 안 쓴다 — 어떤 unique 인덱스와 부딪혀도 건너뛴다. 대상을 쓰면 ux_trd_trade_info_one_cart 의 조건과
+	 * 글자까지 같아야 해서, 그 인덱스를 바꿀 때(같은 매물을 장바구니에 여러 줄 담기, 2026-11-02 계획) 옛 코드가 깨진다
 	 */
 	@Modifying
 	@Query(nativeQuery = true, value = """
@@ -40,7 +41,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			values (:userId, :tradeId, '구매검토', :sellerId, :prodRegDate, :regDate, :prodId, :prodState, :salesUnitPrice,
 				:stockQuantity, :minOrderQuantity, :orderUnit, :provDate, :orderUnitPrice, :orderQuantity, :reqDeliDate, cast(:remarks as varchar),
 				:tradeStats)
-			on conflict (user_id, seller_id, prod_reg_date, prod_id, trade_stats) where trade_type = '구매검토' do nothing
+			on conflict do nothing
 			""")
 	int insertReviewIfAbsent(@Param("userId") UUID userId, @Param("tradeId") String tradeId, @Param("sellerId") UUID sellerId,
 			@Param("prodRegDate") String prodRegDate, @Param("regDate") String regDate, @Param("prodId") String prodId,
