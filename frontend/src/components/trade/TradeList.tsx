@@ -322,7 +322,8 @@ function Body({ load, asBuyer, busy, onAct, onRetry, firstPageHref, filtered }: 
     <>
       {/* 넓은 칸: 표. 좁은 칸(휴대폰·1/4 타일): 카드 — 기준은 검색 결과와 같은 칸 폭 576 */}
       <div className="hidden @min-[36rem]:block overflow-x-auto bg-surface border border-line rounded-md">
-        <table className="w-full min-w-4xl text-sm">
+        {/* 칸 안 글자는 줄바꿈하지 않는다 (사용자 지시 2026-10-30) — 넘치면 표가 가로 스크롤. 요청사항은 한 줄로 자르고 전체는 툴팁 */}
+        <table className="w-full min-w-4xl text-sm whitespace-nowrap">
           <thead className="bg-bg text-[12px] text-ink-2">
             <tr>
               <th className="px-3 py-2.5 text-left font-medium">{c.product}</th>
@@ -342,7 +343,11 @@ function Body({ load, asBuyer, busy, onAct, onRetry, firstPageHref, filtered }: 
                   <Link href={listingHref({ userId: item.sellerId, regDate: item.regDate })} className="font-medium hover:text-primary">
                     {item.prodName}
                   </Link>
-                  {item.remarks && <p className="mt-0.5 text-[12px] text-ink-2 wrap-break-word">{item.remarks}</p>}
+                  {item.remarks && (
+                    <p title={item.remarks} className="mt-0.5 max-w-80 truncate text-[12px] text-ink-2">
+                      {item.remarks}
+                    </p>
+                  )}
                 </td>
                 <td className="px-3 py-2.5 truncate">{item.counterpartNickname ?? "-"}</td>
                 <td className="px-3 py-2.5 text-right font-mono tabular-nums">{qty.format(item.orderQuantity)}</td>
