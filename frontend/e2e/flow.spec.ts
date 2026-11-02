@@ -150,11 +150,15 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await expect(rowOf(page, prodName)).toBeVisible();
     // 표에는 [수정]이 없다 (사용자 지시 2026-11-02 — 행 안 수정 폐지)
     await expect(page.getByRole("table").getByRole("button", { name: /수정$/ })).toHaveCount(0);
+    await expect(page.getByRole("table").getByRole("link", { name: /수정$/ })).toHaveCount(0);
 
-    // 상세 → [수정] → 수정 화면에서 상품상태·설명을 고친다 (칸 규칙과 무관하게 주소로 바로 연다)
+    // 상세 → [수정] → 수정 화면에서 상품상태·설명을 고친다
     const detailHref = await rowOf(page, prodName).getByRole("link", { name: prodName }).getAttribute("href");
     await page.goto(detailHref!);
-    await expect(page.getByRole("link", { name: listing.detail.edit, exact: true })).toBeVisible();
+    // 상세(주기능 칸)의 [수정]이 수정 화면을 연다 — 이제 유일한 수정 길. 수정 화면은 칸 규칙대로 보조 칸(iframe)에 뜬다
+    await page.getByRole("link", { name: listing.detail.edit, exact: true }).click();
+    await expect(page.locator(`iframe[src="${detailHref}/edit"]`)).toBeVisible();
+    // 입력은 넓은 전체 화면에서
     await page.goto(`${detailHref}/edit`);
     const save = page.getByRole("button", { name: listing.edit.save, exact: true });
     await expect(save).toBeDisabled();
@@ -162,7 +166,7 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await page.getByLabel(listing.form.description, { exact: false }).fill("E2E 설명");
     await expect(save).toBeEnabled();
     await save.click();
-    await expect(page).toHaveURL(new RegExp(`${detailHref}$`));
+    await expect.poll(() => new URL(page.url()).pathname).toBe(detailHref);
 
     // 판매 탭 표에 바뀐 값이 보인다
     await page.goto("/my/activity?tab=sales");

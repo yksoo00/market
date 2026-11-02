@@ -158,7 +158,7 @@ export interface ListingUpdateRequest {
   replaceProd?: string;
   testReport?: string;
   certificateOfAuthen?: string;
-  // 상품 칸 (행 안 수정). 이름·제조사가 바뀌면 이 매물만 다른 상품으로, 나머지는 단독 사용일 때만 (서버 422 PRODUCT_SHARED).
+  // 상품 칸 (2026-11-02 행 안 수정 폐지로 지금 화면에서 보내는 곳 없음). 이름·제조사가 바뀌면 이 매물만 다른 상품으로, 나머지는 단독 사용일 때만 (서버 422 PRODUCT_SHARED).
   // 번호·제조일(yyyyMMdd)·사양은 "" = 비우기
   categoryCode?: string;
   prodName?: string;

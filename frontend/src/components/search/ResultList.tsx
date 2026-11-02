@@ -113,7 +113,6 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
   const mine = scope === "mine";
   const inCart = scope === "cart";
   const columns = inCart ? cartColumns : listColumns;
-  // 거래완료(재고 소진)된 매물은 서버가 수정을 막는다 (409 LISTING_COMPLETED) — 버튼도 그리지 않는다
   // "구매요청 N건" → 받은 구매요청을 그 매물로 걸러 연다. 같은 판매 그룹이라 옆 칸에 반반으로
   const pendingLink = (item: ListingSearchItem) => {
     const label = pendingLabel(pendingCounts, item.regDate);
@@ -400,7 +399,7 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
           표↔카드 기준은 @md(768)가 아니라 칸 폭 576 — 타일 반반 분할이면 칸이 768 미만(1440 창이면 720)이라
           카드로 줄어들었다. 분할에서도 표가 옆으로 펼쳐져야 한다 (사용자 지시). 폰(390)은 그대로 카드 */}
       <div className="hidden @min-[36rem]:block rounded-md border border-line bg-surface overflow-x-auto">
-        <table className={`w-full ${inCart ? "min-w-334" : mine ? "min-w-334" : "min-w-322"} table-fixed text-[13px]`}>
+        <table className={`w-full ${inCart || mine ? "min-w-334" : "min-w-322"} table-fixed text-[13px]`}>
           <colgroup>
             {!mine && <col className="w-10" />}
             <col className="w-48" />

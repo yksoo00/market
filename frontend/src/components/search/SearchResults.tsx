@@ -87,10 +87,10 @@ export function SearchResults({
   };
 
   return (
-    <div className="contents">
+    <>
       <ResultList items={items} query={query} total={total} scope={scope} pendingCounts={pendingCounts} onPurchased={refreshRow} />
       <Pager page={page} totalPages={totalPages} hrefFor={(n) => buildSearchHref({ ...query, page: n }, scope)} />
-    </div>
+    </>
   );
 }
 
