@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildCategoryTree, categoryPath, groupByDepth } from "./categories";
+import { buildCategoryTree, categoryPath, groupByDepth, leafCategoryName } from "./categories";
 import type { CategoryItem } from "@/types/listing";
 
 const item = (categoryCode: string, categoryName: string, categoryClass: string, categoryDepth = "기업용"): CategoryItem => ({
@@ -56,5 +56,12 @@ describe("groupByDepth", () => {
       ["기업용", ["E01", "E02"]],
       ["개인/사무용", ["P01"]],
     ]);
+  });
+});
+
+describe("leafCategoryName", () => {
+  it("경로의 마지막 이름만, 구분자가 없으면 그대로", () => {
+    expect(leafCategoryName("기업용 스토리지 > 랙 & 인프라 > 랙")).toBe("랙");
+    expect(leafCategoryName("CPU")).toBe("CPU");
   });
 });

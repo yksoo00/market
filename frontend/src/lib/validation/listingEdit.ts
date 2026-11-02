@@ -5,6 +5,11 @@ import { listing } from "@/messages/listing";
 
 const v = listing.validation;
 
+/** 처음 값 — 안 바꾼 칸은 옛 데이터(50자 넘는 이름 등)여도 다른 칸 수정이 막히지 않게 한다 */
+export interface ProductInitial {
+  prodMufcDate: string;
+}
+
 // 값은 변환하지 않고 문자열 그대로 둔다 — lib/listingEdit.diffToUpdateRequest 가 처음 값(문자열)과 비교한 뒤 숫자로 바꾼다
 const requiredInt = (min: number, max: number, message: string) =>
   z.string().min(1, v.required).refine((s) => isInt(s) && Number(s) >= min && Number(s) <= max, message);
@@ -17,9 +22,14 @@ const requiredInt = (min: number, max: number, message: string) =>
  * ④ 사진이 있던 매물(hadPhotos)은 전부 뺄 수 없다 — 대표 사진 필수 (서버도 같은 규칙). 사진 없는 옛 매물은 통과.
  * today = 한국 날짜 YYYY-MM-DD.
  */
-export function listingEditSchema(today: string, initialDeliveryDate: string, hadPhotos = false) {
+export function listingEditSchema(today: string, initialDeliveryDate: string, hadPhotos = false, initialProduct?: ProductInitial) {
   return z
     .object({
+      prodName: z.string().trim().min(1, v.required).max(50, v.prodName),
+      prodBrand: z.string().trim().min(1, v.required).max(40, v.prodBrand),
+      prodNo: z.string().trim().max(20, v.prodNo),
+      // 비우기("")는 통과
+      prodMufcDate: z.string(),
       prodState: z.string().refine((s) => (PROD_STATES as readonly string[]).includes(s), v.prodState),
       salesUnitPrice: requiredInt(0, MAX_PRICE, v.salesUnitPrice),
       salesQuantity: requiredInt(1, MAX_QUANTITY, v.salesQuantity),
@@ -33,6 +43,11 @@ export function listingEditSchema(today: string, initialDeliveryDate: string, ha
     })
     // zod 4는 칸 검사가 실패해도 이 단계를 돈다 → 값이 문자열일 때만 비교한다
     .superRefine((d, ctx) => {
+      // 제조일은 처음 값 그대로면 통과 — 날짜로 안 읽히는 옛 값이 다른 칸 수정을 막지 않게 (서버도 저장값과 같으면 건너뛴다)
+      if (d.prodMufcDate !== "" && d.prodMufcDate !== initialProduct?.prodMufcDate) {
+        if (!isValidDate(d.prodMufcDate)) ctx.addIssue({ code: "custom", path: ["prodMufcDate"], message: v.date });
+        else if (d.prodMufcDate > today) ctx.addIssue({ code: "custom", path: ["prodMufcDate"], message: v.prodMufcDate });
+      }
       if (hadPhotos && d.photos.length === 0) ctx.addIssue({ code: "custom", path: ["photos"], message: v.photosRequired });
       const min = Number(d.minOrderQuantity);
       const sales = Number(d.salesQuantity);

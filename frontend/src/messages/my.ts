@@ -76,23 +76,6 @@ export const my = {
     subtitle: "내가 등록한 판매글을 검색하고 고쳐요",
     emptyTitle: "등록한 판매글이 없어요",
     emptyAction: "판매상품 등록하기",
-    editColumn: "수정",
-    edit: "수정",
-    editAria: (name: string) => `${name} 수정`,
-    // 행 안 수정 (RowEditor)
-    row: {
-      loading: "수정할 내용을 불러오는 중…",
-      loadFailed: "수정할 내용을 불러오지 못했어요.",
-      retry: "다시 시도",
-      editing: (name: string) => `${name} 수정 중`,
-      save: "저장",
-      saving: "저장 중…",
-      cancel: "취소",
-      noChange: "바꾼 내용이 없어요",
-      warranty: "보증기간",
-      panelHas: "입력됨",
-      panelNone: "없음",
-    },
   },
   // 내 활동내역 구매 탭 — 내가 구매자인 진행 중 거래 (TradeList role=buyer)
   purchases: {
