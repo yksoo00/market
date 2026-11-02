@@ -623,6 +623,19 @@ class CartApiTest {
 	}
 
 	@Test
+	@DisplayName("가리키는 매물이 없어진 오래된 줄도 자동 삭제가 줄을 지운다 — 풀 재고가 없어 롤백으로 영영 안 지워지는 일이 없다")
+	void expireRemovesRowOfMissingListing() throws Exception {
+		add(buyer, REG_B).andExpect(status().isOk());
+		String id = cartTradeId(buyerId, REG_B);
+		String twoHoursAgo = java.time.LocalDateTime.now(java.time.ZoneOffset.UTC).minusHours(2).format(java.time.format.DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+		jdbc.update("update trd_trade_info set reg_date = ? where trade_id = ?", twoHoursAgo, id);
+		jdbc.update("delete from trd_prod_reg where reg_date = ?", REG_B);
+		assertThat(carts.expire(id)).isTrue();
+		assertThat(cartRows()).isZero();
+		assertThat(cartInfoRows("장바구니")).isZero();
+	}
+
+	@Test
 	@DisplayName("장바구니가 묶은 수량이 남아 있으면 마지막 구매가 확정돼도 판매완료가 아니다 — 줄을 빼 수량이 돌아오면 계속 거래 중")
 	void cartHoldPreventsSoldOutAtConfirmation() throws Exception {
 		jdbc.update("update trd_prod_reg set stock_quantity = 2, sales_quantity = 2 where reg_date = ?", REG_A);

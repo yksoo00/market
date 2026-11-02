@@ -575,7 +575,7 @@ public class TradeService {
 		if (cartTradeId == null || cartTradeId.isBlank()) {
 			return null;
 		}
-		return trades.findByTradeId(cartTradeId)
+		return trades.findForUpdateByTradeId(cartTradeId)
 			.filter(t -> buyerId.equals(t.getUserId()) && t.getTradeType() == TradeType.REVIEW && t.getTradeStats() == TradeStats.CART
 					&& listing.sellerId().equals(t.getSellerId()) && listing.regDate().equals(t.getProdRegDate())
 					&& listing.prodId().equals(t.getProdId()))

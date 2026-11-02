@@ -203,4 +203,30 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     await expect(rowOf(nameB)).toHaveCount(1);
     await expect(cartLink(1)).toBeVisible();
   });
+
+  // 재고 전량(남은 2개)을 담은 줄도 그 줄로 구매할 수 있다 — 그 줄이 묶은 수량은 쓸 수 있는 재고다 (코드리뷰)
+  await test.step("재고 전량을 담은 줄로도 구매할 수 있다", async () => {
+    await page.goto(`/search?q=${encodeURIComponent(word)}`);
+    await rowOf(nameB).getByRole("checkbox", { name: search.result.selectRow(nameB) }).check();
+    await page.getByRole("button", { name: cart.add.button, exact: true }).first().click();
+    const addDialog = page.getByRole("dialog", { name: cart.add.dialog.title });
+    await addDialog.locator('input[name="items.0.orderQuantity"]').fill("2");
+    await addDialog.getByRole("button", { name: cart.add.dialog.submit(1), exact: true }).click();
+    await expect(page.getByRole("dialog", { name: cart.add.doneTitle })).toBeVisible();
+    await page.keyboard.press("Escape");
+
+    await page.goto("/my/cart");
+    await rowOf(nameB).first().getByRole("checkbox", { name: search.result.selectRow(nameB) }).check();
+    await page.getByRole("button", { name: search.result.buy, exact: true }).first().click();
+    const dialog = page.getByRole("dialog", { name: trade.purchase.title });
+    await expect(dialog.locator('input[name="orderQuantity"]')).toHaveValue("2");
+    await dialog.locator('input[name="reqDeliDate"]').fill(
+      new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(Date.now() + 7 * 86_400_000)),
+    );
+    // 재고가 0 이어도 그 줄의 수량(2)까지 살 수 있어 [구매요청] 이 켜져 있다
+    const submit = dialog.getByRole("button", { name: trade.purchase.submit, exact: true });
+    await expect(submit).toBeEnabled();
+    await submit.click();
+    await expect(page.getByRole("dialog", { name: trade.purchase.doneTitle })).toBeVisible();
+  });
 });

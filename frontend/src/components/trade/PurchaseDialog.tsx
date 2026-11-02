@@ -137,7 +137,7 @@ function PurchaseBody({ sellerId, regDate, quoteTradeId, defaultQuantity, quoteU
     );
   }
   // 상세의 [구매] 버튼과 같은 규칙(purchaseBlockReason). 로그인 여부를 모르면(확인 실패) 폼을 열고 서버 401 에 맡긴다
-  const block = purchaseBlockReason(load.detail, load.meId);
+  const block = purchaseBlockReason(load.detail, load.meId, cartTradeId !== undefined ? (defaultQuantity ?? 0) : 0);
   if (block === "login" && load.anonymous) {
     return (
       <div className="py-4 flex flex-col items-center gap-3 text-center">
@@ -202,11 +202,14 @@ function PurchaseForm({ detail, quoteTradeId, defaultQuantity, quoteUnitPrice, d
   const [idempotencyKey] = useState(() => crypto.randomUUID());
   // 수락된 견적: 수량은 수락 때 이미 묶였다 — 남은 재고·최소주문량·주문단위로 다시 막지 않고, 수락된 수량·단가 그대로 (2026-11-02)
   const quoteFixed = quoteTradeId !== undefined && defaultQuantity !== undefined;
+  // 장바구니 줄에서 연 모달이면 그 줄이 이미 묶은 수량도 쓸 수 있다 (서버도 줄 수량을 재고에 더해 본다) — 전량을 담은 줄도 구매할 수 있게
+  const heldByCartRow = cartTradeId !== undefined ? (defaultQuantity ?? 0) : 0;
+  const usableStock = (detail.stockQuantity ?? 0) + heldByCartRow;
   const unitPrice = quoteFixed && quoteUnitPrice !== undefined ? quoteUnitPrice : detail.salesUnitPrice;
   const form = useForm<PurchaseFormInput, unknown, PurchaseFormOutput>({
     resolver: zodResolver(
       purchaseSchema({
-        stock: quoteFixed ? defaultQuantity : (detail.stockQuantity ?? 0),
+        stock: quoteFixed ? defaultQuantity : usableStock,
         minOrder: quoteFixed ? 1 : detail.minOrderQuantity,
         unit: quoteFixed ? 1 : detail.orderUnit,
         unitPrice,
@@ -263,7 +266,7 @@ function PurchaseForm({ detail, quoteTradeId, defaultQuantity, quoteUnitPrice, d
       ]
     : [
         [t.unitPrice, formatPrice(detail.salesUnitPrice)],
-        [t.stock, t.count(detail.stockQuantity ?? 0)],
+        [t.stock, t.count(usableStock)],
         [t.minOrder, t.count(detail.minOrderQuantity)],
         [t.unit, t.count(detail.orderUnit)],
         [t.provDate, detail.deliveryDate ?? t.none],

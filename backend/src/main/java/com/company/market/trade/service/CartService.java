@@ -131,9 +131,12 @@ public class CartService {
 			String remarks = item.remarks() == null || item.remarks().isBlank() ? null : item.remarks().trim();
 			String tradeId = tradeIds.next();
 			int unitPrice = l.salesUnitPrice() == null ? 0 : l.salesUnitPrice();
-			trades.insertReviewIfAbsent(buyerId, tradeId, l.sellerId(), l.regDate(), now, l.prodId(), l.prodState(),
+			// 0 이면 거래 행이 안 만들어졌다 — 묶은 수량이 풀리지 않는 줄이 생기지 않게 롤백한다 (거래ID 충돌 같은 있을 수 없는 경우)
+			if (trades.insertReviewIfAbsent(buyerId, tradeId, l.sellerId(), l.regDate(), now, l.prodId(), l.prodState(),
 					l.salesUnitPrice(), l.stockQuantity(), l.minOrderQuantity(), l.orderUnit(), l.provDate(), unitPrice,
-					item.orderQuantity(), item.reqDeliDate(), remarks, TradeStats.CART.label());
+					item.orderQuantity(), item.reqDeliDate(), remarks, TradeStats.CART.label()) != 1) {
+				throw new IllegalStateException("장바구니 거래 행을 만들지 못했습니다: " + tradeId);
+			}
 			cartInfos.save(cartInfo(buyerId, tradeId, CartType.CART, l, unitPrice, item.orderQuantity(), item.reqDeliDate(), remarks, now));
 		}
 		// 하나라도 못 묶었으면 먼저 묶은 것까지 전부 되돌린다 (트랜잭션 롤백)
@@ -230,7 +233,7 @@ public class CartService {
 	@Transactional
 	public boolean expire(String tradeId) {
 		String cutoff = LocalDateTime.now(clock).minus(EXPIRE_AFTER).format(TIMESTAMP_FORMAT);
-		TradeInfo row = trades.findByTradeId(tradeId)
+		TradeInfo row = trades.findForUpdateByTradeId(tradeId)
 			.filter(t -> t.getTradeType() == TradeType.REVIEW && t.getTradeStats() == TradeStats.CART && t.getRegDate() != null
 					&& t.getRegDate().compareTo(cutoff) < 0)
 			.orElse(null);
@@ -247,7 +250,8 @@ public class CartService {
 			return false;
 		}
 		cartInfos.deleteByUserAndTradeIds(buyerId, Set.of(id));
-		listings.releaseStock(listing, quantity);
+		// 매물이 이미 없으면 풀 재고도 없다 — 줄만 지우고 끝낸다 (던지면 롤백돼 이 줄이 매분 같은 이유로 영원히 안 지워진다)
+		listings.releaseStockIfPresent(listing, quantity);
 		return true;
 	}
 

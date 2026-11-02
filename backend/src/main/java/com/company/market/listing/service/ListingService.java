@@ -444,6 +444,15 @@ public class ListingService {
 		}
 	}
 
+	/**
+	 * 재고 복원을 시도한다 — 매물이 이미 없으면 false (던지지 않는다). 장바구니 자동 삭제처럼 매물이 없어도 줄은 지워야 하는 곳용:
+	 * 던지면 이 메서드의 @Transactional 이 호출자 트랜잭션을 롤백 전용으로 만들어 줄이 영영 안 지워진다
+	 */
+	@Transactional
+	public boolean releaseStockIfPresent(ListingId id, int quantity) {
+		return listings.releaseStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity) > 0;
+	}
+
 	public ListingResponse get(UUID userId, String regDate) {
 		Listing listing = listings.findByUserIdAndRegDate(userId, regDate)
 			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));

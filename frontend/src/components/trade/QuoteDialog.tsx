@@ -136,7 +136,11 @@ function QuoteBody({ targets, onClose, onRequested }: Omit<Props, "open" | "onOp
     );
   }
   // [구매]와 같은 이유(내 매물·거래완료·재고 부족)로 보낼 수 없는 매물은 이유만 보이고 뺀다
-  const reasons = load.details.map((d) => purchaseBlockReason(d, load.meId));
+  // 장바구니 줄에서 연 견적이면 그 줄이 묶은 수량도 재고로 본다 (서버와 같다)
+  const reasons = load.details.map((d) => {
+    const defaults = targets.find((x) => x.sellerId === d.userId && x.regDate === d.regDate)?.defaults;
+    return purchaseBlockReason(d, load.meId, defaults?.cartTradeId ? defaults.orderQuantity : 0);
+  });
   const sendable = load.details.filter((_, i) => reasons[i] === null || reasons[i] === "login");
   const skipped = load.details.flatMap((d, i) => {
     const r = reasons[i];
@@ -158,13 +162,22 @@ interface FormProps {
 const toFormPath = (key: string) => key.replace(/\[(\d+)\]/, ".$1");
 
 function QuoteForm({ sendable, skipped, defaultsByKey, onClose, onRequested }: FormProps) {
+  const defaultsOf = (d: ListingDetail) => defaultsByKey.get(`${d.userId}/${d.regDate}`);
+  const cartHeldOf = (d: ListingDetail) => (defaultsOf(d)?.cartTradeId ? defaultsOf(d)?.orderQuantity : undefined);
   // 날짜 기준은 폼을 연 동안 고정 (구매 모달과 같음)
   const [today] = useState(() => todayInSeoul());
   const [idempotencyKey] = useState(() => crypto.randomUUID());
   const form = useForm<QuoteFormInput, unknown, QuoteFormOutput>({
     resolver: zodResolver(
       quoteSchema(
-        sendable.map((d) => ({ stock: d.stockQuantity ?? 0, minOrder: d.minOrderQuantity, unit: d.orderUnit, listedPrice: d.salesUnitPrice, today })),
+        // 장바구니 줄에서 연 견적이면 그 줄이 묶은 수량도 쓸 수 있다 (서버도 줄 수량을 재고에 더해 본다)
+        sendable.map((d) => ({
+          stock: (d.stockQuantity ?? 0) + (cartHeldOf(d) ?? 0),
+          minOrder: d.minOrderQuantity,
+          unit: d.orderUnit,
+          listedPrice: d.salesUnitPrice,
+          today,
+        })),
       ),
     ),
     mode: "onTouched",
@@ -172,7 +185,7 @@ function QuoteForm({ sendable, skipped, defaultsByKey, onClose, onRequested }: F
     defaultValues: {
       // 납품희망일 기본값은 매물 제공가능일 (2026-10-27), 바꿀 수 있다
       items: sendable.map((d) => {
-        const c = defaultsByKey.get(`${d.userId}/${d.regDate}`);
+        const c = defaultsOf(d);
         return {
           orderUnitPrice: String(d.salesUnitPrice),
           orderQuantity: String(c?.orderQuantity ?? d.minOrderQuantity),
@@ -205,9 +218,7 @@ function QuoteForm({ sendable, skipped, defaultsByKey, onClose, onRequested }: F
         orderQuantity: row.orderQuantity,
         reqDeliDate: row.reqDeliDate,
         ...(row.remarks ? { remarks: row.remarks } : {}),
-        ...(defaultsByKey.get(`${sendable[i].userId}/${sendable[i].regDate}`)?.cartTradeId
-          ? { cartTradeId: defaultsByKey.get(`${sendable[i].userId}/${sendable[i].regDate}`)?.cartTradeId }
-          : {}),
+        ...(defaultsOf(sendable[i])?.cartTradeId ? { cartTradeId: defaultsOf(sendable[i])?.cartTradeId } : {}),
       })),
       idempotencyKey,
     );
