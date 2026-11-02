@@ -3,6 +3,7 @@ import {
   COVERAGE_FILTERS,
   HAS_ITEMS,
   isValidDate,
+  LISTING_SORTS,
   MAX_BRAND,
   MAX_MIN_ORDER,
   MAX_PRICE,
@@ -57,6 +58,8 @@ export const searchFilterSchema = z
     // 체크박스 묶음. 순서는 HAS_ITEMS 로 맞춘다 (같은 조건이 다른 URL 이 되지 않게)
     has: z.array(z.string()).transform((list): HasItem[] => HAS_ITEMS.filter((h) => list.includes(h))),
     maxMinOrder: optionalInt(MAX_MIN_ORDER, t.validation.minOrder, 1),
+    // 정렬 칩 (2026-10-30). 고르기만 하는 칸이라 문구 없음
+    sort: z.enum(LISTING_SORTS).default("latest"),
   })
   // zod 4는 칸 검사가 실패해도 이 refine을 변환 전 문자열로 돌린다 → 둘 다 숫자일 때만 비교
   .refine((v) => typeof v.minPrice !== "number" || typeof v.maxPrice !== "number" || v.minPrice <= v.maxPrice, {
@@ -82,6 +85,7 @@ export function filterDefaults(query: SearchQuery): SearchFilterInput {
     coverage: query.coverage ?? "",
     has: [...query.has],
     maxMinOrder: str(query.maxMinOrder),
+    sort: query.sort,
   };
 }
 

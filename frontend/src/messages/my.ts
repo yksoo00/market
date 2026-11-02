@@ -42,7 +42,8 @@ export const my = {
     // 검색 + 상세 필터 (계획 2026-10-30)
     filter: {
       label: "거래이력 검색",
-      searchPlaceholder: "상품명으로 검색",
+      // 매물 검색창과 같은 범위·문구 (2026-10-30)
+      searchPlaceholder: "모델명 · 상품번호 · 제조사",
       search: "검색",
       chips: "필터",
       clear: (what: string) => `${what} 조건 지우기`,
@@ -54,7 +55,7 @@ export const my = {
       maxAmount: "최대 금액",
       won: "원",
       sort: "정렬",
-      sorts: { latest: "최신순", oldest: "오래된 순", amountDesc: "금액 높은 순", amountAsc: "금액 낮은 순" },
+      sorts: { latest: "최신순", amountDesc: "금액높은순", amountAsc: "금액낮은순" },
       apply: "적용",
       reset: "필터 초기화",
       resultCount: (n: number) => `조건에 맞는 거래 ${n.toLocaleString("ko-KR")}건`,

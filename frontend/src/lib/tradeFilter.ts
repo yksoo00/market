@@ -33,7 +33,7 @@ export function tradeFields(role: TradeRole): FilterField[] {
   ];
 }
 
-export const emptyTradeFilter = (): FilterValues => ({ q: "", from: "", to: "", min: "", max: "", sort: "latest", status: "" });
+export const emptyTradeFilter = (): FilterValues => ({ q: "", field: "all", from: "", to: "", min: "", max: "", sort: "latest", status: "" });
 
 /** 주소에서 필터 값. 거래이력과 같은 정리(틀린 값은 버림) + 상태는 이 역할이 볼 수 있는 값만 */
 export function parseTradeFilter(raw: Record<string, string | string[] | undefined>, role: TradeRole): FilterValues {

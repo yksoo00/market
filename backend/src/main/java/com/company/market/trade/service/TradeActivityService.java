@@ -67,7 +67,7 @@ public class TradeActivityService {
 		boolean buy = !"sell".equals(side);
 		boolean sell = !"buy".equals(side);
 		boolean useProds = f.q() != null;
-		List<String> prodIds = useProds ? listings.productIdsByName(f.q(), TradeFilterRules.NAME_MATCH_MAX) : List.of("");
+		List<String> prodIds = useProds ? listings.productIdsMatching(f.field(), f.q(), TradeFilterRules.NAME_MATCH_MAX) : List.of("");
 		if (useProds && prodIds.isEmpty()) {
 			// 맞는 상품이 없으면 쿼리 없이 빈 결과. 페이지 번호면 1페이지만 있다
 			PageKeys<Object[]> empty = pageNo == null ? null : PageKeys.of(List.of(), pageNo, PAGE_SIZE);

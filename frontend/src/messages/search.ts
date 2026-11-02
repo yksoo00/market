@@ -72,6 +72,11 @@ export const search = {
     brand: "제조사는 50자 이하로 입력하세요",
     minOrder: "최소주문은 1개 이상 100,000개 이하의 정수로 입력하세요",
   },
+  // 칩 줄의 [정렬] 칩 (2026-10-30)
+  sort: {
+    label: "정렬",
+    options: { latest: "최신순", priceAsc: "낮은가격순", priceDesc: "높은가격순", deliveryAsc: "납기빠른순" },
+  },
   result: {
     count: (n: number) => `검색결과 ${n}건`,
     loadFailed: "불러오지 못했어요.",
