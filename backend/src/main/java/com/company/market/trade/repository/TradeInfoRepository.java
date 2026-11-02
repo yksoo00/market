@@ -193,6 +193,13 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	List<String> findSellerProdIds(@Param("sellerId") UUID sellerId, @Param("hidden") TradeType hidden,
 			@Param("stats") Collection<TradeStats> stats, @Param("regDate") String regDate);
 
+	/**
+	 * 그 매물에 수량을 묶고 있는 거래가 있나 (구매요청·수락된 견적 — 장바구니 묶기는 PR 2). 구매 확정 뒤 "더 묶인 건이 없을 때만
+	 * 판매완료" 판정에 쓴다 (2026-11-02)
+	 */
+	boolean existsBySellerIdAndProdRegDateAndProdIdAndTradeStatsIn(UUID sellerId, String prodRegDate, String prodId,
+			Collection<TradeStats> stats);
+
 	/** 판매자 매물별 그 상태들 건수 → [매물 등록일시, count]. 한 판매자 안에서 등록일시는 매물 하나 (같은 초 등록 409) */
 	@Query("""
 			select t.prodRegDate, count(t) from TradeInfo t

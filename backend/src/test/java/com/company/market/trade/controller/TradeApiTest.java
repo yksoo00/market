@@ -482,11 +482,13 @@ class TradeApiTest {
 	}
 
 	@Test
-	@DisplayName("판매자가 취소하면 거래 행이 지워지고 재고 복원, 재고 0이던 매물은 다시 판매 중이고 수정된다")
+	@DisplayName("판매자가 취소하면 거래 행이 지워지고 재고 복원, 재고 0이던 매물도 판매완료가 아니라 계속 거래 중이고 수정된다")
 	void sellerCancelsRestoresStock() throws Exception {
 		listing(1000, 4, 1, 1, null);
 		String tradeId = requested(4);
-		assertThat(jdbc.queryForObject("select dt_expire from trd_prod_reg where user_id = ?", String.class, sellerId)).isNotNull();
+		// 재고가 0 이 돼도 구매 확정 전에는 판매완료가 아니다 (2026-11-02)
+		assertThat(stock()).isZero();
+		assertThat(jdbc.queryForObject("select dt_expire from trd_prod_reg where user_id = ?", String.class, sellerId)).isNull();
 
 		action(seller, tradeId, "cancel").andExpect(status().isNoContent());
 
@@ -497,6 +499,46 @@ class TradeApiTest {
 		mvc.perform(patch("/api/v1/listings/" + sellerId + "/" + REG_DATE).cookie(seller)
 				.contentType(MediaType.APPLICATION_JSON).content("{\"salesUnitPrice\":1200}"))
 			.andExpect(status().isOk());
+	}
+
+	private String expireOf() {
+		return jdbc.queryForObject("select dt_expire from trd_prod_reg where user_id = ?", String.class, sellerId);
+	}
+
+	@Test
+	@DisplayName("판매완료는 재고가 0 이 된 때가 아니라 구매 확정 때 — 재고 0 이어도 확정 전엔 거래 중, 확정하면 판매완료 (2026-11-02)")
+	void soldOutOnlyAtConfirmation() throws Exception {
+		listing(1000, 3, 1, 1, null);
+		String tradeId = requested(3);
+		assertThat(stock()).isZero();
+		assertThat(expireOf()).isNull();
+
+		action(buyer, tradeId, "complete").andExpect(status().isOk());
+		assertThat(expireOf()).isNotNull();
+	}
+
+	@Test
+	@DisplayName("묶인 건이 더 남아 있으면 확정해도 판매완료가 아니다 — 마지막 건이 확정될 때 판매완료, 먼저 취소된 건의 수량이 돌아오면 계속 거래 중")
+	void notSoldOutWhileOtherHoldsRemain() throws Exception {
+		listing(1000, 2, 1, 1, null);
+		UUID otherId = newUser("tradeother", "01012340007");
+		Cookie other = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(otherId));
+		String first = requested(1);
+		String second = tradeService.request(otherId, new TradeCreateRequest(sellerId, REG_DATE, 1, future(), null)).tradeId();
+		assertThat(stock()).isZero();
+
+		action(buyer, first, "complete").andExpect(status().isOk());
+		assertThat(expireOf()).isNull();
+
+		// 남은 건을 취소하면 수량이 돌아오므로 판매완료가 아니다
+		action(other, second, "cancel").andExpect(status().isNoContent());
+		assertThat(stock()).isEqualTo(1);
+		assertThat(expireOf()).isNull();
+
+		String third = tradeService.request(otherId, new TradeCreateRequest(sellerId, REG_DATE, 1, future(), null)).tradeId();
+		action(other, third, "complete").andExpect(status().isOk());
+		assertThat(stock()).isZero();
+		assertThat(expireOf()).isNotNull();
 	}
 
 	@Test

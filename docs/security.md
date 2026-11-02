@@ -156,7 +156,7 @@
   | 비고 `remarks` | 100자 이하 |
   | 납품희망일 `reqDeliDate` | **필수**, 구매와 같은 규칙 (2026-10-27 — 전엔 받지 않았다). 오류는 `fields["items[i].reqDeliDate"]`. 재요청은 새 값으로 덮어쓴다 |
   - 수락 `POST /trades/{id}/accept`·거절 `/reject`: 그 매물의 판매자만(아니면 403), 견적요청 상태만(아니면 409 `TRADE_NOT_PENDING`). 수락은 매물 행을 잠그고 단가를 희망단가로 내린다(올리지 않음). 견적 취소는 보낸 구매자만(판매자 403), 견적요청·견적거절 상태에서만(견적수락은 409 `TRADE_NOT_PENDING`).
-  - 수락된 견적에서 구매 `POST /trades/{id}/purchase`(2026-10-21): 보낸 구매자만(아니면 403), `견적수락` 상태만(아니면 409 `TRADE_NOT_PENDING`), 매물 거래완료 409 `LISTING_COMPLETED`, 재고 초과 409 `TRADE_OUT_OF_STOCK`. 본문은 구매와 같은 수량(1~100,000)·납품희망일·요청사항(≤100). 단가는 받지 않고 지금 매물 단가. 새 행 없이 같은 행이 `구매요청`.
+  - 수락된 견적에서 구매 `POST /trades/{id}/purchase`(2026-10-21): 보낸 구매자만(아니면 403), `견적수락` 상태만(아니면 409 `TRADE_NOT_PENDING`), 본문은 수량(1~100,000, **수락된 수량과 같아야 한다** — 다르면 400 `fields.orderQuantity`)·납품희망일·요청사항(≤100). 단가는 받지 않고 수락된 단가 그대로(2026-11-02 — 전엔 지금 매물 단가). 수량은 수락 때 이미 묶여 재고를 다시 깎지 않는다. 새 행 없이 같은 행이 `구매요청`. 수락(`POST /trades/{id}/accept`)은 견적 수량만큼 재고를 묶어 부족하면 409 `TRADE_OUT_OF_STOCK`, 취소(`/cancel`)는 수락된 견적도 구매자·판매자 누구나(묶인 수량 복원).
   - 멱등 키: scope `quote-create`, 저장 값은 만든 거래ID 목록(쉼표).
 - 장바구니·비교 (2026-10-21, 2026-10-29 담기 입력·비교 저장, `/api/v1/cart`). 프론트 `lib/validation/cart.ts`·`cartAdd.ts` 와 서버 `CartAddRequest`·`CartRemoveRequest`·`CompareRequest`·`CartService`·`CompareService`·`TradeInputRules` 가 같은 값:
   | 항목 | 규칙 |

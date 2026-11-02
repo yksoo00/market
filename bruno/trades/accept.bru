@@ -20,6 +20,6 @@ vars:pre-request {
 
 docs {
   그 매물의 판매자만(아니면 403). 견적요청 상태의 견적만 — 아니면 409 TRADE_NOT_PENDING.
-  200 tradeStats "quoteAccepted". 매물 단가를 희망단가로 내린다(이미 더 싸면 그대로). 거래완료 매물은 409 LISTING_COMPLETED.
-  구매자에게 수락 메일. 구매자는 바뀐 매물을 [구매](create.bru)로 산다.
+  200 tradeStats "quoteAccepted". 매물 단가는 안 바꾼다 — 수락 단가(희망단가)는 이 거래 안에서만 쓴다. 견적 수량을 구매자 몫으로 묶는다(재고에서 뺀다).
+  재고가 모자라거나 거래완료 매물이면 409 TRADE_OUT_OF_STOCK (견적은 그대로). 구매자에게 수락 메일. 구매자는 [구매](purchase-from-quote.bru)로 사거나 [취소](cancel.bru)한다. (2026-11-02)
 }

@@ -412,25 +412,21 @@ public class ListingService {
 		return out;
 	}
 
-	/** 구매요청의 재고 차감. 재고 부족·거래완료면 TRADE_OUT_OF_STOCK (호출자 트랜잭션에 합류해 같이 롤백) */
+	/** 재고 묶기(구매요청·견적 수락). 재고 부족·거래완료면 TRADE_OUT_OF_STOCK (호출자 트랜잭션에 합류해 같이 롤백) */
 	@Transactional
 	public void reserveStock(ListingId id, int quantity) {
-		if (listings.reserveStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity, LocalDateTime.now(clock).format(REG_DATE_FORMAT)) == 0) {
+		if (listings.reserveStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity) == 0) {
 			throw new ApiException(ErrorCode.TRADE_OUT_OF_STOCK);
 		}
 	}
 
 	/**
-	 * 견적 수락 — 매물 단가를 희망단가로 내린다(더 싸면 그대로). 행을 잠그고 읽어 구매요청·수정과 차례를 맞춘다.
-	 * 거래완료 매물은 409 (단가를 바꿔도 살 수 없다). 호출자 트랜잭션에 합류해 같이 롤백
+	 * 구매 확정 뒤 판매완료 판정 — 재고가 0 이면 판매완료로 표시한다. "더 묶인 건이 없을 때만"은 호출하는 거래 쪽이 확인한다
+	 * (묶인 건은 거래 행이라). 재고가 남았거나 이미 거래완료면 아무 일도 안 한다
 	 */
 	@Transactional
-	public void applyQuotePrice(ListingId id, int price) {
-		Listing listing = listings.findForUpdate(id.getUserId(), id.getRegDate(), id.getProdId()).orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
-		if (listing.getDtExpire() != null) {
-			throw new ApiException(ErrorCode.LISTING_COMPLETED);
-		}
-		listing.lowerPriceTo(price, LocalDateTime.now(clock).format(REG_DATE_FORMAT));
+	public void markSoldOutIfEmpty(ListingId id) {
+		listings.markSoldOut(id.getUserId(), id.getRegDate(), id.getProdId(), LocalDateTime.now(clock).format(REG_DATE_FORMAT));
 	}
 
 	/** 거래 취소로 재고 복원 + 거래완료일시 지움 */

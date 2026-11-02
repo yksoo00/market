@@ -103,14 +103,28 @@ class ListingStockTest {
 	}
 
 	@Test
-	@DisplayName("재고를 정확히 0으로 줄이면 dt_expire 가 들어가고, 복원하면 지워진다")
+	@DisplayName("재고를 정확히 0으로 묶어도 dt_expire 는 안 들어간다 — 판매완료는 확정 때 markSoldOutIfEmpty 가 넣고, 복원하면 지워진다 (2026-11-02)")
 	void reserveToZeroThenRelease() {
-		service.reserveStock(new ListingId(sellerId, REG_DATE, "STOCKTEST1"), 5);
+		ListingId id = new ListingId(sellerId, REG_DATE, "STOCKTEST1");
+		service.reserveStock(id, 5);
 		assertThat(stock()).isZero();
+		assertThat(dtExpire()).isNull();
+
+		service.markSoldOutIfEmpty(id);
 		assertThat(dtExpire()).isNotNull();
 
-		service.releaseStock(new ListingId(sellerId, REG_DATE, "STOCKTEST1"), 5);
+		service.releaseStock(id, 5);
 		assertThat(stock()).isEqualTo(5);
+		assertThat(dtExpire()).isNull();
+	}
+
+	@Test
+	@DisplayName("재고가 남아 있으면 markSoldOutIfEmpty 는 아무 일도 안 한다")
+	void markSoldOutKeepsListingWhenStockRemains() {
+		ListingId id = new ListingId(sellerId, REG_DATE, "STOCKTEST1");
+		service.reserveStock(id, 3);
+		service.markSoldOutIfEmpty(id);
+		assertThat(stock()).isEqualTo(2);
 		assertThat(dtExpire()).isNull();
 	}
 

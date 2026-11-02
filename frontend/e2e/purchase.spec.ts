@@ -210,8 +210,8 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     await expect(page.getByText(my.sales.emptyTitle)).toBeVisible();
   });
 
-  // 넓은 화면 표에는 재고 열이 없다 — 재고가 0이 되는 구매로 행이 바로 "거래완료"가 되는지 본다
-  await test.step("검색 결과에서 남은 재고(3)를 다 사면 그 행이 바로 거래완료로 바뀐다", async () => {
+  // 판매완료는 재고가 0 이 된 때가 아니라 구매 확정 때 (2026-11-02) — 남은 재고를 다 사도 확정 전엔 거래 중
+  await test.step("남은 재고(3)를 다 사도 확정 전엔 거래 중, 거래완료(확정)하면 그 행이 판매완료로 바뀐다", async () => {
     await logOut(page);
     await logIn(page, buyer);
     await page.goto(`/search?q=${encodeURIComponent(prodName)}`);
@@ -225,6 +225,16 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     await dialog.getByRole("button", { name: trade.purchase.submit, exact: true }).click();
     await expect(page.getByRole("dialog", { name: trade.purchase.doneTitle })).toBeVisible();
     await page.keyboard.press("Escape");
+    // 재고는 0 이어도 구매 확정 전이라 판매완료 배지가 없다
+    await page.goto(`/search?q=${encodeURIComponent(prodName)}`);
+    await expect(row.getByText(search.result.completedBadge)).toHaveCount(0);
+
+    await page.goto("/my/activity?tab=purchases");
+    await page.getByRole("button", { name: t.completeAria(prodName) }).click();
+    await expect(page.getByRole("table").getByRole("row").filter({ hasText: prodName }).getByText(t.stats.confirmed)).toBeVisible();
+
+    // 확정하면 재고 0 + 묶인 건 없음 → 판매완료. 검색은 기본이 거래 중만 보이므로 거래완료 필터로 본다
+    await page.goto(`/search?q=${encodeURIComponent(prodName)}&status=completed`);
     await expect(row.getByText(search.result.completedBadge)).toBeVisible();
   });
 });

@@ -155,6 +155,24 @@ public class TradeInfo implements Persistable<TradeInfoId> {
 	}
 
 	/**
+	 * 수락된 견적에서 구매요청으로 — 단가와 수량은 수락된 값 그대로(매물 단가가 아니라 이 거래의 수락 단가, 수량은 수락 때 이미 묶였다).
+	 * 매물 스냅샷·납품희망일·요청사항만 새로 채우고 상태를 구매요청으로 (2026-11-02)
+	 */
+	public void continueQuoteAsPurchase(String prodId, String prodState, Integer salesUnitPrice, Integer stockQuantity,
+			Integer minOrderQuantity, Integer orderUnit, String provDate, String reqDeliDate, String remarks) {
+		this.prodId = prodId;
+		this.prodState = prodState;
+		this.salesUnitPrice = salesUnitPrice;
+		this.stockQuantity = stockQuantity;
+		this.minOrderQuantity = minOrderQuantity;
+		this.orderUnit = orderUnit;
+		this.provDate = provDate;
+		this.reqDeliDate = reqDeliDate;
+		this.remarks = remarks;
+		this.tradeStats = TradeStats.REQUESTED;
+	}
+
+	/**
 	 * 장바구니 행을 구매요청으로 — 새 행을 만들지 않고 같은 행이 구매요청이 된다 (설계 2026-10-27 PR 3). 거래종류도 거래로 바뀐다.
 	 * 등록일시(reg_date)는 담은 시각 그대로, 매물 스냅샷은 지금 값으로 다시 복사하고 단가는 등록단가
 	 */
