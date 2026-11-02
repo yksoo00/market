@@ -25,6 +25,7 @@ vars:pre-request {
 }
 
 docs {
+  cartTradeId(선택): 장바구니에서 누른 구매면 그 줄의 거래ID — 있으면 그 줄이 구매요청이 되고(담은 수량은 풀고 요청 수량을 묶음), 내 줄이 아니거나 다른 매물의 줄이면 404. 없으면 새 거래. (2026-11-02)
   로그인(login.bru) 먼저 — 쿠키(access_token)는 Bruno가 자동으로 실어 보낸다. 구매자는 인증 정보에서만.
   sellerId·regDate 는 매물 키 (listings/get.bru 경로의 userId·regDate). 예시 값은 자리표시.
   201 { ok, data: TradeResponse } — tradeId(yyMMddHH+순번 3자리), tradeStats "requested", amount = 등록단가 × 수량.

@@ -201,6 +201,10 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	boolean existsBySellerIdAndProdRegDateAndProdIdAndTradeStatsIn(UUID sellerId, String prodRegDate, String prodId,
 			Collection<TradeStats> stats);
 
+	/** 담은 지 오래된 장바구니 줄의 거래ID (reg_date = 담은 시각 14자리, cutoff 보다 이르면) — 1시간 자동 정리용 */
+	@Query("select t.tradeId from TradeInfo t where t.tradeType = :type and t.tradeStats = :stats and t.regDate < :cutoff order by t.tradeId")
+	List<String> findStaleTradeIds(@Param("type") TradeType type, @Param("stats") TradeStats stats, @Param("cutoff") String cutoff);
+
 	/** 판매자 매물별 그 상태들 건수 → [매물 등록일시, count]. 한 판매자 안에서 등록일시는 매물 하나 (같은 초 등록 409) */
 	@Query("""
 			select t.prodRegDate, count(t) from TradeInfo t

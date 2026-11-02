@@ -10,10 +10,9 @@ export const cart = {
     doneTitle: "장바구니에 담았어요",
     doneMessage: "장바구니에서 골라 견적 요청하거나 구매할 수 있어요.",
     toCart: "장바구니 보기",
-    skipped: (n: number) => `이미 담긴 상품 ${n}개는 건너뛰었어요. 처음 담을 때 값이 그대로예요.`,
     dialog: {
       title: "장바구니에 담기",
-      desc: "수량과 납품희망일을 정해 담아 두면 구매·견적 때 그대로 채워져요. 재고는 구매할 때 확인해요.",
+      desc: "수량과 납품희망일을 정해 담아요. 담은 수량은 1시간 동안 내 몫으로 잡혀 있고, 같은 상품도 담을 때마다 따로 담겨요.",
       loading: "매물 정보를 불러오는 중…",
       loadFailed: "매물 정보를 불러오지 못했어요.",
       retry: "다시 시도",
@@ -48,5 +47,9 @@ export const cart = {
     completedSkipped: "거래가 끝난 상품은 빼고 골랐어요.",
     loadFailed: "장바구니를 불러오지 못했어요.",
     retry: "다시 시도",
+    // 담은 수량은 그 시간 동안 내 몫으로 잡혀 있고, 지나면 자동으로 빠지며 수량이 풀린다 (2026-11-02)
+    autoRemoveHint: "담은 지 1시간이 지나면 자동으로 빠지고, 잡아 둔 수량이 풀려요.",
+    columns: { quantity: "담은 수량", reqDeliDate: "납품희망일", remaining: "남은 시간" },
+    remaining: (minutes: number) => (minutes <= 0 ? "곧 빠져요" : `${minutes}분`),
   },
 };

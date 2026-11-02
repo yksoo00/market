@@ -28,6 +28,10 @@ export interface CartDefaults {
   orderQuantity: number;
   reqDeliDate: string;
   remarks: string | null;
+  /** 장바구니 줄의 거래ID — 보내면 그 줄이 견적요청이 된다 */
+  cartTradeId?: string;
+  /** 장바구니 표의 "남은 시간" 계산용 — 담은 시각 yyyyMMddHHmmss (UTC) */
+  addedAt?: string;
 }
 
 export interface QuoteTarget {
@@ -201,6 +205,9 @@ function QuoteForm({ sendable, skipped, defaultsByKey, onClose, onRequested }: F
         orderQuantity: row.orderQuantity,
         reqDeliDate: row.reqDeliDate,
         ...(row.remarks ? { remarks: row.remarks } : {}),
+        ...(defaultsByKey.get(`${sendable[i].userId}/${sendable[i].regDate}`)?.cartTradeId
+          ? { cartTradeId: defaultsByKey.get(`${sendable[i].userId}/${sendable[i].regDate}`)?.cartTradeId }
+          : {}),
       })),
       idempotencyKey,
     );

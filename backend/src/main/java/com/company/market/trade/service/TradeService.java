@@ -59,8 +59,8 @@ public class TradeService {
 
 	private static final int PAGE_SIZE = 20;
 
-	/** 수량을 묶고 있는 거래 상태 — 구매요청·수락된 견적 (장바구니 묶기는 PR 2). 이게 없고 재고가 0 일 때만 구매 확정이 판매완료로 만든다 */
-	private static final List<TradeStats> HOLDING_STATS = List.of(TradeStats.REQUESTED, TradeStats.QUOTE_ACCEPTED);
+	/** 수량을 묶고 있는 거래 상태 — 구매요청·수락된 견적·장바구니. 이게 없고 재고가 0 일 때만 구매 확정이 판매완료로 만든다 */
+	private static final List<TradeStats> HOLDING_STATS = List.of(TradeStats.REQUESTED, TradeStats.QUOTE_ACCEPTED, TradeStats.CART);
 
 	private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
@@ -94,21 +94,27 @@ public class TradeService {
 		}
 		String reqDeliDate = req.reqDeliDate();
 		rules.validate(listing, req.orderQuantity(), reqDeliDate);
+		// 장바구니에서 누른 구매면 그 줄(cartTradeId)이 구매요청이 된다 — 같은 매물이 여러 줄이라 줄을 가리켜야 한다. 직접 구매는 새 거래.
+		// 그 줄이 묶고 있던 수량은 이 구매가 쓸 수 있는 재고다
+		TradeInfo cartRow = takeCartRow(buyerId, listing, req.cartTradeId());
+		int usable = (listing.stockQuantity() == null ? 0 : listing.stockQuantity()) + (cartRow == null ? 0 : cartRow.getOrderQuantity());
 		// 재고는 아래 조건부 UPDATE 가 최종 판정. 여기선 거래ID·락을 잡기 전에 뻔한 초과를 먼저 돌려보낸다
-		if (listing.stockQuantity() == null || req.orderQuantity() > listing.stockQuantity()) {
+		if (req.orderQuantity() > usable) {
 			throw new ApiException(ErrorCode.TRADE_OUT_OF_STOCK);
 		}
 
 		String remarks = req.remarks() == null || req.remarks().isBlank() ? null : req.remarks().trim();
-		// 담아 둔 매물이면 새 행을 만들지 않고 그 장바구니 행이 구매요청이 된다 — 어디서 눌렀든(설계 2026-10-27 PR 3).
-		// 아래에서 실패하면 같이 롤백돼 장바구니 두 행이 남는다
-		TradeInfo cartRow = cartRowOf(buyerId, listing);
+		// 아래에서 실패하면 같이 롤백돼 장바구니 줄과 묶은 수량이 그대로 남는다
 		TradeInfo trade;
 		if (cartRow != null) {
+			// 줄이 묶었던 수량은 저장한 뒤에 푼다 (풀 때 영속성 컨텍스트가 비워지고, 저장 뒤엔 줄의 수량이 요청 수량으로 바뀌므로 먼저 챙긴다)
+			ListingId heldListing = cartRow.listingId();
+			int heldQuantity = cartRow.getOrderQuantity();
 			cartRow.convertCartToPurchase(listing.prodId(), listing.prodState(), listing.salesUnitPrice(), listing.stockQuantity(),
 					listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), req.orderQuantity(), reqDeliDate, remarks);
 			trade = trades.saveAndFlush(cartRow);
 			cartInfos.deleteByTradeId(trade.getTradeId());
+			listings.releaseStock(heldListing, heldQuantity);
 		}
 		else {
 			trade = trades.saveAndFlush(TradeInfo.builder()
@@ -165,12 +171,14 @@ public class TradeService {
 				throw new ApiException(ErrorCode.LISTING_COMPLETED);
 			}
 			String prefix = "items[" + i + "].";
+			TradeInfo cartRow = takeCartRow(buyerId, listing, item.cartTradeId());
+			int usable = (listing.stockQuantity() == null ? 0 : listing.stockQuantity()) + (cartRow == null ? 0 : cartRow.getOrderQuantity());
 			if (item.orderUnitPrice() > listing.salesUnitPrice()) {
 				failures.put(prefix + "orderUnitPrice", "희망단가는 등록단가(%d원) 이하로 입력해 주세요.".formatted(listing.salesUnitPrice()));
 			}
 			String quantityFailure = rules.quantityFailure(listing, item.orderQuantity(), item.orderUnitPrice());
-			if (quantityFailure == null && (listing.stockQuantity() == null || item.orderQuantity() > listing.stockQuantity())) {
-				quantityFailure = "현재 재고(%d)보다 많이 요청할 수 없습니다.".formatted(listing.stockQuantity() == null ? 0 : listing.stockQuantity());
+			if (quantityFailure == null && item.orderQuantity() > usable) {
+				quantityFailure = "현재 재고(%d)보다 많이 요청할 수 없습니다.".formatted(usable);
 			}
 			if (quantityFailure != null) {
 				failures.put(prefix + "orderQuantity", quantityFailure);
@@ -185,20 +193,32 @@ public class TradeService {
 			String remarks = item.remarks() == null || item.remarks().isBlank() ? null : item.remarks().trim();
 			TradeInfo existing = trades.findByUserIdAndSellerIdAndProdRegDateAndProdIdAndTradeTypeAndTradeStatsIn(buyerId,
 					listing.sellerId(), listing.regDate(), listing.prodId(), TradeType.QUOTE, TradeStats.QUOTE_STAGES).orElse(null);
-			TradeInfo cartRow = existing == null ? cartRowOf(buyerId, listing) : null;
 			if (existing != null) {
+				// 수락된 견적을 다시 요청하면 수락 때 묶은 수량을 푼다 (2026-11-02). 덮어쓰기 전 수량을 챙긴다
+				ListingId acceptedListing = existing.getTradeStats() == TradeStats.QUOTE_ACCEPTED ? existing.listingId() : null;
+				int acceptedQuantity = existing.getOrderQuantity();
 				existing.requote(listing.prodId(), listing.prodState(), listing.salesUnitPrice(), listing.stockQuantity(),
 						listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), item.orderUnitPrice(),
 						item.orderQuantity(), item.reqDeliDate(), remarks);
 				saved.add(trades.saveAndFlush(existing));
+				if (acceptedListing != null) {
+					listings.releaseStock(acceptedListing, acceptedQuantity);
+				}
+				// 장바구니에서 누른 견적인데 이미 견적 행이 있어 그 행을 덮어쓴 경우엔 그 장바구니 줄을 지운다(견적 행이 둘이 되지 않게)
+				if (cartRow != null) {
+					releaseAndDropCartRow(cartRow);
+				}
 			}
 			else if (cartRow != null) {
-				// 담아 둔 매물이면 그 장바구니 행이 견적요청이 된다 (설계 2026-10-27 PR 3)
+				// 장바구니에서 누른 견적이면 그 줄이 견적요청이 된다 — 견적은 수량을 안 묶으므로 줄이 묶었던 수량을 푼다
+				ListingId heldListing = cartRow.listingId();
+				int heldQuantity = cartRow.getOrderQuantity();
 				cartRow.convertCartToQuote(listing.prodId(), listing.prodState(), listing.salesUnitPrice(), listing.stockQuantity(),
 						listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), item.orderUnitPrice(),
 						item.orderQuantity(), item.reqDeliDate(), remarks);
 				saved.add(trades.saveAndFlush(cartRow));
 				cartInfos.deleteByTradeId(cartRow.getTradeId());
+				listings.releaseStock(heldListing, heldQuantity);
 			}
 			else {
 				try {
@@ -229,11 +249,6 @@ public class TradeService {
 				}
 			}
 			snapshots.add(listing);
-			// 이미 견적 행이 있어 그 행을 덮어쓴 경우엔 장바구니 두 행을 지운다(장바구니 행을 견적으로 바꾸면 견적 행이 둘이 된다).
-			// 뒤 칸에서 실패(400·409)하면 트랜잭션째 롤백돼 남는다
-			if (existing != null) {
-				dropCartRow(buyerId, listing);
-			}
 			// 커밋 뒤에만 나가므로 뒤에서 실패(400·409)해 롤백되면 이 메일도 안 간다
 			mail(Kind.QUOTE_REQUESTED, saved.getLast(), buyerId, listing.prodName());
 		}
@@ -371,7 +386,6 @@ public class TradeService {
 				listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), reqDeliDate,
 				req.remarks() == null || req.remarks().isBlank() ? null : req.remarks().trim());
 		trades.saveAndFlush(continued);
-		dropCartRow(buyerId, listing);
 		mail(Kind.PURCHASE_REQUESTED, continued, buyerId, listing.prodName());
 		return toResponse(continued, TradeStats.REQUESTED, listing.prodName(), listing.photo(), nicknameOf(listing.sellerId()));
 	}
@@ -553,19 +567,28 @@ public class TradeService {
 			.collect(Collectors.toMap(r -> (String) r[0], r -> (Long) r[1]));
 	}
 
-	/** 이 매물의 내 장바구니 거래 행 (없으면 null) — 구매·견적이 이 행을 바꿔 쓴다 */
-	private TradeInfo cartRowOf(UUID buyerId, ListingTradeSnapshot listing) {
-		return trades.findReviewRow(buyerId, listing.sellerId(), listing.regDate(), listing.prodId(), TradeType.REVIEW, TradeStats.CART)
-			.orElse(null);
+	/**
+	 * 장바구니에서 누른 구매·견적이 가리키는 내 장바구니 줄 (cartTradeId 없으면 null = 새 거래). 내 줄이 아니거나 그 매물의 줄이
+	 * 아니거나 장바구니 상태가 아니면 404 — 다른 사람의 줄 존재를 흘리지 않게 없는 것과 같게
+	 */
+	private TradeInfo takeCartRow(UUID buyerId, ListingTradeSnapshot listing, String cartTradeId) {
+		if (cartTradeId == null || cartTradeId.isBlank()) {
+			return null;
+		}
+		return trades.findByTradeId(cartTradeId)
+			.filter(t -> buyerId.equals(t.getUserId()) && t.getTradeType() == TradeType.REVIEW && t.getTradeStats() == TradeStats.CART
+					&& listing.sellerId().equals(t.getSellerId()) && listing.regDate().equals(t.getProdRegDate())
+					&& listing.prodId().equals(t.getProdId()))
+			.orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
 	}
 
-	/** 이 매물의 내 장바구니 두 행(거래·장바구니 정보)을 지운다 — 바꿔 쓸 수 없을 때(이미 견적 행이 있음, 수락된 견적에서 구매) */
-	private void dropCartRow(UUID buyerId, ListingTradeSnapshot listing) {
-		TradeInfo cartRow = cartRowOf(buyerId, listing);
-		if (cartRow != null) {
-			trades.deleteCartRows(buyerId, List.of(cartRow.getTradeId()), TradeStats.CART);
-			cartInfos.deleteByTradeId(cartRow.getTradeId());
-		}
+	/** 장바구니 줄 하나를 지우고(거래·장바구니 정보 두 행) 그 줄이 묶었던 수량을 푼다 */
+	private void releaseAndDropCartRow(TradeInfo cartRow) {
+		ListingId listing = cartRow.listingId();
+		int quantity = cartRow.getOrderQuantity();
+		trades.deleteCartRows(cartRow.getUserId(), List.of(cartRow.getTradeId()), TradeStats.CART);
+		cartInfos.deleteByTradeId(cartRow.getTradeId());
+		listings.releaseStock(listing, quantity);
 	}
 
 	private String nicknameOf(UUID userId) {
