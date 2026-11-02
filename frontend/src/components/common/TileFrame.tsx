@@ -30,6 +30,8 @@ export function TileFrame({ pane, closable = true }: { pane: Pane; closable?: bo
   const [src] = useState(pane.path);
   const [loadError, setLoadError] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  // iframe 안에서 모달이 열려 있는 동안 이 칸을 창 전체로 키운다 — 모달이 그 칸 안에 갇히지 않고 창 가운데 뜨게 (2026-11-02)
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     const handler = (event: MessageEvent) => {
@@ -41,7 +43,8 @@ export function TileFrame({ pane, closable = true }: { pane: Pane; closable?: bo
         return;
       }
       // iframe 안에서 다른 화면을 열면 부모 큐가 판단 (같은 화면 이동은 iframe이 스스로 하고 경로만 보고)
-      if (event.data.type === "open") open(pane.key, event.data.path, event.data.reset === true);
+      if (event.data.type === "modal") setModalOpen(event.data.open === true);
+      else if (event.data.type === "open") open(pane.key, event.data.path, event.data.reset === true);
       else updatePath(pane.key, event.data.pathname);
     };
     window.addEventListener("message", handler);
@@ -62,7 +65,7 @@ export function TileFrame({ pane, closable = true }: { pane: Pane; closable?: bo
   }
 
   return (
-    <div className="relative h-full w-full min-h-0">
+    <div className={modalOpen ? "fixed inset-0 z-60 bg-surface" : "relative h-full w-full min-h-0"}>
       <iframe
         ref={iframeRef}
         src={src}
@@ -70,7 +73,7 @@ export function TileFrame({ pane, closable = true }: { pane: Pane; closable?: bo
         onError={() => setLoadError(true)}
         className="h-full w-full border-0"
       />
-      {closable && <TileCloseButton onClick={() => close(pane.key)} />}
+      {closable && !modalOpen && <TileCloseButton onClick={() => close(pane.key)} />}
     </div>
   );
 }

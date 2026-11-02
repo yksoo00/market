@@ -10,6 +10,25 @@ function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>)
   return <DialogPrimitive.Root data-slot="dialog" {...props} />
 }
 
+// 보조·홈 칸(iframe) 안에서 모달이 열려 있는 동안 부모에게 알려, 그 칸을 창 전체로 키우게 한다 (사용자 지시 2026-11-02:
+// 어느 칸에서 열든 모달은 창 가운데). 겹쳐 열린 모달(구매 → 결과 팝업)은 개수로 세어 처음 열릴 때·마지막으로 닫힐 때만 알린다
+let openModals = 0
+function reportModal(open: boolean) {
+  if (typeof window === "undefined" || window.self === window.top) return
+  window.top?.postMessage({ source: "market-tile", type: "modal", open }, window.location.origin)
+}
+// 모달 내용 안에 두는 보고자 — Radix 가 닫히면 내용을 지우므로(Presence) 이 컴포넌트도 같이 사라진다. DialogContent 자신에 훅을 두면
+// 닫혀도 계속 마운트돼 있어 닫힘을 못 알린다
+function ModalOpenReporter() {
+  React.useEffect(() => {
+    if (openModals++ === 0) reportModal(true)
+    return () => {
+      if (--openModals === 0) reportModal(false)
+    }
+  }, [])
+  return null
+}
+
 function DialogContent({ className, children, ...props }: React.ComponentProps<typeof DialogPrimitive.Content>) {
   return (
     <DialogPrimitive.Portal>
@@ -25,6 +44,7 @@ function DialogContent({ className, children, ...props }: React.ComponentProps<t
         )}
         {...props}
       >
+        <ModalOpenReporter />
         {children}
       </DialogPrimitive.Content>
     </DialogPrimitive.Portal>
