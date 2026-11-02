@@ -1,0 +1,26 @@
+meta {
+  name: 장바구니 담은 수량 바꾸기
+  type: http
+  seq: 15
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/cart/26102110001
+  body: json
+  auth: none
+}
+
+body:json {
+  { "orderQuantity": 6 }
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  장바구니 줄(cart-list.bru 의 tradeId)의 담은 수량을 이 값으로 바꾼다 (화면의 +/-, 주문단위씩). (2026-11-02)
+  200 { ok, data: { tradeId, orderQuantity } }. 늘린 만큼만 재고를 더 묶고 줄인 만큼만 푼다. 담은 시각(1시간 자동 삭제)·납품희망일·요청사항은 그대로.
+  규칙은 담기와 같다: 400 fields["orderQuantity"] (최소주문량 미만·주문단위 아님·재고 초과·1~100000 밖). 재고 초과면 수량·재고 그대로.
+  404 TRADE_NOT_FOUND (내 장바구니 줄이 아님), 409 LISTING_COMPLETED (거래완료 매물).
+}

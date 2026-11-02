@@ -1,11 +1,14 @@
 import { api } from "@/lib/api/client";
-import type { CartAddItem, CartAddResult, CartCount, CartItem } from "@/types/cart";
+import type { CartAddItem, CartAddResult, CartCount, CartItem, CartQuantityResult } from "@/types/cart";
 
 export const cartApi = {
   /** 1~20개, 매물마다 수량·납품희망일·요청사항. 이미 담긴 매물은 건너뛴다(skipped). 하나라도 틀리면 아무것도 안 담긴다 */
   add: (items: CartAddItem[]) => api<CartAddResult>("/api/v1/cart", { method: "POST", body: JSON.stringify({ items }) }),
   list: () => api<{ items: CartItem[] }>("/api/v1/cart", { cache: "no-store" }),
   count: () => api<CartCount>("/api/v1/cart/count", { cache: "no-store" }),
+  /** +/- — 담은 수량을 이 값으로 바꾼다. 늘린 만큼만 재고를 더 묶고 줄인 만큼만 푼다. 담은 시각(1시간)은 그대로 */
+  changeQuantity: (tradeId: string, orderQuantity: number) =>
+    api<CartQuantityResult>(`/api/v1/cart/${encodeURIComponent(tradeId)}`, { method: "PATCH", body: JSON.stringify({ orderQuantity }) }),
   /** 빼기 = 행 삭제 → 204 */
   remove: (tradeIds: string[]) =>
     api<null>("/api/v1/cart/remove", { method: "POST", body: JSON.stringify({ tradeIds }) }),

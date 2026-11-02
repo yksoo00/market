@@ -27,6 +27,7 @@ export function CartView() {
   const [attempt, setAttempt] = useState(0);
   const [removing, setRemoving] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+  const [quantityBusy, setQuantityBusy] = useState<string | null>(null);
   const reload = () => setAttempt((n) => n + 1);
 
   useEffect(() => {
@@ -94,6 +95,17 @@ export function CartView() {
         [i.tradeId, { orderQuantity: i.orderQuantity, reqDeliDate: i.reqDeliDate, remarks: i.remarks, cartTradeId: i.tradeId, addedAt: i.addedAt }] as const,
     ),
   );
+  // +/- : 누를 때마다 서버에 저장하고 다시 읽는다. 실패(재고 부족 등)면 서버 문구를 표 위에 보인다
+  const changeQuantity = async (item: ListingSearchItem, quantity: number) => {
+    if (item.cartTradeId === undefined) return;
+    setQuantityBusy(item.cartTradeId);
+    setRemoveError(null);
+    const res = await cartApi.changeQuantity(item.cartTradeId, quantity);
+    setQuantityBusy(null);
+    if (!res.ok) setRemoveError(res.fields?.orderQuantity ?? trade.errors[res.code] ?? res.message);
+    notifyCartChanged();
+    reload();
+  };
   const remove = async (chosen: ListingSearchItem[]) => {
     setRemoving(true);
     setRemoveError(null);
@@ -122,6 +134,8 @@ export function CartView() {
         onRemove={(chosen) => void remove(chosen)}
         removing={removing}
         cartDefaults={cartDefaults}
+        onChangeQuantity={(item, quantity) => void changeQuantity(item, quantity)}
+        quantityBusy={quantityBusy}
       />
     </div>
   );

@@ -30,6 +30,7 @@ import com.company.market.trade.dto.CartAddRequest;
 import com.company.market.trade.dto.CartAddResponse;
 import com.company.market.trade.dto.CartCountResponse;
 import com.company.market.trade.dto.CartItemResponse;
+import com.company.market.trade.dto.CartQuantityResponse;
 import com.company.market.trade.repository.CartInfoRepository;
 import com.company.market.trade.repository.TradeInfoRepository;
 import lombok.RequiredArgsConstructor;
@@ -178,6 +179,38 @@ public class CartService {
 			.remarks(remarks)
 			.regDate(now)
 			.build();
+	}
+
+	/**
+	 * 담은 수량 바꾸기 (+/-). 담기와 같은 규칙(최소주문량·주문단위·금액 상한)을 보고, 늘린 만큼만 재고를 더 묶고 줄인 만큼만 푼다.
+	 * 담은 시각은 그대로 — 수량을 만져 1시간 자동 삭제를 늦출 수 없다(사용자 결정 2026-11-02). 줄을 먼저 잠그고 매물을 잠근다
+	 * (자동 삭제·구매·견적 전환과 같은 순서). 내 장바구니 줄이 아니면 404
+	 */
+	@Transactional
+	public CartQuantityResponse changeQuantity(UUID buyerId, String tradeId, int quantity) {
+		TradeInfo row = trades.findForUpdateByTradeId(tradeId)
+			.filter(t -> buyerId.equals(t.getUserId()) && t.getTradeType() == TradeType.REVIEW && t.getTradeStats() == TradeStats.CART)
+			.orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
+		ListingId listingId = row.listingId();
+		int before = row.getOrderQuantity();
+		ListingTradeSnapshot listing = listings.lockForTrade(listingId);
+		if (listing.completed()) {
+			throw new ApiException(ErrorCode.LISTING_COMPLETED);
+		}
+		String failure = rules.quantityFailure(listing, quantity, listing.salesUnitPrice() == null ? 0 : listing.salesUnitPrice());
+		int delta = quantity - before;
+		if (failure == null && delta > 0 && !listings.tryReserveStock(listingId, delta)) {
+			failure = stockFailure(currentStock(listing));
+		}
+		if (failure != null) {
+			throw new ValidationException(Map.of("orderQuantity", failure));
+		}
+		if (delta < 0) {
+			listings.releaseStock(listingId, -delta);
+		}
+		trades.updateCartQuantity(tradeId, quantity, TradeStats.CART);
+		cartInfos.updateQuantity(tradeId, quantity);
+		return new CartQuantityResponse(tradeId, quantity);
 	}
 
 	/** 최근에 담은 것부터. 매물 값은 지금 값 */

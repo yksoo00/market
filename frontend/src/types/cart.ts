@@ -14,6 +14,12 @@ export interface CartItem {
   listing: ListingSearchItem;
 }
 
+/** 담은 수량 바꾸기 결과 (백엔드 CartQuantityResponse) */
+export interface CartQuantityResult {
+  tradeId: string;
+  orderQuantity: number;
+}
+
 export interface CartCount {
   count: number;
 }

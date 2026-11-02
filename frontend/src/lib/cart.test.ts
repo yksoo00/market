@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { cartActionable, cartBadge, notifyCartChanged, onCartChanged } from "@/lib/cart";
+import { cartActionable, cartBadge, nextCartQuantity, notifyCartChanged, onCartChanged } from "@/lib/cart";
 import type { ListingSearchItem } from "@/types/listing";
 
 describe("cartBadge", () => {
@@ -36,5 +36,31 @@ describe("notifyCartChanged · onCartChanged", () => {
     await vi.waitFor(() => expect(b).toHaveBeenCalledTimes(2));
     expect(a).toHaveBeenCalledTimes(1);
     offB();
+  });
+});
+
+describe("nextCartQuantity", () => {
+  const item = (o: Partial<ListingSearchItem>) => ({ tradeStatus: "available", orderUnit: 5, minOrderQuantity: 10, stockQuantity: 12, ...o }) as ListingSearchItem;
+
+  it("주문단위만큼 오르내린다", () => {
+    expect(nextCartQuantity(item({}), 15, "down")).toBe(10);
+    expect(nextCartQuantity(item({}), 15, "up")).toBe(20);
+  });
+
+  it("최소주문량 아래로는 못 내린다 (없애려면 빼기)", () => {
+    expect(nextCartQuantity(item({}), 10, "down")).toBeNull();
+  });
+
+  it("남은 재고가 주문단위보다 적으면 못 올린다", () => {
+    expect(nextCartQuantity(item({ stockQuantity: 4 }), 15, "up")).toBeNull();
+    expect(nextCartQuantity(item({ stockQuantity: 5 }), 15, "up")).toBe(20);
+    expect(nextCartQuantity(item({ stockQuantity: null }), 15, "up")).toBeNull();
+  });
+
+  it("주문단위·최소주문량이 없으면 1 단위, 거래완료 매물은 둘 다 못 바꾼다", () => {
+    expect(nextCartQuantity(item({ orderUnit: null, minOrderQuantity: null }), 3, "down")).toBe(2);
+    expect(nextCartQuantity(item({ orderUnit: null, minOrderQuantity: null }), 1, "down")).toBeNull();
+    expect(nextCartQuantity(item({ tradeStatus: "completed" }), 15, "up")).toBeNull();
+    expect(nextCartQuantity(item({ tradeStatus: "completed" }), 15, "down")).toBeNull();
   });
 });
