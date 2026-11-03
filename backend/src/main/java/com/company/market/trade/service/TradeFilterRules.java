@@ -30,8 +30,9 @@ final class TradeFilterRules {
 	 * 정렬 값: latest(기본)·oldest(오래된 순) + 열마다 열이름Asc|Desc (열 머리 정렬 2026-11-03). 거래이력이 쓰는 열: name·party(상대)·side(구분)·
 	 * unitPrice·quantity·amount. 활동내역 쪽 열(납품희망일·상태 등)은 그 목록 단계에서 더한다
 	 */
-	/** 활동내역 요청·구매 목록이 받는 정렬 — 열 머리 정렬은 3단계에서 더한다. 거래이력 전용 값을 조용히 최신순으로 받지 않게 따로 둔다 */
-	static final List<String> ACTIVITY_SORTS = List.of("latest", "oldest", "amountDesc", "amountAsc");
+	/** 활동내역 요청·구매 목록이 받는 정렬 — 열: name·party(상대)·quantity·unitPrice·amount·reqDeli(납품희망일)·status. 거래이력 전용 값(side)을 조용히 최신순으로 받지 않게 따로 둔다 */
+	static final List<String> ACTIVITY_SORTS = List.of("latest", "oldest", "amountDesc", "amountAsc", "nameAsc", "nameDesc", "partyAsc", "partyDesc",
+			"quantityAsc", "quantityDesc", "unitPriceAsc", "unitPriceDesc", "reqDeliAsc", "reqDeliDesc", "statusAsc", "statusDesc");
 
 	static final List<String> SORTS = List.of("latest", "oldest", "amountDesc", "amountAsc", "nameAsc", "nameDesc", "partyAsc", "partyDesc",
 			"sideAsc", "sideDesc", "unitPriceAsc", "unitPriceDesc", "quantityAsc", "quantityDesc");

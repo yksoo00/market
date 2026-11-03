@@ -87,6 +87,8 @@ export const my = {
   },
   // 내 활동내역 요청·구매 탭 검색 + 상세 필터 (계획 2026-10-30 후속). 기간·금액·정렬 문구는 history.filter 와 같다
   activityFilter: {
+    // 열 머리를 눌러 정한 정렬의 칩 글자 ("상대 ▲", 2026-11-03)
+    sortColumns: { name: "상품명", party: "상대", quantity: "수량", unitPrice: "단가", amount: "금액", reqDeli: "납품희망일", status: "상태" },
     label: "거래 검색",
     status: "거래상태",
     statusAll: "전체",

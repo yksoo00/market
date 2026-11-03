@@ -175,11 +175,13 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			@Param("cursor") String cursor, Pageable page);
 
 	/**
-	 * findBuyerPage 와 같은 조건의 [거래ID, 구매자ID, 금액(단가×수량)] 만 전부 — 페이지 번호의 경계와 전체 건수 (PageKeys).
-	 * 정렬(금액순 포함)은 호출자가 이 키 목록을 자바에서 한다 — 금액은 컬럼이 아니라 식이라 Sort 로 못 건다
+	 * findBuyerPage 와 같은 조건의 정렬 키만 전부 — 페이지 번호의 경계와 전체 건수 (PageKeys).
+	 * 행 = [거래ID, 구매자ID, 금액(단가×수량), 판매자ID, 상품ID, 수량, 단가, 납품희망일, 거래상태] — 앞 둘이 PK 이고 나머지는 정렬용.
+	 * 정렬은 호출자가 이 키 목록을 자바에서 한다 — 금액은 컬럼이 아니라 식이고 상품명·상대 별명은 이 테이블 밖 값이라 Sort 로 못 건다 (열 머리 정렬 2026-11-03)
 	 */
 	@Query("""
-			select t.tradeId, t.userId, cast(t.orderUnitPrice as long) * t.orderQuantity from TradeInfo t
+			select t.tradeId, t.userId, cast(t.orderUnitPrice as long) * t.orderQuantity, t.sellerId, t.prodId, t.orderQuantity, t.orderUnitPrice,
+			       t.reqDeliDate, t.tradeStats from TradeInfo t
 			 where t.userId = :buyerId and t.tradeType <> :hidden and t.tradeStats in :stats
 			   and coalesce(t.regDate, '00000000000000') >= :fromDate and coalesce(t.regDate, '00000000000000') <= :toDate
 			   and cast(t.orderUnitPrice as long) * t.orderQuantity >= :minAmount and cast(t.orderUnitPrice as long) * t.orderQuantity <= :maxAmount
@@ -189,9 +191,10 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			@Param("stats") Collection<TradeStats> stats, @Param("fromDate") String fromDate, @Param("toDate") String toDate, @Param("minAmount") int minAmount,
 			@Param("maxAmount") int maxAmount, @Param("useProds") boolean useProds, @Param("prodIds") Collection<String> prodIds);
 
-	/** findSellerPage 와 같은 조건의 [거래ID, 구매자ID, 금액] 만 전부 (findBuyerKeys 와 같다) */
+	/** findSellerPage 와 같은 조건의 정렬 키만 전부 (행 모양은 findBuyerKeys 와 같다) */
 	@Query("""
-			select t.tradeId, t.userId, cast(t.orderUnitPrice as long) * t.orderQuantity from TradeInfo t
+			select t.tradeId, t.userId, cast(t.orderUnitPrice as long) * t.orderQuantity, t.sellerId, t.prodId, t.orderQuantity, t.orderUnitPrice,
+			       t.reqDeliDate, t.tradeStats from TradeInfo t
 			 where t.sellerId = :sellerId and t.tradeType <> :hidden and t.tradeStats in :stats
 			   and (:regDate is null or t.prodRegDate = :regDate)
 			   and coalesce(t.regDate, '00000000000000') >= :fromDate and coalesce(t.regDate, '00000000000000') <= :toDate

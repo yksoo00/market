@@ -73,3 +73,14 @@ test("가로 스크롤: 스크롤바가 화면 아래에 따라다니고, 오른
   const after = await scroller().evaluate((el) => el.scrollLeft);
   expect(Math.abs(after - before)).toBeLessThan(8);
 });
+
+// 필터 칩 줄 (사용자 지시 2026-11-03): 칸이 좁아도 가로 스크롤바가 생기지 않고 줄을 바꾼다 — 열 정렬로 칩 글자가 길어져도
+test("필터 칩 줄: 좁은 화면에서도 가로 스크롤 없이 줄바꿈된다 (긴 정렬 칩 글자 포함)", async ({ page }) => {
+  await page.setViewportSize({ width: 420, height: 800 });
+  await page.goto("/search?sort=minOrderAsc");
+  const toolbar = page.getByRole("toolbar", { name: /./ }).first();
+  await toolbar.waitFor({ timeout: 15_000 });
+  await expect(page.getByRole("button", { name: new RegExp(`^${search.sort.label}: `) })).toContainText(search.sort.columns.minOrder);
+  const overflow = await toolbar.evaluate((el) => el.scrollWidth - el.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(1);
+});

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { filterCount } from "@/lib/detailFilter";
-import { emptyTradeFilter, parseTradeFilter, tradeApiParams, tradeFields, TRADE_STATUS_VALUES } from "@/lib/tradeFilter";
+import { emptyTradeFilter, parseTradeFilter, tradeApiParams, tradeFields, tradeSortColumn, TRADE_STATUS_VALUES } from "@/lib/tradeFilter";
 import { listFilterSchema } from "@/lib/validation/historyFilter";
 
 describe("parseTradeFilter (주소 → 필터)", () => {
@@ -60,10 +60,28 @@ describe("listFilterSchema (상태 칸 있는 폼)", () => {
   });
 });
 
-describe("활동내역 요청·구매 탭의 정렬 (열 머리 정렬은 3단계)", () => {
-  it("거래이력 열 정렬 값은 칩 선택지가 아니면 최신순으로 읽는다 — 서버가 아직 그 정렬을 안 한다", () => {
-    expect(parseTradeFilter({ sort: "partyAsc" }, "buyer").sort).toBe("latest");
-    expect(parseTradeFilter({ sort: "oldest" }, "seller").sort).toBe("latest");
+describe("활동내역 요청·구매 탭의 정렬 (열 머리 정렬 2026-11-03)", () => {
+  it("이 목록의 열 정렬 값과 기본 정렬은 읽고, 거래이력 전용 값(구분)과 모르는 값은 최신순", () => {
+    expect(parseTradeFilter({ sort: "partyAsc" }, "buyer").sort).toBe("partyAsc");
+    expect(parseTradeFilter({ sort: "reqDeliDesc" }, "seller").sort).toBe("reqDeliDesc");
+    expect(parseTradeFilter({ sort: "statusAsc" }, "buyer").sort).toBe("statusAsc");
     expect(parseTradeFilter({ sort: "amountDesc" }, "buyer").sort).toBe("amountDesc");
+    expect(parseTradeFilter({ sort: "oldest" }, "seller").sort).toBe("oldest");
+    expect(parseTradeFilter({ sort: "sideAsc" }, "buyer").sort).toBe("latest");
+    expect(parseTradeFilter({ sort: "x" }, "buyer").sort).toBe("latest");
+  });
+
+  it("tradeSortColumn: sort 값 → 열·방향, 열 정렬이 아니면 null", () => {
+    expect(tradeSortColumn("reqDeliAsc")).toEqual({ column: "reqDeli", dir: "asc" });
+    expect(tradeSortColumn("statusDesc")).toEqual({ column: "status", dir: "desc" });
+    expect(tradeSortColumn("latest")).toBeNull();
+    expect(tradeSortColumn("sideAsc")).toBeNull();
+  });
+
+  it("정렬 칩 글자: 열로 정한 값은 이 목록의 열 이름 + ▲▼", () => {
+    const sort = tradeFields("buyer").find((f) => f.kind === "select" && f.key === "sort");
+    expect(sort?.kind === "select" ? sort.labelOf?.("partyAsc") : null).toBe("상대 ▲");
+    expect(sort?.kind === "select" ? sort.labelOf?.("reqDeliDesc") : null).toBe("납품희망일 ▼");
+    expect(sort?.kind === "select" ? sort.labelOf?.("latest") : null).toBeUndefined();
   });
 });
