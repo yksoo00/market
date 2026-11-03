@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type MouseEvent, type ReactNode } from "react";
 import { useCompareAdd } from "@/components/cart/useCompareAdd";
 import { Icon } from "@/components/common/Icon";
 import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
 import { ResultDialog } from "@/components/common/ResultDialog";
+import { SortableTh } from "@/components/common/SortableTh";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { SelectionBar } from "@/components/search/SelectionBar";
 import { CartDialog, type CartTarget } from "@/components/trade/CartDialog";
@@ -14,6 +16,7 @@ import { QuoteDialog, type QuoteTarget } from "@/components/trade/QuoteDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { notifyCartChanged } from "@/lib/cart";
 import { leafCategoryName } from "@/lib/categories";
+import { nextSort, sortStateOf, type ColumnSortValues } from "@/lib/columnSort";
 import { compareBlock, MAX_COMPARE } from "@/lib/compare";
 import { formatPrice } from "@/lib/format";
 import { formatRegDate } from "@/lib/listingDetail";
@@ -21,7 +24,16 @@ import { selection, selectionKey, useSelection } from "@/lib/selection";
 import { pendingLabel, salesHref } from "@/lib/tradeCounts";
 import { MAX_CART_ADD } from "@/lib/validation/cart";
 import { MAX_QUOTE_ITEMS } from "@/lib/validation/quote";
-import { activeFilterCount, buildSearchHref, clearFilters, listingHref, type SearchQuery, type SearchScope } from "@/lib/search";
+import {
+  activeFilterCount,
+  buildSearchHref,
+  clearFilters,
+  LISTING_SORT_COLUMNS,
+  listingHref,
+  type ListingSort,
+  type SearchQuery,
+  type SearchScope,
+} from "@/lib/search";
 import { cart } from "@/messages/cart";
 import { common } from "@/messages/common";
 import { compare } from "@/messages/compare";
@@ -55,6 +67,8 @@ interface Column {
   title?: (item: ListingSearchItem) => string | undefined;
   /** 칸 안의 버튼이 줄 이동(go)을 일으키지 않게 클릭을 막는다 */
   interactive?: boolean;
+  /** 열 머리를 눌러 정렬할 때의 오름·내림 값 (2026-11-03) */
+  sort?: ColumnSortValues<ListingSort>;
   cell: (item: ListingSearchItem, done: boolean) => ReactNode;
 }
 
@@ -64,15 +78,15 @@ const c = t.columns;
 // 검색·내 판매의 열 (체크·상품명은 왼쪽 고정). 사용자 지시 2026-10-30: 상품명·제조사·단가·수량·상품상태·카테고리·
 // 최소 주문 수량·주문단위·납기일·등록일. 거래상태 칸은 두지 않는다(기본 검색이 거래 가능만 보여 준다)
 const listColumns: Column[] = [
-  { label: c.brand, width: "w-32", title: (i) => i.prodBrand, cell: (i) => i.prodBrand },
-  { label: c.price, width: "w-28", align: "right", mono: true, strong: true, cell: (i) => formatPrice(i.salesUnitPrice) },
-  { label: c.quantity, width: "w-20", align: "right", mono: true, cell: (i) => (i.stockQuantity === null ? DASH : qty.format(i.stockQuantity)) },
-  { label: c.state, width: "w-26", cell: (i, done) => (done ? <CompletedBadge /> : i.prodState) },
-  { label: c.category, width: "w-56", title: (i) => i.categoryPath ?? i.category, cell: (i) => (i.categoryPath ? leafCategoryName(i.categoryPath) : i.category) },
-  { label: c.minOrder, width: "w-28", align: "right", mono: true, cell: (i) => (i.minOrderQuantity === null ? DASH : qty.format(i.minOrderQuantity)) },
-  { label: c.orderUnit, width: "w-22", align: "right", mono: true, cell: (i) => (i.orderUnit === null ? DASH : qty.format(i.orderUnit)) },
-  { label: c.deliveryDate, width: "w-26", mono: true, muted: true, cell: (i) => i.deliveryDate ?? DASH },
-  { label: c.regDate, width: "w-26", mono: true, muted: true, cell: (i) => formatRegDate(i.regDate).slice(0, 10) },
+  { label: c.brand, sort: LISTING_SORT_COLUMNS.brand, width: "w-32", title: (i) => i.prodBrand, cell: (i) => i.prodBrand },
+  { label: c.price, sort: LISTING_SORT_COLUMNS.price, width: "w-28", align: "right", mono: true, strong: true, cell: (i) => formatPrice(i.salesUnitPrice) },
+  { label: c.quantity, sort: LISTING_SORT_COLUMNS.stock, width: "w-20", align: "right", mono: true, cell: (i) => (i.stockQuantity === null ? DASH : qty.format(i.stockQuantity)) },
+  { label: c.state, sort: LISTING_SORT_COLUMNS.state, width: "w-26", cell: (i, done) => (done ? <CompletedBadge /> : i.prodState) },
+  { label: c.category, sort: LISTING_SORT_COLUMNS.category, width: "w-56", title: (i) => i.categoryPath ?? i.category, cell: (i) => (i.categoryPath ? leafCategoryName(i.categoryPath) : i.category) },
+  { label: c.minOrder, sort: LISTING_SORT_COLUMNS.minOrder, width: "w-28", align: "right", mono: true, cell: (i) => (i.minOrderQuantity === null ? DASH : qty.format(i.minOrderQuantity)) },
+  { label: c.orderUnit, sort: LISTING_SORT_COLUMNS.orderUnit, width: "w-22", align: "right", mono: true, cell: (i) => (i.orderUnit === null ? DASH : qty.format(i.orderUnit)) },
+  { label: c.deliveryDate, sort: LISTING_SORT_COLUMNS.delivery, width: "w-26", mono: true, muted: true, cell: (i) => i.deliveryDate ?? DASH },
+  { label: c.regDate, sort: LISTING_SORT_COLUMNS.regDate, width: "w-26", mono: true, muted: true, cell: (i) => formatRegDate(i.regDate).slice(0, 10) },
 ];
 
 interface Props {
@@ -91,8 +105,12 @@ interface Props {
 // 선택 상태는 결과 집합마다 새로 시작한다 — 페이지에서 key={buildSearchHref(query)}로 다시 마운트
 export function ResultList({ items, query, total, scope = "search", pendingCounts = null, onPurchased }: Props) {
   const openTile = useTileOpen();
+  const router = useRouter();
   const mine = scope === "mine";
   const columns: Column[] = listColumns;
+  // 열 머리를 누르면 오름 → 내림 → 기본(최신순). 정렬이 바뀌면 1페이지로 — 정렬 칩과 같은 주소 규칙 (사용자 지시 2026-11-03)
+  const sortBy = (values: ColumnSortValues<ListingSort>) =>
+    router.push(buildSearchHref({ ...query, sort: nextSort(query.sort, values, "latest"), page: 1 }, scope));
   // "구매요청 N건" → 받은 구매요청을 그 매물로 걸러 연다. 같은 판매 그룹이라 옆 칸에 반반으로
   const pendingLink = (item: ListingSearchItem) => {
     const label = pendingLabel(pendingCounts, item.regDate);
@@ -368,14 +386,22 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
                   <Checkbox checked={headerChecked} onCheckedChange={toggleAll} aria-label={r.selectAll} />
                 </th>
               )}
-              <th scope="col" className={`sticky ${mine ? "left-0 pl-3" : "left-10"} z-10 bg-bg px-2 font-medium border-r border-line-2`}>
-                {t.columns.prodName}
-              </th>
-              {columns.map((c, i) => (
-                <th key={c.label} scope="col" className={`px-2 font-medium ${alignClass[c.align ?? "left"]} ${i === columns.length - 1 ? "pr-3" : ""}`}>
-                  {c.label}
-                </th>
-              ))}
+              <SortableTh
+                label={t.columns.prodName}
+                state={sortStateOf(query.sort, LISTING_SORT_COLUMNS.name)}
+                onSort={() => sortBy(LISTING_SORT_COLUMNS.name)}
+                className={`sticky ${mine ? "left-0 pl-3" : "left-10"} z-10 bg-bg px-2 font-medium border-r border-line-2`}
+              />
+              {columns.map((c, i) => {
+                const cls = `px-2 font-medium ${alignClass[c.align ?? "left"]} ${i === columns.length - 1 ? "pr-3" : ""}`;
+                return c.sort ? (
+                  <SortableTh key={c.label} label={c.label} state={sortStateOf(query.sort, c.sort)} onSort={() => sortBy(c.sort!)} className={cls} />
+                ) : (
+                  <th key={c.label} scope="col" className={cls}>
+                    {c.label}
+                  </th>
+                );
+              })}
               {mine && (
                 <th scope="col" className="px-2 font-medium text-center">
                   {trade.pending.column}

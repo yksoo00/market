@@ -182,7 +182,7 @@ export function DetailFilter({ labels, searchKey, searchField, fields, schema, v
 
           if (field.kind === "select") {
             const current = values[field.key] ?? field.defaultValue;
-            const currentLabel = field.options.find((o) => o.value === current)?.label ?? current;
+            const currentLabel = field.options.find((o) => o.value === current)?.label ?? field.labelOf?.(current) ?? current;
             return (
               <Chip key={id} label={text(active ? `${field.label}: ${currentLabel}` : field.label)} {...chip}>
                 <div role="group" aria-label={field.label} className="flex flex-col min-w-36">

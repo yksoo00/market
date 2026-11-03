@@ -40,9 +40,15 @@ public record ListingSearchCondition(
 		Boolean mine,
 		// 페이지 번호 방식 (1부터, 설계 2026-10-27 PR 5). 있으면 cursor 는 무시하고 이 페이지를 돌려준다. 범위 밖은 서비스가 400
 		@Min(1) @Max(1_000_000) Integer page,
-		// 정렬 (2026-10-30): 최신순(기본)·단가 낮은/높은 순·납기 빠른 순. 최신순이 아니면 page 가 있어야 한다(서비스가 400)
-		@Pattern(regexp = "latest|priceAsc|priceDesc|deliveryAsc") String sort,
+		// 정렬 (2026-10-30, 열 머리 정렬 2026-11-03): 최신순(기본) 또는 열마다 오름/내림(SORT_PATTERN). 최신순이 아니면 page 가 있어야 한다(서비스가 400)
+		@Pattern(regexp = SORT_PATTERN) String sort,
 		String cursor) {
+
+	/**
+	 * 정렬 값 = latest(등록일 내림차순, 기본) | regDateAsc | 열이름Asc | 열이름Desc. 열: name·brand·price·stock·state·category·minOrder·orderUnit·delivery.
+	 * 순서 식은 ListingSearchRepository 가 이 값 안에서만 고른다 (값을 쿼리에 끼워 넣지 않는다)
+	 */
+	public static final String SORT_PATTERN = "latest|regDateAsc|(name|brand|price|stock|state|category|minOrder|orderUnit|delivery)(Asc|Desc)";
 
 	private static final String HAS_ITEM = "(datasheet|photo|testReport|certificate|replaceProd)";
 
