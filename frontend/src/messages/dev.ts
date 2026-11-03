@@ -32,7 +32,15 @@ export const dev = {
   },
   confirmDelete: {
     title: "행을 삭제할까요?",
-    message: (key: string) => `${key}\n서비스 규칙 없이 바로 지워지고 되돌릴 수 없습니다.`,
+    // 외래키가 없어 남는 자식 행(딸린 매물·거래·거래이력 등)도 같이 지운다 (사용자 지시 2026-11-03)
+    message: (key: string, related: Record<string, number>) => {
+      const lines = Object.entries(related).map(([table, n]) => `  · ${table}: ${n.toLocaleString("ko-KR")}행`);
+      return [
+        key,
+        lines.length > 0 ? `딸린 다른 테이블의 행도 같이 지워져요:\n${lines.join("\n")}` : "딸린 다른 테이블의 행은 없어요.",
+        "서비스 규칙 없이 바로 지워지고 되돌릴 수 없습니다.",
+      ].join("\n");
+    },
     confirm: "삭제",
     cancel: "취소",
   },
@@ -40,6 +48,8 @@ export const dev = {
     queryFailed: "조회하지 못했어요",
     saved: "저장했어요",
     deleted: "삭제했어요",
+    deletedLine: (table: string, n: number) => `${table}: ${n.toLocaleString("ko-KR")}행`,
+    relatedFailed: "딸린 행을 확인하지 못했어요",
     deleteFailed: "삭제하지 못했어요",
     importDone: "불러오기를 마쳤어요",
     importFailed: "불러오지 못했어요",

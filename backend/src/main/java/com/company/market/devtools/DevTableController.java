@@ -55,10 +55,17 @@ public class DevTableController {
 		return ApiResponse.of(Map.of("updated", 1));
 	}
 
+	/** [삭제] 전 미리보기 — 이 행과 같이 지워질 다른 테이블의 행 수 (테이블별) */
+	@PostMapping("/tables/{table}/rows/related")
+	public ApiResponse<Map<String, Object>> related(@PathVariable String table, @RequestBody Map<String, Object> key) {
+		return ApiResponse.of(Map.of("related", service.relatedRows(table, key)));
+	}
+
+	/** 이 행과 딸린 다른 테이블의 행을 같이 지운다 (DevTableRelations). tables = 테이블별로 지운 행 수 */
 	@DeleteMapping("/tables/{table}/rows")
 	public ApiResponse<Map<String, Object>> delete(@PathVariable String table, @RequestBody Map<String, Object> key) {
-		service.delete(table, key);
-		return ApiResponse.of(Map.of("deleted", 1));
+		Map<String, Integer> tables = service.delete(table, key);
+		return ApiResponse.of(Map.of("deleted", tables.values().stream().mapToInt(Integer::intValue).sum(), "tables", tables));
 	}
 
 	@PostMapping("/tables/{table}/import")
