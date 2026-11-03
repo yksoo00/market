@@ -48,8 +48,6 @@ export type ListingUploadKind =
 
 /** 검색 결과 행. 백엔드 검색 API를 만들 때 DTO를 이와 1:1로 맞춘다 */
 export interface ListingSearchItem {
-  /** 장바구니 표에서만 — 그 줄의 거래ID. 같은 매물이 여러 줄일 수 있어 선택·빼기·구매·견적이 줄을 가리키는 키다 (2026-11-02) */
-  cartTradeId?: string;
   userId: string;
   /** yyyyMMddHHmmss. userId와 함께 매물 식별자 */
   regDate: string;
