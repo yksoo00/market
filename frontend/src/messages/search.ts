@@ -84,7 +84,8 @@ export const search = {
       stock: "수량",
       state: "상품상태",
       category: "카테고리",
-      minOrder: "최소 주문 수량",
+      // 칩 글자라 표 열 이름보다 짧게 (칩이 길어져 줄이 넘치지 않게)
+      minOrder: "최소주문",
       orderUnit: "주문단위",
       delivery: "납기일",
       regDate: "등록일",

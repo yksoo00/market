@@ -165,8 +165,9 @@ export function DetailFilter({ labels, searchKey, searchField, fields, schema, v
         </form>
       )}
 
-      {/* 좁은 칸·모바일은 한 줄 가로 스크롤 (칩이 줄바꿈되면 결과가 밀린다) */}
-      <div role="toolbar" aria-label={labels.filters} className="flex items-center gap-2 overflow-x-auto @md:flex-wrap @md:overflow-visible pb-0.5">
+      {/* 칩은 칸이 좁으면 줄을 바꾼다 — 한 줄 가로 스크롤은 스크롤바가 칩을 가리고 오른쪽 칩을 찾으러 밀어야 해 불편했다 (사용자 지시 2026-11-03).
+          좁은 칸은 간격을 줄여 한 줄에 더 들어가게 한다 */}
+      <div role="toolbar" aria-label={labels.filters} className="flex flex-wrap items-center gap-1.5 @md:gap-2">
         {fields.map((field) => {
           const id = fieldKeys(field)[0];
           const active = !fieldIsEmpty(field, values);

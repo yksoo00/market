@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { cn } from "cn";
 import { DetailFilter } from "@/components/common/DetailFilter";
 import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
@@ -10,10 +10,12 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Pager } from "@/components/common/Pager";
 import { ResultDialog } from "@/components/common/ResultDialog";
-import { StickyXScroll } from "@/components/common/StickyXScroll";
+import { SortableTh } from "@/components/common/SortableTh";
+import { rememberXScroll, StickyXScroll } from "@/components/common/StickyXScroll";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog } from "@/components/trade/QuoteDialog";
 import { QuoteRequestsDialog } from "@/components/trade/QuoteRequestsDialog";
+import { nextSort, sortStateOf, type ColumnSortValues } from "@/lib/columnSort";
 import { tradesApi } from "@/lib/api/trades";
 import { notifyCartChanged } from "@/lib/cart";
 import { filterParams, type FilterValues } from "@/lib/detailFilter";
@@ -22,7 +24,7 @@ import { formatPrice } from "@/lib/format";
 import { tabPageHref } from "@/lib/myTabs";
 import { listingHref } from "@/lib/search";
 import { rowActions, type RowAction } from "@/lib/tradeActions";
-import { emptyTradeFilter, TRADE_STATUS_VALUES, tradeFields } from "@/lib/tradeFilter";
+import { emptyTradeFilter, TRADE_SORT_COLUMNS, TRADE_SORTS, TRADE_STATUS_VALUES, tradeFields, type TradeSortColumn } from "@/lib/tradeFilter";
 import { listFilterSchema } from "@/lib/validation/historyFilter";
 import { common } from "@/messages/common";
 import { my } from "@/messages/my";
@@ -58,12 +60,26 @@ interface Props {
 export function TradeList({ role, reg, active, page, pagePath, pageParams, filter }: Props) {
   const router = useRouter();
   const fields = useMemo(() => tradeFields(role), [role]);
-  const schema = useMemo(() => listFilterSchema(TRADE_STATUS_VALUES[role]), [role]);
+  const schema = useMemo(() => listFilterSchema(TRADE_STATUS_VALUES[role], TRADE_SORTS), [role]);
   const fparams = filterParams(fields, filter, "q", tradeSearchField);
   const filtered = Object.keys(fparams).length > 0;
   const hrefFor = (n: number) => tabPageHref(pagePath, { ...pageParams, ...fparams }, n);
+  // scroll: false — 정렬·필터를 바꿔도 세로 스크롤이 맨 위로 튀지 않게 (가로 위치는 StickyXScroll 이 이어 간다, 사용자 지시 2026-11-03)
   const applyFilter = (values: FilterValues) =>
-    router.push(tabPageHref(pagePath, { ...pageParams, ...filterParams(fields, values, "q", tradeSearchField) }, 1));
+    router.push(tabPageHref(pagePath, { ...pageParams, ...filterParams(fields, values, "q", tradeSearchField) }, 1), { scroll: false });
+  // 열 머리를 누르면 오름 → 내림 → 기본(최신순). 다른 열을 누르면 그 열의 오름부터
+  const sortBy = (values: ColumnSortValues) => {
+    rememberXScroll("trade-table");
+    applyFilter({ ...filter, sort: nextSort(filter.sort ?? "latest", values, "latest") });
+  };
+  const th = (column: TradeSortColumn, label: string, className: string) => (
+    <SortableTh
+      label={label}
+      state={sortStateOf(filter.sort ?? "latest", TRADE_SORT_COLUMNS[column])}
+      onSort={() => sortBy(TRADE_SORT_COLUMNS[column])}
+      className={className}
+    />
+  );
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   // 올리면 지금 페이지를 다시 읽는다
   const [attempt, setAttempt] = useState(0);
@@ -203,7 +219,7 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
         </div>
       )}
       {bulkOpen && <QuoteRequestsDialog open onOpenChange={(next) => !next && setBulkOpen(false)} onChanged={reload} />}
-      <Body load={load} asBuyer={asBuyer} busy={busy} onAct={act} onRetry={reload} onShowRemarks={showRemarks} firstPageHref={page > 1 ? hrefFor(1) : null} filtered={filtered} />
+      <Body load={load} asBuyer={asBuyer} sortTh={th} busy={busy} onAct={act} onRetry={reload} onShowRemarks={showRemarks} firstPageHref={page > 1 ? hrefFor(1) : null} filtered={filtered} />
       {buying && (
         <PurchaseDialog
           sellerId={buying.sellerId}
@@ -263,6 +279,8 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
 interface BodyProps {
   load: Load;
   asBuyer: boolean;
+  /** 눌러서 정렬하는 열 머리 (정렬 상태·이동은 TradeList 가 쥔다) */
+  sortTh: (column: TradeSortColumn, label: string, className: string) => ReactNode;
   busy: string | null;
   onAct: (item: Trade, what: RowAction) => void;
   onRetry: () => void;
@@ -274,7 +292,7 @@ interface BodyProps {
   filtered: boolean;
 }
 
-function Body({ load, asBuyer, busy, onAct, onRetry, onShowRemarks, firstPageHref, filtered }: BodyProps) {
+function Body({ load, asBuyer, sortTh, busy, onAct, onRetry, onShowRemarks, firstPageHref, filtered }: BodyProps) {
   if (load.kind === "loading") {
     return (
       <div className="py-16 text-center text-[13px] text-ink-2" aria-busy="true">
@@ -369,13 +387,13 @@ function Body({ load, asBuyer, busy, onAct, onRetry, onShowRemarks, firstPageHre
         <table className="w-full min-w-4xl text-sm whitespace-nowrap">
           <thead className="bg-bg text-[12px] text-ink-2">
             <tr>
-              <th className="px-3 py-2.5 text-left font-medium">{c.product}</th>
-              <th className="px-3 py-2.5 text-left font-medium w-28">{counterpart}</th>
-              <th className="px-3 py-2.5 text-right font-medium w-20">{c.quantity}</th>
-              <th className="px-3 py-2.5 text-right font-medium w-28">{c.unitPrice}</th>
-              <th className="px-3 py-2.5 text-right font-medium w-32">{c.amount}</th>
-              <th className="px-3 py-2.5 text-left font-medium w-28">{c.reqDeliDate}</th>
-              <th className="px-3 py-2.5 text-left font-medium w-20">{c.status}</th>
+              {sortTh("name", c.product, "px-3 py-2.5 text-left font-medium")}
+              {sortTh("party", counterpart, "px-3 py-2.5 text-left font-medium w-28")}
+              {sortTh("quantity", c.quantity, "px-3 py-2.5 text-right font-medium w-20")}
+              {sortTh("unitPrice", c.unitPrice, "px-3 py-2.5 text-right font-medium w-28")}
+              {sortTh("amount", c.amount, "px-3 py-2.5 text-right font-medium w-32")}
+              {sortTh("reqDeli", c.reqDeliDate, "px-3 py-2.5 text-left font-medium w-28")}
+              {sortTh("status", c.status, "px-3 py-2.5 text-left font-medium w-20")}
               <th className="px-3 py-2.5 text-right font-medium w-40">{c.actions}</th>
             </tr>
           </thead>

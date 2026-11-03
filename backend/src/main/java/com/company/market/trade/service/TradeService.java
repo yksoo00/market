@@ -5,10 +5,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.text.Collator;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -524,7 +526,7 @@ public class TradeService {
 			List<Object[]> keys = new ArrayList<>(asBuyer
 					? trades.findBuyerKeys(me, TradeType.REVIEW, stats, f.from(), f.to(), f.min(), f.max(), useProds, prodIds)
 					: trades.findSellerKeys(me, TradeType.REVIEW, stats, reg, f.from(), f.to(), f.min(), f.max(), useProds, prodIds));
-			keys.sort(keyOrder(f.sort()));
+			keys.sort(keyOrder(f.sort(), me, asBuyer, keys));
 			pageKeys = PageKeys.of(keys, pageNo, PAGE_SIZE);
 			List<Object[]> slice = keys.subList((pageNo - 1) * PAGE_SIZE, Math.min(pageNo * PAGE_SIZE, keys.size()));
 			Map<TradeInfoId, TradeInfo> byId = trades
@@ -551,16 +553,39 @@ public class TradeService {
 				: new TradePageResponse(items, nextCursor, pageKeys.page(), pageKeys.totalPages(), pageKeys.total());
 	}
 
-	/** 키 [거래ID, 구매자ID, 금액] 의 정렬. 거래ID 는 11자 고정 길이라 문자열 순서가 시간 순서. 같은 금액이면 최신(거래ID 내림차순) 먼저 */
-	private static Comparator<Object[]> keyOrder(String sort) {
+	/**
+	 * 키 [거래ID, 구매자ID, 금액, 판매자ID, 상품ID, 수량, 단가, 납품희망일, 거래상태] 의 정렬 (열 머리 정렬 2026-11-03).
+	 * sort = latest | oldest | 열이름Asc|Desc(name·party·quantity·unitPrice·amount·reqDeli·status). 거래ID 는 11자 고정 길이라 문자열 순서가
+	 * 시간 순서 — 같은 값이면 최신(거래ID 내림차순)으로 끝을 맞추고, 값이 비어 있는 줄(이름 모름·납품희망일 없음)은 오름·내림 모두 맨 뒤.
+	 * 상품명은 상품마스터에서, 상대는 화면에 보이는 별명(내 구매는 판매자, 받은 요청은 구매자)으로 정렬해 목록에 보이는 값과 같다.
+	 * 상태는 진행 순서(견적요청 → 견적수락 → 견적거절 → 구매요청)
+	 */
+	private Comparator<Object[]> keyOrder(String sort, UUID me, boolean asBuyer, List<Object[]> keys) {
 		Comparator<Object[]> byIdDesc = Comparator.comparing((Object[] k) -> (String) k[0]).reversed();
-		Comparator<Object[]> byAmount = Comparator.comparing((Object[] k) -> ((Number) k[2]).longValue());
-		return switch (sort) {
-			case "oldest" -> Comparator.comparing((Object[] k) -> (String) k[0]);
-			case "amountDesc" -> byAmount.reversed().thenComparing(byIdDesc);
-			case "amountAsc" -> byAmount.thenComparing(byIdDesc);
-			default -> byIdDesc;
+		if ("oldest".equals(sort)) {
+			return Comparator.comparing((Object[] k) -> (String) k[0]);
+		}
+		boolean desc = sort.endsWith("Desc");
+		String column = sort.replaceFirst("(Asc|Desc)$", "");
+		Collator collator = Collator.getInstance(Locale.KOREAN);
+		Comparator<Object[]> by = switch (column) {
+			case "name" -> {
+				Map<String, String> names = listings.productNames(keys.stream().map(k -> (String) k[4]).collect(Collectors.toSet()));
+				yield TradeKeySorting.columnOrder(k -> names.get((String) k[4]), (a, b) -> collator.compare(a, b), desc);
+			}
+			case "party" -> {
+				Map<UUID, String> nicknames = userDirectory.nicknamesOf(keys.stream().map(k -> asBuyer ? (UUID) k[3] : (UUID) k[1]).collect(Collectors.toSet()));
+				yield TradeKeySorting.columnOrder(k -> nicknames.get(asBuyer ? (UUID) k[3] : (UUID) k[1]), (a, b) -> collator.compare(a, b), desc);
+			}
+			case "amount" -> TradeKeySorting.columnOrder(k -> (Number) k[2], (a, b) -> Long.compare(a.longValue(), b.longValue()), desc);
+			case "quantity" -> TradeKeySorting.columnOrder(k -> (Number) k[5], (a, b) -> Long.compare(a.longValue(), b.longValue()), desc);
+			case "unitPrice" -> TradeKeySorting.columnOrder(k -> (Number) k[6], (a, b) -> Long.compare(a.longValue(), b.longValue()), desc);
+			// yyyy-MM-dd 문자열이라 문자열 순서가 날짜 순서
+			case "reqDeli" -> TradeKeySorting.columnOrder(k -> (String) k[7], String::compareTo, desc);
+			case "status" -> TradeKeySorting.columnOrder(k -> (TradeStats) k[8], Comparator.comparingInt(TradeStats::ordinal), desc);
+			default -> null;
 		};
+		return by == null ? byIdDesc : by.thenComparing(byIdDesc);
 	}
 
 	/** 내 매물별 판매자가 처리할 건수(견적요청 + 구매요청). 키 = 매물 regDate. 내 판매글 표의 "구매요청 N건" */

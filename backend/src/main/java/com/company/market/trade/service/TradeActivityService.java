@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import com.company.market.common.exception.ValidationException;
@@ -137,17 +136,17 @@ public class TradeActivityService {
 		Comparator<Object[]> by = switch (column) {
 			case "name" -> {
 				Map<String, String> names = listings.productNames(keys.stream().map(k -> (String) k[4]).collect(Collectors.toSet()));
-				yield columnOrder(k -> names.get((String) k[4]), (a, b) -> collator.compare(a, b), desc);
+				yield TradeKeySorting.columnOrder(k -> names.get((String) k[4]), (a, b) -> collator.compare(a, b), desc);
 			}
 			case "party" -> {
 				Map<UUID, String> nicknames = userDirectory.nicknamesOf(keys.stream().map(k -> counterpartOf(me, k)).collect(Collectors.toSet()));
-				yield columnOrder(k -> nicknames.get(counterpartOf(me, k)), (a, b) -> collator.compare(a, b), desc);
+				yield TradeKeySorting.columnOrder(k -> nicknames.get(counterpartOf(me, k)), (a, b) -> collator.compare(a, b), desc);
 			}
 			// 구분: 내가 구매자면 구매, 아니면 판매. 오름 = 구매 먼저
-			case "side" -> columnOrder(k -> me.equals(k[2]) ? 0 : 1, Integer::compare, desc);
-			case "quantity" -> columnOrder(k -> (Number) k[5], (a, b) -> Long.compare(a.longValue(), b.longValue()), desc);
-			case "unitPrice" -> columnOrder(k -> (Number) k[6], (a, b) -> Long.compare(a.longValue(), b.longValue()), desc);
-			case "amount" -> columnOrder(k -> (Number) k[7], (a, b) -> Long.compare(a.longValue(), b.longValue()), desc);
+			case "side" -> TradeKeySorting.columnOrder(k -> me.equals(k[2]) ? 0 : 1, Integer::compare, desc);
+			case "quantity" -> TradeKeySorting.columnOrder(k -> (Number) k[5], (a, b) -> Long.compare(a.longValue(), b.longValue()), desc);
+			case "unitPrice" -> TradeKeySorting.columnOrder(k -> (Number) k[6], (a, b) -> Long.compare(a.longValue(), b.longValue()), desc);
+			case "amount" -> TradeKeySorting.columnOrder(k -> (Number) k[7], (a, b) -> Long.compare(a.longValue(), b.longValue()), desc);
 			default -> null;
 		};
 		return by == null ? latest : by.thenComparing(latest);
@@ -156,19 +155,6 @@ public class TradeActivityService {
 	/** 구매자면 판매자가, 판매자면 구매자가 상대 */
 	private static UUID counterpartOf(UUID me, Object[] key) {
 		return me.equals(key[2]) ? (UUID) key[3] : (UUID) key[2];
-	}
-
-	/** 열 하나의 순서. 값이 비어 있으면 오름·내림 모두 맨 뒤로 */
-	private static <T> Comparator<Object[]> columnOrder(Function<Object[], T> value, Comparator<T> order, boolean desc) {
-		return (a, b) -> {
-			T x = value.apply(a);
-			T y = value.apply(b);
-			if (x == null || y == null) {
-				return x == null ? (y == null ? 0 : 1) : -1;
-			}
-			int c = order.compare(x, y);
-			return desc ? -c : c;
-		};
 	}
 
 	/** 검색 범위 탭 판정: 내 매물이 있나 / 구매 거래(구매검토 아님)나 거래이력이 있나 */
