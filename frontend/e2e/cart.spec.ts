@@ -71,7 +71,7 @@ async function register(page: Page, prodName: string) {
   await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
 }
 
-test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 구매 → 빼기", async ({ page }) => {
+test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니 카드에서 구매·선택 빼기·+/- → 비우기", async ({ page }) => {
   // 매물 2개 등록 + 가입 2번이라 기본 60초를 넘는다
   test.setTimeout(150_000);
   const stamp = Date.now().toString().slice(-8);
@@ -83,6 +83,8 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
   page.on("dialog", (d) => void d.accept());
   const cartLink = (n: number) => page.getByRole("link", { name: cart.header.aria(n), exact: true });
   const rowOf = (name: string) => page.getByRole("table").getByRole("row").filter({ hasText: name });
+  // 장바구니는 표가 아니라 카드 목록 (2026-11-03)
+  const cardOf = (name: string) => page.locator("li").filter({ hasText: name });
 
   await test.step("판매자 가입·등록 2개", async () => {
     await signUp(page, seller, stamp);
@@ -121,9 +123,11 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
 
   await test.step("장바구니에서 A [구매] → A 는 빠지고 내 구매목록에 구매요청, 헤더 1", async () => {
     await page.goto("/my/cart");
-    await expect(rowOf(nameA)).toHaveCount(1);
-    await expect(rowOf(nameB)).toHaveCount(1);
-    await rowOf(nameA).getByRole("checkbox", { name: search.result.selectRow(nameA) }).check();
+    await expect(cardOf(nameA)).toHaveCount(1);
+    await expect(cardOf(nameB)).toHaveCount(1);
+    await cardOf(nameA).getByRole("checkbox", { name: cart.page.selectRow(nameA) }).check();
+    // 선택한 상품 수와 합계(단가 10,000 × 수량 1)가 아래 막대에 보인다
+    await expect(page.getByText(cart.page.summary(1, "10,000"))).toBeVisible();
     await page.getByRole("button", { name: search.result.buy, exact: true }).first().click();
     const dialog = page.getByRole("dialog", { name: trade.purchase.title });
     await expect(dialog).toBeVisible();
@@ -138,16 +142,16 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     await expect(page.getByRole("dialog", { name: trade.purchase.doneTitle })).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(cartLink(1)).toBeVisible();
-    await expect(rowOf(nameA)).toHaveCount(0);
-    await expect(rowOf(nameB)).toHaveCount(1);
+    await expect(cardOf(nameA)).toHaveCount(0);
+    await expect(cardOf(nameB)).toHaveCount(1);
     await page.goto("/my/activity?tab=purchases");
     await expect(rowOf(nameA).getByText(trade.list.stats.requested)).toBeVisible();
   });
 
   await test.step("남은 B [빼기] → 빈 장바구니, 배지 없음", async () => {
     await page.goto("/my/cart");
-    await rowOf(nameB).getByRole("checkbox", { name: search.result.selectRow(nameB) }).check();
-    await page.getByRole("button", { name: cart.page.remove, exact: true }).first().click();
+    await cardOf(nameB).getByRole("checkbox", { name: cart.page.selectRow(nameB) }).check();
+    await page.getByRole("button", { name: cart.page.removeSelected, exact: true }).click();
     await expect(page.getByText(cart.page.empty)).toBeVisible();
     await expect(cartLink(0)).toBeVisible();
   });
@@ -161,7 +165,7 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     await other.getByRole("button", { name: cart.add.button, exact: true }).first().click();
     await other.getByRole("dialog", { name: cart.add.dialog.title }).getByRole("button", { name: cart.add.dialog.submit(1), exact: true }).click();
     await expect(other.getByRole("dialog", { name: cart.add.doneTitle })).toBeVisible();
-    await expect(rowOf(nameB)).toHaveCount(1);
+    await expect(cardOf(nameB)).toHaveCount(1);
     await expect(cartLink(1)).toBeVisible();
     await other.close();
   });
@@ -186,11 +190,10 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     await expect(cartLink(2)).toBeVisible();
 
     await page.goto("/my/cart");
-    await expect(rowOf(nameB)).toHaveCount(2);
-    await expect(page.getByRole("columnheader", { name: cart.page.columns.quantity })).toBeVisible();
+    await expect(cardOf(nameB)).toHaveCount(2);
     await expect(page.getByText(cart.page.autoRemoveHint)).toBeVisible();
-    // 담은 수량은 상품명 바로 옆 첫 열이고 +/- 로 바로 바뀐다 (주문단위 1 — 재고 2 가 남아 한 번 늘릴 수 있다)
-    const first = rowOf(nameB).first();
+    // 담은 수량은 카드의 +/- 로 바로 바뀐다 (주문단위 1 — 재고 2 가 남아 한 번 늘릴 수 있다)
+    const first = cardOf(nameB).first();
     const shown = first.locator("[aria-live=polite]");
     await expect(shown).toHaveText("2");
     await first.getByRole("button", { name: cart.page.quantityUp(nameB) }).click();
@@ -198,7 +201,7 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     await first.getByRole("button", { name: cart.page.quantityDown(nameB) }).click();
     await expect(shown).toHaveText("2");
     // 최근에 담은 줄(수량 2)이 먼저 — 그 줄만 골라 구매하면 그 줄이 구매요청이 되고 다른 줄(수량 1)은 남는다
-    await rowOf(nameB).first().getByRole("checkbox", { name: search.result.selectRow(nameB) }).check();
+    await cardOf(nameB).first().getByRole("checkbox", { name: cart.page.selectRow(nameB) }).check();
     await page.getByRole("button", { name: search.result.buy, exact: true }).first().click();
     const dialog = page.getByRole("dialog", { name: trade.purchase.title });
     await expect(dialog.locator('input[name="orderQuantity"]')).toHaveValue("2");
@@ -208,7 +211,7 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     await dialog.getByRole("button", { name: trade.purchase.submit, exact: true }).click();
     await expect(page.getByRole("dialog", { name: trade.purchase.doneTitle })).toBeVisible();
     await page.keyboard.press("Escape");
-    await expect(rowOf(nameB)).toHaveCount(1);
+    await expect(cardOf(nameB)).toHaveCount(1);
     await expect(cartLink(1)).toBeVisible();
   });
 
@@ -224,7 +227,7 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     await page.keyboard.press("Escape");
 
     await page.goto("/my/cart");
-    await rowOf(nameB).first().getByRole("checkbox", { name: search.result.selectRow(nameB) }).check();
+    await cardOf(nameB).first().getByRole("checkbox", { name: cart.page.selectRow(nameB) }).check();
     await page.getByRole("button", { name: search.result.buy, exact: true }).first().click();
     const dialog = page.getByRole("dialog", { name: trade.purchase.title });
     await expect(dialog.locator('input[name="orderQuantity"]')).toHaveValue("2");
@@ -236,5 +239,15 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니에서 
     await expect(submit).toBeEnabled();
     await submit.click();
     await expect(page.getByRole("dialog", { name: trade.purchase.doneTitle })).toBeVisible();
+    await page.keyboard.press("Escape");
+  });
+
+  // 장바구니 비우기: 확인창을 수락하면(위 page.on dialog) 남은 줄이 모두 빠지고 빈 안내가 뜬다
+  await test.step("[장바구니 비우기] → 빈 장바구니", async () => {
+    await page.goto("/my/cart");
+    await expect(cardOf(nameB)).toHaveCount(1);
+    await page.getByRole("button", { name: cart.page.clearAll, exact: true }).click();
+    await expect(page.getByText(cart.page.empty)).toBeVisible();
+    await expect(cartLink(0)).toBeVisible();
   });
 });
