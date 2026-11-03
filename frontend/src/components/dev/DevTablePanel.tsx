@@ -6,7 +6,7 @@ import { ExcelPickButton } from "@/components/dev/ExcelPickButton";
 import type { NoticeContent } from "@/components/common/NoticeDialog";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { Button } from "@/components/ui/button";
-import { createDevRow, deleteDevRow, fetchDevRows, importDevTable, updateDevRow } from "@/lib/api/dev";
+import { createDevRow, deleteDevRow, fetchDevRows, fetchRelatedDevRows, importDevTable, updateDevRow } from "@/lib/api/dev";
 import { dev } from "@/messages/dev";
 import type { DevCell, DevRow, DevRows, DevTable } from "@/types/dev";
 
@@ -22,7 +22,8 @@ export function DevTablePanel({ table, notify }: { table: DevTable; notify: (n: 
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const [form, setForm] = useState<"create" | "update" | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  // 삭제 확인창: 미리본 행의 키와 "같이 지워질 다른 테이블의 행 수". 키를 여기 붙들어 두어 확인한 그 행이 지워진다. null 이면 닫혀 있다
+  const [pending, setPending] = useState<{ key: DevRow; related: Record<string, number> } | null>(null);
 
   const row = data !== null && selected !== null ? data.rows[selected] : null;
 
@@ -47,14 +48,32 @@ export function DevTablePanel({ table, notify }: { table: DevTable; notify: (n: 
     return null;
   }
 
-  async function remove() {
+  // [삭제]: 먼저 같이 지워질 다른 테이블의 행을 세어 확인창에 보여 준다
+  async function askRemove() {
     if (!row) return;
-    setConfirmDelete(false);
+    const key = keyOf(table, row);
     setBusy(true);
-    const res = await deleteDevRow(table.name, keyOf(table, row));
+    const res = await fetchRelatedDevRows(table.name, key);
+    setBusy(false);
+    if (!res.ok) return notify({ tone: "error", title: dev.result.relatedFailed, message: res.message });
+    setPending({ key, related: res.data.related });
+  }
+
+  async function remove() {
+    if (!pending) return;
+    const { key } = pending;
+    setPending(null);
+    setBusy(true);
+    const res = await deleteDevRow(table.name, key);
     setBusy(false);
     if (!res.ok) return notify({ tone: "error", title: dev.result.deleteFailed, message: res.message });
-    notify({ tone: "success", title: dev.result.deleted, message: "" });
+    notify({
+      tone: "success",
+      title: dev.result.deleted,
+      message: Object.entries(res.data.tables)
+        .map(([name, n]) => dev.result.deletedLine(name, n))
+        .join("\n"),
+    });
     await query();
   }
 
@@ -85,7 +104,7 @@ export function DevTablePanel({ table, notify }: { table: DevTable; notify: (n: 
         <Button type="button" variant="outline" disabled={busy || !row} onClick={() => setForm("update")}>
           {dev.update}
         </Button>
-        <Button type="button" variant="outline" disabled={busy || !row} onClick={() => setConfirmDelete(true)}>
+        <Button type="button" variant="outline" disabled={busy || !row} onClick={() => void askRemove()}>
           {dev.remove}
         </Button>
         <ExcelPickButton label={dev.importTable} disabled={busy} onPick={importFile} onInvalid={invalid} />
@@ -147,15 +166,15 @@ export function DevTablePanel({ table, notify }: { table: DevTable; notify: (n: 
         />
       )}
       <ResultDialog
-        open={confirmDelete}
+        open={pending !== null}
         tone="error"
         title={dev.confirmDelete.title}
-        message={row ? dev.confirmDelete.message(JSON.stringify(keyOf(table, row))) : ""}
+        message={pending ? dev.confirmDelete.message(JSON.stringify(pending.key), pending.related) : ""}
         actionLabel={dev.confirmDelete.confirm}
         onAction={remove}
         retryLabel={dev.confirmDelete.cancel}
-        onRetry={() => setConfirmDelete(false)}
-        onClose={() => setConfirmDelete(false)}
+        onRetry={() => setPending(null)}
+        onClose={() => setPending(null)}
       />
     </div>
   );

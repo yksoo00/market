@@ -25,7 +25,13 @@ export function updateDevRow(
   return api(`${BASE}/tables/${table}/rows`, { method: "PUT", body: JSON.stringify({ key, values }) });
 }
 
-export function deleteDevRow(table: string, key: DevRow): Promise<ApiResult<{ deleted: number }>> {
+/** [삭제] 전 미리보기 — 이 행과 같이 지워질 다른 테이블의 행 수 (테이블별, 없으면 빈 객체) */
+export function fetchRelatedDevRows(table: string, key: DevRow): Promise<ApiResult<{ related: Record<string, number> }>> {
+  return post(`${BASE}/tables/${table}/rows/related`, key);
+}
+
+/** 이 행과 딸린 다른 테이블의 행을 같이 지운다. tables = 테이블별로 지운 행 수 */
+export function deleteDevRow(table: string, key: DevRow): Promise<ApiResult<{ deleted: number; tables: Record<string, number> }>> {
   return api(`${BASE}/tables/${table}/rows`, { method: "DELETE", body: JSON.stringify(key) });
 }
 
