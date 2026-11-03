@@ -2,7 +2,7 @@ import { api } from "@/lib/api/client";
 import type { FilterValues } from "@/lib/detailFilter";
 import { tradeApiParams } from "@/lib/tradeFilter";
 import { historyApiParams } from "@/lib/historyFilter";
-import type { HistorySide, PendingCounts, QuoteItem, Trade, TradeCreateRequest, TradeHistoryPage, TradePage, TradeRole, TradeScopes } from "@/types/trade";
+import type { HistorySide, PendingCounts, QuoteItem, QuoteReplyResult, QuoteRequestList, Trade, TradeCreateRequest, TradeHistoryPage, TradePage, TradeRole, TradeScopes } from "@/types/trade";
 
 const action = (tradeId: string, what: "complete" | "accept" | "reject") =>
   api<Trade>(`/api/v1/trades/${encodeURIComponent(tradeId)}/${what}`, { method: "POST" });
@@ -26,6 +26,11 @@ export const tradesApi = {
   /** 판매자 견적 수락(매물 단가 = 희망단가)·거절 → 견적수락·견적거절 */
   accept: (tradeId: string) => action(tradeId, "accept"),
   reject: (tradeId: string) => action(tradeId, "reject"),
+  /** 내가 받은 견적요청 전부 (오래된 순 30건 + 전체 건수) — 한꺼번에 처리 모달 */
+  quoteRequests: () => api<QuoteRequestList>("/api/v1/trades/quote-requests", { cache: "no-store" }),
+  /** 받은 견적요청 1~30건을 한꺼번에 수락·거절 — 건별 결과. 같은 매물 묶음은 수락 합계가 재고를 넘으면 통째로 실패 */
+  replyQuotes: (tradeIds: string[], decision: "accept" | "reject") =>
+    api<{ results: QuoteReplyResult[] }>("/api/v1/trades/quote-requests/reply", { method: "POST", body: JSON.stringify({ tradeIds, decision }) }),
   /** 취소 = 행 삭제 → 204 (돌려줄 거래 없음) */
   cancel: (tradeId: string) => api<null>(`/api/v1/trades/${encodeURIComponent(tradeId)}/cancel`, { method: "POST" }),
   /** filter: 검색어·상태·기간·금액·정렬 (빈 값은 안 보낸다). active: 내 활동내역 — 진행 중 거래만 (구매자 견적요청·견적수락·견적거절·구매요청, 판매자 견적요청·구매요청) */
