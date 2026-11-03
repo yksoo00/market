@@ -37,8 +37,9 @@ describe("quantitySum · overStock", () => {
     expect(overStock(10, 12)).toBe(true);
   });
 
-  it("재고를 모르면 서버가 판정하게 넘지 않은 것으로 본다", () => {
-    expect(overStock(null, 99)).toBe(false);
+  it("재고가 비어 있으면 0 으로 본다 (서버와 같게)", () => {
+    expect(overStock(null, 99)).toBe(true);
+    expect(overStock(null, 0)).toBe(false);
   });
 });
 

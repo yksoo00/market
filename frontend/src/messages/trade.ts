@@ -180,7 +180,7 @@ export const trade = {
     rejectAll: (n: number) => `모두 거절 (${n})`,
     close: "닫기",
     group: (prodName: string) => prodName,
-    stock: (n: number | null) => (n === null ? "재고 -" : `재고 ${n}개`),
+    stock: (n: number | null) => `재고 ${n ?? 0}개`,
     sum: (n: number) => `요청 합계 ${n}개`,
     overStock: "재고를 넘어요 — 모두 수락하면 이 묶음은 실패해요. 건별로 골라 수락하세요.",
     buyer: "구매자",

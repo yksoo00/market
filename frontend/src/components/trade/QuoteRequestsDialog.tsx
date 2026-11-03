@@ -151,8 +151,9 @@ export function QuoteRequestsDialog({ open, onOpenChange, onChanged }: Props) {
                 {topError}
               </p>
             )}
+            {items.length > 0 && pending.length === 0 && <p className="text-[13px] font-semibold text-ink">{t.allDone}</p>}
             {items.length === 0 ? (
-              <p className="py-8 text-center text-[15px] font-bold text-ink">{Object.keys(rows).length > 0 ? t.allDone : t.empty}</p>
+              <p className="py-8 text-center text-[15px] font-bold text-ink">{removed > 0 || Object.keys(rows).length > 0 ? t.allDone : t.empty}</p>
             ) : (
               <>
                 <div className="flex gap-2">

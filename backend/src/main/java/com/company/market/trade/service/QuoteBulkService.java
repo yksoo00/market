@@ -22,6 +22,8 @@ import com.company.market.trade.repository.TradeInfoRepository;
 import com.company.market.trade.service.TradeMailEvent.Kind;
 import com.company.market.user.service.UserDirectory;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -37,6 +39,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 @RequiredArgsConstructor
 public class QuoteBulkService {
+
+	private static final Logger log = LoggerFactory.getLogger(QuoteBulkService.class);
 
 	/** 한 번에 보여 주고 처리하는 상한 — 건마다 재고 묶기·메일이 나가므로 */
 	public static final int MAX = 30;
@@ -101,17 +105,21 @@ public class QuoteBulkService {
 				}
 			}
 		});
-		// 묶음은 (판매자·등록일시) 순 — 매물을 잠그는 순서를 늘 같게 해 교착을 피한다
+		// 묶음은 등록일시 순 — 같은 판매자가 동시에 두 번 눌러도 매물을 잠그는 순서가 같아 서로를 기다리다 교착하지 않는다 (판매자는 하나뿐이다)
 		List<Map.Entry<ListingId, List<String>>> ordered = new ArrayList<>(groups.entrySet());
-		ordered.sort(Comparator.comparing((Map.Entry<ListingId, List<String>> e) -> e.getKey().getUserId().toString())
-			.thenComparing(e -> e.getKey().getRegDate()));
+		ordered.sort(Comparator.comparing((Map.Entry<ListingId, List<String>> e) -> e.getKey().getRegDate()));
 		for (Map.Entry<ListingId, List<String>> group : ordered) {
 			try {
 				new TransactionTemplate(txManager).executeWithoutResult(status -> results.putAll(replyGroup(sellerId, group.getKey(), group.getValue(), accept)));
 			}
 			catch (ApiException e) {
-				// 묶음 처리 중 어떤 예외든 그 묶음은 롤백됐다 — 묶음의 모든 건을 같은 사유로 실패 처리
+				// 묶음 처리 중 예외가 나면 그 묶음은 롤백됐다 — 묶음의 모든 건을 같은 사유로 실패 처리
 				group.getValue().forEach(id -> results.put(id, fail(id, e.getCode(), e.getMessage())));
+			}
+			catch (RuntimeException e) {
+				// 잠금 시간 초과·교착 같은 예상 밖 오류도 이미 커밋된 다른 묶음의 결과를 버리지 않게 이 묶음만 실패로 돌린다 (전체가 500 이면 화면이 성공한 건을 모른다)
+				log.warn("견적 일괄 처리 묶음 실패 listing={}", group.getKey(), e);
+				group.getValue().forEach(id -> results.put(id, fail(id, ErrorCode.INTERNAL, ErrorCode.INTERNAL.message())));
 			}
 		}
 		return new QuoteReplyResponse(ids.stream().map(results::get).toList());

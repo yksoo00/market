@@ -29,9 +29,9 @@ export function quantitySum(items: readonly Pick<QuoteRequestItem, "orderQuantit
   return items.reduce((sum, i) => sum + i.orderQuantity, 0);
 }
 
-/** 합계가 재고를 넘나 — 넘으면 [모두 수락]이 그 묶음을 통째로 막는다. 재고를 모르면 넘지 않은 것으로 본다(서버가 판정) */
+/** 합계가 재고를 넘나 — 넘으면 [모두 수락]이 그 묶음을 통째로 막는다. 재고가 비어 있으면 0 으로 본다(서버도 그렇게 판정한다) */
 export function overStock(stock: number | null, sum: number): boolean {
-  return stock !== null && sum > stock;
+  return sum > (stock ?? 0);
 }
 
 /** 이미 처리됐거나 없어진 견적(구매자 취소 등) — 목록에서 뺀다 */
