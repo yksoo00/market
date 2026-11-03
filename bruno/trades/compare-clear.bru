@@ -1,0 +1,19 @@
+meta {
+  name: 비교 비우기
+  type: http
+  seq: 24
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/cart/compare
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  로그인(login.bru) 먼저. 내 비교 목록을 전부 지운다. 204. 이미 비어 있어도 204.
+}

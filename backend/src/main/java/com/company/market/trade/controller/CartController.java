@@ -19,6 +19,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -56,7 +57,20 @@ public class CartController {
 		return ApiResponse.of(cart.count(me.id()));
 	}
 
-	/** [비교] — 내 비교 목록을 이 매물들로 바꾼다 (2~4개, 같은 소분류). 응답은 저장한 개수 */
+	/** [비교에 담기] — 내 비교 목록에 더한다 (합쳐 4개까지, 같은 소분류). 이미 담긴 매물은 건너뛴다 */
+	@PostMapping("/compare")
+	public ApiResponse<CartAddResponse> addCompare(@AuthenticationPrincipal AuthenticatedUser me, @Valid @RequestBody CompareRequest req) {
+		return ApiResponse.of(compare.add(me.id(), req));
+	}
+
+	/** [비교 비우기] */
+	@DeleteMapping("/compare")
+	public ResponseEntity<Void> clearCompare(@AuthenticationPrincipal AuthenticatedUser me) {
+		compare.clear(me.id());
+		return ResponseEntity.noContent().build();
+	}
+
+	/** [비우고 새로 담기] — 내 비교 목록을 이 매물들로 바꾼다 (1~4개, 같은 소분류). 응답은 저장한 개수 */
 	@PutMapping("/compare")
 	public ApiResponse<CartCountResponse> replaceCompare(@AuthenticationPrincipal AuthenticatedUser me, @Valid @RequestBody CompareRequest req) {
 		return ApiResponse.of(new CartCountResponse(compare.replace(me.id(), req)));

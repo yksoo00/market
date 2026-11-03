@@ -81,7 +81,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			@Param("prodRegDate") String prodRegDate, @Param("prodId") String prodId, @Param("type") TradeType type,
 			@Param("stats") TradeStats stats);
 
-	/** 내 구매검토 행 중 그 거래상태(비교용) 전부 삭제 — 비교는 누를 때마다 목록을 바꾼다 */
+	/** 내 구매검토 행 중 그 거래상태(비교용) 전부 삭제 — 비교 교체·비우기 때만 */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("delete from TradeInfo t where t.userId = :buyerId and t.tradeType = :type and t.tradeStats = :stats")
 	int deleteByUserAndTypeAndStats(@Param("buyerId") UUID buyerId, @Param("type") TradeType type, @Param("stats") TradeStats stats);
