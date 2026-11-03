@@ -51,6 +51,7 @@ describe("applyDetailToItem", () => {
     prodDescription: null,
     hasDataSheet: false,
     hasPhoto: false,
+    mainPhoto: null,
     warrantyUntil: null,
     warrantyCoverage: null,
     hasReplaceProd: false,

@@ -12,7 +12,7 @@ import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog, type QuoteTarget } from "@/components/trade/QuoteDialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cartApi } from "@/lib/api/cart";
-import { cartActionable, nextCartQuantity, notifyCartChanged } from "@/lib/cart";
+import { notifyCartChanged } from "@/lib/cart";
 import { leafCategoryName } from "@/lib/categories";
 import { COMPARE_HREF, compareBlock, MAX_COMPARE, MIN_COMPARE } from "@/lib/compare";
 import { formatPrice } from "@/lib/format";
@@ -30,22 +30,13 @@ import { search as t } from "@/messages/search";
 import { trade } from "@/messages/trade";
 import type { CartAddResult } from "@/types/cart";
 import type { ListingSearchItem } from "@/types/listing";
-import type { CartDefaults } from "@/components/trade/QuoteDialog";
 import type { PendingCounts } from "@/types/trade";
 
 const r = t.result;
 const p = trade.purchase;
-// 장바구니 표는 같은 매물이 여러 줄이라 줄의 거래ID 가 키다 (2026-11-02). 검색·내 판매는 매물 키
-const keyOf = (i: ListingSearchItem) => i.cartTradeId ?? selectionKey(i);
+const keyOf = (i: ListingSearchItem) => selectionKey(i);
 const uniqueByListing = (items: ListingSearchItem[]) => [...new Map(items.map((i) => [selectionKey(i), i])).values()];
 
-/** 담은 시각(yyyyMMddHHmmss, UTC)으로부터 자동 삭제(1시간)까지 남은 분 */
-function remainingMinutes(addedAt: string | undefined): number | null {
-  const m = addedAt ? /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(addedAt) : null;
-  if (!m) return null;
-  const added = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
-  return 60 - Math.floor((Date.now() - added) / 60_000);
-}
 const qty = new Intl.NumberFormat("ko-KR");
 // 체크박스·링크 클릭이 행 클릭(상세 이동)으로 번지지 않게
 const stop = (e: MouseEvent) => e.stopPropagation();
@@ -89,75 +80,19 @@ interface Props {
   query: SearchQuery;
   /** 같은 조건의 전체 개수. items 는 [더 보기]로 받은 만큼만 */
   total: number;
-  /** mine = 내 판매글 모드: 선택·견적·구매 없이 행마다 [수정]. cart = 장바구니: [빼기]·[비교]·[견적 요청]·[구매] */
-  scope?: SearchScope | "cart";
-  /** cart: [빼기] — 고른 매물 (부모가 tradeId 로 바꿔 지운다) */
-  onRemove?: (items: ListingSearchItem[]) => void;
-  /** cart: 빼는 중 — [빼기]를 막아 두 번 보내지 않게 */
-  removing?: boolean;
+  /** mine = 내 판매글 모드: 선택·견적·구매 없이 행마다 [수정] */
+  scope?: SearchScope;
   /** mine 모드: 매물별 구매요청 건수 (GET /api/v1/trades/pending-counts). 아직 모르면 null */
   pendingCounts?: PendingCounts | null;
   /** 구매요청 성공 — 목록이 그 매물 행을 다시 읽게 */
   onPurchased?: (key: { userId: string; regDate: string }) => void;
-  /** cart: 담을 때 입력한 값 (키 = userId/regDate) — 구매·견적 모달의 기본값 */
-  cartDefaults?: ReadonlyMap<string, CartDefaults>;
-  /** cart: +/- — 이 줄의 담은 수량을 바꿔 달라는 요청 (부모가 서버에 저장하고 다시 읽는다) */
-  onChangeQuantity?: (item: ListingSearchItem, quantity: number) => void;
-  /** cart: 수량을 저장하는 중인 줄의 거래ID — 그 줄의 +/- 를 막아 겹쳐 보내지 않게 */
-  quantityBusy?: string | null;
 }
 
 // 선택 상태는 결과 집합마다 새로 시작한다 — 페이지에서 key={buildSearchHref(query)}로 다시 마운트
-export function ResultList({ items, query, total, scope = "search", pendingCounts = null, onPurchased, onRemove, removing = false, cartDefaults, onChangeQuantity, quantityBusy = null }: Props) {
+export function ResultList({ items, query, total, scope = "search", pendingCounts = null, onPurchased }: Props) {
   const openTile = useTileOpen();
   const mine = scope === "mine";
-  const inCart = scope === "cart";
-  // 장바구니도 검색·내 판매와 같은 열 (사용자 지시 2026-11-02 — 옛 14열을 없앴다) + 내가 담은 수량·납품희망일·남은 시간
-  const columns: Column[] = inCart
-    ? [
-        // 담은 수량이 제일 먼저 — 쿠팡처럼 +/- 로 바로 바꾼다 (사용자 지시 2026-11-02)
-        {
-          label: cart.page.columns.quantity,
-          width: "w-36",
-          align: "center",
-          interactive: true,
-          cell: (i) => {
-            const q = cartDefaults?.get(keyOf(i))?.orderQuantity;
-            if (q === undefined) return DASH;
-            // 저장 중인 그 줄만 막는다 — 다른 줄은 계속 바꿀 수 있다
-            const busy = quantityBusy !== null && quantityBusy === i.cartTradeId;
-            const down = nextCartQuantity(i, q, "down");
-            const up = nextCartQuantity(i, q, "up");
-            const btn = "size-7 inline-flex items-center justify-center rounded-md border border-line text-ink hover:bg-bg disabled:text-ink-3 disabled:hover:bg-transparent";
-            return (
-              <span className="inline-flex items-center gap-1.5">
-                <button type="button" className={btn} disabled={busy || down === null} aria-label={cart.page.quantityDown(i.prodName)} onClick={() => down !== null && onChangeQuantity?.(i, down)}>
-                  {cart.page.quantityDownGlyph}
-                </button>
-                <span className="num w-10 text-center font-semibold" aria-live="polite">
-                  {qty.format(q)}
-                </span>
-                <button type="button" className={btn} disabled={busy || up === null} aria-label={cart.page.quantityUp(i.prodName)} onClick={() => up !== null && onChangeQuantity?.(i, up)}>
-                  {cart.page.quantityUpGlyph}
-                </button>
-              </span>
-            );
-          },
-        },
-        ...listColumns,
-        { label: cart.page.columns.reqDeliDate, width: "w-28", mono: true, muted: true, cell: (i) => cartDefaults?.get(keyOf(i))?.reqDeliDate ?? DASH },
-        {
-          label: cart.page.columns.remaining,
-          width: "w-24",
-          align: "right",
-          muted: true,
-          cell: (i) => {
-            const left = remainingMinutes(cartDefaults?.get(keyOf(i))?.addedAt);
-            return left === null ? DASH : cart.page.remaining(left);
-          },
-        },
-      ]
-    : listColumns;
+  const columns: Column[] = listColumns;
   // "구매요청 N건" → 받은 구매요청을 그 매물로 걸러 연다. 같은 판매 그룹이라 옆 칸에 반반으로
   const pendingLink = (item: ListingSearchItem) => {
     const label = pendingLabel(pendingCounts, item.regDate);
@@ -223,27 +158,15 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
   // 체크한 매물. 검색은 목록에 안 보이는 것까지(저장소), 장바구니는 지금 줄 중에서
   const chosenItems = (): ListingSearchItem[] => (shared ? [...stored.values()] : items.filter((i) => picked.has(keyOf(i))));
   const showNotice = (title: string, message: string) => show({ tone: "error", title, message });
-  // 장바구니엔 거래완료 매물이 남아 있을 수 있다 — 견적·구매 대상에서 빼고 알린 뒤(확인을 누르면) 이어서 진행한다 (빼기만 된다)
-  const withTradeTargets = (proceed: (chosen: ListingSearchItem[]) => void) => {
-    const chosen = chosenItems();
-    const actionable = inCart ? chosen.filter(cartActionable) : chosen;
-    if (actionable.length < chosen.length) {
-      show({ tone: "error", title: common.notice.someSkipped, message: cart.page.completedSkipped, then: () => proceed(actionable) });
-    } else {
-      proceed(actionable);
-    }
-  };
-  // 장바구니에서 열면 담을 때 입력한 값이 기본값 (설계 2026-10-27 PR 3 판정 5)
-  const cartDefaultsOf = (i: ListingSearchItem) => (inCart ? cartDefaults?.get(keyOf(i)) : undefined);
   // 견적은 여러 매물을 한 번에 (서버 한도 20개)
-  const quoteSelected = () =>
-    withTradeTargets((chosen) => {
-      if (chosen.length === 0) return;
-      // 장바구니에 같은 상품이 여러 줄이어도 견적은 매물당 한 건이다
-      if (uniqueByListing(chosen).length < chosen.length) showNotice(common.notice.quoteBlocked, trade.quote.sameListing);
-      else if (chosen.length > MAX_QUOTE_ITEMS) showNotice(common.notice.quoteBlocked, trade.quote.tooMany(MAX_QUOTE_ITEMS));
-      else setQuoting(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate, defaults: cartDefaultsOf(i) })));
-    });
+  const quoteSelected = () => {
+    const chosen = chosenItems();
+    if (chosen.length === 0) return;
+    // 같은 상품이 여러 줄이어도 견적은 매물당 한 건이다
+    if (uniqueByListing(chosen).length < chosen.length) showNotice(common.notice.quoteBlocked, trade.quote.sameListing);
+    else if (chosen.length > MAX_QUOTE_ITEMS) showNotice(common.notice.quoteBlocked, trade.quote.tooMany(MAX_QUOTE_ITEMS));
+    else setQuoting(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
+  };
   // 장바구니는 수량·납품희망일·요청사항을 받는 모달로 담는다 (서버 한도 20개). 하나라도 틀리면 서버가 아무것도 안 담고 이유를 돌려준다
   const addSelected = () => {
     const chosen = chosenItems();
@@ -254,11 +177,11 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
     setCartTargets(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
   };
   // 구매 모달은 매물 1개용 — 여러 개를 체크했으면 하나만 고르라고 알린다 (계획 2026-10-15 "스펙과 달라진 점")
-  const buySelected = () =>
-    withTradeTargets((chosen) => {
-      if (chosen.length === 1) setBuying(chosen[0]);
-      else if (chosen.length > 1) showNotice(common.notice.buyBlocked, p.oneAtATime);
-    });
+  const buySelected = () => {
+    const chosen = chosenItems();
+    if (chosen.length === 1) setBuying(chosen[0]);
+    else if (chosen.length > 1) showNotice(common.notice.buyBlocked, p.oneAtATime);
+  };
   // 비교는 같은 소분류 2~4개. 거래완료도 볼 수 있어 거르지 않는다 (비교 화면이 버튼만 숨김).
   // 누르면 서버의 내 비교 목록이 이 선택으로 바뀌고, 비교 화면을 옆 보조 칸에 연다 (사용자 결정 2026-10-29)
   const compareSelected = async () => {
@@ -282,9 +205,8 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
   // 내 판매글도 검색처럼 상세를 보조 칸에 연다 — 전체 화면(reset)으로 열던 예외는 이 화면만 2분할이 돼 뺐다 (decisions.md 2026-10-19)
   const go = (item: ListingSearchItem) => openTile(listingHref(item), false);
 
-  // 장바구니의 빈 화면은 CartView 가 그린다
   if (items.length === 0) {
-    return inCart ? null : (
+    return (
       <div className="flex flex-col gap-2.5">
         {selectionBar}
         <Empty query={query} scope={scope} />
@@ -294,16 +216,6 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
 
   const actions = (size: string) => (
     <>
-      {inCart && (
-        <button
-          type="button"
-          disabled={picked.size === 0 || removing}
-          onClick={() => onRemove?.(chosenItems())}
-          className={`${size} px-3 rounded-md border border-line text-ink-2 text-sm font-medium hover:bg-bg disabled:opacity-40 disabled:pointer-events-none`}
-        >
-          {cart.page.remove}
-        </button>
-      )}
       {scope === "search" && (
         <button
           type="button"
@@ -355,7 +267,7 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
           />
         )}
         <p className="grow text-sm text-ink-2" aria-live="polite">
-          <span className="font-bold text-ink">{inCart ? cart.page.count(total) : r.count(total)}</span>
+          <span className="font-bold text-ink">{r.count(total)}</span>
           {picked.size > 0 && r.selected(picked.size)}
         </p>
         {!mine && <div className="hidden @min-[36rem]:flex gap-2">{actions("h-8.5")}</div>}
@@ -368,10 +280,6 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
           sellerId={buying.userId}
           regDate={buying.regDate}
           open
-          defaultQuantity={cartDefaultsOf(buying)?.orderQuantity}
-          defaultReqDeliDate={cartDefaultsOf(buying)?.reqDeliDate}
-          defaultRemarks={cartDefaultsOf(buying)?.remarks ?? undefined}
-          cartTradeId={buying.cartTradeId}
           onOpenChange={(open) => !open && setBuying(null)}
           onPurchased={() => {
             // 서버가 그 매물을 장바구니에서 지웠다 (어디서 샀든) — 헤더 숫자를 맞춘다
@@ -447,7 +355,7 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
           표↔카드 기준은 @md(768)가 아니라 칸 폭 576 — 타일 반반 분할이면 칸이 768 미만(1440 창이면 720)이라
           카드로 줄어들었다. 분할에서도 표가 옆으로 펼쳐져야 한다 (사용자 지시). 폰(390)은 그대로 카드 */}
       <div className="hidden @min-[36rem]:block rounded-md border border-line bg-surface overflow-x-auto">
-        <table className={`w-full ${inCart ? "min-w-410" : mine ? "min-w-334" : "min-w-322"} table-fixed text-[13px]`}>
+        <table className={`w-full ${mine ? "min-w-334" : "min-w-322"} table-fixed text-[13px]`}>
           <colgroup>
             {!mine && <col className="w-10" />}
             <col className="w-48" />
