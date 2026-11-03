@@ -116,6 +116,8 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니 카드
     // 모달이 열린 동안엔 바깥이 aria-hidden — 닫고 헤더를 본다
     await page.keyboard.press("Escape");
     await expect(cartLink(2)).toBeVisible();
+    // 담은 뒤에는 "선택한 상품" 줄이 비워진다
+    await expect(bar).toBeHidden();
     // 장바구니는 내 구매목록에 섞이지 않는다
     await page.goto("/my/activity?tab=purchases");
     await expect(page.getByText(nameA)).toHaveCount(0);
