@@ -125,7 +125,14 @@ public class QuoteBulkService {
 		return new QuoteReplyResponse(ids.stream().map(results::get).toList());
 	}
 
-	/** 한 매물 묶음 — 이 트랜잭션 안에서 매물을 잠그고 합계·재고를 판정한 뒤 처리한다 */
+	/**
+	 * 한 매물 묶음 — 이 트랜잭션 안에서 매물을 잠그고 합계·재고를 판정한 뒤 처리한다.
+	 * TODO(수락 규칙 중복): 아래 "상태 바꾸기 → 재고 묶기 → 메일" 은 단건 수락(TradeService.reply)과 같은 규칙을 따로 구현한 것이다.
+	 * 수락 규칙을 바꾸거나 세 번째 수락 경로가 생기기 전에 공용으로 뽑아 합친다. 합칠 때 지킬 것: 공용 부분엔 @Transactional 을 달지 않고
+	 * (부르는 쪽 트랜잭션에 합류) 예외를 잡지 않는다 — 던지는 쪽이 롤백 전용 표시를 만들어 일괄의 묶음 트랜잭션이 커밋을 못 하게 되는 걸
+	 * 막으려고. 재고 묶기는 던지는 reserveStock 으로 통일해도 되고(묶음은 합계를 확인하고 매물을 잠갔으니 모자라면 묶음 롤백이 맞다),
+	 * 처리 순서는 단건의 "재고 먼저"를 따른다. 테스트: QuoteApiTest·TradeApiTest·QuoteBulkReplyApiTest·E2E quote/quote-bulk 를 다시 돌린다
+	 */
 	private Map<String, QuoteReplyResponse.Result> replyGroup(UUID sellerId, ListingId listingId, List<String> ids, boolean accept) {
 		Map<String, QuoteReplyResponse.Result> out = new LinkedHashMap<>();
 		ListingTradeSnapshot listing = listings.lockForTrade(listingId);
