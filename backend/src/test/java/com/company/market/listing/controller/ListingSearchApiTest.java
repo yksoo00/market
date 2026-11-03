@@ -591,7 +591,20 @@ class ListingSearchApiTest {
 		jdbc.update("update trd_prod_master set prod_image = 'p.jpg', prod_data_sheet = 'p.pdf' where prod_id = 'ELEC00010001'");
 		mvc.perform(get("/api/v1/listings").param("q", "LM324AD"))
 			.andExpect(jsonPath("$.data.items[0].hasDataSheet").value(false))
-			.andExpect(jsonPath("$.data.items[0].hasPhoto").value(false));
+			.andExpect(jsonPath("$.data.items[0].hasPhoto").value(false))
+			.andExpect(jsonPath("$.data.items[0].mainPhoto").doesNotExist());
+	}
+
+	@Test
+	@DisplayName("매물에 사진이 있으면 mainPhoto 는 첫 번째 사진 키, 없으면 null")
+	void mainPhotoIsFirstPhoto() throws Exception {
+		saveFour();
+		jdbc.update("update trd_prod_reg set prod_photo_1 = 'listings/photos/a.jpg', prod_photo_2 = 'listings/photos/b.jpg' where reg_date = ?", A);
+		jdbc.update("update trd_prod_reg set prod_photo_2 = 'listings/photos/c.jpg' where reg_date = ?", B);
+		mvc.perform(get("/api/v1/listings"))
+			.andExpect(jsonPath("$.data.items[?(@.regDate=='" + A + "')].mainPhoto").value("listings/photos/a.jpg"))
+			.andExpect(jsonPath("$.data.items[?(@.regDate=='" + B + "')].mainPhoto").value("listings/photos/c.jpg"))
+			.andExpect(jsonPath("$.data.items[?(@.regDate=='" + A + "')].hasPhoto").value(true));
 	}
 
 }

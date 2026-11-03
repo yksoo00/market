@@ -565,13 +565,16 @@ public class ListingService {
 
 	private static ListingSearchItemResponse toSearchItem(Listing listing, Product product, String categoryPath) {
 		// 상세 화면과 같게 매물 값만 본다. 상품마스터 파일은 처음 등록한 다른 판매자의 것 (decisions.md 2026-10-02 매물 상세)
-		boolean hasPhoto = Stream
+		String mainPhoto = Stream
 			.of(listing.getProdPhoto1(), listing.getProdPhoto2(), listing.getProdPhoto3(), listing.getProdImage4())
-			.anyMatch(Objects::nonNull);
+			.filter(Objects::nonNull)
+			.findFirst()
+			.orElse(null);
+		boolean hasPhoto = mainPhoto != null;
 		boolean hasDataSheet = listing.getProdDataSheet() != null;
 		return new ListingSearchItemResponse(listing.getUserId(), listing.getRegDate(), product.getProdNo(),
 				product.getProdName(), product.getProdBrand(), product.getCategoryCode(),
-				product.mufcDateIso(), listing.getProdDescription(), hasDataSheet, hasPhoto,
+				product.mufcDateIso(), listing.getProdDescription(), hasDataSheet, hasPhoto, mainPhoto,
 				listing.warrantyUntil(), listing.getWarrantyCoverage(),
 				listing.getReplaceProd() != null, listing.getTestReport() != null, listing.getCertificateOfAuthen() != null,
 				listing.getProdState(), listing.getStockQuantity(), listing.getSalesUnitPrice(), listing.getDeliveryDate(),
