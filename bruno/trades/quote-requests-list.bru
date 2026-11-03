@@ -1,0 +1,21 @@
+meta {
+  name: 받은 견적요청 전부 (한꺼번에 처리 모달)
+  type: http
+  seq: 23
+}
+
+get {
+  url: {{baseUrl}}/api/v1/trades/quote-requests
+  body: none
+  auth: none
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  판매자(나)가 받은 견적요청(견적요청 상태) — 오래된 요청부터 최대 30건, total = 전체 건수. (2026-11-03)
+  200 { ok, data: { items: [{ tradeId, regDate(매물), prodName, buyerNickname, orderQuantity, salesUnitPrice, orderUnitPrice, amount, reqDeliDate, remarks, stockQuantity(그 매물의 지금 재고) }], total } }
+  구매자 이메일·전화는 안 담는다. 로그인 없으면 401.
+}

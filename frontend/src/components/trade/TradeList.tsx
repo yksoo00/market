@@ -12,6 +12,7 @@ import { Pager } from "@/components/common/Pager";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog } from "@/components/trade/QuoteDialog";
+import { QuoteRequestsDialog } from "@/components/trade/QuoteRequestsDialog";
 import { tradesApi } from "@/lib/api/trades";
 import { notifyCartChanged } from "@/lib/cart";
 import { filterParams, type FilterValues } from "@/lib/detailFilter";
@@ -82,6 +83,8 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
     setRemarksOf(item);
     setRemarksOpen(true);
   };
+  // 판매자의 요청 탭: [모든 견적요청 보기] — 받은 견적요청을 한 모달에서 한꺼번에 처리 (2026-11-03)
+  const [bulkOpen, setBulkOpen] = useState(false);
   const asBuyer = role === "buyer";
 
   useEffect(() => {
@@ -187,6 +190,18 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
           </Button>
         </DialogContent>
       </Dialog>
+      {role === "seller" && active && (
+        <div className="flex">
+          <button
+            type="button"
+            onClick={() => setBulkOpen(true)}
+            className="h-9 px-4 rounded-md border border-primary text-primary text-[13px] font-medium hover:bg-primary-soft"
+          >
+            {trade.bulk.open}
+          </button>
+        </div>
+      )}
+      {bulkOpen && <QuoteRequestsDialog open onOpenChange={(next) => !next && setBulkOpen(false)} onChanged={reload} />}
       <Body load={load} asBuyer={asBuyer} busy={busy} onAct={act} onRetry={reload} onShowRemarks={showRemarks} firstPageHref={page > 1 ? hrefFor(1) : null} filtered={filtered} />
       {buying && (
         <PurchaseDialog

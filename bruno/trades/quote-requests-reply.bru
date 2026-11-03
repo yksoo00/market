@@ -1,0 +1,31 @@
+meta {
+  name: 받은 견적요청 한꺼번에 수락·거절
+  type: http
+  seq: 24
+}
+
+post {
+  url: {{baseUrl}}/api/v1/trades/quote-requests/reply
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "tradeIds": ["26110310001", "26110310002"],
+    "decision": "accept"
+  }
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  판매자가 받은 견적요청 1~30건을 한꺼번에 수락(accept)·거절(reject). 건별 결과 — 한 건이 틀려도 전체가 실패하지 않는다. (2026-11-03)
+  200 { ok, data: { results: [{ tradeId, ok, tradeStats(quoteAccepted|quoteRejected), code, message }] } } — 요청한 순서(같은 ID 는 한 번).
+  수락은 단건 수락과 같다(견적 수량을 구매자 몫으로 묶음, 메일). 같은 매물 묶음은 수락 합계가 재고를 넘으면 그 묶음 전부 TRADE_OUT_OF_STOCK(message 에 합계·재고) 로 실패하고
+  다른 묶음의 성공은 남는다 — 누구를 먼저 받을지 서버가 고르지 않는다(건별 accept.bru 로 골라 수락).
+  이미 처리됐거나 구매자가 취소한 건 TRADE_NOT_PENDING/TRADE_NOT_FOUND, 내 견적이 아니면 TRADE_NOT_FOUND, 거래완료 매물 LISTING_COMPLETED.
+  400: tradeIds 0개·31개 이상, decision 이 accept|reject 가 아님. 로그인 없으면 401.
+}
