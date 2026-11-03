@@ -139,6 +139,7 @@ public class TradeService {
 				.build());
 		}
 		listings.reserveStock(listing.id(), req.orderQuantity());
+		dropCompareRow(buyerId, listing.sellerId(), listing.regDate(), listing.prodId());
 		mail(Kind.PURCHASE_REQUESTED, trade, buyerId, listing.prodName());
 		return toResponse(trade, TradeStats.REQUESTED, listing.prodName(), listing.photo(), nicknameOf(listing.sellerId()));
 	}
@@ -386,6 +387,7 @@ public class TradeService {
 				listing.minOrderQuantity(), listing.orderUnit(), listing.provDate(), reqDeliDate,
 				req.remarks() == null || req.remarks().isBlank() ? null : req.remarks().trim());
 		trades.saveAndFlush(continued);
+		dropCompareRow(buyerId, listing.sellerId(), listing.regDate(), listing.prodId());
 		mail(Kind.PURCHASE_REQUESTED, continued, buyerId, listing.prodName());
 		return toResponse(continued, TradeStats.REQUESTED, listing.prodName(), listing.photo(), nicknameOf(listing.sellerId()));
 	}
@@ -589,6 +591,17 @@ public class TradeService {
 		trades.deleteCartRows(cartRow.getUserId(), List.of(cartRow.getTradeId()), TradeStats.CART);
 		cartInfos.deleteByTradeId(cartRow.getTradeId());
 		listings.releaseStock(listing, quantity);
+	}
+
+	/**
+	 * 구매요청이 만들어지면 그 구매자의 비교 목록에서 그 매물을 뺀다 (사용자 결정 2026-11-03). 샀으니 더 비교할 일이 없다.
+	 * 견적 요청은 아직 사는 게 아니라 비교 행을 건드리지 않는다. 없으면 아무것도 안 한다
+	 */
+	private void dropCompareRow(UUID buyerId, UUID sellerId, String regDate, String prodId) {
+		trades.findReviewRow(buyerId, sellerId, regDate, prodId, TradeType.REVIEW, TradeStats.COMPARE).ifPresent(row -> {
+			trades.deleteCartRows(buyerId, List.of(row.getTradeId()), TradeStats.COMPARE);
+			cartInfos.deleteByTradeId(row.getTradeId());
+		});
 	}
 
 	private String nicknameOf(UUID userId) {

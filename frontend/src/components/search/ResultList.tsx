@@ -309,6 +309,8 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
           onAdded={(result) => {
             notifyCartChanged();
             setAdded(result);
+            // 담았으면 체크는 풀어 준다 — 담은 상품이 "선택한 상품"으로 남아 같은 걸 또 담거나 구매하는 일을 막는다 (사용자 지시 2026-11-03)
+            if (shared) selection.clear();
           }}
         />
       )}
