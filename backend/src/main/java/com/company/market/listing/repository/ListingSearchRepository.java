@@ -82,7 +82,7 @@ public class ListingSearchRepository {
 			Map.entry("price", "l.salesUnitPrice"),
 			Map.entry("stock", "l.stockQuantity"),
 			Map.entry("state", "l.prodState"),
-			Map.entry("category", "p.majorCategory %1$s, p.middleCategory %1$s, p.minorCategory"),
+			Map.entry("category", "p.majorCategory %1$s nulls last, p.middleCategory %1$s nulls last, p.minorCategory"),
 			Map.entry("minOrder", "l.minOrderQuantity"),
 			Map.entry("orderUnit", "l.orderUnit"),
 			Map.entry("delivery", "l.deliveryDate"));
