@@ -26,7 +26,12 @@ final class TradeFilterRules {
 
 	static final List<String> FIELDS = List.of("all", "name", "brand");
 
-	static final List<String> SORTS = List.of("latest", "oldest", "amountDesc", "amountAsc");
+	/**
+	 * 정렬 값: latest(기본)·oldest(오래된 순) + 열마다 열이름Asc|Desc (열 머리 정렬 2026-11-03). 거래이력이 쓰는 열: name·party(상대)·side(구분)·
+	 * unitPrice·quantity·amount. 활동내역 쪽 열(납품희망일·상태 등)은 그 목록 단계에서 더한다
+	 */
+	static final List<String> SORTS = List.of("latest", "oldest", "amountDesc", "amountAsc", "nameAsc", "nameDesc", "partyAsc", "partyDesc",
+			"sideAsc", "sideDesc", "unitPriceAsc", "unitPriceDesc", "quantityAsc", "quantityDesc");
 
 	private static final Pattern ISO_DATE = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
 
@@ -82,7 +87,7 @@ final class TradeFilterRules {
 
 		String sort = in.sort() == null || in.sort().isBlank() ? "latest" : in.sort();
 		if (!SORTS.contains(sort)) {
-			errors.put("sort", "sort 는 latest, oldest, amountDesc, amountAsc 중 하나여야 합니다.");
+			errors.put("sort", "sort 는 latest, oldest 또는 열이름Asc·열이름Desc(name, party, side, unitPrice, quantity, amount) 중 하나여야 합니다.");
 		} else if (!paged && !"latest".equals(sort)) {
 			errors.put("sort", "최신순 말고 다른 정렬은 page 와 함께 써야 합니다.");
 		}

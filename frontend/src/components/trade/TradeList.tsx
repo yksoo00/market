@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Pager } from "@/components/common/Pager";
 import { ResultDialog } from "@/components/common/ResultDialog";
+import { StickyXScroll } from "@/components/common/StickyXScroll";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog } from "@/components/trade/QuoteDialog";
 import { QuoteRequestsDialog } from "@/components/trade/QuoteRequestsDialog";
@@ -363,7 +364,7 @@ function Body({ load, asBuyer, busy, onAct, onRetry, onShowRemarks, firstPageHre
   return (
     <>
       {/* 넓은 칸: 표. 좁은 칸(휴대폰·1/4 타일): 카드 — 기준은 검색 결과와 같은 칸 폭 576 */}
-      <div className="hidden @min-[36rem]:block overflow-x-auto bg-surface border border-line rounded-md">
+      <StickyXScroll memoryKey="trade-table" className="hidden @min-[36rem]:block bg-surface border border-line rounded-md">
         {/* 칸 안 글자는 줄바꿈하지 않는다 (사용자 지시 2026-10-30) — 넘치면 표가 가로 스크롤. 요청사항은 한 줄로 자르고 전체는 툴팁 */}
         <table className="w-full min-w-4xl text-sm whitespace-nowrap">
           <thead className="bg-bg text-[12px] text-ink-2">
@@ -409,7 +410,7 @@ function Body({ load, asBuyer, busy, onAct, onRetry, onShowRemarks, firstPageHre
             ))}
           </tbody>
         </table>
-      </div>
+      </StickyXScroll>
       <ul className="@min-[36rem]:hidden flex flex-col gap-2">
         {load.items.map((item) => (
           <li key={item.tradeId} className="bg-surface border border-line rounded-md p-3.5 flex flex-col gap-1.5">

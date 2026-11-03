@@ -56,6 +56,8 @@ export const my = {
       won: "원",
       sort: "정렬",
       sorts: { latest: "최신순", amountDesc: "금액높은순", amountAsc: "금액낮은순" },
+      // 열 머리를 눌러 정한 정렬의 칩 글자 ("상대 ▲", 2026-11-03)
+      sortColumns: { date: "확정일시", side: "구분", name: "상품명", party: "상대", unitPrice: "단가", quantity: "수량", amount: "금액" },
       apply: "적용",
       reset: "필터 초기화",
       resultCount: (n: number) => `조건에 맞는 거래 ${n.toLocaleString("ko-KR")}건`,

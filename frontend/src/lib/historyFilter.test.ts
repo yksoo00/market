@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { historyApiParams, isRealDate, MAX_AMOUNT, MAX_Q, parseHistoryFilter } from "@/lib/historyFilter";
+import { historyApiParams, historySortColumn, isRealDate, MAX_AMOUNT, MAX_Q, parseHistoryFilter } from "@/lib/historyFilter";
 import { historyFilterSchema } from "@/lib/validation/historyFilter";
 
 const base = { q: "", field: "all", from: "", to: "", min: "", max: "", sort: "latest" };
@@ -58,9 +58,19 @@ describe("historyApiParams (필터 → API)", () => {
   });
 });
 
-describe("정렬 선택지", () => {
-  it("화면에서 뺀 오래된순은 주소에서 읽으면 최신순", () => {
-    expect(parseHistoryFilter({ sort: "oldest" }).sort).toBe("latest");
+describe("정렬 (열 머리 정렬 2026-11-03)", () => {
+  it("열마다 오름·내림 값과 오래된순이 주소에서 읽히고, 모르는 값은 최신순", () => {
+    expect(parseHistoryFilter({ sort: "oldest" }).sort).toBe("oldest");
+    expect(parseHistoryFilter({ sort: "partyDesc" }).sort).toBe("partyDesc");
+    expect(parseHistoryFilter({ sort: "nameAsc" }).sort).toBe("nameAsc");
+    expect(parseHistoryFilter({ sort: "reqDeliAsc" }).sort).toBe("latest");
+  });
+
+  it("historySortColumn: sort 값 → 열·방향, 열 정렬이 아니면 null (기본은 확정일시 내림)", () => {
+    expect(historySortColumn("unitPriceAsc")).toEqual({ column: "unitPrice", dir: "asc" });
+    expect(historySortColumn("oldest")).toEqual({ column: "date", dir: "asc" });
+    expect(historySortColumn("latest")).toEqual({ column: "date", dir: "desc" });
+    expect(historySortColumn("bogus")).toBeNull();
   });
 });
 

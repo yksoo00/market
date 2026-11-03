@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { Icon } from "@/components/common/Icon";
 import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
 import { ResultDialog } from "@/components/common/ResultDialog";
+import { StickyXScroll } from "@/components/common/StickyXScroll";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog, type QuoteTarget } from "@/components/trade/QuoteDialog";
@@ -202,7 +203,7 @@ export function CompareView() {
       <NoticeDialog notice={notice} onClose={closeNotice} />
 
       {/* 항목 열은 왼쪽에 고정. 상품 열은 개수대로 나눠 가지고(최소 144px) 4개여도 보통 칸에 들어간다 — 정말 좁은 칸·모바일에서만 가로 스크롤 */}
-      <div className="overflow-x-auto rounded-md border border-line bg-surface">
+      <StickyXScroll className="rounded-md border border-line bg-surface">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="align-top">
@@ -315,7 +316,7 @@ export function CompareView() {
             ))}
           </tbody>
         </table>
-      </div>
+      </StickyXScroll>
 
       {buying && (
         <PurchaseDialog

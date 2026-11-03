@@ -7,7 +7,6 @@ import java.util.UUID;
 import com.company.market.trade.domain.TradeHistory;
 import com.company.market.trade.domain.TradeHistoryId;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -38,11 +37,12 @@ public interface TradeHistoryRepository extends JpaRepository<TradeHistory, Trad
 			@Param("cursorDate") String cursorDate, @Param("cursorId") String cursorId, Pageable page);
 
 	/**
-	 * findPage 와 같은 조건의 [확정일시, 거래ID, 구매자ID] 만 전부, 정렬은 sort — 페이지 번호의 경계와 전체 건수 (PageKeys).
-	 * 호출자가 같은 값이 나올 때 끝을 맞추는 확정일시·거래ID 내림차순을 sort 끝에 붙인다
+	 * findPage 와 같은 조건의 정렬 키만 전부 — 페이지 번호의 경계와 전체 건수 (PageKeys). 순서는 호출자(서비스)가 자바에서 정한다
+	 * (열 머리 정렬 2026-11-03: 상품명·상대 이름은 이력 테이블 밖 값이라 DB 정렬 키로 못 쓴다).
+	 * 행 = [확정일시, 거래ID, 구매자ID, 판매자ID, 상품ID, 수량, 단가, 금액] — 앞 셋이 PK, 나머지는 정렬용
 	 */
 	@Query("""
-			select h.tradeDate, h.tradeId, h.userId from TradeHistory h
+			select h.tradeDate, h.tradeId, h.userId, h.sellerId, h.prodId, h.tradeQuantity, h.tradeUnitPrice, h.tradeAmount from TradeHistory h
 			 where ((:buy = true and h.userId = :me) or (:sell = true and h.sellerId = :me))
 			   and h.tradeDate >= :fromDate and h.tradeDate <= :toDate
 			   and coalesce(h.tradeAmount, 0) >= :minAmount and coalesce(h.tradeAmount, 0) <= :maxAmount
@@ -50,8 +50,7 @@ public interface TradeHistoryRepository extends JpaRepository<TradeHistory, Trad
 			""")
 	List<Object[]> findKeys(@Param("me") UUID me, @Param("buy") boolean buy, @Param("sell") boolean sell,
 			@Param("fromDate") String fromDate, @Param("toDate") String toDate, @Param("minAmount") int minAmount,
-			@Param("maxAmount") int maxAmount, @Param("useProds") boolean useProds, @Param("prodIds") Collection<String> prodIds,
-			Sort sort);
+			@Param("maxAmount") int maxAmount, @Param("useProds") boolean useProds, @Param("prodIds") Collection<String> prodIds);
 
 	/**
 	 * 내 이력에 나온 상품ID (겹침 없이). 검색어는 이 상품들 안에서만 상품마스터에 맞춰 본다 — 전체 상품에서 찾으면

@@ -1,3 +1,4 @@
+import type { ColumnSortValues } from "@/lib/columnSort";
 import { firstParam, type FilterField, type FilterValues, type SearchScopeSelect } from "@/lib/detailFilter";
 import { SEARCH_FIELDS } from "@/lib/search";
 import { my } from "@/messages/my";
@@ -8,12 +9,46 @@ import { search } from "@/messages/search";
 export const MAX_Q = 100;
 /** 거래 금액 컬럼이 int */
 export const MAX_AMOUNT = 2_147_483_647;
-/**
- * 정렬 칩 선택지 (2026-10-30, 사용자 지시 "진짜 필요한 것만"). 서버는 oldest 도 받지만 화면엔 두지 않는다 —
- * 주소의 ?sort=oldest 는 최신순으로 읽는다
- */
-export const HISTORY_SORTS = ["latest", "amountDesc", "amountAsc"] as const;
+/** 정렬 칩 선택지 (2026-10-30, 사용자 지시 "진짜 필요한 것만") — 열 머리 정렬이 정한 값은 선택지에 없어도 칩 글자로 보인다 */
+export const HISTORY_CHIP_SORTS = ["latest", "amountDesc", "amountAsc"] as const;
+/** 열 머리 정렬(2026-11-03)까지 포함한 거래이력의 sort 값 전부. 서버 TradeFilterRules.SORTS 와 같다 */
+export const HISTORY_SORTS = [
+  ...HISTORY_CHIP_SORTS,
+  "oldest",
+  "sideAsc",
+  "sideDesc",
+  "nameAsc",
+  "nameDesc",
+  "partyAsc",
+  "partyDesc",
+  "unitPriceAsc",
+  "unitPriceDesc",
+  "quantityAsc",
+  "quantityDesc",
+] as const;
 export type HistorySort = (typeof HISTORY_SORTS)[number];
+
+/** 거래이력 표의 열 → 그 열의 오름·내림 sort 값. 확정일시의 내림은 기본(최신순)이다 */
+export const HISTORY_SORT_COLUMNS = {
+  date: { asc: "oldest", desc: "latest" },
+  side: { asc: "sideAsc", desc: "sideDesc" },
+  name: { asc: "nameAsc", desc: "nameDesc" },
+  party: { asc: "partyAsc", desc: "partyDesc" },
+  unitPrice: { asc: "unitPriceAsc", desc: "unitPriceDesc" },
+  quantity: { asc: "quantityAsc", desc: "quantityDesc" },
+  amount: { asc: "amountAsc", desc: "amountDesc" },
+} as const satisfies Record<string, ColumnSortValues<HistorySort>>;
+export type HistorySortColumn = keyof typeof HISTORY_SORT_COLUMNS;
+
+/** sort 값이 어느 열의 오름·내림인가 (정렬 칩 글자용). 열 정렬이 아니면 null */
+export function historySortColumn(sort: string): { column: HistorySortColumn; dir: "asc" | "desc" } | null {
+  for (const column of Object.keys(HISTORY_SORT_COLUMNS) as HistorySortColumn[]) {
+    const v = HISTORY_SORT_COLUMNS[column];
+    if (sort === v.asc) return { column, dir: "asc" };
+    if (sort === v.desc) return { column, dir: "desc" };
+  }
+  return null;
+}
 
 /** 주소 파라미터 이름 = 폼 값 키. API 는 min·max 를 minAmount·maxAmount 로 보낸다 */
 export const HISTORY_KEYS = { q: "q", field: "field", from: "from", to: "to", min: "min", max: "max", sort: "sort" } as const;
@@ -23,7 +58,18 @@ const t = my.history.filter;
 export const historyFields: FilterField[] = [
   { kind: "dateRange", label: t.period, fromKey: "from", toKey: "to", fromLabel: t.from, toLabel: t.to },
   { kind: "numberRange", label: t.amount, minKey: "min", maxKey: "max", minLabel: t.minAmount, maxLabel: t.maxAmount, suffix: t.won },
-  { kind: "select", label: t.sort, key: "sort", defaultValue: "latest", options: HISTORY_SORTS.map((s) => ({ value: s, label: t.sorts[s] })) },
+  {
+    kind: "select",
+    label: t.sort,
+    key: "sort",
+    defaultValue: "latest",
+    options: HISTORY_CHIP_SORTS.map((s) => ({ value: s, label: t.sorts[s] })),
+    // 열 머리를 눌러 정한 정렬(상대 ▲ 등)은 선택지에 없어도 칩 글자로 보인다 (2026-11-03)
+    labelOf: (value) => {
+      const hit = historySortColumn(value);
+      return hit ? search.sort.columnText(t.sortColumns[hit.column], hit.dir) : undefined;
+    },
+  },
 ];
 
 /** 검색창 왼쪽 구분 select (DetailFilter searchField) — 범위·문구는 매물 검색창과 같다 (2026-10-30) */
@@ -49,7 +95,7 @@ const isAmount = (s: string) => /^\d{1,10}$/.test(s) && Number(s) <= MAX_AMOUNT;
  * 주소(?q=&field=&from=&to=&min=&max=&sort=)에서 필터 값. 손으로 고친 틀린 값은 버린다 — 그대로 보내면 서버가 400 을 돌려
  * 목록이 오류 화면이 된다. 앞뒤가 뒤집힌 범위는 뒤쪽 값을 버린다
  */
-export function parseHistoryFilter(raw: Record<string, string | string[] | undefined>): FilterValues {
+export function parseHistoryFilter(raw: Record<string, string | string[] | undefined>, sorts: readonly string[] = HISTORY_SORTS): FilterValues {
   const q = firstParam(raw.q).trim();
   let from = firstParam(raw.from);
   let to = firstParam(raw.to);
@@ -70,7 +116,7 @@ export function parseHistoryFilter(raw: Record<string, string | string[] | undef
     to,
     min,
     max,
-    sort: HISTORY_SORTS.find((s) => s === sort) ?? "latest",
+    sort: sorts.find((s) => s === sort) ?? "latest",
   };
 }
 
