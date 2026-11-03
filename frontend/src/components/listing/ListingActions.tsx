@@ -183,6 +183,9 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
           onPurchased={() => {
             notifyCartChanged();
             setPurchased(true);
+            // 구매요청이 되면 서버가 내 비교 목록에서 이 매물을 뺀다 — [비교에서 빼기] 표시가 남지 않게 다시 읽는다
+            setCompareId(null);
+            setCompareVersion((n) => n + 1);
             onPurchased?.();
           }}
         />

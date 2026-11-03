@@ -7,6 +7,7 @@ import { listing } from "@/messages/listing";
 import { my } from "@/messages/my";
 import { search } from "@/messages/search";
 import { signup } from "@/messages/signup";
+import { trade } from "@/messages/trade";
 
 // 비교 흐름 (설계 2026-10-27 PR 3, 2026-10-29, 누적 2026-11-03): 판매자 매물 3개(인텔 CPU 2개 단가 다르게 + AMD CPU 1개)
 // → 구매자가 검색 결과에서 셋 다 체크(선택 줄 칩) → 소분류가 섞이면 [비교에 담기]가 막힘 → 칩 ✕ 로 AMD 를 빼고 [비교에 담기] → 보조 칸 비교 표(최저가·다른 항목만)
@@ -147,11 +148,28 @@ test("검색에서 같은 소분류끼리 비교에 담기 → 섞이면 막힘 
     await expect(cartLink(0)).toBeVisible();
   });
 
-  await test.step("상세에서 B [비교에 담기] → 쌓여 2개, 담긴 매물은 [비교에서 빼기]로 바뀜", async () => {
+  // 구매요청이 되면 그 매물은 비교에서 빠진다 (2026-11-03). 비었을 땐 문구만 있고 [상품 검색] 버튼은 없다
+  await test.step("비교 화면에서 A [구매] → A 가 비교에서 빠지고 빈 안내(검색 버튼 없음)", async () => {
+    const compareFrame = page.frameLocator('iframe[src^="/my/cart/compare"]');
+    await compareFrame.getByRole("button", { name: listing.detail.buy, exact: true }).click();
+    const dialog = compareFrame.getByRole("dialog", { name: trade.purchase.title });
+    await expect(dialog).toBeVisible();
+    await dialog.locator('input[name="orderQuantity"]').fill("1");
+    await dialog.locator('input[name="reqDeliDate"]').fill(
+      new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(Date.now() + 7 * 86_400_000)),
+    );
+    await dialog.getByRole("button", { name: trade.purchase.submit, exact: true }).click();
+    await expect(compareFrame.getByRole("dialog", { name: trade.purchase.doneTitle })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(compareFrame.getByText(compare.page.empty)).toBeVisible();
+    await expect(compareFrame.getByRole("button", { name: compare.page.toSearch })).toHaveCount(0);
+  });
+
+  await test.step("상세에서 B [비교에 담기] → 쌓여 1개, 담긴 매물은 [비교에서 빼기]로 바뀜", async () => {
     await page.goto(urlB);
     await page.getByRole("button", { name: compare.button, exact: true }).click();
     await page.getByRole("dialog", { name: compare.added.title }).getByRole("button", { name: compare.added.view }).click();
-    await expect(frame.getByText(compare.page.count(2))).toBeVisible();
+    await expect(frame.getByText(compare.page.count(1))).toBeVisible();
     await expect(page.getByRole("button", { name: compare.detail.remove, exact: true })).toBeVisible();
   });
 

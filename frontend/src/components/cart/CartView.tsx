@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { CartCardList } from "@/components/cart/CartCardList";
 import { cartApi } from "@/lib/api/cart";
 import { notifyCartChanged, onCartChanged } from "@/lib/cart";
@@ -17,7 +16,6 @@ type State = { kind: "loading" } | { kind: "error" } | { kind: "ready"; items: C
  * 견적·구매 완료 안내가 떠 있는 채로 줄만 바뀐다
  */
 export function CartView() {
-  const openTile = useTileOpen();
   const [state, setState] = useState<State>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
   const [removing, setRemoving] = useState(false);
@@ -69,14 +67,8 @@ export function CartView() {
   if (items.length === 0) {
     return (
       <div className="py-16 flex flex-col items-center gap-3 text-center">
+        {/* 빈 장바구니엔 [상품 검색] 버튼을 두지 않는다 — 검색은 헤더·홈에서 (사용자 지시 2026-11-03) */}
         <p className="text-[15px] font-bold text-ink">{t.page.empty}</p>
-        <button
-          type="button"
-          onClick={() => openTile("/search", false)}
-          className="h-8.5 px-4 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft"
-        >
-          {t.page.toSearch}
-        </button>
       </div>
     );
   }

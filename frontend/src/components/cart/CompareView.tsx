@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/common/Icon";
 import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
@@ -28,7 +29,9 @@ type State =
   | { kind: "ready"; items: CartItem[]; details: ListingDetail[]; skipped: boolean };
 
 const p = trade.purchase;
-const outline = "h-8 px-2.5 rounded-md border text-[13px] font-medium disabled:opacity-40 disabled:pointer-events-none";
+const outline = "h-8 px-1 rounded-md border text-[13px] font-medium disabled:opacity-40 disabled:pointer-events-none";
+// 상품 열 폭 = 개수로 나눈 몫 (인덱스 = 상품 수). 열이 많아도 칸에 들어가게 하는 쪽이고, 최소 폭(min-w-36)이 넘치면 가로 스크롤
+const COL_WIDTH = ["w-full", "w-full", "w-1/2", "w-1/3", "w-1/4"];
 
 /**
  * 비교 (설계 2026-10-27 PR 3, 사용자 결정 2026-10-29·2026-11-03). 검색 목록·상세의 [비교에 담기]가 서버에 쌓은 내 비교 목록을 읽어 나란히 보인다.
@@ -73,6 +76,36 @@ export function CompareView() {
     };
   }, [attempt]);
 
+  // 견적·구매 완료 안내. 마지막 상품을 사면 비교가 비어 화면이 빈 안내로 바뀌므로, 목록 화면 밖에 두어 같이 사라지지 않게 한다
+  const resultDialogs = (
+    <>
+      <ResultDialog
+        open={quoted}
+        tone="success"
+        title={trade.quote.doneTitle}
+        message={trade.quote.doneMessage}
+        actionLabel={p.toPurchases}
+        onAction={() => {
+          setQuoted(false);
+          openTile("/my/activity?tab=purchases", false);
+        }}
+        onClose={() => setQuoted(false)}
+      />
+      <ResultDialog
+        open={purchased}
+        tone="success"
+        title={p.doneTitle}
+        message={p.doneMessage}
+        actionLabel={p.toPurchases}
+        onAction={() => {
+          setPurchased(false);
+          openTile("/my/activity?tab=purchases", false);
+        }}
+        onClose={() => setPurchased(false)}
+      />
+    </>
+  );
+
   if (state.kind === "loading") return <div className="h-96 rounded-md bg-line-2 animate-pulse" aria-busy="true" />;
   if (state.kind === "error") {
     return (
@@ -88,12 +121,26 @@ export function CompareView() {
   }
 
   const { details, items } = state;
-  if (details.length === 0) return <Message text={t.page.empty} action={t.page.toSearch} onAction={() => openTile("/search", false)} />;
+  // 비었을 땐 문구만 — [상품 검색] 버튼은 두지 않는다 (사용자 지시 2026-11-03, 검색은 헤더·홈에서)
+  if (details.length === 0) {
+    return (
+      <>
+        <Message text={t.page.empty} />
+        {resultDialogs}
+      </>
+    );
+  }
   // 서버가 같은 소분류만 저장하지만, 그새 매물 카테고리가 바뀌었을 수 있어 방어한다
   if (new Set(details.map((d) => d.category)).size > 1) {
-    return <Message text={t.otherCategory} action={t.page.toSearch} onAction={() => openTile("/search", false)} />;
+    return (
+      <>
+        <Message text={t.otherCategory} action={t.page.toSearch} onAction={() => openTile("/search", false)} />
+        {resultDialogs}
+      </>
+    );
   }
 
+  const colWidth = COL_WIDTH[details.length] ?? "w-1/4";
   const rows = compareRows(details);
   const shown = onlyDiff ? rows.filter((r) => r.differs) : rows;
   const tradeIdOf = (d: ListingDetail) => items.find((i) => sameKey(i.listing, d))?.tradeId ?? null;
@@ -154,12 +201,12 @@ export function CompareView() {
       )}
       <NoticeDialog notice={notice} onClose={closeNotice} />
 
-      {/* 항목 열은 왼쪽에 고정, 상품 열이 넘치면 가로 스크롤 (좁은 칸·모바일) */}
+      {/* 항목 열은 왼쪽에 고정. 상품 열은 개수대로 나눠 가지고(최소 144px) 4개여도 보통 칸에 들어간다 — 정말 좁은 칸·모바일에서만 가로 스크롤 */}
       <div className="overflow-x-auto rounded-md border border-line bg-surface">
         <table className="w-full border-collapse text-sm">
           <thead>
             <tr className="align-top">
-              <th scope="col" className="sticky left-0 z-10 w-24 @md:w-32 bg-surface p-3 text-left text-[13px] font-medium text-ink-2 border-b border-r border-line-2">
+              <th scope="col" className="sticky left-0 z-10 w-20 @md:w-28 bg-surface p-2.5 text-left text-[13px] font-medium text-ink-2 border-b border-r border-line-2">
                 {t.page.item}
               </th>
               {details.map((d) => {
@@ -167,17 +214,33 @@ export function CompareView() {
                 const done = d.tradeStatus === "completed";
                 const photo = mainPhoto(d);
                 return (
-                  <th key={`${d.userId}/${d.regDate}`} scope="col" className="min-w-44 p-3 text-left font-normal border-b border-line-2">
+                  <th key={`${d.userId}/${d.regDate}`} scope="col" className={`min-w-36 ${colWidth} p-2.5 text-left font-normal border-b border-line-2`}>
                     <div className="flex flex-col gap-2">
-                      {photo ? (
-                        // API 서버의 공개 파일이라 next/image 원격 설정 없이 <img> (ListingSummaryCard 와 같은 이유)
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={fileUrl(photo)} alt={d.prodName} className="w-full h-28 object-contain rounded-md bg-bg" />
-                      ) : (
-                        <div className="h-28 rounded-md bg-bg flex items-center justify-center">
-                          <Icon name="image" size={28} className="text-ink-3" aria-hidden={false} aria-label={listing.detail.noPhoto} role="img" />
-                        </div>
-                      )}
+                      <div className="relative">
+                        {photo ? (
+                          // API 서버의 공개 파일이라 next/image 원격 설정 없이 <img> (ListingSummaryCard 와 같은 이유)
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={fileUrl(photo)} alt={d.prodName} className="w-full h-28 object-contain rounded-md bg-bg" />
+                        ) : (
+                          <div className="h-28 rounded-md bg-bg flex items-center justify-center">
+                            <Icon name="image" size={28} className="text-ink-3" aria-hidden={false} aria-label={listing.detail.noPhoto} role="img" />
+                          </div>
+                        )}
+                        {/* 빼기는 보조 동작이라 사진 모서리의 ✕ 로 — 열이 좁아도 버튼이 줄바꿈으로 떨어지지 않는다 (사용자 지시 2026-11-03) */}
+                        {tradeId && (
+                          <button
+                            type="button"
+                            disabled={removing}
+                            onClick={() => void remove(d, tradeId)}
+                            aria-label={t.page.removeAria(d.prodName)}
+                            title={t.page.remove}
+                            className="absolute top-1 right-1 size-8 inline-flex items-center justify-center rounded-full border border-line bg-surface/90 text-ink-2 hover:bg-surface hover:text-down disabled:opacity-40 disabled:pointer-events-none"
+                          >
+                            <X size={16} aria-hidden="true" />
+                          </button>
+                        )}
+                      </div>
+
                       <button
                         type="button"
                         onClick={() => openTile(listingHref(d), false)}
@@ -194,38 +257,25 @@ export function CompareView() {
                           </span>
                         )}
                       </div>
-                      <div className="flex flex-wrap gap-1.5">
-                        {/* 거래완료는 서버가 막는다(409) — 버튼을 숨겨 빼기만 남긴다 */}
-                        {!done && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => setQuoting([{ sellerId: d.userId, regDate: d.regDate }])}
-                              className={`${outline} border-primary text-primary hover:bg-primary-soft`}
-                            >
-                              {listing.detail.quote}
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setBuying(d)}
-                              className="h-8 px-3 rounded-md bg-primary text-white text-[13px] font-bold hover:bg-primary-dark"
-                            >
-                              {listing.detail.buy}
-                            </button>
-                          </>
-                        )}
-                        {tradeId && (
+                      {/* 거래완료는 서버가 막는다(409) — 버튼을 숨긴다. [견적 요청]·[구매]는 같은 폭으로 한 줄 */}
+                      {!done && (
+                        <div className="grid grid-cols-2 gap-1.5">
                           <button
                             type="button"
-                            disabled={removing}
-                            onClick={() => void remove(d, tradeId)}
-                            aria-label={t.page.removeAria(d.prodName)}
-                            className={`${outline} border-line text-ink-2 hover:bg-bg`}
+                            onClick={() => setQuoting([{ sellerId: d.userId, regDate: d.regDate }])}
+                            className={`${outline} border-primary text-primary hover:bg-primary-soft`}
                           >
-                            {t.page.remove}
+                            {listing.detail.quote}
                           </button>
-                        )}
-                      </div>
+                          <button
+                            type="button"
+                            onClick={() => setBuying(d)}
+                            className="h-8 px-1 rounded-md bg-primary text-white text-[13px] font-bold hover:bg-primary-dark"
+                          >
+                            {listing.detail.buy}
+                          </button>
+                        </div>
+                      )}
                     </div>
                   </th>
                 );
@@ -290,45 +340,24 @@ export function CompareView() {
           }}
         />
       )}
-      <ResultDialog
-        open={quoted}
-        tone="success"
-        title={trade.quote.doneTitle}
-        message={trade.quote.doneMessage}
-        actionLabel={p.toPurchases}
-        onAction={() => {
-          setQuoted(false);
-          openTile("/my/activity?tab=purchases", false);
-        }}
-        onClose={() => setQuoted(false)}
-      />
-      <ResultDialog
-        open={purchased}
-        tone="success"
-        title={p.doneTitle}
-        message={p.doneMessage}
-        actionLabel={p.toPurchases}
-        onAction={() => {
-          setPurchased(false);
-          openTile("/my/activity?tab=purchases", false);
-        }}
-        onClose={() => setPurchased(false)}
-      />
+      {resultDialogs}
     </div>
   );
 }
 
-function Message({ text, action, onAction }: { text: string; action: string; onAction: () => void }) {
+function Message({ text, action, onAction }: { text: string; action?: string; onAction?: () => void }) {
   return (
     <div className="py-16 flex flex-col items-center gap-3 text-center">
       <p className="text-[15px] font-bold text-ink">{text}</p>
-      <button
-        type="button"
-        onClick={onAction}
-        className="h-8.5 px-4 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft"
-      >
-        {action}
-      </button>
+      {action && onAction && (
+        <button
+          type="button"
+          onClick={onAction}
+          className="h-8.5 px-4 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft"
+        >
+          {action}
+        </button>
+      )}
     </div>
   );
 }

@@ -778,8 +778,8 @@ class CartApiTest {
 	}
 
 	@Test
-	@DisplayName("구매·견적을 해도 같은 매물의 비교 행(두 테이블)은 그대로")
-	void compareRowSurvivesPurchaseAndQuote() throws Exception {
+	@DisplayName("구매하면 그 매물의 비교 행(두 테이블)이 빠지고, 견적을 해도 비교 행은 그대로 (2026-11-03)")
+	void compareRowDroppedByPurchaseButNotQuote() throws Exception {
 		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put("/api/v1/cart/compare").cookie(buyer)
 			.contentType(MediaType.APPLICATION_JSON)
 			.content("{\"items\":[{\"sellerId\":\"%s\",\"regDate\":\"%s\"},{\"sellerId\":\"%s\",\"regDate\":\"%s\"}]}"
@@ -787,8 +787,10 @@ class CartApiTest {
 			.andExpect(status().isOk());
 		buy(REG_A, 1).andExpect(status().isCreated());
 		quote(REG_B, 400).andExpect(status().isCreated());
-		assertThat(cartInfoRows("비교용")).isEqualTo(2);
-		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info where trade_stats = '비교용'", Integer.class)).isEqualTo(2);
+		// 구매한 REG_A 는 빠지고 견적한 REG_B 만 남는다
+		assertThat(cartInfoRows("비교용")).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info where trade_stats = '비교용'", Integer.class)).isEqualTo(1);
+		assertThat(jdbc.queryForObject("select prod_reg_date from trd_trade_info where trade_stats = '비교용'", String.class)).isEqualTo(REG_B);
 	}
 
 	@Test
