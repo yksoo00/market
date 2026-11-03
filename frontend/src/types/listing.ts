@@ -64,6 +64,8 @@ export interface ListingSearchItem {
   prodDescription: string | null;
   hasDataSheet: boolean;
   hasPhoto: boolean;
+  /** 대표 사진 저장소 키(첫 번째로 있는 사진). 없으면 null. 장바구니 카드가 `fileUrl()` 로 보인다 (2026-11-03) */
+  mainPhoto: string | null;
   // 아래 5개는 등록 후 추가등록(PATCH)으로만 채워져 비어 있는 경우가 흔하다 (PR #17)
   /** 보증기한 YYYY-MM-DD. DB는 일수(warranty_period)라 백엔드가 등록일 + 일수로 계산해 내려준다 */
   warrantyUntil: string | null;
