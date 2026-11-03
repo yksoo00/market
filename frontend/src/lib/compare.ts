@@ -1,4 +1,5 @@
-// 비교 규칙. 2026-10-22 계획의 "화면만" 은 2026-10-29 에 바뀌었다 — [비교]가 서버의 내 비교 목록(PUT /api/v1/cart/compare)을 바꾸고 비교 화면이 그 목록을 읽는다
+// 비교 규칙. 2026-10-22 계획의 "화면만" 은 2026-10-29 에 바뀌었다 — 서버의 내 비교 목록을 비교 화면이 읽는다.
+// 2026-11-03: 그 목록은 쌓인다(POST /api/v1/cart/compare 로 더하고, [비우기]·[비우고 새로 담기]만 지운다)
 import { infoRows, type InfoRow } from "@/lib/listingDetail";
 import { todayInSeoul } from "@/lib/listingForm";
 import { compare as c } from "@/messages/compare";
@@ -17,9 +18,10 @@ export interface CompareKey {
   regDate: string;
 }
 
-/** [비교]를 못 누르는 이유. 소분류 = 카테고리 코드 전체가 같음 (상품은 모두 소분류 코드에 붙는다) */
-export function compareBlock(items: Pick<ListingSearchItem, "category">[]): null | "tooFew" | "tooMany" | "category" {
-  if (items.length < MIN_COMPARE) return "tooFew";
+/**
+ * [비교에 담기]를 못 하는 이유 (이번에 고른 것만 본다 — 이미 담긴 것과 합친 검사는 서버가 한다). 소분류 = 카테고리 코드 전체가 같음 (상품은 모두 소분류 코드에 붙는다)
+ */
+export function compareBlock(items: Pick<ListingSearchItem, "category">[]): null | "tooMany" | "category" {
   if (items.length > MAX_COMPARE) return "tooMany";
   if (new Set(items.map((i) => i.category)).size > 1) return "category";
   return null;

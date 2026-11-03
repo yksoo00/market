@@ -31,7 +31,7 @@ const p = trade.purchase;
 const outline = "h-8 px-2.5 rounded-md border text-[13px] font-medium disabled:opacity-40 disabled:pointer-events-none";
 
 /**
- * 비교 (설계 2026-10-27 PR 3, 사용자 결정 2026-10-29). 검색 목록의 [비교]가 서버에 저장한 내 비교 목록을 읽어 나란히 보인다.
+ * 비교 (설계 2026-10-27 PR 3, 사용자 결정 2026-10-29·2026-11-03). 검색 목록·상세의 [비교에 담기]가 서버에 쌓은 내 비교 목록을 읽어 나란히 보인다.
  * 매물은 상세 API 로 하나씩(1~4개), 열마다 [빼기]는 비교 행의 거래ID 로. 견적·구매 뒤엔 재고가 바뀌니 매물을 다시 읽는다.
  * 1개만 남아도 열과 [빼기]를 보인다(마지막 하나를 뺄 수 있게) — 위에 "2개 이상이어야 비교" 안내만 더한다
  */
@@ -98,6 +98,17 @@ export function CompareView() {
   const shown = onlyDiff ? rows.filter((r) => r.differs) : rows;
   const tradeIdOf = (d: ListingDetail) => items.find((i) => sameKey(i.listing, d))?.tradeId ?? null;
 
+  // 비우기는 확인 없이 바로 — 비교 목록은 재고를 안 묶고 다시 담기 쉬워 잃는 게 적다 (사용자 결정 2026-11-03)
+  const clear = async () => {
+    setRemoving(true);
+    const res = await cartApi.clearCompare();
+    setRemoving(false);
+    if (!res.ok) {
+      show({ tone: "error", title: t.page.clearFailed, message: trade.errors[res.code] ?? res.message });
+      return;
+    }
+    setState({ kind: "ready", items: [], details: [], skipped: false });
+  };
   const remove = async (d: ListingDetail, tradeId: string) => {
     setRemoving(true);
     const res = await cartApi.removeCompare([tradeId]);
@@ -127,6 +138,9 @@ export function CompareView() {
           <Checkbox checked={onlyDiff} onCheckedChange={(v) => setOnlyDiff(v === true)} />
           {t.page.onlyDiff}
         </label>
+        <button type="button" disabled={removing} onClick={() => void clear()} className={`${outline} border-line text-ink-2 hover:bg-bg`}>
+          {t.page.clear}
+        </button>
       </div>
       {details.length < MIN_COMPARE && (
         <p role="status" className="text-[13px] text-ink-2">

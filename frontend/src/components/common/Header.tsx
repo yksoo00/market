@@ -10,11 +10,12 @@ import { useTileOpen, useTileWorkspace } from "@/components/common/TileWorkspace
 import { UserMenu } from "@/components/common/UserMenu";
 import { useIsFramed } from "@/hooks/useIsFramed";
 import { authApi } from "@/lib/api/auth";
+import { COMPARE_HREF } from "@/lib/compare";
 import { screenOf } from "@/lib/tileScreens";
 import { dev } from "@/messages/dev";
 import { home as t } from "@/messages/home";
 
-const navHrefs = ["/listings", "/requests", "/prices", "/business", "/support"];
+const navHrefs = ["/listings", "/requests", COMPARE_HREF, "/business", "/support"];
 
 export function Header() {
   // 경로 전체가 아니라 "로그인 화면인가"만 본다 (아래 effect 주석)

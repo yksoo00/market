@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, type MouseEvent, type ReactNode } from "react";
+import { useCompareAdd } from "@/components/cart/useCompareAdd";
 import { Icon } from "@/components/common/Icon";
 import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
 import { ResultDialog } from "@/components/common/ResultDialog";
@@ -11,10 +12,9 @@ import { CartDialog, type CartTarget } from "@/components/trade/CartDialog";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog, type QuoteTarget } from "@/components/trade/QuoteDialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { cartApi } from "@/lib/api/cart";
 import { cartActionable, nextCartQuantity, notifyCartChanged } from "@/lib/cart";
 import { leafCategoryName } from "@/lib/categories";
-import { COMPARE_HREF, compareBlock, MAX_COMPARE, MIN_COMPARE } from "@/lib/compare";
+import { compareBlock, MAX_COMPARE } from "@/lib/compare";
 import { formatPrice } from "@/lib/format";
 import { formatRegDate } from "@/lib/listingDetail";
 import { selection, selectionKey, useSelection } from "@/lib/selection";
@@ -194,8 +194,8 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
   // [장바구니] 담기 모달 대상(체크한 매물 1~20개)과 성공 안내
   const [cartTargets, setCartTargets] = useState<CartTarget[] | null>(null);
   const [added, setAdded] = useState<CartAddResult | null>(null);
-  // [비교] 저장 중 — 두 번 보내지 않게 버튼을 막는다
-  const [comparing, setComparing] = useState(false);
+  // [비교에 담기] — 4개 초과·소분류 섞임 모달과 성공 안내까지 공용 훅이 그린다 (2026-11-03)
+  const compareAdd = useCompareAdd();
 
   const toggle = (item: ListingSearchItem) => {
     if (shared) {
@@ -259,21 +259,15 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
       if (chosen.length === 1) setBuying(chosen[0]);
       else if (chosen.length > 1) showNotice(common.notice.buyBlocked, p.oneAtATime);
     });
-  // 비교는 같은 소분류 2~4개. 거래완료도 볼 수 있어 거르지 않는다 (비교 화면이 버튼만 숨김).
-  // 누르면 서버의 내 비교 목록이 이 선택으로 바뀌고, 비교 화면을 옆 보조 칸에 연다 (사용자 결정 2026-10-29)
-  const compareSelected = async () => {
+  // 비교는 쌓인다 (사용자 결정 2026-11-03). 이번에 고른 것만 4개·같은 소분류를 미리 보고, 이미 담긴 것과 합친 검사는 서버가 한다 —
+  // 막히면 [비우고 새로 담기] 모달. 거래완료도 볼 수 있어 거르지 않는다 (비교 화면이 버튼만 숨김)
+  const compareSelected = () => {
     // 같은 상품이 여러 줄이어도 비교는 상품 단위다
     const chosen = uniqueByListing(chosenItems());
     const block = compareBlock(chosen);
     if (block === "tooMany") showNotice(common.notice.compareBlocked, compare.tooMany(MAX_COMPARE));
     else if (block === "category") showNotice(common.notice.compareBlocked, compare.otherCategory);
-    else if (block === null) {
-      setComparing(true);
-      const res = await cartApi.replaceCompare(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
-      setComparing(false);
-      if (res.ok) openTile(COMPARE_HREF, false);
-      else showNotice(common.notice.compareBlocked, trade.errors[res.code] ?? compare.failed);
-    }
+    else void compareAdd.add(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
   };
   const selectionBar = shared ? (
     <SelectionBar items={[...stored.values()]} onRemove={(key) => selection.remove(key)} onClear={() => selection.clear()} />
@@ -307,8 +301,8 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
       {scope === "search" && (
         <button
           type="button"
-          disabled={picked.size < MIN_COMPARE || comparing}
-          onClick={() => void compareSelected()}
+          disabled={picked.size === 0 || compareAdd.busy}
+          onClick={compareSelected}
           className={`${size} px-3 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft disabled:opacity-40 disabled:pointer-events-none`}
         >
           {compare.button}
@@ -441,6 +435,7 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
       />
 
       {!mine && <NoticeDialog notice={notice} onClose={closeNotice} />}
+      {compareAdd.dialogs}
 
       {/* 데스크톱: 표. 열이 많아(16) 칸에 다 안 들어가므로 가로 스크롤하고, 체크·상품명은 왼쪽에 고정해
           어느 열을 보든 어떤 매물인지 보이게 한다.
