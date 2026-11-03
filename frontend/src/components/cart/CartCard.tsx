@@ -1,6 +1,7 @@
 "use client";
 
 import { Trash2 } from "lucide-react";
+import { useState } from "react";
 import { Icon } from "@/components/common/Icon";
 import { Checkbox } from "@/components/ui/checkbox";
 import { cartActionable, cartLineAmount, nextCartQuantity, remainingMinutes } from "@/lib/cart";
@@ -37,15 +38,22 @@ export function CartCard({ item, checked, onCheckedChange, quantityBusy, removin
   const up = nextCartQuantity(l, item.orderQuantity, "up");
   const left = remainingMinutes(item.addedAt);
   const price = formatPrice(l.salesUnitPrice);
+  // 사진 파일이 없거나 깨졌으면 alt 글자가 사진 칸에 쏟아지지 않게 이미지 아이콘 자리로 바꾼다
+  const [photoBroken, setPhotoBroken] = useState(false);
   return (
     <li
       className={`grid grid-cols-[auto_auto_1fr] @min-[36rem]:grid-cols-[auto_auto_1fr_auto] items-start gap-x-3 gap-y-3 rounded-md border bg-surface p-3 @min-[36rem]:p-4 ${checked ? "border-primary" : "border-line"}`}
     >
       <Checkbox checked={checked} onCheckedChange={onCheckedChange} aria-label={t.selectRow(l.prodName)} className="mt-1" />
-      {l.mainPhoto ? (
+      {l.mainPhoto && !photoBroken ? (
         // API 서버의 공개 파일이라 next/image 원격 설정 없이 <img> (ListingSummaryCard 와 같은 이유)
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={fileUrl(l.mainPhoto)} alt={l.prodName} className="size-20 @min-[36rem]:size-24 rounded-md bg-bg object-contain" />
+        <img
+          src={fileUrl(l.mainPhoto)}
+          alt={l.prodName}
+          onError={() => setPhotoBroken(true)}
+          className="size-20 @min-[36rem]:size-24 rounded-md bg-bg object-contain"
+        />
       ) : (
         <div className="size-20 @min-[36rem]:size-24 rounded-md bg-bg flex items-center justify-center">
           <Icon name="image" size={28} className="text-ink-3" aria-hidden={false} aria-label={listingText.detail.noPhoto} role="img" />
