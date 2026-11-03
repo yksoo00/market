@@ -8,6 +8,7 @@ import { Icon } from "@/components/common/Icon";
 import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { SortableTh } from "@/components/common/SortableTh";
+import { rememberXScroll, StickyXScroll } from "@/components/common/StickyXScroll";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { SelectionBar } from "@/components/search/SelectionBar";
 import { CartDialog, type CartTarget } from "@/components/trade/CartDialog";
@@ -109,8 +110,11 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
   const mine = scope === "mine";
   const columns: Column[] = listColumns;
   // 열 머리를 누르면 오름 → 내림 → 기본(최신순). 정렬이 바뀌면 1페이지로 — 정렬 칩과 같은 주소 규칙 (사용자 지시 2026-11-03)
-  const sortBy = (values: ColumnSortValues<ListingSort>) =>
-    router.push(buildSearchHref({ ...query, sort: nextSort(query.sort, values, "latest"), page: 1 }, scope));
+  // scroll: false — 정렬해도 세로 스크롤이 맨 위로 튀지 않게, 가로 위치는 StickyXScroll 이 이어 간다 (사용자 지시 2026-11-03)
+  const sortBy = (values: ColumnSortValues<ListingSort>) => {
+    rememberXScroll(scope === "mine" ? "mine-result-table" : "search-result-table");
+    router.push(buildSearchHref({ ...query, sort: nextSort(query.sort, values, "latest"), page: 1 }, scope), { scroll: false });
+  };
   // "구매요청 N건" → 받은 구매요청을 그 매물로 걸러 연다. 같은 판매 그룹이라 옆 칸에 반반으로
   const pendingLink = (item: ListingSearchItem) => {
     const label = pendingLabel(pendingCounts, item.regDate);
@@ -369,7 +373,7 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
           어느 열을 보든 어떤 매물인지 보이게 한다.
           표↔카드 기준은 @md(768)가 아니라 칸 폭 576 — 타일 반반 분할이면 칸이 768 미만(1440 창이면 720)이라
           카드로 줄어들었다. 분할에서도 표가 옆으로 펼쳐져야 한다 (사용자 지시). 폰(390)은 그대로 카드 */}
-      <div className="hidden @min-[36rem]:block rounded-md border border-line bg-surface overflow-x-auto">
+      <StickyXScroll memoryKey={mine ? "mine-result-table" : "search-result-table"} className="hidden @min-[36rem]:block rounded-md border border-line bg-surface">
         <table className={`w-full ${mine ? "min-w-334" : "min-w-322"} table-fixed text-[13px]`}>
           <colgroup>
             {!mine && <col className="w-10" />}
@@ -449,7 +453,7 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
             })}
           </tbody>
         </table>
-      </div>
+      </StickyXScroll>
 
       {/* 모바일: 행 카드 */}
       <ul className="@min-[36rem]:hidden rounded-md border border-line bg-surface">

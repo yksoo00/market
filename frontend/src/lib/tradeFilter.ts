@@ -1,6 +1,6 @@
 import type { FilterField, FilterValues } from "@/lib/detailFilter";
 import { firstParam } from "@/lib/detailFilter";
-import { historyApiParams, historyFields, parseHistoryFilter } from "@/lib/historyFilter";
+import { HISTORY_CHIP_SORTS, historyApiParams, historyFields, parseHistoryFilter } from "@/lib/historyFilter";
 import { my } from "@/messages/my";
 import { trade } from "@/messages/trade";
 import type { TradeRole } from "@/types/trade";
@@ -38,7 +38,8 @@ export const emptyTradeFilter = (): FilterValues => ({ q: "", field: "all", from
 /** 주소에서 필터 값. 거래이력과 같은 정리(틀린 값은 버림) + 상태는 이 역할이 볼 수 있는 값만 */
 export function parseTradeFilter(raw: Record<string, string | string[] | undefined>, role: TradeRole): FilterValues {
   const status = firstParam(raw.status);
-  return { ...parseHistoryFilter(raw), status: TRADE_STATUS_VALUES[role].find((s) => s === status) ?? "" };
+  // 활동내역 요청·구매 탭은 아직 열 머리 정렬이 없다(3단계) — 거래이력 열 정렬 값은 칩 선택지만 읽는다
+  return { ...parseHistoryFilter(raw, HISTORY_CHIP_SORTS), status: TRADE_STATUS_VALUES[role].find((s) => s === status) ?? "" };
 }
 
 /** API 쿼리 파라미터 (값이 있는 것만) */

@@ -59,3 +59,11 @@ describe("listFilterSchema (상태 칸 있는 폼)", () => {
     expect(seller.safeParse({ ...base, status: "quoteAccepted" }).success).toBe(false);
   });
 });
+
+describe("활동내역 요청·구매 탭의 정렬 (열 머리 정렬은 3단계)", () => {
+  it("거래이력 열 정렬 값은 칩 선택지가 아니면 최신순으로 읽는다 — 서버가 아직 그 정렬을 안 한다", () => {
+    expect(parseTradeFilter({ sort: "partyAsc" }, "buyer").sort).toBe("latest");
+    expect(parseTradeFilter({ sort: "oldest" }, "seller").sort).toBe("latest");
+    expect(parseTradeFilter({ sort: "amountDesc" }, "buyer").sort).toBe("amountDesc");
+  });
+});

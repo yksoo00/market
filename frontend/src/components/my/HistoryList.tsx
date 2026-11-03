@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { DetailFilter } from "@/components/common/DetailFilter";
 import { Pager } from "@/components/common/Pager";
+import { SortableTh } from "@/components/common/SortableTh";
+import { rememberXScroll, StickyXScroll } from "@/components/common/StickyXScroll";
 import { tradesApi } from "@/lib/api/trades";
+import { nextSort, sortStateOf, type ColumnSortValues } from "@/lib/columnSort";
 import { formatPrice } from "@/lib/format";
 import { filterParams, type FilterValues } from "@/lib/detailFilter";
-import { emptyHistoryFilter, historyFieldFromApi, historyFields, tradeSearchField } from "@/lib/historyFilter";
+import { emptyHistoryFilter, historyFieldFromApi, historyFields, HISTORY_SORT_COLUMNS, tradeSearchField, type HistorySort } from "@/lib/historyFilter";
 import { formatTradeDate } from "@/lib/historyFormat";
 import { tabPageHref } from "@/lib/myTabs";
 import { historyFilterSchema } from "@/lib/validation/historyFilter";
@@ -30,7 +33,22 @@ export function HistoryList({ side, page, filter }: { side: HistorySide; page: n
   const params = filterParams(historyFields, filter, "q", tradeSearchField);
   const filtered = Object.keys(params).length > 0;
   const hrefFor = (n: number) => tabPageHref("/my/history", { tab: side, ...params }, n);
-  const apply = (values: FilterValues) => router.push(tabPageHref("/my/history", { tab: side, ...filterParams(historyFields, values, "q", tradeSearchField) }, 1));
+  // scroll: false — 정렬·필터를 바꿔도 세로 스크롤이 맨 위로 튀지 않게 (가로 위치는 StickyXScroll 이 이어 간다)
+  const apply = (values: FilterValues) =>
+    router.push(tabPageHref("/my/history", { tab: side, ...filterParams(historyFields, values, "q", tradeSearchField) }, 1), { scroll: false });
+  // 열 머리를 누르면 오름 → 내림 → 기본(최신순). 정렬이 바뀌면 1페이지로 — 정렬 칩과 같은 주소 규칙 (사용자 지시 2026-11-03)
+  const sortBy = (values: ColumnSortValues<HistorySort>) => {
+    rememberXScroll("history-table");
+    apply({ ...filter, sort: nextSort(filter.sort ?? "latest", values, "latest") });
+  };
+  const th = (column: keyof typeof HISTORY_SORT_COLUMNS, label: string, className: string) => (
+    <SortableTh
+      label={label}
+      state={sortStateOf(filter.sort ?? "latest", HISTORY_SORT_COLUMNS[column])}
+      onSort={() => sortBy(HISTORY_SORT_COLUMNS[column])}
+      className={className}
+    />
+  );
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
 
@@ -126,18 +144,18 @@ export function HistoryList({ side, page, filter }: { side: HistorySide; page: n
     return (
       <>
         {/* 넓은 칸: 표. 좁은 칸: 카드 — 기준은 거래 목록과 같은 칸 폭 576 */}
-        <div className="hidden @min-[36rem]:block overflow-x-auto bg-surface border border-line rounded-md">
+        <StickyXScroll memoryKey="history-table" className="hidden @min-[36rem]:block bg-surface border border-line rounded-md">
           {/* 칸 안 글자는 줄바꿈하지 않는다 (사용자 지시 2026-10-30) — 넘치면 표가 가로 스크롤 */}
           <table className="w-full min-w-3xl text-sm whitespace-nowrap">
             <thead className="bg-bg text-[12px] text-ink-2">
               <tr>
-                <th className="px-3 py-2.5 text-left font-medium w-36">{c.date}</th>
-                {side === "all" && <th className="px-3 py-2.5 text-left font-medium w-16">{c.side}</th>}
-                <th className="px-3 py-2.5 text-left font-medium">{c.product}</th>
-                <th className="px-3 py-2.5 text-left font-medium w-28">{c.counterpart}</th>
-                <th className="px-3 py-2.5 text-right font-medium w-28">{c.unitPrice}</th>
-                <th className="px-3 py-2.5 text-right font-medium w-20">{c.quantity}</th>
-                <th className="px-3 py-2.5 text-right font-medium w-32">{c.amount}</th>
+                {th("date", c.date, "px-3 py-2.5 text-left font-medium w-36")}
+                {side === "all" && th("side", c.side, "px-3 py-2.5 text-left font-medium w-16")}
+                {th("name", c.product, "px-3 py-2.5 text-left font-medium")}
+                {th("party", c.counterpart, "px-3 py-2.5 text-left font-medium w-28")}
+                {th("unitPrice", c.unitPrice, "px-3 py-2.5 text-right font-medium w-28")}
+                {th("quantity", c.quantity, "px-3 py-2.5 text-right font-medium w-20")}
+                {th("amount", c.amount, "px-3 py-2.5 text-right font-medium w-32")}
               </tr>
             </thead>
             <tbody>
@@ -154,7 +172,7 @@ export function HistoryList({ side, page, filter }: { side: HistorySide; page: n
               ))}
             </tbody>
           </table>
-        </div>
+        </StickyXScroll>
         <ul className="@min-[36rem]:hidden flex flex-col gap-2">
           {load.items.map((item) => (
             <li key={item.tradeId} className="bg-surface border border-line rounded-md p-3 flex flex-col gap-1.5">

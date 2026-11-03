@@ -46,3 +46,30 @@ test("검색 표 열 머리: 상품명을 누르면 정렬 칩에 '상품명 ▲
   await expect(page).not.toHaveURL(/sort=/);
   await expect(name).toHaveAttribute("aria-sort", "none");
 });
+
+// 가로로 넘치는 표 (사용자 지시 2026-11-03): 가로 스크롤바가 표 맨 아래가 아니라 화면 아래에 따라다니고,
+// 오른쪽 끝 열 머리로 정렬해도 가로 위치가 처음으로 돌아가지 않는다
+test("가로 스크롤: 스크롤바가 화면 아래에 따라다니고, 오른쪽 끝 열로 정렬해도 가로 위치가 유지된다", async ({ page }) => {
+  await page.goto("/search");
+  const regDate = page.getByRole("columnheader", { name: search.columns.regDate });
+  await regDate.waitFor({ timeout: 15_000 }).catch(() => undefined);
+  if ((await regDate.count()) === 0) test.skip(true, "표에 보일 매물이 없다");
+
+  const scroller = () => page.locator("table").first().locator("xpath=..");
+  // 표가 칸보다 넓으면(분할 칸) 진짜 스크롤바 대신 화면 아래에 붙는 막대가 보인다
+  const bar = page.locator('div[aria-hidden="true"].sticky.bottom-0');
+  if ((await bar.count()) === 0) test.skip(true, "표가 칸 안에 다 들어가 가로 스크롤이 없다");
+  await expect(bar).toBeInViewport();
+
+  // 오른쪽 끝 열(등록일)이 보이게 가로로 민다
+  await regDate.scrollIntoViewIfNeeded();
+  const before = await scroller().evaluate((el) => el.scrollLeft);
+  expect(before).toBeGreaterThan(0);
+
+  // 눌러서 정렬 → 표가 새로 그려져도 가로 위치는 그대로
+  await regDate.getByRole("button").click();
+  await expect(page).toHaveURL(/sort=regDateAsc/);
+  await expect(page.getByRole("columnheader", { name: search.columns.regDate })).toHaveAttribute("aria-sort", "ascending");
+  const after = await scroller().evaluate((el) => el.scrollLeft);
+  expect(Math.abs(after - before)).toBeLessThan(8);
+});

@@ -2,12 +2,14 @@ package com.company.market.trade.controller;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.auth.AuthCookies;
 import com.company.market.common.auth.JwtProvider;
 import com.company.market.common.crypto.PiiHasher;
+import com.jayway.jsonpath.JsonPath;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.repository.ListingRepository;
@@ -31,6 +33,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -411,6 +414,53 @@ class TradeActivityApiTest {
 			.andExpect(jsonPath("$.data.items[3].tradeId").value("20261005001"));
 	}
 
+	/** 구매자·판매자·단가·수량을 고른 이력 한 줄 (금액 = 단가 × 수량) */
+	private void historyRow(String tradeId, String date, String prodId, UUID buyerOfRow, UUID sellerOfRow, int unitPrice, int quantity) {
+		jdbc.update("""
+				insert into trd_trade_history (user_id, trade_id, trade_date, prod_id, trade_type, seller_id, trade_unit_price, trade_quantity, trade_amount)
+				values (?, ?, ?, ?, '거래', ?, ?, ?, ?)
+				""", buyerOfRow, tradeId, date, prodId, sellerOfRow, unitPrice, quantity, unitPrice * quantity);
+	}
+
+	private List<String> historyOrder(String sort) throws Exception {
+		String body = mvc.perform(get("/api/v1/trades/history?page=1&sort=" + sort).cookie(buyer)).andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+		return JsonPath.read(body, "$.data.items[*].tradeId");
+	}
+
+	@Test
+	@DisplayName("이력 열 머리 정렬: 상품명·상대·구분·단가·수량·금액 오름·내림, 같은 값이면 최신 먼저, 값이 비면 오름·내림 모두 맨 뒤 (2026-11-03)")
+	void historyColumnSort() throws Exception {
+		// T1: 내가 구매(서버 R740, 상대 actseller), T2: 내가 구매(스위치 C9300, 상대 actstranger), T3: 내가 판매(서버 R740, 상대 actstranger)
+		historyRow("20261001001", "20261001090000", "ACTAPI01", buyerId, sellerId, 300, 5);
+		historyRow("20261002001", "20261002090000", "ACTAPI02", buyerId, strangerId, 100, 9);
+		historyRow("20261003001", "20261003090000", "ACTAPI01", strangerId, buyerId, 200, 1);
+		String t1 = "20261001001", t2 = "20261002001", t3 = "20261003001";
+		assertThat(historyOrder("latest")).containsExactly(t3, t2, t1);
+		assertThat(historyOrder("oldest")).containsExactly(t1, t2, t3);
+		// 상품명: 서버 R740 < 스위치 C9300 (가나다순), 같으면 최신 먼저
+		assertThat(historyOrder("nameAsc")).containsExactly(t3, t1, t2);
+		assertThat(historyOrder("nameDesc")).containsExactly(t2, t3, t1);
+		// 상대(별명): actseller < actstranger
+		assertThat(historyOrder("partyAsc")).containsExactly(t1, t3, t2);
+		assertThat(historyOrder("partyDesc")).containsExactly(t3, t2, t1);
+		// 구분: 오름 = 구매 먼저
+		assertThat(historyOrder("sideAsc")).containsExactly(t2, t1, t3);
+		assertThat(historyOrder("sideDesc")).containsExactly(t3, t2, t1);
+		assertThat(historyOrder("unitPriceAsc")).containsExactly(t2, t3, t1);
+		assertThat(historyOrder("unitPriceDesc")).containsExactly(t1, t3, t2);
+		assertThat(historyOrder("quantityAsc")).containsExactly(t3, t1, t2);
+		assertThat(historyOrder("quantityDesc")).containsExactly(t2, t1, t3);
+		assertThat(historyOrder("amountAsc")).containsExactly(t3, t2, t1);
+		assertThat(historyOrder("amountDesc")).containsExactly(t1, t2, t3);
+		// 값이 비어 있는 줄은 오름·내림 모두 맨 뒤
+		jdbc.update("update trd_trade_history set trade_amount = null, trade_unit_price = null where trade_id = ?", t2);
+		assertThat(historyOrder("amountAsc")).last().isEqualTo(t2);
+		assertThat(historyOrder("amountDesc")).last().isEqualTo(t2);
+		assertThat(historyOrder("unitPriceAsc")).last().isEqualTo(t2);
+		assertThat(historyOrder("unitPriceDesc")).last().isEqualTo(t2);
+	}
+
 	@Test
 	@DisplayName("이력 정렬: 페이지를 넘겨도 정렬 순서가 이어진다 (금액 낮은 순 25건, 2페이지)")
 	void historySortAcrossPages() throws Exception {
@@ -565,6 +615,9 @@ class TradeActivityApiTest {
 		mvc.perform(get(base).param("q", "가".repeat(101)).cookie(buyer)).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.q").exists());
 		mvc.perform(get(base + "&sort=x").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.sort").exists());
+		// 거래이력 전용 열 정렬 값은 이 목록에선 아직 못 받는다 — 조용히 최신순으로 받지 않고 400 (열 정렬은 3단계)
+		mvc.perform(get(base + "&sort=nameAsc").cookie(buyer)).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.sort").exists());
 		mvc.perform(get("/api/v1/trades?role=buyer&active=true&sort=oldest").cookie(buyer)).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.sort").exists());
