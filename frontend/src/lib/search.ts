@@ -1,3 +1,4 @@
+import type { ColumnSortValues } from "@/lib/columnSort";
 import type { ListingSearchItem, TradeStatus } from "@/types/listing";
 
 // 검색 결과 화면의 상태는 URL 파라미터가 원본 (뒤로가기·새로고침·공유 시 유지).
@@ -50,8 +51,53 @@ export interface SearchQuery {
 }
 
 /** 정렬 칩 선택지 순서 그대로 — 실제로 쓰는 것만 (사용자 지시 "진짜 필요한 것만") */
-export const LISTING_SORTS = ["latest", "priceAsc", "priceDesc", "deliveryAsc"] as const;
+export const LISTING_CHIP_SORTS = ["latest", "priceAsc", "priceDesc", "deliveryAsc"] as const;
+/** 열 머리 정렬(2026-11-03)까지 포함한 주소의 sort 값 전부 — 칩에 없는 값은 칩 글자만 바뀐다. 서버 SORT_PATTERN 과 같다 */
+export const LISTING_SORTS = [
+  ...LISTING_CHIP_SORTS,
+  "regDateAsc",
+  "nameAsc",
+  "nameDesc",
+  "brandAsc",
+  "brandDesc",
+  "stockAsc",
+  "stockDesc",
+  "stateAsc",
+  "stateDesc",
+  "categoryAsc",
+  "categoryDesc",
+  "minOrderAsc",
+  "minOrderDesc",
+  "orderUnitAsc",
+  "orderUnitDesc",
+  "deliveryDesc",
+] as const;
 export type ListingSort = (typeof LISTING_SORTS)[number];
+
+/** 표의 열 → 그 열의 오름·내림 sort 값. 등록일의 내림은 기본(최신순)이다 */
+export const LISTING_SORT_COLUMNS = {
+  name: { asc: "nameAsc", desc: "nameDesc" },
+  brand: { asc: "brandAsc", desc: "brandDesc" },
+  price: { asc: "priceAsc", desc: "priceDesc" },
+  stock: { asc: "stockAsc", desc: "stockDesc" },
+  state: { asc: "stateAsc", desc: "stateDesc" },
+  category: { asc: "categoryAsc", desc: "categoryDesc" },
+  minOrder: { asc: "minOrderAsc", desc: "minOrderDesc" },
+  orderUnit: { asc: "orderUnitAsc", desc: "orderUnitDesc" },
+  delivery: { asc: "deliveryAsc", desc: "deliveryDesc" },
+  regDate: { asc: "regDateAsc", desc: "latest" },
+} as const satisfies Record<string, ColumnSortValues<ListingSort>>;
+export type ListingSortColumn = keyof typeof LISTING_SORT_COLUMNS;
+
+/** sort 값이 어느 열의 오름·내림인가 (정렬 칩 글자용). 열 정렬이 아니면 null */
+export function listingSortColumn(sort: string): { column: ListingSortColumn; dir: "asc" | "desc" } | null {
+  for (const column of Object.keys(LISTING_SORT_COLUMNS) as ListingSortColumn[]) {
+    const v = LISTING_SORT_COLUMNS[column];
+    if (sort === v.asc) return { column, dir: "asc" };
+    if (sort === v.desc) return { column, dir: "desc" };
+  }
+  return null;
+}
 
 /**
  * search = 전체 검색(/search), mine = 내 판매글(내 활동내역 판매 탭 /my/activity?tab=sales). 같은 화면 부품을 쓰고 경로·거래상태 기본값·API 의 mine 만 다르다.

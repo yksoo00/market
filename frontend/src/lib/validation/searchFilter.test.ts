@@ -49,7 +49,7 @@ describe("searchFilterSchema", () => {
 
   it("정렬 칩: 아는 값만, 없으면 최신순 (2026-10-30)", () => {
     expect(parse({ sort: "priceDesc" }).data?.sort).toBe("priceDesc");
-    expect(parse({ sort: "stockDesc" as never }).success).toBe(false);
+    expect(parse({ sort: "unknownDesc" as never }).success).toBe(false);
     expect(parseFilterForm({ ...filterFormValues(parseSearchParams({ sort: "deliveryAsc" })) }).sort).toBe("deliveryAsc");
   });
 

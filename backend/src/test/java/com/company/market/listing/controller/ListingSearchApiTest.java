@@ -403,6 +403,53 @@ class ListingSearchApiTest {
 		assertThat(sorted("deliveryAsc")).containsExactly("20261001090004", "20261001090002", "20261001090003", "20261001090001");
 	}
 
+	@Test
+	@DisplayName("열 머리 정렬: 열마다 오름·내림, 같은 값이면 최신 등록 먼저, 비어 있는 값은 오름·내림 모두 맨 뒤 (2026-11-03)")
+	void columnSortOrders() throws Exception {
+		String r1 = "20261001090001", r2 = "20261001090002", r3 = "20261001090003", r4 = "20261001090004";
+		save("ELEC00070001", r1, "다", null, "B", 1000, 5, "2099-03-01");
+		save("ELEC00070002", r2, "가", null, "D", 1000, 1, "2099-01-01");
+		save("ELEC00070003", r3, "라", null, "A", 1000, 9, "2099-02-01");
+		save("ELEC00070004", r4, "나", null, "C", 1000, 3, "2099-01-15");
+		// 상태·최소 주문 수량·주문단위는 매물 값, 카테고리는 상품 값
+		String[] states = { "b", "d", "a", "c" };
+		int[] minOrders = { 3, 1, 4, 2 };
+		int[] units = { 10, 5, 20, 1 };
+		String[] minors = { "R004", "R001", "R003", "R002" };
+		String[] regs = { r1, r2, r3, r4 };
+		for (int i = 0; i < 4; i++) {
+			jdbc.update("update trd_prod_reg set prod_state = ?, min_order_quantity = ?, order_unit = ? where reg_date = ?", states[i], minOrders[i], units[i], regs[i]);
+			jdbc.update("update trd_prod_master set minor_category = ? where prod_id = ?", minors[i], "ELEC0007000" + (i + 1));
+		}
+		assertThat(sorted("regDateAsc")).containsExactly(r1, r2, r3, r4);
+		assertThat(sorted("nameAsc")).containsExactly(r2, r4, r1, r3);
+		assertThat(sorted("nameDesc")).containsExactly(r3, r1, r4, r2);
+		assertThat(sorted("brandAsc")).containsExactly(r3, r1, r4, r2);
+		assertThat(sorted("brandDesc")).containsExactly(r2, r4, r1, r3);
+		assertThat(sorted("stockAsc")).containsExactly(r2, r4, r1, r3);
+		assertThat(sorted("stockDesc")).containsExactly(r3, r1, r4, r2);
+		assertThat(sorted("stateAsc")).containsExactly(r3, r1, r4, r2);
+		assertThat(sorted("stateDesc")).containsExactly(r2, r4, r1, r3);
+		assertThat(sorted("categoryAsc")).containsExactly(r2, r4, r3, r1);
+		assertThat(sorted("categoryDesc")).containsExactly(r1, r3, r4, r2);
+		assertThat(sorted("minOrderAsc")).containsExactly(r2, r4, r1, r3);
+		assertThat(sorted("minOrderDesc")).containsExactly(r3, r1, r4, r2);
+		assertThat(sorted("orderUnitAsc")).containsExactly(r4, r2, r1, r3);
+		assertThat(sorted("orderUnitDesc")).containsExactly(r3, r1, r2, r4);
+		assertThat(sorted("deliveryAsc")).containsExactly(r2, r4, r3, r1);
+		assertThat(sorted("deliveryDesc")).containsExactly(r1, r3, r4, r2);
+		// 단가가 모두 같으면 최신 등록 먼저 (같은 값끼리의 끝맞춤)
+		assertThat(sorted("priceAsc")).containsExactly(r4, r3, r2, r1);
+		assertThat(sorted("priceDesc")).containsExactly(r4, r3, r2, r1);
+		// 비어 있는 값은 오름·내림 모두 맨 뒤
+		// (납기일은 필수라 비울 수 없다 — 비울 수 있는 최소 주문 수량·주문단위로)
+		jdbc.update("update trd_prod_reg set min_order_quantity = null, order_unit = null where reg_date = ?", r2);
+		assertThat(sorted("minOrderAsc")).last().isEqualTo(r2);
+		assertThat(sorted("minOrderDesc")).last().isEqualTo(r2);
+		assertThat(sorted("orderUnitAsc")).last().isEqualTo(r2);
+		assertThat(sorted("orderUnitDesc")).last().isEqualTo(r2);
+	}
+
 	private List<String> sorted(String sort) throws Exception {
 		String body = mvc.perform(get("/api/v1/listings").param("sort", sort).param("page", "1")).andExpect(status().isOk())
 			.andReturn().getResponse().getContentAsString();
@@ -439,7 +486,8 @@ class ListingSearchApiTest {
 	@Test
 	@DisplayName("정렬: 모르는 값은 400, 최신순이 아닌데 page 가 없으면 400 (커서는 최신순 전용)")
 	void sortValidation() throws Exception {
-		expectInvalid("sort", "sort", "stockDesc");
+		expectInvalid("sort", "sort", "bogusDesc");
+		expectInvalid("sort", "sort", "nameAsc");
 		expectInvalid("sort", "sort", "priceAsc");
 		mvc.perform(get("/api/v1/listings").param("sort", "latest")).andExpect(status().isOk());
 	}

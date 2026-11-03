@@ -67,17 +67,39 @@ public class ListingSearchRepository {
 		Map<String, Object> params = new HashMap<>();
 		StringBuilder jpql = new StringBuilder("select l.regDate, l.userId from Listing l join Product p on p.prodId = l.prodId where 1=1");
 		appendConditions(jpql, params, c, ownerId, keys);
-		// 정렬 열은 고정 문자열 중에서만 고른다 (값을 끼워 넣지 않음). 납기일은 비어 있을 수 있어 맨 뒤로
-		jpql.append(switch (c.sort()) {
-			case "priceAsc" -> " order by l.salesUnitPrice asc, ";
-			case "priceDesc" -> " order by l.salesUnitPrice desc, ";
-			case "deliveryAsc" -> " order by l.deliveryDate asc nulls last, ";
-			default -> " order by ";
-		});
-		jpql.append("l.regDate desc, l.userId desc");
+		// 정렬 열은 고정 문자열 중에서만 고른다 (값을 끼워 넣지 않음 — SORT_PATTERN 이 값 모양도 막는다)
+		jpql.append(orderBy(c.sort()));
 		TypedQuery<Object[]> query = em.createQuery(jpql.toString(), Object[].class);
 		params.forEach(query::setParameter);
 		return query.getResultList();
+	}
+
+	// 열 머리 정렬 (2026-11-03). 비어 있을 수 있는 열은 오름·내림 모두 비어 있는 줄을 맨 뒤로 (nulls last).
+	// 같은 값끼리는 최신순으로 끝을 맞춘다 — 페이지가 바뀌어도 순서가 흔들리지 않게. 카테고리는 코드(대→중→소) 순서
+	private static final Map<String, String> SORT_COLUMNS = Map.ofEntries(
+			Map.entry("name", "p.prodName"),
+			Map.entry("brand", "p.prodBrand"),
+			Map.entry("price", "l.salesUnitPrice"),
+			Map.entry("stock", "l.stockQuantity"),
+			Map.entry("state", "l.prodState"),
+			Map.entry("category", "p.majorCategory %1$s, p.middleCategory %1$s, p.minorCategory"),
+			Map.entry("minOrder", "l.minOrderQuantity"),
+			Map.entry("orderUnit", "l.orderUnit"),
+			Map.entry("delivery", "l.deliveryDate"));
+
+	/** " order by ..." 전체. sort 는 SORT_PATTERN 을 통과한 값 (그 밖의 값은 최신순) */
+	static String orderBy(String sort) {
+		if ("regDateAsc".equals(sort)) {
+			return " order by l.regDate asc, l.userId asc";
+		}
+		boolean desc = sort != null && sort.endsWith("Desc");
+		String column = sort == null ? null : sort.replaceFirst("(Asc|Desc)$", "");
+		String expr = column == null ? null : SORT_COLUMNS.get(column);
+		if (expr == null) {
+			return " order by l.regDate desc, l.userId desc";
+		}
+		String dir = desc ? "desc" : "asc";
+		return " order by " + expr.formatted(dir) + " " + dir + " nulls last, l.regDate desc, l.userId desc";
 	}
 
 	/**

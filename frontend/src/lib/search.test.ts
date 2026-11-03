@@ -5,6 +5,7 @@ import {
   clearFilters,
   detailFilterCount,
   listingHref,
+  listingSortColumn,
   parseSearchParams,
   searchApiParams,
   type SearchQuery,
@@ -300,7 +301,7 @@ describe("정렬 (sort, 2026-10-30)", () => {
   it("아는 값만, 나머지(옛 값·손으로 고친 값)는 최신순", () => {
     expect(parseSearchParams({ sort: "priceAsc" }).sort).toBe("priceAsc");
     expect(parseSearchParams({ sort: "deliveryAsc" }).sort).toBe("deliveryAsc");
-    expect(parseSearchParams({ sort: "stockDesc" }).sort).toBe("latest");
+    expect(parseSearchParams({ sort: "unknownDesc" }).sort).toBe("latest");
   });
 
   it("주소엔 기본(최신순)이면 안 싣고, API 엔 page 와 함께 보낸다", () => {
@@ -340,5 +341,22 @@ describe("페이지 번호 (page)", () => {
 
   it("필터 초기화는 1페이지로 돌아간다", () => {
     expect(clearFilters(parseSearchParams({ page: "5", minStock: "3" })).page).toBe(1);
+  });
+});
+
+describe("열 머리 정렬 sort 값 (2026-11-03)", () => {
+  it("열마다 오름·내림 값이 주소에서 그대로 읽힌다", () => {
+    expect(parseSearchParams({ sort: "nameAsc" }).sort).toBe("nameAsc");
+    expect(parseSearchParams({ sort: "categoryDesc" }).sort).toBe("categoryDesc");
+    expect(parseSearchParams({ sort: "regDateAsc" }).sort).toBe("regDateAsc");
+    expect(parseSearchParams({ sort: "stockDesc" }).sort).toBe("stockDesc");
+    expect(parseSearchParams({ sort: "bogusDesc" }).sort).toBe("latest");
+  });
+
+  it("listingSortColumn: sort 값 → 열·방향 (칩 글자용), 열 정렬이 아니면 null", () => {
+    expect(listingSortColumn("nameAsc")).toEqual({ column: "name", dir: "asc" });
+    expect(listingSortColumn("deliveryDesc")).toEqual({ column: "delivery", dir: "desc" });
+    expect(listingSortColumn("latest")).toEqual({ column: "regDate", dir: "desc" });
+    expect(listingSortColumn("bogus")).toBeNull();
   });
 });

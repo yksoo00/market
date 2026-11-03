@@ -76,6 +76,20 @@ export const search = {
   sort: {
     label: "정렬",
     options: { latest: "최신순", priceAsc: "낮은가격순", priceDesc: "높은가격순", deliveryAsc: "납기빠른순" },
+    // 열 머리를 눌러 정한 정렬의 칩 글자: "상품명 ▲" (2026-11-03)
+    columns: {
+      name: "상품명",
+      brand: "제조사",
+      price: "단가",
+      stock: "수량",
+      state: "상품상태",
+      category: "카테고리",
+      minOrder: "최소 주문 수량",
+      orderUnit: "주문단위",
+      delivery: "납기일",
+      regDate: "등록일",
+    },
+    columnText: (column: string, dir: "asc" | "desc") => `${column} ${dir === "asc" ? "▲" : "▼"}`,
   },
   result: {
     count: (n: number) => `검색결과 ${n}건`,

@@ -3,7 +3,7 @@
 import { categoryLabel, FilterCategoryPanel, useCategoryTree } from "@/components/search/FilterCategoryPicker";
 import type { CustomContext, FilterField } from "@/lib/detailFilter";
 import { formatPrice } from "@/lib/format";
-import { COVERAGE_FILTERS, HAS_ITEMS, LISTING_SORTS, STATE_FILTERS, WARRANTY_FILTER_MONTHS } from "@/lib/search";
+import { COVERAGE_FILTERS, HAS_ITEMS, LISTING_CHIP_SORTS, listingSortColumn, STATE_FILTERS, WARRANTY_FILTER_MONTHS } from "@/lib/search";
 import { search } from "@/messages/search";
 
 const t = search.filter;
@@ -103,7 +103,12 @@ export function searchFilterFields(defaultStatus: string, tree: Tree): FilterFie
       label: search.sort.label,
       key: "sort",
       defaultValue: "latest",
-      options: LISTING_SORTS.map((s) => ({ value: s, label: search.sort.options[s] })),
+      options: LISTING_CHIP_SORTS.map((s) => ({ value: s, label: search.sort.options[s] })),
+      // 열 머리를 눌러 정해진 정렬(상품명 ▲ 등)은 선택지에 없어도 칩 글자로 보인다 (2026-11-03)
+      labelOf: (value) => {
+        const hit = listingSortColumn(value);
+        return hit ? search.sort.columnText(search.sort.columns[hit.column], hit.dir) : undefined;
+      },
     },
   ];
 }

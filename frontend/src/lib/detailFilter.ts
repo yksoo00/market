@@ -49,7 +49,14 @@ export type FilterField =
   /** 숫자 하나 ("재고 N개 이상") */
   | (FieldBase & { kind: "numberMin"; key: string; suffix: string })
   /** 고르면 바로 적용되는 선택 */
-  | (FieldBase & { kind: "select"; key: string; defaultValue: string; options: { value: string; label: string }[] })
+  | (FieldBase & {
+      kind: "select";
+      key: string;
+      defaultValue: string;
+      options: { value: string; label: string }[];
+      /** 선택지에 없는 값(예: 열 머리 정렬로 정해진 sort)의 칩 글자 — 모르면 undefined */
+      labelOf?: (value: string) => string | undefined;
+    })
   /** 여러 칸을 한 팝업에 모아 [적용] 한 번 (검색의 [상세 필터]) */
   | (FieldBase & { kind: "group"; items: GroupItem[] })
   /** 화면 전용 팝업 (검색의 카테고리 패널). 쓰는 값 키를 알려 주고 팝업 안은 그쪽이 그린다 */
