@@ -1,0 +1,29 @@
+meta {
+  name: 행 삭제 미리보기 — 같이 지워질 다른 테이블의 행 수 (로컬 전용)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{baseUrl}}/api/v1/dev/tables/trd_prod_reg/rows/related
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "user_id": "00000000-0000-0000-0000-000000000000",
+    "reg_date": "20261103100000",
+    "prod_id": "DEVCASCADE01"
+  }
+}
+
+vars:pre-request {
+  baseUrl: http://localhost:8080
+}
+
+docs {
+  APP_ENV=local 에서만. [삭제] 전에 이 행과 같이 지워질 다른 테이블의 행 수를 센다 (아무것도 지우지 않음).
+  200 { ok, data: { related: { "테이블": 행 수 } } } — 이 행 자신은 빼고 0 은 뺀다. 딸린 행이 없으면 빈 객체. 404 없는 행, 400 PK 컬럼 전부가 아님.
+  규칙은 DevTableRelations (사용자·상품마스터·매물·거래·카테고리 → 자식, 자식의 자식까지).
+}

@@ -22,8 +22,8 @@ export function DevTablePanel({ table, notify }: { table: DevTable; notify: (n: 
   const [busy, setBusy] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
   const [form, setForm] = useState<"create" | "update" | null>(null);
-  // 삭제 확인창에 보일 "같이 지워질 다른 테이블의 행 수". null 이면 확인창이 닫혀 있다
-  const [related, setRelated] = useState<Record<string, number> | null>(null);
+  // 삭제 확인창: 미리본 행의 키와 "같이 지워질 다른 테이블의 행 수". 키를 여기 붙들어 두어 확인한 그 행이 지워진다. null 이면 닫혀 있다
+  const [pending, setPending] = useState<{ key: DevRow; related: Record<string, number> } | null>(null);
 
   const row = data !== null && selected !== null ? data.rows[selected] : null;
 
@@ -51,18 +51,20 @@ export function DevTablePanel({ table, notify }: { table: DevTable; notify: (n: 
   // [삭제]: 먼저 같이 지워질 다른 테이블의 행을 세어 확인창에 보여 준다
   async function askRemove() {
     if (!row) return;
+    const key = keyOf(table, row);
     setBusy(true);
-    const res = await fetchRelatedDevRows(table.name, keyOf(table, row));
+    const res = await fetchRelatedDevRows(table.name, key);
     setBusy(false);
     if (!res.ok) return notify({ tone: "error", title: dev.result.relatedFailed, message: res.message });
-    setRelated(res.data.related);
+    setPending({ key, related: res.data.related });
   }
 
   async function remove() {
-    if (!row) return;
-    setRelated(null);
+    if (!pending) return;
+    const { key } = pending;
+    setPending(null);
     setBusy(true);
-    const res = await deleteDevRow(table.name, keyOf(table, row));
+    const res = await deleteDevRow(table.name, key);
     setBusy(false);
     if (!res.ok) return notify({ tone: "error", title: dev.result.deleteFailed, message: res.message });
     notify({
@@ -164,15 +166,15 @@ export function DevTablePanel({ table, notify }: { table: DevTable; notify: (n: 
         />
       )}
       <ResultDialog
-        open={related !== null}
+        open={pending !== null}
         tone="error"
         title={dev.confirmDelete.title}
-        message={row && related ? dev.confirmDelete.message(JSON.stringify(keyOf(table, row)), related) : ""}
+        message={pending ? dev.confirmDelete.message(JSON.stringify(pending.key), pending.related) : ""}
         actionLabel={dev.confirmDelete.confirm}
         onAction={remove}
         retryLabel={dev.confirmDelete.cancel}
-        onRetry={() => setRelated(null)}
-        onClose={() => setRelated(null)}
+        onRetry={() => setPending(null)}
+        onClose={() => setPending(null)}
       />
     </div>
   );
