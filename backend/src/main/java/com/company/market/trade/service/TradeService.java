@@ -479,7 +479,7 @@ public class TradeService {
 			throw new ValidationException(Map.of("role", "role 은 buyer 또는 seller 여야 합니다."));
 		}
 		Map<String, String> errors = new LinkedHashMap<>();
-		TradeFilterRules.Parsed f = TradeFilterRules.parse(filter == null ? TradeFilter.none() : filter, pageNo != null, errors);
+		TradeFilterRules.Parsed f = TradeFilterRules.parse(filter == null ? TradeFilter.none() : filter, pageNo != null, errors, TradeFilterRules.ACTIVITY_SORTS);
 		List<TradeStats> stats = allowed;
 		if (status != null && !status.isBlank()) {
 			TradeStats picked = Arrays.stream(TradeStats.values()).filter(s -> s.code().equals(status)).findFirst().orElse(null);

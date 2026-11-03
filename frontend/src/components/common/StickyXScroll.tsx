@@ -4,14 +4,16 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 
 // 표의 가로 스크롤 위치를 정렬 같은 이동 뒤에도 이어 가려는 기억 (사용자 지시 2026-11-03). 정렬을 누르면 표가 다시 만들어지는데,
 // 그때 가로 스크롤이 처음으로 돌아가면 오른쪽 끝 열을 다시 찾아가야 한다.
-// latest = memoryKey 별 지금 위치(스크롤할 때마다 갱신), pending = 다음에 만들어질 때 복원할 위치(한 번 쓰면 지운다)
+// latest = memoryKey 별 지금 위치(스크롤할 때마다 갱신), pending = 다음에 만들어질 때 복원할 위치(한 번 쓰면 지운다).
+// 정렬 이동은 곧바로 새 표를 만드므로 기억은 몇 초만 유효하다 — 이동이 취소돼 남은 옛 위치가 한참 뒤 엉뚱하게 복원되지 않게
+const PENDING_TTL_MS = 5000;
 const latest = new Map<string, number>();
-const pending = new Map<string, number>();
+const pending = new Map<string, { left: number; at: number }>();
 
 /** 정렬 같은 이동을 하기 직전에 부른다 — 다음에 같은 memoryKey 의 StickyXScroll 이 만들어지면 지금 가로 위치로 복원한다 */
 export function rememberXScroll(memoryKey: string): void {
   const left = latest.get(memoryKey);
-  if (left !== undefined) pending.set(memoryKey, left);
+  if (left !== undefined) pending.set(memoryKey, { left, at: Date.now() });
 }
 
 /**
@@ -26,8 +28,6 @@ export function StickyXScroll({ children, className = "", memoryKey }: { childre
   const barRef = useRef<HTMLDivElement>(null);
   const spacerRef = useRef<HTMLDivElement>(null);
   const [overflowing, setOverflowing] = useState(false);
-  // 두 스크롤이 서로를 되부르지 않게
-  const syncing = useRef(false);
 
   const measure = useCallback(() => {
     const body = bodyRef.current;
@@ -41,10 +41,10 @@ export function StickyXScroll({ children, className = "", memoryKey }: { childre
   useLayoutEffect(() => {
     const body = bodyRef.current;
     if (!body || !memoryKey) return;
-    const left = pending.get(memoryKey);
-    if (left === undefined) return;
+    const saved = pending.get(memoryKey);
+    if (saved === undefined) return;
     pending.delete(memoryKey);
-    body.scrollLeft = left;
+    if (Date.now() - saved.at <= PENDING_TTL_MS) body.scrollLeft = saved.left;
   }, [memoryKey]);
 
   useEffect(() => {
@@ -64,16 +64,9 @@ export function StickyXScroll({ children, className = "", memoryKey }: { childre
     barRef.current.scrollLeft = bodyRef.current.scrollLeft;
   }, [overflowing]);
 
+  // 값이 다를 때만 옮긴다 — 옮겨진 쪽의 scroll 이벤트가 되돌아와도 값이 같아 멈춘다 (플래그 없이 서로를 되부르지 않음)
   const follow = (from: HTMLDivElement | null, to: HTMLDivElement | null) => {
-    if (!from || !to) return;
-    if (syncing.current) {
-      syncing.current = false;
-      return;
-    }
-    if (to.scrollLeft !== from.scrollLeft) {
-      syncing.current = true;
-      to.scrollLeft = from.scrollLeft;
-    }
+    if (from && to && to.scrollLeft !== from.scrollLeft) to.scrollLeft = from.scrollLeft;
   };
 
   return (

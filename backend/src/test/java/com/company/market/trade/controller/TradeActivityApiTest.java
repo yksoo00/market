@@ -616,6 +616,9 @@ class TradeActivityApiTest {
 			.andExpect(jsonPath("$.fields.q").exists());
 		mvc.perform(get(base + "&sort=x").cookie(buyer)).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.sort").exists());
+		// 거래이력 전용 열 정렬 값은 이 목록에선 아직 못 받는다 — 조용히 최신순으로 받지 않고 400 (열 정렬은 3단계)
+		mvc.perform(get(base + "&sort=nameAsc").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.sort").exists());
 		mvc.perform(get("/api/v1/trades?role=buyer&active=true&sort=oldest").cookie(buyer)).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.sort").exists());
 		// 커서 방식도 최신순이면 필터는 받는다
