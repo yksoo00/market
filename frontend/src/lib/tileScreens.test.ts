@@ -1,7 +1,18 @@
 import { describe, expect, it } from "vitest";
 import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { isRelated, isSolo, screenOf } from "./tileScreens";
+import { isAux, isRelated, isSolo, screenOf } from "./tileScreens";
+
+describe("isAux", () => {
+  it("장바구니·비교만 보조형이다 (쿼리가 붙어도)", () => {
+    expect(isAux("/my/cart")).toBe(true);
+    expect(isAux("/my/cart/compare")).toBe(true);
+    expect(isAux("/my/cart?x=1")).toBe(true);
+    expect(isAux("/search")).toBe(false);
+    expect(isAux("/my")).toBe(false);
+    expect(isAux("/")).toBe(false);
+  });
+});
 
 describe("isSolo", () => {
   it("임시 테이블만 혼자 뜬다 (쿼리가 붙어도)", () => {

@@ -1,4 +1,4 @@
-import { isRelated, isSolo, screenOf } from "@/lib/tileScreens";
+import { isAux, isRelated, isSolo, screenOf } from "@/lib/tileScreens";
 
 // 화면 칸 상태 전이 (사용자 지시 2026-10-19, decisions.md "화면 칸은 홈 고정 · 주기능 · 보조").
 // 넓은 화면은 [홈 | 주기능 | 보조] 고정 자리. 큐가 아니라 자리를 덮어쓴다:
@@ -26,7 +26,9 @@ export type OpenAction =
   /** 보조 자리를 이 경로로 (있으면 교체, 새 key 로 iframe 을 다시 연다) */
   | { kind: "sub"; path: string }
   /** 새 주기능. 보조는 닫힌다. 홈("/")이면 홈 한 칸 */
-  | { kind: "main"; path: string };
+  | { kind: "main"; path: string }
+  /** 검색이 새 주기능이 되고, 연 보조형 칸(장바구니·비교)은 칸 그대로(key 유지) 보조 자리로 내려간다 */
+  | { kind: "swapMain"; path: string; aux: Pane };
 
 /** 홈 화면 경로인가 (쿼리가 붙어도) */
 export const isHome = (path: string) => screenOf(path).id === "home";
@@ -58,6 +60,8 @@ export function decideOpen(
   if (fromKey === HOME_KEY || isHome(main.path)) return { kind: "main", path };
 
   const from = sub && sub.key === fromKey ? sub : main;
+  // 검색은 항상 주기능 자리, 장바구니·비교는 항상 보조 자리 (사용자 지시 2026-11-03). 보조형 칸에서 검색을 열면 둘이 자리를 바꾼다
+  if (target === "search" && isAux(from.path)) return { kind: "swapMain", path, aux: from };
   if (screenOf(from.path).id === target) return { kind: "inPlace", paneKey: from.key, path };
   // 마이페이지는 바로가기 허브 — 고른 화면이 그 칸을 바꾼다. 옆에 쌓으면 허브만 남은 칸이 하나 더 생긴다 (사용자 지시 2026-10-19)
   if (screenOf(from.path).id === "my") return { kind: "inPlace", paneKey: from.key, path };
@@ -76,6 +80,8 @@ export function applyOpen(panes: readonly Pane[], action: OpenAction, newKey: st
       return [panes[0], { key: newKey, path: action.path }];
     case "main":
       return [{ key: newKey, path: action.path }];
+    case "swapMain":
+      return [{ key: newKey, path: action.path }, action.aux];
   }
 }
 

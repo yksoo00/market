@@ -11,7 +11,8 @@ export interface Screen {
 }
 
 // 배열 순서대로 매칭하므로 더 구체적인 경로를 위에 둔다 (/listings/new 가 상세보다, /quotes/adjust 가 /quotes 보다 먼저)
-const SCREENS: { id: string; group: TileGroup; pattern: RegExp; solo?: true }[] = [
+// aux: 보조형 화면(장바구니·비교) — 검색에서 담은 것을 확인하는 참고 칸이라 검색이 주기능 자리, 이 화면은 보조 자리 (decisions.md 2026-11-03)
+const SCREENS: { id: string; group: TileGroup; pattern: RegExp; solo?: true; aux?: true }[] = [
   { id: "home", group: "common", pattern: /^\/$/ },
   // 로그인·가입은 같은 화면(auth): 로그인 칸에서 [회원가입]을 누르면 칸을 더 쌓지 않고 그 칸이 가입으로 바뀐다 (decisions.md 2026-10-13)
   { id: "auth", group: "common", pattern: /^\/(login|signup)(\/.*)?$/ },
@@ -20,8 +21,8 @@ const SCREENS: { id: string; group: TileGroup; pattern: RegExp; solo?: true }[] 
   // 내 활동내역은 탭(요청·판매·구매)을 옮겨도 같은 화면 — 칸을 더 쌓지 않고 그 칸에서 바뀐다. 판매·구매 양쪽 일이라 공통. 옛 주소(listings·sales·purchases)는 새 주소로 넘어가는 화면이라 같이 센다
   { id: "myActivity", group: "common", pattern: /^\/my\/(activity|listings|sales|purchases)$/ },
   { id: "myHistory", group: "common", pattern: /^\/my\/history$/ },
-  { id: "myCart", group: "buy", pattern: /^\/my\/cart$/ },
-  { id: "cartCompare", group: "buy", pattern: /^\/my\/cart\/compare$/ },
+  { id: "myCart", group: "buy", pattern: /^\/my\/cart$/, aux: true },
+  { id: "cartCompare", group: "buy", pattern: /^\/my\/cart\/compare$/, aux: true },
   { id: "my", group: "common", pattern: /^\/my$/ },
   { id: "listingDetail", group: "common", pattern: /^\/listings\/[^/]+\/[^/]+$/ },
   { id: "listingEdit", group: "sell", pattern: /^\/listings\/[^/]+\/[^/]+\/edit$/ },
@@ -38,6 +39,12 @@ const SCREENS: { id: string; group: TileGroup; pattern: RegExp; solo?: true }[] 
 export function isSolo(path: string): boolean {
   const pathname = path.split(/[?#]/)[0] || "/";
   return SCREENS.find((s) => s.pattern.test(pathname))?.solo === true;
+}
+
+/** 보조형 화면(장바구니·비교)인가 — 검색을 열면 검색이 주기능, 이 화면이 보조 자리로 간다 (path 는 쿼리·해시가 붙어도 된다) */
+export function isAux(path: string): boolean {
+  const pathname = path.split(/[?#]/)[0] || "/";
+  return SCREENS.find((s) => s.pattern.test(pathname))?.aux === true;
 }
 
 /** path는 쿼리·해시가 붙어 있어도 된다 */

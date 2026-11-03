@@ -235,6 +235,30 @@ class CompareApiTest {
 	}
 
 	@Test
+	@DisplayName("구매하면 그 매물만 비교에서 빠지고(두 테이블), 견적 요청은 비교를 건드리지 않는다")
+	void purchaseDropsOnlyThatCompareRow() throws Exception {
+		addCompare(buyer, 0, 1, 2).andExpect(status().isOk());
+		// 견적 요청은 아직 사는 게 아니다 — 비교에 그대로
+		mvc.perform(post("/api/v1/trades/quotes").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"items\":[{\"sellerId\":\"%s\",\"regDate\":\"%s\",\"orderUnitPrice\":900,\"orderQuantity\":1,\"reqDeliDate\":\"2099-12-31\"}]}"
+				.formatted(sellerId, REGS[1])))
+			.andExpect(status().isCreated());
+		assertThat(compareProdDates()).containsExactly(REGS[0], REGS[1], REGS[2]);
+		// 구매요청이 만들어지면 그 매물만 빠진다
+		mvc.perform(post("/api/v1/trades").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"sellerId\":\"%s\",\"regDate\":\"%s\",\"orderQuantity\":1,\"reqDeliDate\":\"2099-12-31\"}".formatted(sellerId, REGS[0])))
+			.andExpect(status().isCreated());
+		assertThat(compareProdDates()).containsExactly(REGS[1], REGS[2]);
+		assertThat(compareTradeRows()).isEqualTo(2);
+		mvc.perform(get("/api/v1/cart/compare").cookie(buyer)).andExpect(jsonPath("$.data.items", hasSize(2)));
+		// 비교에 없던 매물을 사도 오류 없이 — 남은 비교는 그대로
+		mvc.perform(post("/api/v1/trades").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"sellerId\":\"%s\",\"regDate\":\"%s\",\"orderQuantity\":3,\"reqDeliDate\":\"2099-12-31\"}".formatted(sellerId, REGS[3])))
+			.andExpect(status().isCreated());
+		assertThat(compareProdDates()).containsExactly(REGS[1], REGS[2]);
+	}
+
+	@Test
 	@DisplayName("비우기는 내 비교 목록만 전부 지운다(두 테이블) — 비운 뒤 다른 소분류도 담을 수 있고, 다른 사람 목록은 그대로")
 	void clearDeletesOnlyMine() throws Exception {
 		addCompare(buyer, 0, 1).andExpect(status().isOk());
