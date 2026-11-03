@@ -2,16 +2,22 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useCompareAdd } from "@/components/cart/useCompareAdd";
+import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { ResultDialog } from "@/components/common/ResultDialog";
 import { CartDialog } from "@/components/trade/CartDialog";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog } from "@/components/trade/QuoteDialog";
+import { cartApi } from "@/lib/api/cart";
 import { listingsApi } from "@/lib/api/listings";
 import { notifyCartChanged } from "@/lib/cart";
+import { sameKey } from "@/lib/compare";
 import { cartBlocked, ownerActions, purchaseBlockReason } from "@/lib/listingDetail";
 import { cart } from "@/messages/cart";
+import { common } from "@/messages/common";
+import { compare } from "@/messages/compare";
 import { listing } from "@/messages/listing";
 import { trade } from "@/messages/trade";
 import type { CartAddResult } from "@/types/cart";
@@ -48,6 +54,25 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
   const [quoted, setQuoted] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
   const [added, setAdded] = useState<CartAddResult | null>(null);
+  // 이 매물이 내 비교 목록에 있으면 그 거래ID (없으면 null). 로그인했고 남의 매물일 때만 읽는다
+  const [compareId, setCompareId] = useState<string | null>(null);
+  const [compareVersion, setCompareVersion] = useState(0);
+  const [comparing, setComparing] = useState(false);
+  const { notice, show, close: closeNotice } = useNotice();
+  const compareAdd = useCompareAdd(() => setCompareVersion((n) => n + 1));
+
+  useEffect(() => {
+    if (owner || !meId) return;
+    let alive = true;
+    void (async () => {
+      const res = await cartApi.listCompare();
+      if (!alive || !res.ok) return;
+      setCompareId(res.data.items.find((i) => sameKey(i.listing, { userId: detail.userId, regDate: detail.regDate }))?.tradeId ?? null);
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [owner, meId, detail.userId, detail.regDate, compareVersion]);
 
   const block = purchaseBlockReason(detail, meId);
   const mine = ownerActions(detail);
@@ -62,6 +87,22 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
     open();
   };
   const buy = () => openIfLoggedIn(() => setBuying(true));
+  // 담기는 한 번에 하나, 이미 담겼으면 빼기. 4개가 찼거나 소분류가 다르면 훅이 모달을 띄운다
+  const toggleCompare = () =>
+    openIfLoggedIn(() => {
+      if (compareId === null) {
+        void compareAdd.add([{ sellerId: detail.userId, regDate: detail.regDate }]);
+        return;
+      }
+      void (async () => {
+        setComparing(true);
+        const res = await cartApi.removeCompare([compareId]);
+        setComparing(false);
+        // 다른 칸에서 이미 비웠거나 뺀 목록이면 거래ID 가 없다 — 지금 상태(담겨 있지 않음)로 맞춘다
+        if (res.ok || res.code === "TRADE_NOT_FOUND") setCompareId(null);
+        else show({ tone: "error", title: common.notice.removeFailed, message: res.message });
+      })();
+    });
   const remove = async () => {
     if (!window.confirm(t.confirmDelete)) return;
     setDeleting(true);
@@ -112,6 +153,10 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
                 className={outline}
               >
                 {cart.add.button}
+              </button>
+              {/* 비교는 거래완료 매물도 볼 수 있어 막지 않는다 (내 매물은 이 줄에 오지 않는다) */}
+              <button type="button" onClick={toggleCompare} disabled={comparing || compareAdd.busy} className={outline}>
+                {compareId === null ? compare.button : compare.detail.remove}
               </button>
               <button
                 type="button"
@@ -188,6 +233,8 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
         }}
         onClose={() => setPurchased(false)}
       />
+      <NoticeDialog notice={notice} onClose={closeNotice} />
+      {compareAdd.dialogs}
       <ResultDialog
         open={added !== null}
         tone="success"

@@ -24,7 +24,7 @@ vars:pre-request {
 }
 
 docs {
-  로그인(login.bru) 먼저. [비교]를 누를 때마다 내 비교용 행을 이 매물들로 바꾼다. 입력 없음(수량 = 최소주문량, 납품희망일 = 제공가능일).
+  로그인(login.bru) 먼저. [비우고 새로 담기] — 내 비교 목록을 이 매물들로 바꾼다(쌓는 건 compare-add). 입력 없음(수량 = 최소주문량, 납품희망일 = 제공가능일).
   200 { ok, data: { count } } — 저장한 개수.
-  400 COMPARE_COUNT(2~4개 아님), 400 COMPARE_CATEGORY_MISMATCH(소분류가 섞임), 403 TRADE_OWN_LISTING, 404 LISTING_NOT_FOUND. 틀리면 이전 비교 목록은 그대로. 거래완료 매물도 된다.
+  400 COMPARE_COUNT(1~4개 아님), 400 COMPARE_CATEGORY_MISMATCH(소분류가 섞임), 403 TRADE_OWN_LISTING, 404 LISTING_NOT_FOUND. 틀리면 이전 비교 목록은 그대로. 거래완료 매물도 된다.
 }

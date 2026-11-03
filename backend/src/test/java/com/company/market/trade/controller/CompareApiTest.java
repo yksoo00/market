@@ -32,13 +32,14 @@ import org.springframework.test.web.servlet.ResultActions;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** 비교 (설계 2026-10-27 PR 3, 사용자 결정 2026-10-29): [비교]를 누를 때마다 내 비교용 행을 이번 선택으로 바꾼다 */
+/** 비교 (설계 2026-10-27 PR 3, 사용자 결정 2026-10-29·2026-11-03): 담기는 쌓이고, 교체·비우기만 지운다 */
 @Import(TestInfraConfiguration.class)
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -132,6 +133,15 @@ class CompareApiTest {
 			.content("{\"items\":[" + String.join(",", parts) + "]}"));
 	}
 
+	private ResultActions addCompare(Cookie who, int... indexes) throws Exception {
+		List<String> parts = new ArrayList<>();
+		for (int i : indexes) {
+			parts.add("{\"sellerId\":\"%s\",\"regDate\":\"%s\"}".formatted(sellerId, REGS[i]));
+		}
+		return mvc.perform(post("/api/v1/cart/compare").cookie(who).contentType(MediaType.APPLICATION_JSON)
+			.content("{\"items\":[" + String.join(",", parts) + "]}"));
+	}
+
 	private List<String> compareProdDates() {
 		return jdbc.queryForList("select prod_date from trd_cart_info where cart_type = '비교용' order by prod_date", String.class);
 	}
@@ -169,9 +179,9 @@ class CompareApiTest {
 	}
 
 	@Test
-	@DisplayName("1개·5개는 400 COMPARE_COUNT, 4개는 OK, 소분류가 섞이면 400 COMPARE_CATEGORY_MISMATCH")
+	@DisplayName("교체는 1~4개 OK, 5개는 400 COMPARE_COUNT, 소분류가 섞이면 400 COMPARE_CATEGORY_MISMATCH")
 	void compareRules() throws Exception {
-		compare(buyer, 0).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("COMPARE_COUNT"));
+		compare(buyer, 0).andExpect(status().isOk()).andExpect(jsonPath("$.data.count").value(1));
 		compare(buyer, 0, 1, 2, 3, 4).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("COMPARE_COUNT"));
 		compare(buyer, 0, 5).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("COMPARE_CATEGORY_MISMATCH"));
 		compare(buyer, 0, 1, 2, 3).andExpect(status().isOk()).andExpect(jsonPath("$.data.count").value(4));
@@ -181,7 +191,7 @@ class CompareApiTest {
 	@DisplayName("틀린 요청(개수·소분류·내 매물·없는 매물)이면 이전 비교 목록이 그대로 — 두 테이블 모두")
 	void failedCompareKeepsPreviousList() throws Exception {
 		compare(buyer, 0, 1).andExpect(status().isOk());
-		compare(buyer, 0).andExpect(status().isBadRequest());
+		compare(buyer, 0, 1, 2, 3, 4).andExpect(status().isBadRequest());
 		compare(buyer, 2, 5).andExpect(status().isBadRequest());
 		compare(seller, 0, 1).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("TRADE_OWN_LISTING"));
 		mvc.perform(put("/api/v1/cart/compare").cookie(buyer).contentType(MediaType.APPLICATION_JSON)
@@ -190,6 +200,52 @@ class CompareApiTest {
 			.andExpect(status().isNotFound());
 		assertThat(compareProdDates()).containsExactly(REGS[0], REGS[1]);
 		assertThat(compareTradeRows()).isEqualTo(2);
+	}
+
+	@Test
+	@DisplayName("담기는 기존 목록에 쌓인다 — 이미 담긴 매물은 건너뛰고 added 에 안 센다")
+	void addAccumulates() throws Exception {
+		addCompare(buyer, 0).andExpect(status().isOk()).andExpect(jsonPath("$.data.count").value(1)).andExpect(jsonPath("$.data.added").value(1));
+		addCompare(buyer, 1).andExpect(status().isOk()).andExpect(jsonPath("$.data.count").value(2));
+		addCompare(buyer, 1, 2).andExpect(status().isOk()).andExpect(jsonPath("$.data.count").value(3)).andExpect(jsonPath("$.data.added").value(1));
+		addCompare(buyer, 2).andExpect(status().isOk()).andExpect(jsonPath("$.data.count").value(3)).andExpect(jsonPath("$.data.added").value(0));
+		assertThat(compareProdDates()).containsExactly(REGS[0], REGS[1], REGS[2]);
+		assertThat(compareTradeRows()).isEqualTo(3);
+	}
+
+	@Test
+	@DisplayName("담아서 5개가 되면 400 COMPARE_FULL — 아무것도 안 담고 기존 목록 그대로, 4개까지는 OK")
+	void addRejectsOverFour() throws Exception {
+		addCompare(buyer, 0, 1, 2).andExpect(status().isOk());
+		addCompare(buyer, 3).andExpect(status().isOk()).andExpect(jsonPath("$.data.count").value(4));
+		addCompare(buyer, 4).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("COMPARE_FULL"));
+		assertThat(compareProdDates()).containsExactly(REGS[0], REGS[1], REGS[2], REGS[3]);
+		addCompare(buyer, 0, 1, 2, 3, 4).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("COMPARE_FULL"));
+		assertThat(compareTradeRows()).isEqualTo(4);
+	}
+
+	@Test
+	@DisplayName("담을 때 기존 목록과 소분류가 다르면 400 COMPARE_CATEGORY_MISMATCH — 기존 목록 그대로. 내 매물은 403")
+	void addChecksCategoryAndOwner() throws Exception {
+		addCompare(buyer, 0).andExpect(status().isOk());
+		addCompare(buyer, 5).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("COMPARE_CATEGORY_MISMATCH"));
+		addCompare(buyer, 1, 5).andExpect(status().isBadRequest()).andExpect(jsonPath("$.code").value("COMPARE_CATEGORY_MISMATCH"));
+		assertThat(compareProdDates()).containsExactly(REGS[0]);
+		addCompare(seller, 0).andExpect(status().isForbidden()).andExpect(jsonPath("$.code").value("TRADE_OWN_LISTING"));
+	}
+
+	@Test
+	@DisplayName("비우기는 내 비교 목록만 전부 지운다(두 테이블) — 비운 뒤 다른 소분류도 담을 수 있고, 다른 사람 목록은 그대로")
+	void clearDeletesOnlyMine() throws Exception {
+		addCompare(buyer, 0, 1).andExpect(status().isOk());
+		mvc.perform(delete("/api/v1/cart/compare").cookie(seller)).andExpect(status().isNoContent());
+		assertThat(compareTradeRows()).isEqualTo(2);
+		mvc.perform(delete("/api/v1/cart/compare").cookie(buyer)).andExpect(status().isNoContent());
+		assertThat(compareTradeRows()).isZero();
+		assertThat(compareProdDates()).isEmpty();
+		addCompare(buyer, 5).andExpect(status().isOk()).andExpect(jsonPath("$.data.count").value(1));
+		mvc.perform(delete("/api/v1/cart/compare").cookie(buyer)).andExpect(status().isNoContent());
+		mvc.perform(delete("/api/v1/cart/compare").cookie(buyer)).andExpect(status().isNoContent());
 	}
 
 	@Test
@@ -246,6 +302,9 @@ class CompareApiTest {
 	void requiresLogin() throws Exception {
 		mvc.perform(put("/api/v1/cart/compare").contentType(MediaType.APPLICATION_JSON).content("{\"items\":[]}"))
 			.andExpect(status().isUnauthorized());
+		mvc.perform(post("/api/v1/cart/compare").contentType(MediaType.APPLICATION_JSON).content("{\"items\":[]}"))
+			.andExpect(status().isUnauthorized());
+		mvc.perform(delete("/api/v1/cart/compare")).andExpect(status().isUnauthorized());
 		mvc.perform(get("/api/v1/cart/compare")).andExpect(status().isUnauthorized());
 		mvc.perform(post("/api/v1/cart/compare/remove").contentType(MediaType.APPLICATION_JSON).content("{\"tradeIds\":[\"x\"]}"))
 			.andExpect(status().isUnauthorized());
