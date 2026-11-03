@@ -46,6 +46,24 @@ export function nextCartQuantity(item: ListingSearchItem, current: number, direc
   return unit <= (item.stockQuantity ?? 0) && current + unit <= MAX_QUANTITY ? current + unit : null;
 }
 
+/** 한 줄 금액 = 단가 × 담은 수량 */
+export function cartLineAmount(unitPrice: number, quantity: number): number {
+  return unitPrice * quantity;
+}
+
+/** 선택한 줄들의 합계 금액 */
+export function cartTotal(lines: readonly { unitPrice: number; quantity: number }[]): number {
+  return lines.reduce((sum, l) => sum + cartLineAmount(l.unitPrice, l.quantity), 0);
+}
+
+/** 담은 시각(yyyyMMddHHmmss, UTC)으로부터 자동 삭제(1시간)까지 남은 분. 시각을 모르면 null */
+export function remainingMinutes(addedAt: string | undefined, now: number = Date.now()): number | null {
+  const m = addedAt ? /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(addedAt) : null;
+  if (!m) return null;
+  const added = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+  return 60 - Math.floor((now - added) / 60_000);
+}
+
 /** 거래완료 매물은 장바구니에 남지만 견적·구매 대상이 아니다 (빼기만) */
 export function cartActionable(item: ListingSearchItem): boolean {
   return item.tradeStatus !== "completed";

@@ -14,6 +14,7 @@ export function applyDetailToItem(item: ListingSearchItem, d: ListingDetail): Li
     prodDescription: d.description,
     hasDataSheet: d.listingDataSheet !== null,
     hasPhoto: d.photos.length > 0,
+    mainPhoto: d.photos[0] ?? null,
     warrantyUntil: d.warrantyUntil,
     warrantyCoverage: d.warrantyCoverage,
     hasReplaceProd: d.replaceProd !== null,

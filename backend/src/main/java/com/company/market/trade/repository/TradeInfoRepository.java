@@ -60,6 +60,18 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			@Param("orderQuantity") int orderQuantity, @Param("reqDeliDate") String reqDeliDate,
 			@Param("remarks") String remarks, @Param("tradeStats") String tradeStats);
 
+	/** 판매자가 받은 견적요청 — 오래된 요청부터(요청 시각, 같으면 거래ID). 한꺼번에 처리 모달용 */
+	@Query("""
+			select t from TradeInfo t
+			 where t.sellerId = :sellerId and t.tradeType = :type and t.tradeStats = :stats
+			 order by t.regDate asc, t.tradeId asc
+			""")
+	List<TradeInfo> findPendingBySeller(@Param("sellerId") UUID sellerId, @Param("type") TradeType type,
+			@Param("stats") TradeStats stats, Pageable pageable);
+
+	@Query("select count(t) from TradeInfo t where t.sellerId = :sellerId and t.tradeType = :type and t.tradeStats = :stats")
+	long countPendingBySeller(@Param("sellerId") UUID sellerId, @Param("type") TradeType type, @Param("stats") TradeStats stats);
+
 	/** 장바구니 줄의 담은 수량만 바꾼다 (담은 시각·납품희망일·요청사항은 그대로). 줄은 호출자가 잠가 두었다 */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("update TradeInfo t set t.orderQuantity = :quantity where t.tradeId = :tradeId and t.tradeStats = :stats")

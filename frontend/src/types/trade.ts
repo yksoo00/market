@@ -56,6 +56,36 @@ export interface Trade {
   photo: string | null;
 }
 
+/** 받은 견적요청 한 줄 (백엔드 QuoteRequestListResponse.Item) — 한꺼번에 처리 모달용. stockQuantity = 그 매물의 지금 재고 */
+export interface QuoteRequestItem {
+  tradeId: string;
+  regDate: string;
+  prodName: string;
+  buyerNickname: string | null;
+  orderQuantity: number;
+  salesUnitPrice: number | null;
+  orderUnitPrice: number;
+  amount: number;
+  reqDeliDate: string | null;
+  remarks: string | null;
+  stockQuantity: number | null;
+}
+
+/** GET /api/v1/trades/quote-requests — 오래된 순 최대 30건, total = 전체 건수 */
+export interface QuoteRequestList {
+  items: QuoteRequestItem[];
+  total: number;
+}
+
+/** 건별 결과 (백엔드 QuoteReplyResponse.Result). 성공이면 tradeStats, 실패면 code·message */
+export interface QuoteReplyResult {
+  tradeId: string;
+  ok: boolean;
+  tradeStats: "quoteAccepted" | "quoteRejected" | null;
+  code: string | null;
+  message: string | null;
+}
+
 export interface TradePage {
   items: Trade[];
   page: number;

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { cartActionable, cartBadge, nextCartQuantity, notifyCartChanged, onCartChanged } from "@/lib/cart";
+import { cartActionable, cartBadge, cartLineAmount, cartTotal, nextCartQuantity, notifyCartChanged, onCartChanged, remainingMinutes } from "@/lib/cart";
 import type { ListingSearchItem } from "@/types/listing";
 
 describe("cartBadge", () => {
@@ -67,5 +67,26 @@ describe("nextCartQuantity", () => {
     expect(nextCartQuantity(item({ orderUnit: null, minOrderQuantity: null }), 1, "down")).toBeNull();
     expect(nextCartQuantity(item({ tradeStatus: "completed" }), 15, "up")).toBeNull();
     expect(nextCartQuantity(item({ tradeStatus: "completed" }), 15, "down")).toBeNull();
+  });
+});
+
+describe("cartLineAmount·cartTotal", () => {
+  it("한 줄 금액은 단가 × 수량, 합계는 줄 금액의 합", () => {
+    expect(cartLineAmount(1_000, 3)).toBe(3_000);
+    expect(cartTotal([])).toBe(0);
+    expect(cartTotal([{ unitPrice: 1_000, quantity: 3 }, { unitPrice: 250, quantity: 4 }])).toBe(4_000);
+  });
+});
+
+describe("remainingMinutes", () => {
+  const addedAt = "20261103100000";
+  const at = (hh: number, mm: number) => Date.UTC(2026, 10, 3, hh, mm, 0);
+
+  it("담은 지 1시간까지 남은 분 — 시각을 모르면 null", () => {
+    expect(remainingMinutes(addedAt, at(10, 0))).toBe(60);
+    expect(remainingMinutes(addedAt, at(10, 25))).toBe(35);
+    expect(remainingMinutes(addedAt, at(11, 0))).toBe(0);
+    expect(remainingMinutes(undefined)).toBeNull();
+    expect(remainingMinutes("잘못")).toBeNull();
   });
 });
