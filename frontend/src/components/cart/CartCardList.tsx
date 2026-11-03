@@ -135,8 +135,10 @@ export function CartCardList({ items, onRemove, removing, onChangeQuantity, quan
         ))}
       </ul>
 
-      {/* 고르면 아래에 붙어 따라온다. 선택이 없으면 버튼이 모두 꺼진다 */}
-      <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md border border-line bg-surface px-4 py-3">
+      {/* 고르면 아래에 붙어 따라온다. 선택이 없으면 버튼이 모두 꺼진다.
+          -bottom-4 @md:-bottom-6 = 페이지 main 의 아래 여백(py-4 @md:py-6)만큼 내려 스크롤 영역의 맨 아래에 붙인다 —
+          0 이면 여백 위에서 멈춰 막대 아래로 카드 내용이 비친다 */}
+      <div className="sticky -bottom-4 @md:-bottom-6 z-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md border border-line bg-surface px-4 py-3">
         <p className="text-sm font-bold text-ink" aria-live="polite">
           {t.summary(actionablePicked.length, formatPrice(total))}
         </p>

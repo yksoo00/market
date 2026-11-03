@@ -65,7 +65,8 @@ export const cart = {
     amount: "금액",
     won: "원",
     unitPrice: (price: string) => `단가 ${price}원`,
-    stock: (n: string) => `재고 ${n}`,
+    // 담은 수량은 내 몫으로 잡혀 재고에서 빠져 있다 — 그래서 "재고"가 아니라 "남은 재고" (다른 사람이 살 수 있는 수량)
+    stock: (n: string) => `남은 재고 ${n}`,
     reqDeliDate: (date: string) => `납품희망일 ${date}`,
     detailAria: (name: string) => `${name} 상세 보기`,
   },
