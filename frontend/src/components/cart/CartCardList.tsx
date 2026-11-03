@@ -96,9 +96,10 @@ export function CartCardList({ items, onRemove, removing, onChangeQuantity, quan
   const clearAll = () => {
     if (!window.confirm(t.clearConfirm)) return;
     onRemove(items.map((i) => i.tradeId));
-    setSelected(new Set());
   };
-  const total = cartTotal(picked.filter((i) => cartActionable(i.listing)).map((i) => ({ unitPrice: i.listing.salesUnitPrice, quantity: i.orderQuantity })));
+  // 요약은 구매·견적에 들어갈 줄(거래완료 제외)만 센다 — 개수와 합계가 서로 어긋나지 않게
+  const actionablePicked = picked.filter((i) => cartActionable(i.listing));
+  const total = cartTotal(actionablePicked.map((i) => ({ unitPrice: i.listing.salesUnitPrice, quantity: i.orderQuantity })));
 
   return (
     <section className="flex flex-col gap-2.5">
@@ -137,7 +138,7 @@ export function CartCardList({ items, onRemove, removing, onChangeQuantity, quan
       {/* 고르면 아래에 붙어 따라온다. 선택이 없으면 버튼이 모두 꺼진다 */}
       <div className="sticky bottom-0 z-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-md border border-line bg-surface px-4 py-3">
         <p className="text-sm font-bold text-ink" aria-live="polite">
-          {t.summary(picked.length, formatPrice(total))}
+          {t.summary(actionablePicked.length, formatPrice(total))}
         </p>
         <div className="flex flex-wrap gap-2">
           <button

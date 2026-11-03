@@ -84,7 +84,7 @@ test("검색에서 장바구니 담기 → 헤더 숫자 → 장바구니 카드
   const cartLink = (n: number) => page.getByRole("link", { name: cart.header.aria(n), exact: true });
   const rowOf = (name: string) => page.getByRole("table").getByRole("row").filter({ hasText: name });
   // 장바구니는 표가 아니라 카드 목록 (2026-11-03)
-  const cardOf = (name: string) => page.locator("li").filter({ hasText: name });
+  const cardOf = (name: string) => page.locator("main ul > li").filter({ hasText: name });
 
   await test.step("판매자 가입·등록 2개", async () => {
     await signUp(page, seller, stamp);

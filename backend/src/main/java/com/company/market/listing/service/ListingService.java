@@ -565,11 +565,7 @@ public class ListingService {
 
 	private static ListingSearchItemResponse toSearchItem(Listing listing, Product product, String categoryPath) {
 		// 상세 화면과 같게 매물 값만 본다. 상품마스터 파일은 처음 등록한 다른 판매자의 것 (decisions.md 2026-10-02 매물 상세)
-		String mainPhoto = Stream
-			.of(listing.getProdPhoto1(), listing.getProdPhoto2(), listing.getProdPhoto3(), listing.getProdImage4())
-			.filter(Objects::nonNull)
-			.findFirst()
-			.orElse(null);
+		String mainPhoto = firstPhoto(listing);
 		boolean hasPhoto = mainPhoto != null;
 		boolean hasDataSheet = listing.getProdDataSheet() != null;
 		return new ListingSearchItemResponse(listing.getUserId(), listing.getRegDate(), product.getProdNo(),
