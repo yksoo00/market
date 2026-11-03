@@ -39,9 +39,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class CompareService {
 
-	// 비교 화면이 2개 이상일 때만 표를 보이지만, 담기는 하나씩이라 서버는 1개부터 받는다
-	public static final int MIN_ITEMS = 1;
-
+	// 하한은 두지 않는다 — 담기는 하나씩이라 1개부터 받고(요청 DTO 가 1개 이상을 보장), 2개 이상 보여 주는 건 비교 화면의 몫
 	public static final int MAX_ITEMS = 4;
 
 	private static final DateTimeFormatter TIMESTAMP_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
@@ -65,7 +63,7 @@ public class CompareService {
 	@Transactional
 	public int replace(UUID buyerId, CompareRequest req) {
 		Map<String, CompareRequest.Item> unique = uniqueItems(req);
-		if (unique.size() < MIN_ITEMS || unique.size() > MAX_ITEMS) {
+		if (unique.size() > MAX_ITEMS) {
 			throw new ApiException(ErrorCode.COMPARE_COUNT);
 		}
 		trades.lockCompare(buyerId);

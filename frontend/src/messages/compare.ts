@@ -11,6 +11,9 @@ export const compare = {
     message: "비교 화면에서 나란히 볼 수 있어요.",
     skipped: (n: number) => `이미 담긴 ${n}개는 건너뛰었어요.`,
     view: "비교 보기",
+    // 고른 상품이 전부 이미 담겨 있을 때 (담긴 줄을 모르고 다시 눌렀거나 상세의 담김 표시를 못 읽었을 때)
+    alreadyTitle: "이미 담겨 있어요",
+    alreadyMessage: "비교 화면에서 볼 수 있어요.",
   },
   // 4개가 찼거나 소분류가 달라 담을 수 없을 때 (검색·상세 공용)
   conflict: {

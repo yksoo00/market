@@ -29,7 +29,7 @@ export function useCompareAdd(onChanged?: () => void): { add: (items: CompareTar
   const openTile = useTileOpen();
   const [busy, setBusy] = useState(false);
   const [conflict, setConflict] = useState<Conflict | null>(null);
-  const [done, setDone] = useState<{ skipped: number } | null>(null);
+  const [done, setDone] = useState<{ added: number; skipped: number } | null>(null);
   const { notice, show, close: closeNotice } = useNotice();
 
   const fail = (code: string, message: string) =>
@@ -40,7 +40,7 @@ export function useCompareAdd(onChanged?: () => void): { add: (items: CompareTar
     const res = await cartApi.addCompare(items);
     setBusy(false);
     if (res.ok) {
-      setDone({ skipped: items.length - res.data.added });
+      setDone({ added: res.data.added, skipped: items.length - res.data.added });
       onChanged?.();
     } else if (res.code === "COMPARE_FULL") setConflict({ reason: "full", items });
     else if (res.code === "COMPARE_CATEGORY_MISMATCH") setConflict({ reason: "category", items });
@@ -54,7 +54,7 @@ export function useCompareAdd(onChanged?: () => void): { add: (items: CompareTar
     setBusy(false);
     setConflict(null);
     if (res.ok) {
-      setDone({ skipped: 0 });
+      setDone({ added: conflict.items.length, skipped: 0 });
       onChanged?.();
     } else fail(res.code, res.message);
   };
@@ -71,8 +71,14 @@ export function useCompareAdd(onChanged?: () => void): { add: (items: CompareTar
       <ResultDialog
         open={done !== null}
         tone="success"
-        title={t.added.title}
-        message={done && done.skipped > 0 ? `${t.added.skipped(done.skipped)}\n${t.added.message}` : t.added.message}
+        title={done?.added === 0 ? t.added.alreadyTitle : t.added.title}
+        message={
+          done?.added === 0
+            ? t.added.alreadyMessage
+            : done && done.skipped > 0
+              ? `${t.added.skipped(done.skipped)}\n${t.added.message}`
+              : t.added.message
+        }
         actionLabel={t.added.view}
         onAction={view}
         onClose={() => setDone(null)}

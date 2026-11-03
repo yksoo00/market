@@ -98,7 +98,8 @@ export function ListingActions({ detail, owner, meId, anonymous, onPurchased }: 
         setComparing(true);
         const res = await cartApi.removeCompare([compareId]);
         setComparing(false);
-        if (res.ok) setCompareId(null);
+        // 다른 칸에서 이미 비웠거나 뺀 목록이면 거래ID 가 없다 — 지금 상태(담겨 있지 않음)로 맞춘다
+        if (res.ok || res.code === "TRADE_NOT_FOUND") setCompareId(null);
         else show({ tone: "error", title: common.notice.removeFailed, message: res.message });
       })();
     });
