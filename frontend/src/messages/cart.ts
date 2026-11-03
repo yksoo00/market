@@ -43,7 +43,6 @@ export const cart = {
     count: (n: number) => `담은 상품 ${n}개`,
     empty: "장바구니가 비었어요.",
     toSearch: "상품 검색",
-    remove: "빼기",
     completedSkipped: "거래가 끝난 상품은 빼고 골랐어요.",
     loadFailed: "장바구니를 불러오지 못했어요.",
     retry: "다시 시도",
@@ -53,7 +52,7 @@ export const cart = {
     quantityUpGlyph: "+",
     quantityDown: (name: string) => `${name} 수량 줄이기`,
     quantityUp: (name: string) => `${name} 수량 늘리기`,
-    columns: { quantity: "담은 수량", reqDeliDate: "납품희망일", remaining: "남은 시간" },
+    columns: { remaining: "남은 시간" },
     remaining: (minutes: number) => (minutes <= 0 ? "곧 빠져요" : `${minutes}분`),
     // 카드 목록 (2026-11-03)
     selectAll: "전체 선택",
