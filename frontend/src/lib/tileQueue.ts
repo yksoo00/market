@@ -61,7 +61,8 @@ export function decideOpen(
 
   const from = sub && sub.key === fromKey ? sub : main;
   // 검색은 항상 주기능 자리, 장바구니·비교는 항상 보조 자리 (사용자 지시 2026-11-03). 보조형 칸에서 검색을 열면 둘이 자리를 바꾼다
-  if (target === "search" && isAux(from.path)) return { kind: "swapMain", path, aux: from };
+  // 주기능이 이미 검색이면 자리를 바꿀 게 없다 — 아래 규칙대로 그 칸에서 이동 (검색 칸이 다시 만들어져 입력·스크롤을 잃지 않게)
+  if (target === "search" && isAux(from.path) && mainScreen !== target) return { kind: "swapMain", path, aux: from };
   if (screenOf(from.path).id === target) return { kind: "inPlace", paneKey: from.key, path };
   // 마이페이지는 바로가기 허브 — 고른 화면이 그 칸을 바꾼다. 옆에 쌓으면 허브만 남은 칸이 하나 더 생긴다 (사용자 지시 2026-10-19)
   if (screenOf(from.path).id === "my") return { kind: "inPlace", paneKey: from.key, path };

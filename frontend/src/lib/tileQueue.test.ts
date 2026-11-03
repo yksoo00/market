@@ -141,6 +141,14 @@ describe("decideOpen — 검색은 주기능, 장바구니·비교는 보조 (20
     expect(decideOpen([P("a", "/my/cart"), sub], "b", "/search", wide)).toEqual({ kind: "swapMain", path: "/search", aux: sub });
   });
 
+  it("주기능이 이미 검색이면 자리를 안 바꾸고 그 칸에서 이동 (비교 칸의 검색 링크도)", () => {
+    expect(decideOpen([P("a", "/search?q=a"), P("b", "/my/cart/compare")], "b", "/search?q=b", wide)).toEqual({
+      kind: "inPlace",
+      paneKey: "a",
+      path: "/search?q=b",
+    });
+  });
+
   it("홈 칸·헤더에서 검색을 열면 전과 같이 새 주기능 (보조는 닫힘)", () => {
     expect(decideOpen([P("a", "/my/cart/compare")], HOME_KEY, "/search", wide)).toEqual({ kind: "main", path: "/search" });
   });

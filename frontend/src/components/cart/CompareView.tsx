@@ -132,7 +132,12 @@ export function CompareView() {
   }
   // 서버가 같은 소분류만 저장하지만, 그새 매물 카테고리가 바뀌었을 수 있어 방어한다
   if (new Set(details.map((d) => d.category)).size > 1) {
-    return <Message text={t.otherCategory} action={t.page.toSearch} onAction={() => openTile("/search", false)} />;
+    return (
+      <>
+        <Message text={t.otherCategory} action={t.page.toSearch} onAction={() => openTile("/search", false)} />
+        {resultDialogs}
+      </>
+    );
   }
 
   const colWidth = COL_WIDTH[details.length] ?? "w-1/4";
@@ -229,9 +234,9 @@ export function CompareView() {
                             onClick={() => void remove(d, tradeId)}
                             aria-label={t.page.removeAria(d.prodName)}
                             title={t.page.remove}
-                            className="absolute top-1 right-1 size-6 inline-flex items-center justify-center rounded-full border border-line bg-surface/90 text-ink-2 hover:bg-surface hover:text-down disabled:opacity-40 disabled:pointer-events-none"
+                            className="absolute top-1 right-1 size-8 inline-flex items-center justify-center rounded-full border border-line bg-surface/90 text-ink-2 hover:bg-surface hover:text-down disabled:opacity-40 disabled:pointer-events-none"
                           >
-                            <X size={14} aria-hidden="true" />
+                            <X size={16} aria-hidden="true" />
                           </button>
                         )}
                       </div>
