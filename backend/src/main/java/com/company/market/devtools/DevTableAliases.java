@@ -78,23 +78,26 @@ final class DevTableAliases {
 				.map(Map.Entry::getKey).findFirst();
 	}
 
-	/** 헤더 이름(물리명 또는 논리명) → 그 테이블의 물리 컬럼 이름. 모르면 빈 값 */
-	static Optional<String> column(String table, String name) {
+	/**
+	 * 헤더 이름(물리명 또는 논리명) → 그 테이블의 물리 컬럼 이름. 별명이 없으면 이름을 정리한 그대로 돌려준다 — 별명이 없는
+	 * 컬럼(prod_mufc_date)도 물리명으로 받으려는 것이라, 실제 있는 컬럼인지는 호출한 쪽이 확인한다
+	 */
+	static String column(String table, String name) {
 		String key = normalize(name);
-		Map<String, String> aliases = COLUMNS.getOrDefault(table, Map.of());
-		return aliases.entrySet().stream()
+		return COLUMNS.getOrDefault(table, Map.of()).entrySet().stream()
 				.filter(e -> normalize(e.getKey()).equals(key) || normalize(e.getValue()).equals(key))
-				.map(Map.Entry::getKey).findFirst()
-				// 별명이 없는 컬럼(prod_mufc_date)은 물리명 그대로 — 호출한 쪽이 실제 컬럼인지 확인한다
-				.or(() -> Optional.of(name.trim().toLowerCase(Locale.ROOT)));
+				.map(Map.Entry::getKey).findFirst().orElse(key);
 	}
 
-	/** 공백을 모두 없애고 소문자로 ("등록 일시" = "등록일시", "DATA SHEET" = "data sheet") */
+	/** 공백(줄바꿈·NBSP 포함)을 모두 없애고 소문자로 ("등록 일시" = "등록일시", "DATA SHEET" = "data sheet") */
 	static String normalize(String s) {
-		return s.replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
+		return s.replaceAll("[\\s\\p{Z}]+", "").toLowerCase(Locale.ROOT);
 	}
 
 	private static Map<String, String> cols(String... pairs) {
+		if (pairs.length % 2 != 0) {
+			throw new IllegalArgumentException("별명표는 (컬럼, 논리명) 쌍이어야 합니다");
+		}
 		Map<String, String> m = new LinkedHashMap<>();
 		for (int i = 0; i < pairs.length; i += 2) {
 			m.put(pairs[i], pairs[i + 1]);

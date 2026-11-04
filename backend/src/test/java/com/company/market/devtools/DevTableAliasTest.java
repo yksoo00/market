@@ -155,11 +155,37 @@ class DevTableAliasTest {
 	}
 
 	@Test
+	@DisplayName("물리명이 정의서에서 겹쳤거나 짝이 헷갈리기 쉬운 칸은 DB 컬럼으로 바르게 이어진다")
+	void tricky_columns_map_to_the_right_db_column() {
+		assertThat(DevTableAliases.column("trd_prod_reg", "제공가능일")).isEqualTo("prov_date");
+		assertThat(DevTableAliases.column("trd_prod_reg", "등록일시")).isEqualTo("reg_date");
+		assertThat(DevTableAliases.column("trd_trade_info", "상품등록일시")).isEqualTo("prod_reg_date");
+		assertThat(DevTableAliases.column("trd_trade_info", "판매자ID")).isEqualTo("seller_id");
+		assertThat(DevTableAliases.column("trd_trade_info", "사용자ID")).isEqualTo("user_id");
+		assertThat(DevTableAliases.column("trd_cart_info", "상품등록일시")).isEqualTo("prod_date");
+		assertThat(DevTableAliases.column("trd_cart_info", "제공가능일")).isEqualTo("prov_date");
+		assertThat(DevTableAliases.column("trd_cart_info", "일렬번호")).isEqualTo("ser_no");
+		assertThat(DevTableAliases.column("trd_trade_history", "판매자ID")).isEqualTo("seller_id");
+		assertThat(DevTableAliases.column("trd_user_info", "개업년원일")).isEqualTo("company_open_date");
+		assertThat(DevTableAliases.column("trd_user_info", "시용자ID")).isEqualTo("user_id");
+		assertThat(DevTableAliases.column("trd_user_info", "등록 일시")).isEqualTo("dt_reg");
+	}
+
+	@Test
 	@DisplayName("정의서에 없는 prod_mufc_date 는 물리명으로 받는다")
 	void column_without_alias_accepts_physical_name() {
-		assertThat(DevTableAliases.column("trd_prod_master", "PROD_MUFC_DATE")).contains("prod_mufc_date");
-		assertThat(DevTableAliases.column("trd_trade_info", "판매자ID")).contains("seller_id");
-		assertThat(DevTableAliases.column("trd_cart_info", "제공가능일")).contains("prov_date");
+		assertThat(DevTableAliases.column("trd_prod_master", "PROD_MUFC_DATE")).isEqualTo("prod_mufc_date");
+	}
+
+	@Test
+	@DisplayName("물리명 시트와 논리명 시트가 같은 테이블이면 400, 아무것도 안 넣는다")
+	void two_sheets_for_one_table_are_rejected() throws Exception {
+		Object[][] a = { { "category_code", "category_name", "category_depth", "category_class", "reg_date" }, { "ZZ1", "가", "일반", "소", "20261104000000" } };
+		Object[][] b = { { "카테고리코드", "카테고리명", "카테고리구분", "분류레벨", "등록일시" }, { "ZZ2", "나", "일반", "소", "20261104000000" } };
+		mvc.perform(multipart("/api/v1/dev/import").file(xlsx(new String[] { "trd_ctgr_code", "카테고리 코드" }, a, b)))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("두 개")));
+		assertThat(count("trd_ctgr_code", "ZZ1")).isZero();
+		assertThat(count("trd_ctgr_code", "ZZ2")).isZero();
 	}
 
 }
