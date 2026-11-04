@@ -50,7 +50,6 @@ export const listing = {
     prodBrandPlaceholder: "예: Dell",
     prodNo: "상품번호(모델명)",
     prodNoPlaceholder: "예: R740-4210",
-    prodMufcDate: "제조일",
     prodSpecInfo: "사양 요약",
     prodSpecInfoPlaceholder: "예: Xeon Silver 4210 ×2 / 64GB / 2U",
     prodClassNo: "물품분류번호",
@@ -129,7 +128,6 @@ export const listing = {
     minOrderOverSales: "최소주문량은 판매수량보다 클 수 없어요",
     orderUnit: "주문단위는 1 이상 100,000 이하 숫자로 입력하세요",
     prodState: "상품상태를 목록에서 고르세요",
-    prodMufcDate: "제조일은 오늘이나 그 이전 날짜로 입력하세요",
     deliveryDate: "납기일은 오늘이나 그 이후 날짜로 입력하세요",
     date: "올바른 날짜를 입력하세요",
     photos: "사진은 최대 4장까지 올릴 수 있어요",
@@ -175,7 +173,7 @@ export const listing = {
     save: "저장",
     noChange: "바꾼 내용이 없어요",
     back: "상세로 돌아가기",
-    rows: { category: "카테고리", name: "상품명", brand: "제조사", prodNo: "상품번호(모델명)", mufcDate: "제조일", spec: "사양 요약" },
+    rows: { category: "카테고리", name: "상품명", brand: "제조사", prodNo: "상품번호(모델명)", spec: "사양 요약" },
   },
   // 매물 상세 (/listings/[userId]/[regDate])
   detail: {
@@ -188,7 +186,6 @@ export const listing = {
       stock: "수량",
       category: "카테고리",
       tradeType: "거래종류",
-      mufcDate: "제조일",
       classNo: "물품분류번호",
       usefulLife: "보증년수",
       warrantyMethod: "정품보증방법",

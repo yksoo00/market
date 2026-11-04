@@ -7,7 +7,6 @@ const base: ListingEditValues = {
   prodName: "R740",
   prodBrand: "Dell",
   prodNo: "",
-  prodMufcDate: "",
   prodState: "신품",
   salesUnitPrice: "1000",
   salesQuantity: "10",
@@ -28,8 +27,8 @@ const errorPaths = (over: Partial<ListingEditValues>, initialDelivery = "") => {
 };
 
 describe("listingEditSchema 상품 칸 (2026-11-02)", () => {
-  const bad = (over: Partial<ListingEditValues>, initialMufc?: string) => {
-    const r = listingEditSchema(today, "", false, { prodMufcDate: initialMufc ?? "" }).safeParse({ ...base, ...over });
+  const bad = (over: Partial<ListingEditValues>) => {
+    const r = listingEditSchema(today, "", false).safeParse({ ...base, ...over });
     return r.success ? [] : [...new Set(r.error.issues.map((i) => i.path.join(".")))];
   };
 
@@ -43,13 +42,6 @@ describe("listingEditSchema 상품 칸 (2026-11-02)", () => {
     expect(bad({ prodNo: "" })).toEqual([]);
   });
 
-  it("제조일은 비우면 통과, 없는 날짜·오늘 이후는 오류, 처음 값 그대로면 옛 값이어도 통과", () => {
-    expect(bad({ prodMufcDate: "" })).toEqual([]);
-    expect(bad({ prodMufcDate: "2026-10-02" })).toEqual([]);
-    expect(bad({ prodMufcDate: "2026-02-30" })).toEqual(["prodMufcDate"]);
-    expect(bad({ prodMufcDate: "2026-10-03" })).toEqual(["prodMufcDate"]);
-    expect(bad({ prodMufcDate: "2099-01-01" }, "2099-01-01")).toEqual([]);
-  });
 });
 
 describe("listingEditSchema", () => {

@@ -34,7 +34,6 @@ const detail: ListingDetail = {
   dtExpire: null,
   category: "임시",
   categoryPath: null,
-  mufcDate: null,
   tradeStatus: "available",
   warrantyUntil: null,
 };
@@ -69,7 +68,6 @@ describe("editInitialValues", () => {
       prodName: "R740",
       prodBrand: "Dell",
       prodNo: "",
-      prodMufcDate: "",
       prodState: "신품대비 70~79%",
       salesUnitPrice: "1000",
       salesQuantity: "12",
@@ -87,12 +85,10 @@ describe("editInitialValues", () => {
 describe("diffToUpdateRequest", () => {
   const initial: ListingEditValues = editInitialValues(detail);
 
-  it("상품 칸: 공백만 바꾼 건 안 보내고, 바뀐 건 자른 값으로, 지우면 \"\", 제조일은 yyyyMMdd", () => {
+  it("상품 칸: 공백만 바꾼 건 안 보내고, 바뀐 건 자른 값으로, 지우면 \"\"", () => {
     expect(diffToUpdateRequest(initial, { ...initial, prodName: " R740 ", prodBrand: "Dell " })).toEqual({});
     expect(diffToUpdateRequest(initial, { ...initial, prodName: " R750 ", prodBrand: "HP" })).toEqual({ prodName: "R750", prodBrand: "HP" });
     expect(diffToUpdateRequest({ ...initial, prodNo: "A1" }, { ...initial, prodNo: "" })).toEqual({ prodNo: "" });
-    expect(diffToUpdateRequest(initial, { ...initial, prodMufcDate: "2021-12-31" })).toEqual({ prodMufcDate: "20211231" });
-    expect(diffToUpdateRequest({ ...initial, prodMufcDate: "2021-12-31" }, { ...initial, prodMufcDate: "" })).toEqual({ prodMufcDate: "" });
   });
 
   it("아무것도 안 바꾸면 빈 객체", () => {

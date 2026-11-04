@@ -59,7 +59,7 @@ class ListingServiceTest {
 			.majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("노트북").prodBrand("삼성").build());
 		when(listings.existsByUserIdAndRegDate(userId, "20260929120000")).thenReturn(true);
 
-		ListingCreateRequest req = new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성", null, null, null, null, null, null, null,
+		ListingCreateRequest req = new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성", null, null, null, null, null, null,
 			"판매", "신품", 1000, 1, null, null, "2099-12-31", null, null, List.of("p.jpg"));
 
 		assertThatThrownBy(() -> service.create(userId, req))
@@ -69,7 +69,7 @@ class ListingServiceTest {
 	}
 
 	@Test
-	@DisplayName("한국 날짜 기준: UTC 23:30(한국 다음 날 08:30)에 한국 오늘을 납기일·제조일로 넣으면 통과")
+	@DisplayName("한국 날짜 기준: UTC 23:30(한국 다음 날 08:30)에 한국 오늘을 납기일로 넣으면 통과")
 	void datesUseSeoulToday() {
 		Clock clock = Clock.fixed(Instant.parse("2026-10-01T23:30:00Z"), ZoneOffset.UTC);
 		ListingService service = new ListingService(listings, searchRepository, products, categories, uploads, clock, mock(ApplicationEventPublisher.class));
@@ -77,11 +77,11 @@ class ListingServiceTest {
 		when(products.findOrCreate(any())).thenReturn(Product.builder().prodId("ELEC00010001").regDate("20261001233000")
 			.majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("노트북").prodBrand("삼성").build());
 
-		service.create(UUID.randomUUID(), new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성", null, "20261002", null, null, null, null, null,
+		service.create(UUID.randomUUID(), new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성", null, null, null, null, null, null,
 				"판매", "신품", 1000, 1, null, null, "2026-10-02", null, null, List.of("p.jpg")));
 
 		assertThatThrownBy(() -> service.create(UUID.randomUUID(), new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성",
-				null, null, null, null, null, null, null, "판매", "신품", 1000, 1, null, null, "2026-10-01", null, null, List.of("p.jpg"))))
+				null, null, null, null, null, null, "판매", "신품", 1000, 1, null, null, "2026-10-01", null, null, List.of("p.jpg"))))
 			.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.getFields()).containsKey("deliveryDate"));
 	}
 

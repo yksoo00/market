@@ -538,7 +538,7 @@ function ExtraChips({ item }: { item: ListingSearchItem }) {
   );
 }
 
-// 유무만 보이는 열(제조일·상품설명·대체품·테스트리포트·정품인증서). 요구 화면대로 O / X
+// 유무만 보이는 열(상품설명·대체품·테스트리포트·정품인증서). 요구 화면대로 O / X
 function CompletedBadge() {
   return (
     <span className="inline-flex items-center h-5 px-1.5 rounded-[5px] bg-line-2 text-ink-2 text-[11px] font-semibold">

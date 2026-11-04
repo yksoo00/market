@@ -24,11 +24,10 @@ export function prodStateFromStored(stored: string): ProdState | "" {
 
 /** 수정 폼의 입력 상태. 숫자 칸은 문자열(빈 칸 = 미입력), 파일 칸은 업로드 키("" = 없음) */
 export interface ListingEditValues {
-  // 상품 칸 (2026-11-02 행 안 수정 폐지로 수정 화면이 맡는다). 제조일은 YYYY-MM-DD 입력, 서버엔 yyyyMMdd
+  // 상품 칸 (2026-11-02 행 안 수정 폐지로 수정 화면이 맡는다).
   prodName: string;
   prodBrand: string;
   prodNo: string;
-  prodMufcDate: string;
   prodState: string;
   salesUnitPrice: string;
   salesQuantity: string;
@@ -48,7 +47,6 @@ export function editInitialValues(d: ListingDetail): ListingEditValues {
     prodName: d.prodName,
     prodBrand: d.prodBrand,
     prodNo: d.prodNo ?? "",
-    prodMufcDate: d.mufcDate ?? "",
     prodState: prodStateFromStored(d.prodState),
     salesUnitPrice: str(d.salesUnitPrice),
     salesQuantity: str(d.salesQuantity),
@@ -87,7 +85,6 @@ export function diffToUpdateRequest(initial: ListingEditValues, current: Listing
     const now = current[key].trim();
     if (initial[key].trim() !== now) req[key] = now;
   }
-  if (initial.prodMufcDate !== current.prodMufcDate) req.prodMufcDate = current.prodMufcDate.replaceAll("-", "");
   // 배열은 순서도 비교 — 첫 장이 대표 사진이다
   if (initial.photos.join("|") !== current.photos.join("|")) req.photos = [...current.photos];
   return req;

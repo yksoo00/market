@@ -8,7 +8,7 @@ import java.util.Optional;
 /**
  * 임시 테이블 엑셀 불러오기의 한글 별명 (계획 2026-11-04-dev-table-korean-alias.md). 정의서(KPIT-BRK-테이블정의서.xlsx,
  * 2026-10-27 판)의 "논리명"을 글자 그대로 — 오타(시용자ID, 개업년원일, 일렬번호)도 그대로 — 쓰고, 불러올 때 현재 DB 물리명으로
- * 바꿔 준다. DB 이름은 바꾸지 않는다. 정의서에 없는 prod_mufc_date 는 별명 없이 물리명으로만 받는다 (사용자 결정 2026-11-04).
+ * 바꿔 준다. DB 이름은 바꾸지 않는다. 정의서에 없거나 지우는 중인 컬럼(prod_mufc_date, 장바구니 mufc_date — 2026-11-04 제조일 삭제)은 별명 없이 물리명으로만 받는다.
  * 정의서가 바뀌면 이 표도 같이 고친다.
  */
 final class DevTableAliases {
@@ -59,7 +59,7 @@ final class DevTableAliases {
 					"reg_date", "등록일시", "spare_col", "예비컬럼"),
 			"trd_cart_info", cols(
 					"user_id", "사용자ID", "trade_id", "거래ID", "ser_no", "일렬번호", "cart_type", "바구니 구분", "seller_id", "판매자ID",
-					"prod_date", "상품등록일시", "prod_name", "상품명", "prod_no", "상품번호", "manufacturer", "제조사", "mufc_date", "제조일시",
+					"prod_date", "상품등록일시", "prod_name", "상품명", "prod_no", "상품번호", "manufacturer", "제조사",
 					"prod_spec_info", "사양정보", "prod_state", "상품상태", "prov_date", "제공가능일", "order_unit_price", "주문단가",
 					"order_quantity", "주문량", "req_deli_date", "납품희망일", "remarks", "요청사항", "reg_date", "등록일시"),
 			"trd_trade_history", cols(
@@ -80,7 +80,7 @@ final class DevTableAliases {
 
 	/**
 	 * 헤더 이름(물리명 또는 논리명) → 그 테이블의 물리 컬럼 이름. 별명이 없으면 이름을 정리한 그대로 돌려준다 — 별명이 없는
-	 * 컬럼(prod_mufc_date)도 물리명으로 받으려는 것이라, 실제 있는 컬럼인지는 호출한 쪽이 확인한다
+	 * 컬럼(prod_mufc_date·mufc_date)도 물리명으로 받으려는 것이라, 실제 있는 컬럼인지는 호출한 쪽이 확인한다
 	 */
 	static String column(String table, String name) {
 		String key = normalize(name);

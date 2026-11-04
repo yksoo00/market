@@ -6,7 +6,7 @@ const TRADE_TYPE = "등록";
 
 const seoulDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" });
 
-/** 한국 날짜 YYYY-MM-DD. 백엔드도 제조일·납기일 범위를 한국 날짜로 본다 */
+/** 한국 날짜 YYYY-MM-DD. 백엔드도 납기일 범위를 한국 날짜로 본다 */
 export function todayInSeoul(now: Date = new Date()): string {
   return seoulDate.format(now);
 }
@@ -26,7 +26,6 @@ export function toCreateRequest(v: ListingFormOutput): ListingCreateRequest {
   };
   const optional: Partial<ListingCreateRequest> = {
     prodNo: picked ? undefined : v.prodNo,
-    prodMufcDate: picked ? undefined : v.prodMufcDate?.replaceAll("-", ""),
     prodSpecInfo: picked ? undefined : v.prodSpecInfo,
     prodClassNo: picked ? undefined : v.prodClassNo,
     prodUsefulLife: picked ? undefined : v.prodUsefulLife,

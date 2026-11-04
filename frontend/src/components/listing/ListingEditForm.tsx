@@ -25,7 +25,7 @@ const e = listing.edit;
 
 // 서버 fields 를 붙일 수 있는 칸. 서버 필드명 = 요청 필드명 = 폼 칸 이름
 const fields = [
-  "prodName", "prodBrand", "prodNo", "prodMufcDate", "prodState", "salesUnitPrice", "salesQuantity", "stockQuantity", "minOrderQuantity", "orderUnit", "deliveryDate",
+  "prodName", "prodBrand", "prodNo", "prodState", "salesUnitPrice", "salesQuantity", "stockQuantity", "minOrderQuantity", "orderUnit", "deliveryDate",
   "description", "photos", "listingDataSheet",
 ] as const;
 
@@ -36,7 +36,7 @@ export function ListingEditForm({ detail }: { detail: ListingDetail }) {
   // 납기일 범위의 "오늘". 폼을 연 날 기준으로 고정 (자정을 넘겨도 서버가 다시 본다)
   const [today] = useState(() => todayInSeoul());
   const form = useForm<ListingEditValues>({
-    resolver: zodResolver(listingEditSchema(today, initial.deliveryDate, initial.photos.length > 0, { prodMufcDate: initial.prodMufcDate })),
+    resolver: zodResolver(listingEditSchema(today, initial.deliveryDate, initial.photos.length > 0)),
     mode: "onTouched",
     reValidateMode: "onChange",
     defaultValues: initial,
@@ -98,7 +98,6 @@ export function ListingEditForm({ detail }: { detail: ListingDetail }) {
           <FormField<ListingEditValues> inline name="prodName" label={t.prodName} maxLength={50} />
           <FormField<ListingEditValues> inline name="prodBrand" label={t.prodBrand} maxLength={40} />
           <FormField<ListingEditValues> inline name="prodNo" label={t.prodNo} maxLength={20} />
-          <FormField<ListingEditValues> inline name="prodMufcDate" label={t.prodMufcDate} type="date" max={today} />
         </Section>
 
         <Section title={e.sectionSale}>
@@ -157,7 +156,7 @@ export function ListingEditForm({ detail }: { detail: ListingDetail }) {
   );
 }
 
-/** 카테고리·사양 요약은 여기서 못 고친다 — 읽기 전용으로 보여 준다 (상품명·제조사·번호·제조일은 아래 입력칸) */
+/** 카테고리·사양 요약은 여기서 못 고친다 — 읽기 전용으로 보여 준다 (상품명·제조사·번호는 아래 입력칸) */
 function ReadonlyProduct({ detail }: { detail: ListingDetail }) {
   const r = e.rows;
   const rows: [string, string | null][] = [

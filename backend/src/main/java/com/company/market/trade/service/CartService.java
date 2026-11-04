@@ -169,7 +169,6 @@ public class CartService {
 			.prodName(l.prodName() == null ? "" : l.prodName())
 			.prodNo(l.prodId())
 			.manufacturer(l.manufacturer())
-			.mufcDate(l.mufcDate())
 			.prodSpecInfo(l.prodSpecInfo() == null ? "" : l.prodSpecInfo())
 			.prodState(l.prodState() == null ? "" : l.prodState())
 			.provDate(l.provDate())

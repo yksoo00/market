@@ -34,7 +34,6 @@ const detail: ListingDetail = {
   dtExpire: null,
   category: "임시",
   categoryPath: null,
-  mufcDate: "2020-05-01",
   tradeStatus: "available",
   warrantyUntil: null,
 };
@@ -47,7 +46,6 @@ describe("applyDetailToItem", () => {
     prodName: "옛 이름",
     prodBrand: "옛 제조사",
     category: "임시",
-    mufcDate: null,
     prodDescription: null,
     hasDataSheet: false,
     hasPhoto: false,
@@ -72,7 +70,6 @@ describe("applyDetailToItem", () => {
       prodName: "R740",
       prodBrand: "Dell",
       prodNo: "R740-A",
-      mufcDate: "2020-05-01",
       prodDescription: "설명",
       hasDataSheet: true,
       hasPhoto: true,

@@ -57,8 +57,6 @@ public class CartInfo implements Persistable<CartInfoId> {
 
 	private String manufacturer;
 
-	private String mufcDate;
-
 	@Column(nullable = false)
 	private String prodSpecInfo;
 
@@ -87,7 +85,7 @@ public class CartInfo implements Persistable<CartInfoId> {
 
 	@Builder
 	private CartInfo(UUID userId, String tradeId, Integer serNo, CartType cartType, UUID sellerId, String prodDate,
-			String prodName, String prodNo, String manufacturer, String mufcDate, String prodSpecInfo, String prodState,
+			String prodName, String prodNo, String manufacturer, String prodSpecInfo, String prodState,
 			String provDate, Integer orderUnitPrice, Integer orderQuantity, String reqDeliDate, String remarks,
 			String regDate) {
 		this.userId = userId;
@@ -99,7 +97,6 @@ public class CartInfo implements Persistable<CartInfoId> {
 		this.prodName = prodName;
 		this.prodNo = prodNo;
 		this.manufacturer = manufacturer;
-		this.mufcDate = mufcDate;
 		this.prodSpecInfo = prodSpecInfo;
 		this.prodState = prodState;
 		this.provDate = provDate;

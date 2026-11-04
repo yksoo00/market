@@ -88,7 +88,6 @@ export function infoRows(d: ListingDetail): InfoRow[] {
     { key: "stock", label: r.stock, value: count(d.stockQuantity) },
     { key: "category", label: r.category, value: d.categoryPath ?? d.category },
     { key: "tradeType", label: r.tradeType, value: d.tradeType },
-    { key: "mufcDate", label: r.mufcDate, value: orEmpty(d.mufcDate) },
     { key: "classNo", label: r.classNo, value: orEmpty(d.prodClassNo) },
     { key: "usefulLife", label: r.usefulLife, value: d.prodUsefulLife === null ? t.empty : t.months(d.prodUsefulLife) },
     { key: "warrantyMethod", label: r.warrantyMethod, value: orEmpty(d.warrantyMethod) },

@@ -19,8 +19,6 @@ public final class KoreanDates {
 	/** STRICT 는 uuuu(연도) 와 함께 써야 2026-02-30 같은 날짜를 거부한다 (yyyy 는 연대 필드가 필요) */
 	private static final DateTimeFormatter ISO = DateTimeFormatter.ofPattern("uuuu-MM-dd").withResolverStyle(ResolverStyle.STRICT);
 
-	private static final DateTimeFormatter COMPACT = DateTimeFormatter.ofPattern("uuuuMMdd").withResolverStyle(ResolverStyle.STRICT);
-
 	private KoreanDates() {
 	}
 
@@ -35,11 +33,6 @@ public final class KoreanDates {
 	/** yyyy-MM-dd. 없는 날짜·다른 형식·null 이면 null */
 	public static LocalDate parseIso(String value) {
 		return parse(value, ISO);
-	}
-
-	/** yyyyMMdd. 없는 날짜·다른 형식·null 이면 null */
-	public static LocalDate parseCompact(String value) {
-		return parse(value, COMPACT);
 	}
 
 	private static LocalDate parse(String value, DateTimeFormatter format) {

@@ -27,9 +27,6 @@ class KoreanDatesTest {
 		assertThat(KoreanDates.parseIso("2026-02-30")).isNull();
 		assertThat(KoreanDates.parseIso("20261019")).isNull();
 		assertThat(KoreanDates.parseIso(null)).isNull();
-		assertThat(KoreanDates.parseCompact("20261019")).isEqualTo(LocalDate.of(2026, 10, 19));
-		assertThat(KoreanDates.parseCompact("20260230")).isNull();
-		assertThat(KoreanDates.parseCompact("2026-10-19")).isNull();
 	}
 
 }

@@ -95,12 +95,9 @@ describe("listingFormSchema", () => {
     expect(errorPaths({ prodState: "신품대비 70%" })).toEqual(["prodState"]);
   });
 
-  it("제조일은 오늘까지, 납기일은 오늘부터, 없는 날짜 거부", () => {
-    expect(parse({ prodMufcDate: "2026-10-02" }).success).toBe(true);
-    expect(errorPaths({ prodMufcDate: "2026-10-03" })).toEqual(["prodMufcDate"]);
+  it("납기일은 오늘부터, 없는 날짜 거부", () => {
     expect(parse({ deliveryDate: "2026-10-02" }).success).toBe(true);
     expect(errorPaths({ deliveryDate: "2026-10-01" })).toEqual(["deliveryDate"]);
-    expect(errorPaths({ prodMufcDate: "2026-02-30" })).toEqual(["prodMufcDate"]);
     expect(errorPaths({ deliveryDate: "2027-02-30" })).toEqual(["deliveryDate"]);
   });
 
@@ -112,11 +109,6 @@ describe("listingFormSchema", () => {
   it("대표 사진(첫 장)이 없으면 오류", () => {
     expect(errorPaths({ photos: [] })).toEqual(["photos"]);
     expect(parse({ photos: [] }).error?.issues[0]?.message).toBe(listing.validation.photosRequired);
-  });
-
-  it("상품마스터를 골랐으면 마스터의 제조일이 오늘 이후여도 통과 (잠긴 칸이라 고칠 수 없다)", () => {
-    expect(errorPaths({ prodMufcDate: "2026-10-03" })).toEqual(["prodMufcDate"]);
-    expect(parse({ prodId: "KP-2026-000001", prodMufcDate: "2026-10-03" }).success).toBe(true);
   });
 
   it("고른 상품마스터에 사진이 있으면 올린 사진이 없어도 통과, 마스터에도 없으면 오류", () => {

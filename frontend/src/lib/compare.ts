@@ -47,7 +47,7 @@ const t = listing.detail;
 const orEmpty = (v: string | null) => v ?? t.empty;
 const has = (v: string | null) => (v ? c.rows.has : c.rows.none);
 // 숫자·날짜 칸은 고정폭 숫자 (상세 정보 표는 상품코드만 mono — 여기선 열끼리 자릿수를 맞춰 보게)
-const MONO = new Set(["prodId", "leadTime", "unitPrice", "stock", "mufcDate", "minOrder", "orderUnit", "salesQuantity", "warranty", "regDate"]);
+const MONO = new Set(["prodId", "leadTime", "unitPrice", "stock", "minOrder", "orderUnit", "salesQuantity", "warranty", "regDate"]);
 
 /** 상세 정보 표(infoRows)에 없는 상세 화면의 나머지 칸 — 사용자 결정: 상세의 모든 칸을 비교 */
 function extraRows(d: ListingDetail): InfoRow[] {
