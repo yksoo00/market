@@ -199,7 +199,7 @@ public class DevTableService {
 		return true;
 	}
 
-	/** 첫 시트 한 장을 이 테이블에. 한 행이라도 실패하면 전부 되돌린다 */
+	/** 첫 시트 한 장을 이 테이블에. 한 행이라도 실패하면 전부 되돌린다. 헤더는 물리명 또는 정의서 논리명(DevTableAliases) */
 	@Transactional
 	public List<ImportResult> importTable(String tableName, MultipartFile file) {
 		TableInfo t = table(tableName);
@@ -214,25 +214,27 @@ public class DevTableService {
 		}
 	}
 
-	/** 시트 이름 = 테이블 이름. 화이트리스트 밖 시트가 하나라도 있으면 아무것도 넣지 않는다 */
+	/** 시트 이름 = 테이블 이름(물리명 또는 정의서 논리명). 화이트리스트 밖 시트가 하나라도 있으면 아무것도 넣지 않는다 */
 	@Transactional
 	public List<ImportResult> importAll(MultipartFile file) {
 		Map<String, TableInfo> byName = load(TABLES).stream().collect(Collectors.toMap(TableInfo::name, x -> x));
 		try (XSSFWorkbook wb = open(file)) {
-			List<Sheet> sheets = new ArrayList<>();
+			Map<Sheet, TableInfo> sheets = new LinkedHashMap<>();
+			Set<String> seen = new LinkedHashSet<>();
 			for (Sheet sh : wb) {
-				if (!byName.containsKey(sh.getSheetName().toLowerCase(Locale.ROOT))) {
-					throw bad("시트 이름이 테이블이 아닙니다: " + sh.getSheetName());
+				String table = DevTableAliases.table(sh.getSheetName()).filter(byName::containsKey)
+					.orElseThrow(() -> bad("시트 이름이 테이블이 아닙니다: " + sh.getSheetName()));
+				// 물리명 시트와 논리명 시트가 같은 테이블이면 둘 다 넣는 게 아니라 거절 (이름은 별명이라 한 시트로 합쳐 주지 않는다)
+				if (!seen.add(table)) {
+					throw bad("같은 테이블 시트가 두 개입니다: " + sh.getSheetName());
 				}
-				sheets.add(sh);
+				sheets.put(sh, byName.get(table));
 			}
 			if (sheets.isEmpty()) {
 				throw bad("시트가 없습니다.");
 			}
 			List<ImportResult> results = new ArrayList<>();
-			for (Sheet sh : sheets) {
-				results.add(importSheet(byName.get(sh.getSheetName().toLowerCase(Locale.ROOT)), sh));
-			}
+			sheets.forEach((sh, t) -> results.add(importSheet(t, sh)));
 			return results;
 		}
 		catch (IOException e) {
@@ -256,7 +258,7 @@ public class DevTableService {
 			if (h == null) {
 				continue;
 			}
-			ColumnInfo col = known.get(h.trim().toLowerCase(Locale.ROOT));
+			ColumnInfo col = known.get(DevTableAliases.column(t.name(), h));
 			if (col == null) {
 				throw bad("시트 " + sheetName + ": 모르는 컬럼 " + h);
 			}
