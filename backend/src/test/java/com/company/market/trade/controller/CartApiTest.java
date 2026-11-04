@@ -202,6 +202,8 @@ class CartApiTest {
 			.containsEntry("prod_state", "신품").containsEntry("prov_date", "2099-12-31").containsEntry("order_unit_price", 1000)
 			.containsEntry("order_quantity", 3).containsEntry("req_deli_date", "2099-11-01").containsEntry("remarks", "빨리");
 		assertThat(cart.get("reg_date").toString()).hasSize(14);
+		// 제조일은 2026-11-04 에 없앴다 — 새 행은 mufc_date 를 채우지 않는다 (컬럼은 db/ PR 에서 지운다)
+		assertThat(cart.get("mufc_date")).isNull();
 		assertThat(jdbc.queryForList("select ser_no from trd_cart_info order by ser_no", Integer.class)).containsExactly(1, 2);
 		// 담으면 그 수량만큼 재고가 묶인다 (2026-11-02)
 		assertThat(stockOf(REG_A)).isEqualTo(7);

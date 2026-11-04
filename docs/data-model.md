@@ -99,7 +99,7 @@
 | reg_date | varchar(14) | null | 등록일시 (정의서 nullable, 서버는 항상 채움) |
 | spare_col | varchar(100) | | 예비 컬럼 |
 
-같은 상품 = 이름·제조사·분류번호·제조일이 모두 같음(사양은 안 봄). 직접 입력 등록은 같은 상품이 있으면 재사용, 없으면 새로 만든다. 동시 생성은 `pg_advisory_xact_lock(hashtext('prod-master'))` 로 줄 세운다(unique 대신, 2026-10-28).
+같은 상품 = 이름·제조사·분류번호가 모두 같음(사양은 안 봄. 제조일은 2026-11-04 에 기준에서 뺐다 — 제조일이 달라 따로 있던 옛 마스터가 여럿이면 prod_id 가 작은 것을 쓴다). 직접 입력 등록은 같은 상품이 있으면 재사용, 없으면 새로 만든다. 동시 생성은 `pg_advisory_xact_lock(hashtext('prod-master'))` 로 줄 세운다(unique 대신, 2026-10-28).
 
 ### trd_prod_reg (TRD_PROD_REG — 상품등록 정보)
 

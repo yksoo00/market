@@ -44,13 +44,13 @@ public class ProductService {
 	private final Clock clock;
 
 	/**
-	 * 생성 잠금(트랜잭션 끝까지) 뒤에 찾는다 — 같은 네 값을 동시에 처음 등록해도 하나만 생기고, 개수 기반 채번도 겹치지 않는다.
-	 * 빈 분류번호·제조일은 null 과 같은 "없음"
+	 * 생성 잠금(트랜잭션 끝까지) 뒤에 찾는다 — 같은 세 값을 동시에 처음 등록해도 하나만 생기고, 개수 기반 채번도 겹치지 않는다.
+	 * 빈 분류번호는 null 과 같은 "없음"
 	 */
 	@Transactional
 	public Product findOrCreate(ProductDraft draft) {
 		products.lockCreation();
-		return products.findSame(draft.prodName(), draft.prodBrand(), orEmpty(draft.prodClassNo()), orEmpty(draft.prodMufcDate()))
+		return products.findSame(draft.prodName(), draft.prodBrand(), orEmpty(draft.prodClassNo()))
 			.orElseGet(() -> create(draft));
 	}
 
@@ -74,7 +74,7 @@ public class ProductService {
 		Map<String, String> names = categories.names(found.stream().map(Product::getMinorCategory).filter(Objects::nonNull).distinct().toList());
 		return found.stream()
 			.map(p -> new ProductSearchItemResponse(p.getProdId(), p.getCategoryCode(), p.getMinorCategory() == null ? null : names.get(p.getMinorCategory()),
-					p.getProdName(), p.getProdNo(), p.getProdBrand(), p.getProdClassNo(), p.getProdMufcDate(), p.getProdSpecInfo(),
+					p.getProdName(), p.getProdNo(), p.getProdBrand(), p.getProdClassNo(), p.getProdSpecInfo(),
 					p.getProdUsefulLife(), p.getWarrantyMethod(), p.getAlterProdName(), p.getProdDataSheet(), p.getProdPhoto1()))
 			.toList();
 	}
@@ -107,7 +107,6 @@ public class ProductService {
 			.prodUsefulLife(draft.prodUsefulLife())
 			.warrantyMethod(blankToNull(draft.warrantyMethod()))
 			.alterProdName(blankToNull(draft.alterProdName()))
-			.prodMufcDate(blankToNull(draft.prodMufcDate()))
 			.prodSpecInfo(draft.prodSpecInfo())
 			.prodDataSheet(draft.prodDataSheet())
 			.prodPhoto1(draft.firstPhoto())
@@ -116,7 +115,7 @@ public class ProductService {
 	}
 
 	public record ProductDraft(CategoryFragments category, String prodName, String prodNo, String prodBrand,
-			String prodClassNo, String prodMufcDate, String prodSpecInfo, Integer prodUsefulLife, String warrantyMethod,
+			String prodClassNo, String prodSpecInfo, Integer prodUsefulLife, String warrantyMethod,
 			String alterProdName, String prodDataSheet, String firstPhoto) {
 	}
 

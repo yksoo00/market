@@ -390,7 +390,7 @@ class TradeApiTest {
 		// 판매자 수정: 단가 2000 으로 바꾸고 커밋 전에 멈춘다 (행 잠금을 쥔 채)
 		CompletableFuture<Void> edit = CompletableFuture.runAsync(() -> tx.executeWithoutResult(s -> {
 			listingService.update(sellerId, REG_DATE, sellerId, new ListingUpdateRequest(null, null, 2000, null, null, null,
-					null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+					null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 			edited.countDown();
 			try {
 				release.await(10, TimeUnit.SECONDS);

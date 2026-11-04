@@ -99,7 +99,7 @@ public class ListingService {
 		if (photos.isEmpty() && (master == null || !hasText(master.getProdPhoto1()))) {
 			throw new ValidationException(Map.of("photos", "대표 사진을 올려 주세요."));
 		}
-		validateDates(master == null ? req.prodMufcDate() : null, req.deliveryDate());
+		validateDates(req.deliveryDate());
 		if (master == null && req.prodUsefulLife() != null && !USEFUL_LIFE_MONTHS.contains(req.prodUsefulLife())) {
 			throw new ValidationException(Map.of("prodUsefulLife", "보증년수는 목록에서 고른 값이어야 합니다."));
 		}
@@ -115,7 +115,7 @@ public class ListingService {
 		uploads.claim(userId, files);
 
 		Product product = master != null ? master : products.findOrCreate(new ProductDraft(category, req.prodName().trim(),
-				req.prodNo(), req.prodBrand().trim(), req.prodClassNo(), req.prodMufcDate(), req.prodSpecInfo(), req.prodUsefulLife(),
+				req.prodNo(), req.prodBrand().trim(), req.prodClassNo(), req.prodSpecInfo(), req.prodUsefulLife(),
 				req.warrantyMethod(), req.alterProdName(),
 				// 새 마스터의 데이터시트는 이 판매자가 올린 것 (productDataSheet 칸은 폼이 안 보낸다)
 				hasText(req.productDataSheet()) ? req.productDataSheet() : req.listingDataSheet(), firstPhoto));
@@ -170,14 +170,11 @@ public class ListingService {
 		}
 		// 이미 저장된 납기일을 그대로 다시 보내면(수정 화면이 모든 칸을 보낼 때) 지난 날짜여도 통과
 		Product currentProduct = products.get(listing.getProdId());
-		// 제조일도 저장된 값 그대로면 건너뛴다 (납기일과 같은 이유). 새로 보낸 값만 오늘까지인지 본다
-		String newMufcDate = req.prodMufcDate() == null || req.prodMufcDate().isEmpty()
-				|| req.prodMufcDate().equals(currentProduct.getProdMufcDate()) ? null : req.prodMufcDate();
 		// 제공가능일은 정의서 NOT NULL — 수정에서 비울 수 없다 (null = 안 바꿈)
 		if (req.deliveryDate() != null && req.deliveryDate().isBlank()) {
 			throw new ValidationException(Map.of("deliveryDate", ListingCreateRequest.DELIVERY_DATE_REQUIRED));
 		}
-		validateDates(newMufcDate, Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
+		validateDates(Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
 		// 대표 사진 필수(등록 규칙)를 수정에서도 지킨다 — 사진이 있는 매물은 전부 뺄 수 없다.
 		// 사진 없는 옛 매물은 [] 를 보내도 바뀌는 게 없어 막지 않는다
 		if (req.photos() != null && req.photos().isEmpty() && firstPhoto(listing) != null) {
@@ -261,14 +258,12 @@ public class ListingService {
 		}
 		String name = req.prodName() == null ? current.getProdName() : req.prodName().trim();
 		String brand = req.prodBrand() == null ? current.getProdBrand() : req.prodBrand().trim();
-		String mufcDate = textOrCurrent(req.prodMufcDate(), current.getProdMufcDate());
-		if (!name.equals(current.getProdName()) || !brand.equals(current.getProdBrand())
-				|| !Objects.equals(mufcDate, current.getProdMufcDate())) {
+		if (!name.equals(current.getProdName()) || !brand.equals(current.getProdBrand())) {
 			// 카테고리는 update() 가 이미 확인했다
 			CategoryFragments category = req.categoryCode() == null ? current.category() : CategoryFragments.parse(req.categoryCode());
-			// 안 보낸 칸은 옛 상품 값을 이어받는다 (이름만 바꿔도 번호·제조일이 사라지지 않게)
+			// 안 보낸 칸은 옛 상품 값을 이어받는다 (이름만 바꿔도 번호가 사라지지 않게)
 			Product target = products.findOrCreate(new ProductDraft(category, name,
-					textOrCurrent(req.prodNo(), current.getProdNo()), brand, current.getProdClassNo(), mufcDate,
+					textOrCurrent(req.prodNo(), current.getProdNo()), brand, current.getProdClassNo(),
 					textOrCurrent(req.prodSpecInfo(), current.getProdSpecInfo()), current.getProdUsefulLife(),
 					current.getWarrantyMethod(), current.getAlterProdName(),
 					// 옛 상품의 데이터시트·사진은 처음 등록한 다른 판매자의 파일일 수 있어 물려주지 않는다. 사진은 이 매물의 첫 사진
@@ -289,7 +284,7 @@ public class ListingService {
 			changed.keySet().forEach(f -> fields.put(f, ErrorCode.PRODUCT_SHARED.message()));
 			throw new ApiException(ErrorCode.PRODUCT_SHARED, ErrorCode.PRODUCT_SHARED.message(), fields);
 		}
-		current.applyEdit(req.categoryCode() == null ? null : CategoryFragments.parse(req.categoryCode()), req.prodNo(), req.prodMufcDate(), req.prodSpecInfo());
+		current.applyEdit(req.categoryCode() == null ? null : CategoryFragments.parse(req.categoryCode()), req.prodNo(), req.prodSpecInfo());
 		return current;
 	}
 
@@ -374,7 +369,7 @@ public class ListingService {
 				product.getProdName(), listing.getProdState(), listing.getSalesUnitPrice(), listing.getStockQuantity(),
 				listing.getMinOrderQuantity(), listing.getOrderUnit(), listing.getDeliveryDate(),
 				listing.getDtExpire() != null, photo != null && photo.startsWith("public/") ? photo : null,
-				product.getProdBrand(), product.getProdMufcDate(), product.getProdSpecInfo(), product.getCategoryCode());
+				product.getProdBrand(), product.getProdSpecInfo(), product.getCategoryCode());
 	}
 
 	/** 거래 목록용 — 여러 매물의 스냅샷을 매물·상품 각 한 쿼리로. 없는 키는 빠진다 */
@@ -570,7 +565,7 @@ public class ListingService {
 		boolean hasDataSheet = listing.getProdDataSheet() != null;
 		return new ListingSearchItemResponse(listing.getUserId(), listing.getRegDate(), product.getProdNo(),
 				product.getProdName(), product.getProdBrand(), product.getCategoryCode(),
-				product.mufcDateIso(), listing.getProdDescription(), hasDataSheet, hasPhoto, mainPhoto,
+				listing.getProdDescription(), hasDataSheet, hasPhoto, mainPhoto,
 				listing.warrantyUntil(), listing.getWarrantyCoverage(),
 				listing.getReplaceProd() != null, listing.getTestReport() != null, listing.getCertificateOfAuthen() != null,
 				listing.getProdState(), listing.getStockQuantity(), listing.getSalesUnitPrice(), listing.getDeliveryDate(),
@@ -578,20 +573,11 @@ public class ListingService {
 	}
 
 	/**
-	 * 형식(@Pattern)은 DTO가 보고, 여기서는 실제 날짜인지와 범위를 본다: 제조일은 오늘까지, 납기일은 오늘부터 (한국 날짜).
+	 * 형식(@Pattern)은 DTO가 보고, 여기서는 실제 날짜인지와 범위를 본다: 납기일은 오늘부터 (한국 날짜).
 	 */
-	private void validateDates(String prodMufcDate, String deliveryDate) {
+	private void validateDates(String deliveryDate) {
 		LocalDate today = KoreanDates.today(clock);
 		Map<String, String> failures = new LinkedHashMap<>();
-		if (prodMufcDate != null) {
-			LocalDate date = KoreanDates.parseCompact(prodMufcDate);
-			if (date == null) {
-				failures.put("prodMufcDate", "제조일이 올바른 날짜가 아닙니다.");
-			}
-			else if (date.isAfter(today)) {
-				failures.put("prodMufcDate", "제조일은 오늘 이전 날짜로 입력하세요.");
-			}
-		}
 		if (deliveryDate != null && !deliveryDate.isEmpty()) {
 			LocalDate date = KoreanDates.parseIso(deliveryDate);
 			if (date == null) {
@@ -646,7 +632,6 @@ public class ListingService {
 				listing.getWarrantyPeriod(), listing.getWarrantyCoverage(), listing.getReplaceProd(), listing.getTestReport(),
 				listing.getCertificateOfAuthen(), listing.getDtUpdate(), listing.getDtExpire(), product.getCategoryCode(),
 				categories.namePath(product),
-				product.mufcDateIso(),
 				listing.tradeStatus(),
 				listing.warrantyUntil());
 	}

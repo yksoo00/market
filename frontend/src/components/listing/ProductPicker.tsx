@@ -12,14 +12,9 @@ import type { ProductSearchItem } from "@/types/listing";
 
 const t = listing.form.master;
 
-/** 마스터의 yyyyMMdd → 날짜 칸의 YYYY-MM-DD. 형식이 다르면 비운다 */
-function toDateInput(s: string | null): string {
-  return s && /^\d{8}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : "";
-}
-
 // 마스터가 채우는(직접 입력으로 바꾸면 비우는) 폼 칸
 const productFields = [
-  "prodId", "masterPhoto", "masterDataSheet", "categoryCode", "prodName", "prodBrand", "prodNo", "prodMufcDate", "prodSpecInfo",
+  "prodId", "masterPhoto", "masterDataSheet", "categoryCode", "prodName", "prodBrand", "prodNo", "prodSpecInfo",
   "prodClassNo", "prodUsefulLife", "warrantyMethod", "alterProdName",
 ] as const;
 type ProductField = (typeof productFields)[number] | "manual";
@@ -29,7 +24,7 @@ type Search = { q: string; items: ProductSearchItem[] | null };
 /**
  * 상품마스터 드롭다운 (카테고리 칸과 같은 모양). 처음엔 아무것도 고르지 않은 상태라 아래 상품 칸이 잠겨 있다.
  * 누르면 맨 위 "직접 입력" + 마스터 목록(이름순 앞 10건, 이름·제조사·번호를 치면 걸러짐)이 열린다.
- * - 마스터를 고르면 상품 칸(카테고리·상품명·제조사·번호·제조일·사양·분류번호·보증년수·정품보증방법·대체상품명)이 마스터 값으로 채워진 채 잠기고, 마스터의 데이터시트·사진 키는 폼에 따로 담긴다.
+ * - 마스터를 고르면 상품 칸(카테고리·상품명·제조사·번호·사양·분류번호·보증년수·정품보증방법·대체상품명)이 마스터 값으로 채워진 채 잠기고, 마스터의 데이터시트·사진 키는 폼에 따로 담긴다.
  * - "직접 입력"을 고르면 상품 칸이 비워져 열린다. 입력한 상품은 서버가 새 마스터로 저장한다.
  */
 export function ProductPicker() {
@@ -74,7 +69,6 @@ export function ProductPicker() {
     set("prodName", p.prodName);
     set("prodBrand", p.prodBrand);
     set("prodNo", p.prodNo ?? "");
-    set("prodMufcDate", toDateInput(p.prodMufcDate));
     set("prodSpecInfo", p.prodSpecInfo ?? "");
     set("prodClassNo", p.prodClassNo ?? "");
     set("prodUsefulLife", p.prodUsefulLife === null ? "" : String(p.prodUsefulLife));

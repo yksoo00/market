@@ -46,7 +46,7 @@ class ProductCreateLockTest {
 		for (int round = 0; round < 10; round++) {
 			String name = "동시 상품 " + round;
 			ProductDraft draft = new ProductDraft(CategoryFragments.parse("P01-Q01-R001"), name, null, "삼성", "C-1",
-					"20260101", null, null, null, null, null, null);
+					null, null, null, null, null, null);
 			CountDownLatch start = new CountDownLatch(1);
 			List<CompletableFuture<Product>> runs = List.of(
 					CompletableFuture.supplyAsync(() -> awaitThen(start, draft)),

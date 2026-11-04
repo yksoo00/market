@@ -26,7 +26,7 @@ const t = listing.form;
 
 // 서버 fields 를 붙일 수 있는 칸. 서버 필드명 = 요청 필드명 = 폼 칸 이름
 const fields = [
-  "categoryCode", "prodName", "prodBrand", "prodNo", "prodMufcDate", "prodSpecInfo", "prodClassNo", "prodUsefulLife",
+  "categoryCode", "prodName", "prodBrand", "prodNo", "prodSpecInfo", "prodClassNo", "prodUsefulLife",
   "warrantyMethod", "alterProdName", "prodState",
   "salesUnitPrice", "salesQuantity", "minOrderQuantity", "orderUnit", "deliveryDate", "description",
   "photos", "listingDataSheet",
@@ -44,7 +44,7 @@ interface Props {
 /** 매물 등록 폼. 규격은 design.md "매물 등록 폼", 스펙 docs/superpowers/specs/2026-10-02-listing-create-design.md */
 export function ListingForm({ initialValues, submitLabel, secondarySubmitLabel, onSubmit }: Props) {
   const router = useRouter();
-  // 제조일·납기일 범위 기준. 폼을 연 날 기준으로 고정 (자정을 넘겨도 서버가 다시 본다)
+  // 납기일 범위 기준. 폼을 연 날 기준으로 고정 (자정을 넘겨도 서버가 다시 본다)
   const [today] = useState(() => todayInSeoul());
   const form = useForm<ListingFormInput, unknown, ListingFormOutput>({
     resolver: zodResolver(listingFormSchema(today)),
@@ -135,7 +135,6 @@ export function ListingForm({ initialValues, submitLabel, secondarySubmitLabel, 
             <FormField<ListingFormInput> inline name="prodName" label={t.prodName} placeholder={t.prodNamePlaceholder} maxLength={50} readOnly={locked} noStatus={locked} className={lockedClass} />
           </Wide>
           <FormField<ListingFormInput> inline name="prodNo" label={t.prodNo} placeholder={t.prodNoPlaceholder} maxLength={20} readOnly={locked} noStatus={locked} className={`font-mono ${lockedClass}`} />
-          <FormField<ListingFormInput> inline name="prodMufcDate" label={t.prodMufcDate} type="date" max={today} readOnly={locked} noStatus={locked} className={lockedClass} />
           <Wide>
             <FormField<ListingFormInput> inline name="prodSpecInfo" label={t.prodSpecInfo} placeholder={t.prodSpecInfoPlaceholder} maxLength={100} readOnly={locked} noStatus={locked} className={lockedClass} />
           </Wide>

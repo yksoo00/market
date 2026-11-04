@@ -114,7 +114,6 @@ export const search = {
     prodNo: "상품번호",
     prodName: "상품명",
     brand: "제조사",
-    mufcDate: "제조일",
     prodDescription: "상품설명",
     dataSheet: "데이터시트",
     photo: "사진",

@@ -23,7 +23,6 @@ public record ListingTradeSnapshot(
 		String photo,
 		/** 장바구니·비교 행에 복사하는 상품마스터 값 (trd_cart_info) */
 		String manufacturer,
-		String mufcDate,
 		String prodSpecInfo,
 		/** 상품마스터 대-중-소 경로 코드 — 비교는 이 값이 같은 매물끼리만 */
 		String categoryCode) {

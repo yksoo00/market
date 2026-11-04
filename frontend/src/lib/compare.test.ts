@@ -40,7 +40,6 @@ const detail = (over: Partial<ListingDetail> = {}): ListingDetail => ({
   dtExpire: null,
   category: "P01-Q01-R001",
   categoryPath: "PC주요부품 > CPU/프로세서 > 인텔 CPU",
-  mufcDate: null,
   tradeStatus: "available",
   warrantyUntil: null,
   ...over,

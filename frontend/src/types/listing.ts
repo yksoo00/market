@@ -9,8 +9,6 @@ export interface ListingCreateRequest {
   prodName?: string;
   prodNo?: string;
   prodBrand?: string;
-  /** yyyyMMdd */
-  prodMufcDate?: string;
   prodSpecInfo?: string;
   prodClassNo?: string;
   /** 보증년수 — 개월 수 (USEFUL_LIFE_MONTHS) */
@@ -56,8 +54,6 @@ export interface ListingSearchItem {
   prodName: string;
   prodBrand: string;
   category: string;
-  /** 제조일 YYYY-MM-DD (products.prod_mufc_date) */
-  mufcDate: string | null;
   /** 상품설명 (listings.prod_description) */
   prodDescription: string | null;
   hasDataSheet: boolean;
@@ -134,8 +130,6 @@ export interface ListingDetail {
   category: string;
   /** "대 > 중 > 소" 이름. 카테고리 목록에 없는 옛 코드면 null (그땐 category 코드를 보여 준다) */
   categoryPath: string | null;
-  /** YYYY-MM-DD. 날짜로 읽히지 않는 레거시 값은 원문 그대로 */
-  mufcDate: string | null;
   tradeStatus: TradeStatus;
   /** 등록일 + 보증 일수, YYYY-MM-DD */
   warrantyUntil: string | null;
@@ -161,12 +155,11 @@ export interface ListingUpdateRequest {
   testReport?: string;
   certificateOfAuthen?: string;
   // 상품 칸 (2026-11-02 행 안 수정 폐지로 지금 화면에서 보내는 곳 없음). 이름·제조사가 바뀌면 이 매물만 다른 상품으로, 나머지는 단독 사용일 때만 (서버 422 PRODUCT_SHARED).
-  // 번호·제조일(yyyyMMdd)·사양은 "" = 비우기
+  // 번호·사양은 "" = 비우기
   categoryCode?: string;
   prodName?: string;
   prodBrand?: string;
   prodNo?: string;
-  prodMufcDate?: string;
   prodSpecInfo?: string;
 }
 
@@ -195,8 +188,6 @@ export interface ProductSearchItem {
   prodName: string;
   prodNo: string | null;
   prodBrand: string;
-  /** yyyyMMdd */
-  prodMufcDate: string | null;
   prodSpecInfo: string | null;
   prodClassNo: string | null;
   /** 보증년수 — 개월 수 */

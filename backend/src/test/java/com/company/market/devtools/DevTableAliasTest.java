@@ -42,6 +42,8 @@ class DevTableAliasTest {
 	@Autowired
 	DevTableService service;
 
+	private static final Set<String> UNALIASED = Set.of("trd_prod_master.prod_mufc_date", "trd_cart_info.mufc_date");
+
 	@BeforeEach
 	@AfterEach
 	void cleanUp() {
@@ -77,7 +79,7 @@ class DevTableAliasTest {
 	}
 
 	@Test
-	@DisplayName("DB 의 모든 테이블·컬럼에 별명이 있고(prod_mufc_date 만 제외) 한 테이블 안에서 이름이 겹치지 않는다")
+	@DisplayName("DB 의 모든 테이블·컬럼에 별명이 있고(제조일 컬럼 둘만 제외) 한 테이블 안에서 이름이 겹치지 않는다")
 	void every_column_has_unique_alias() {
 		assertThat(DevTableAliases.TABLES.keySet()).containsExactlyInAnyOrderElementsOf(DevTableService.TABLES);
 		assertThat(normalized(DevTableAliases.TABLES.values())).hasSize(DevTableService.TABLES.size());
@@ -85,8 +87,9 @@ class DevTableAliasTest {
 			Set<String> seen = new HashSet<>();
 			for (DevTableService.ColumnInfo c : t.columns()) {
 				String alias = DevTableAliases.COLUMNS.get(t.name()).get(c.name());
-				if (t.name().equals("trd_prod_master") && c.name().equals("prod_mufc_date")) {
-					assertThat(alias).as("정의서에 없는 컬럼은 별명 없이 물리명으로만").isNull();
+				// 제조일 삭제(2026-11-04) 중 — DB 에서 컬럼을 지우는 db/ PR 에서 이 예외도 지운다
+				if (UNALIASED.contains(t.name() + "." + c.name())) {
+					assertThat(alias).as("지우는 중인 컬럼은 별명 없이 물리명으로만").isNull();
 					continue;
 				}
 				assertThat(alias).as(t.name() + "." + c.name()).isNotBlank();
@@ -172,7 +175,15 @@ class DevTableAliasTest {
 	}
 
 	@Test
-	@DisplayName("정의서에 없는 prod_mufc_date 는 물리명으로 받는다")
+	@DisplayName("정의서 CART_INFO 헤더 그대로 \"제조일시\" 칸이 있으면 모르는 컬럼으로 거절한다 — 조용히 버리지 않는다 (제조일 삭제 2026-11-04)")
+	void cart_header_with_removed_column_is_rejected() throws Exception {
+		MockMultipartFile f = xlsx(new String[] { "바구니 정보" }, new Object[][] { { "사용자ID", "제조일시" }, { "11111111-1111-1111-1111-111111111111", "20260101" } });
+		mvc.perform(multipart("/api/v1/dev/import").file(f)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("모르는 컬럼")));
+	}
+
+	@Test
+	@DisplayName("제조일 컬럼이 아직 DB 에 있는 동안, 별명이 없는 prod_mufc_date 는 물리명으로 받는다")
 	void column_without_alias_accepts_physical_name() {
 		assertThat(DevTableAliases.column("trd_prod_master", "PROD_MUFC_DATE")).isEqualTo("prod_mufc_date");
 	}

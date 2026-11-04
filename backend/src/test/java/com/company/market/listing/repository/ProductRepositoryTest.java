@@ -24,15 +24,25 @@ class ProductRepositoryTest {
 	ProductRepository products;
 
 	@Test
-	@DisplayName("같은 상품은 이름·제조사·분류번호·제조일로 찾는다 — 없는 칸은 \"\" 로 넘긴다")
-	void findsSameByFourValues() {
+	@DisplayName("같은 상품은 이름·제조사·분류번호로 찾는다 — 없는 칸은 \"\" 로 넘긴다")
+	void findsSameByThreeValues() {
 		products.saveAndFlush(Product.builder().prodId("ELEC00010001").majorCategory("P01").middleCategory("Q01").minorCategory("R001")
 			.prodName("노트북 A").prodBrand("삼성").prodClassNo("C-1").regDate("20260929120000").build());
 
-		assertThat(products.findSame("노트북 A", "삼성", "C-1", "")).isPresent();
-		assertThat(products.findSame("노트북 A", "LG", "C-1", "")).isEmpty();
-		assertThat(products.findSame("노트북 A", "삼성", "", "")).isEmpty();
-		assertThat(products.findSame("노트북 A", "삼성", "C-1", "20260101")).isEmpty();
+		assertThat(products.findSame("노트북 A", "삼성", "C-1")).isPresent();
+		assertThat(products.findSame("노트북 A", "LG", "C-1")).isEmpty();
+		assertThat(products.findSame("노트북 A", "삼성", "")).isEmpty();
+	}
+
+	@Test
+	@DisplayName("제조일만 달라 따로 있던 옛 마스터가 여럿이어도 예외 없이 prod_id 가 가장 작은 한 행을 돌려준다")
+	void findSamePicksOldestWhenSeveral() {
+		products.saveAndFlush(Product.builder().prodId("ELEC00020002").majorCategory("P01").middleCategory("Q01").minorCategory("R001")
+			.prodName("노트북 B").prodBrand("삼성").regDate("20260929120001").build());
+		products.saveAndFlush(Product.builder().prodId("ELEC00020001").majorCategory("P01").middleCategory("Q01").minorCategory("R001")
+			.prodName("노트북 B").prodBrand("삼성").regDate("20260929120000").build());
+
+		assertThat(products.findSame("노트북 B", "삼성", "")).get().extracting(Product::getProdId).isEqualTo("ELEC00020001");
 	}
 
 	@Test

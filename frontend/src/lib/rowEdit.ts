@@ -10,7 +10,6 @@ export function applyDetailToItem(item: ListingSearchItem, d: ListingDetail): Li
     prodName: d.prodName,
     prodBrand: d.prodBrand,
     category: d.category,
-    mufcDate: d.mufcDate,
     prodDescription: d.description,
     hasDataSheet: d.listingDataSheet !== null,
     hasPhoto: d.photos.length > 0,

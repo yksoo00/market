@@ -10,7 +10,6 @@ public record ListingSearchItemResponse(
 		String prodName,
 		String prodBrand,
 		String category,
-		String mufcDate,
 		String prodDescription,
 		boolean hasDataSheet,
 		boolean hasPhoto,
