@@ -433,7 +433,7 @@ function Body({ load, asBuyer, sortTh, busy, onAct, onRetry, onShowRemarks, firs
         {load.items.map((item) => (
           <li key={item.tradeId} className="bg-surface border border-line rounded-md p-3.5 flex flex-col gap-1.5">
             <div className="flex items-start gap-2">
-              <Link href={listingHref({ userId: item.sellerId, regDate: item.regDate })} className="grow min-w-0 truncate text-sm font-medium">
+              <Link href={listingHref({ userId: item.sellerId, regDate: item.regDate })} className="grow min-w-0 line-clamp-2 break-words text-sm font-medium">
                 {item.prodName}
               </Link>
               <StatsBadge stats={item.tradeStats} />

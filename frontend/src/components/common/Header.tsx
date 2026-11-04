@@ -65,7 +65,7 @@ export function Header() {
         ))}
         {/* 로컬 전용 임시 테이블 바로가기 — 화면과 같은 조건(app/dev/tables/page.tsx)일 때만 (2026-10-30) */}
         {process.env.NEXT_PUBLIC_DEV_TOOLS === "true" && (
-          <Link href="/dev/tables" className="px-2 py-0.5 rounded border border-on-primary/50 text-on-primary hover:text-white">
+          <Link href="/dev/tables" className="px-2 py-0.5 rounded border border-on-primary/50 text-on-primary hover:text-white whitespace-nowrap">
             {dev.headerLink}
           </Link>
         )}
