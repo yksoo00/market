@@ -199,7 +199,7 @@ public class DevTableService {
 		return true;
 	}
 
-	/** 첫 시트 한 장을 이 테이블에. 한 행이라도 실패하면 전부 되돌린다 */
+	/** 첫 시트 한 장을 이 테이블에. 한 행이라도 실패하면 전부 되돌린다. 헤더는 물리명 또는 정의서 논리명(DevTableAliases) */
 	@Transactional
 	public List<ImportResult> importTable(String tableName, MultipartFile file) {
 		TableInfo t = table(tableName);
@@ -214,14 +214,14 @@ public class DevTableService {
 		}
 	}
 
-	/** 시트 이름 = 테이블 이름. 화이트리스트 밖 시트가 하나라도 있으면 아무것도 넣지 않는다 */
+	/** 시트 이름 = 테이블 이름(물리명 또는 정의서 논리명). 화이트리스트 밖 시트가 하나라도 있으면 아무것도 넣지 않는다 */
 	@Transactional
 	public List<ImportResult> importAll(MultipartFile file) {
 		Map<String, TableInfo> byName = load(TABLES).stream().collect(Collectors.toMap(TableInfo::name, x -> x));
 		try (XSSFWorkbook wb = open(file)) {
 			List<Sheet> sheets = new ArrayList<>();
 			for (Sheet sh : wb) {
-				if (!byName.containsKey(sh.getSheetName().toLowerCase(Locale.ROOT))) {
+				if (DevTableAliases.table(sh.getSheetName()).filter(byName::containsKey).isEmpty()) {
 					throw bad("시트 이름이 테이블이 아닙니다: " + sh.getSheetName());
 				}
 				sheets.add(sh);
@@ -231,7 +231,7 @@ public class DevTableService {
 			}
 			List<ImportResult> results = new ArrayList<>();
 			for (Sheet sh : sheets) {
-				results.add(importSheet(byName.get(sh.getSheetName().toLowerCase(Locale.ROOT)), sh));
+				results.add(importSheet(byName.get(DevTableAliases.table(sh.getSheetName()).orElseThrow()), sh));
 			}
 			return results;
 		}
@@ -256,7 +256,7 @@ public class DevTableService {
 			if (h == null) {
 				continue;
 			}
-			ColumnInfo col = known.get(h.trim().toLowerCase(Locale.ROOT));
+			ColumnInfo col = known.get(DevTableAliases.column(t.name(), h).orElse(""));
 			if (col == null) {
 				throw bad("시트 " + sheetName + ": 모르는 컬럼 " + h);
 			}
