@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { auth } from "@/messages/auth";
+import { cart } from "@/messages/cart";
 import { listing } from "@/messages/listing";
 import { my } from "@/messages/my";
 import { signup } from "@/messages/signup";
@@ -12,12 +13,10 @@ const password = "Test1234!@";
 const checkButton = (page: Page, name: string) =>
   page.locator(`input[name="${name}"]`).locator("xpath=ancestor::div[.//button][1]").getByRole("button", { name: signup.form.check });
 
-test("보조 칸 상세에서 구매 모달이 창 가운데에 뜨고, 닫으면 칸이 원래대로", async ({ page }) => {
+async function signUpAndLogIn(page: Page) {
   const stamp = Date.now().toString();
   const loginId = `e2em${stamp.slice(-8)}`;
   const phone8 = stamp.slice(-8);
-  await page.setViewportSize({ width: 1400, height: 800 });
-
   await page.goto("/signup/personal/form");
   await page.getByRole("button", { name: auth.verify.button }).click();
   await expect(page.getByText(signup.verify.done)).toBeVisible();
@@ -39,6 +38,11 @@ test("보조 칸 상세에서 구매 모달이 창 가운데에 뜨고, 닫으�
   await page.locator('input[name="password"]').fill(password);
   await page.getByRole("button", { name: auth.login.submit, exact: true }).click();
   await expect(page.getByRole("button", { name: my.menu.label })).toBeVisible();
+}
+
+test("보조 칸 상세에서 구매 모달이 창 가운데에 뜨고, 닫으면 칸이 원래대로", async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 800 });
+  await signUpAndLogIn(page);
 
   // 검색(주기능) → 첫 결과를 누르면 상세가 보조 칸(iframe)에 뜬다 (다른 사용자가 올린 매물이 있어야 한다 — 개발 DB 의 기존 매물)
   await page.goto("/search");
@@ -61,4 +65,21 @@ test("보조 칸 상세에서 구매 모달이 창 가운데에 뜨고, 닫으�
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
   await expect.poll(async () => (await page.locator("iframe").last().boundingBox())!.width).toBeLessThan(900);
+});
+
+test("보조 칸 상세에서 장바구니 담기 → 완료 모달이 이어져도 상세는 제 칸에 머문다", async ({ page }) => {
+  await page.setViewportSize({ width: 1400, height: 800 });
+  await signUpAndLogIn(page);
+
+  await page.goto("/search");
+  await page.locator("table tbody tr").first().getByRole("link").first().click();
+  const frame = page.frameLocator("iframe").last();
+  await frame.getByRole("button", { name: cart.add.button, exact: true }).click();
+  await frame.getByRole("dialog", { name: cart.add.dialog.title }).getByRole("button", { name: cart.add.dialog.submit(1), exact: true }).click();
+
+  // 담기 모달이 닫히자마자 완료 모달이 열린다 — 이때도 칸 내용(body)은 원래 칸 크기여야 한다 (창 크기로 펴지면 상세가 전체화면처럼 보인다)
+  const done = frame.getByRole("dialog", { name: cart.add.doneTitle });
+  await expect(done).toBeVisible();
+  const body = (await frame.locator("body").boundingBox())!;
+  expect(body.width).toBeLessThan(900);
 });

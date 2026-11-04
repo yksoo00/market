@@ -43,7 +43,7 @@ export const my = {
     filter: {
       label: "거래이력 검색",
       // 매물 검색창과 같은 범위·문구 (2026-10-30)
-      searchPlaceholder: "모델명 · 상품번호 · 제조사",
+      searchPlaceholder: "모델명·상품번호·제조사",
       search: "검색",
       chips: "필터",
       clear: (what: string) => `${what} 조건 지우기`,

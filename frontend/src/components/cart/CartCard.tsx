@@ -64,7 +64,7 @@ export function CartCard({ item, checked, onCheckedChange, quantityBusy, removin
           type="button"
           onClick={onOpen}
           aria-label={t.detailAria(l.prodName)}
-          className="text-left text-[15px] font-bold text-primary hover:underline break-words"
+          className="text-left text-[15px] font-bold text-primary hover:underline break-words line-clamp-2"
         >
           {l.prodName}
         </button>
@@ -85,7 +85,7 @@ export function CartCard({ item, checked, onCheckedChange, quantityBusy, removin
         </p>
         <p className="text-[12px] text-ink-3">
           <span className="num">{t.unitPrice(price)}</span>
-          {left !== null && <span className="num"> · {t.columns.remaining} {t.remaining(left)}</span>}
+          {left !== null && <span className="num whitespace-nowrap"> · {t.columns.remaining} {t.remaining(left)}</span>}
         </p>
       </div>
       <div className="col-span-3 @min-[36rem]:col-span-1 flex items-center justify-between @min-[36rem]:flex-col @min-[36rem]:items-end gap-3">

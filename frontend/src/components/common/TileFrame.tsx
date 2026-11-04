@@ -76,20 +76,24 @@ export function TileFrame({ pane, closable = true }: { pane: Pane; closable?: bo
   }
 
   return (
-    <div ref={boxRef} className={modalOpen ? "fixed inset-0 z-60" : "relative h-full w-full min-h-0"}>
-      <iframe
-        ref={iframeRef}
-        src={src}
-        title={t.tileFrameTitle}
-        // 새로 불러온 문서에는 열린 모달이 없다 — F5·뒤로 가기·재시도로 "닫힘" 메시지 없이 문서가 사라져도 칸이 커진 채 남지 않게
-        onLoad={() => setModalOpen(false)}
-        onError={() => {
-          setModalOpen(false);
-          setLoadError(true);
-        }}
-        className="h-full w-full border-0"
-      />
-      {closable && !modalOpen && <TileCloseButton onClick={() => close(pane.key)} />}
+    // 바깥 칸은 늘 제자리를 지킨다 — 칸 위치는 이 요소로 잰다. 안쪽이 창 전체로 커진 뒤(담기 모달 → 완료 모달처럼 이어질 때)에 재면
+    // 창 전체 크기가 나와 상세가 창 크기로 펴졌다 (2026-11-04)
+    <div ref={boxRef} className="relative h-full w-full min-h-0">
+      <div className={modalOpen ? "fixed inset-0 z-60" : "relative h-full w-full min-h-0"}>
+        <iframe
+          ref={iframeRef}
+          src={src}
+          title={t.tileFrameTitle}
+          // 새로 불러온 문서에는 열린 모달이 없다 — F5·뒤로 가기·재시도로 "닫힘" 메시지 없이 문서가 사라져도 칸이 커진 채 남지 않게
+          onLoad={() => setModalOpen(false)}
+          onError={() => {
+            setModalOpen(false);
+            setLoadError(true);
+          }}
+          className="h-full w-full border-0"
+        />
+        {closable && !modalOpen && <TileCloseButton onClick={() => close(pane.key)} />}
+      </div>
     </div>
   );
 }
