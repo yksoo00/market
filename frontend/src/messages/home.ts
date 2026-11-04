@@ -6,8 +6,7 @@ export const home = {
   tagline: "서버부터 라이선스까지, 필요한 IT 장비를 바로 찾으세요",
   search: {
     label: "장비 검색",
-    placeholder: "모델명 · 제조사 · 부품명  (예: R740, RTX 4090, Catalyst 9300)",
-    placeholderShort: "모델명 · 제조사 · 부품명",
+    placeholder: "모델명 · 제조사 · 부품명",
     button: "검색",
     popularLabel: "인기 검색",
   },

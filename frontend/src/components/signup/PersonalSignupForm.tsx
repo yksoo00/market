@@ -149,7 +149,7 @@ export function PersonalSignupForm() {
           <PhoneField inline="narrow" />
 
           <FieldShell label={t.form.nickname} inline="narrow">
-            <Label className="min-h-11 gap-2 text-[14px] font-normal cursor-pointer">
+            <Label className="min-h-11 flex-wrap gap-x-2 gap-y-0.5 py-1 text-[14px] font-normal cursor-pointer">
               <Checkbox
                 id="nicknameUsage"
                 checked={nicknameUsage === "Y"}
@@ -160,8 +160,8 @@ export function PersonalSignupForm() {
                   setChecked((current) => ({ ...current, nickname: !use }));
                 }}
               />
-              {t.form.nicknameUse}
-              <span className="text-xs text-ink-3">{t.form.nicknameUseHint}</span>
+              <span className="whitespace-nowrap">{t.form.nicknameUse}</span>
+              <span className="basis-full pl-6 text-xs text-ink-3">{t.form.nicknameUseHint}</span>
             </Label>
           </FieldShell>
           {nicknameUsage === "Y" && (

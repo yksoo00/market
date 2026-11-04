@@ -152,10 +152,10 @@ export function HistoryList({ side, page, filter }: { side: HistorySide; page: n
                 {th("date", c.date, "px-3 py-2.5 text-left font-medium w-36")}
                 {side === "all" && th("side", c.side, "px-3 py-2.5 text-left font-medium w-16")}
                 {th("name", c.product, "px-3 py-2.5 text-left font-medium")}
-                {th("party", c.counterpart, "px-3 py-2.5 text-left font-medium w-28")}
                 {th("unitPrice", c.unitPrice, "px-3 py-2.5 text-right font-medium w-28")}
                 {th("quantity", c.quantity, "px-3 py-2.5 text-right font-medium w-20")}
                 {th("amount", c.amount, "px-3 py-2.5 text-right font-medium w-32")}
+                {th("party", c.counterpart, "px-3 py-2.5 text-left font-medium w-28")}
               </tr>
             </thead>
             <tbody>
@@ -164,10 +164,10 @@ export function HistoryList({ side, page, filter }: { side: HistorySide; page: n
                   <td className="px-3 py-2.5 font-mono tabular-nums">{formatTradeDate(item.tradeDate)}</td>
                   {side === "all" && <td className="px-3 py-2.5">{sideLabel(item)}</td>}
                   <td className="px-3 py-2.5 font-medium">{item.prodName ?? "-"}</td>
-                  <td className="px-3 py-2.5 truncate">{item.counterpartNickname ?? "-"}</td>
                   <td className="px-3 py-2.5 text-right font-mono tabular-nums">{money(item.unitPrice)}</td>
                   <td className="px-3 py-2.5 text-right font-mono tabular-nums">{item.quantity === null ? "-" : qty.format(item.quantity)}</td>
                   <td className="px-3 py-2.5 text-right font-mono tabular-nums font-bold">{money(item.amount)}</td>
+                  <td className="px-3 py-2.5 truncate">{item.counterpartNickname ?? "-"}</td>
                 </tr>
               ))}
             </tbody>

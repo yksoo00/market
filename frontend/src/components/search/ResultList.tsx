@@ -73,19 +73,19 @@ interface Column {
   cell: (item: ListingSearchItem, done: boolean) => ReactNode;
 }
 
-const alignClass = { left: "text-left", right: "text-right", center: "text-center" } as const;
+const alignClass = { left: "text-left", right: "text-right pr-4", center: "text-center" } as const;
 const c = t.columns;
 
 // 검색·내 판매의 열 (체크·상품명은 왼쪽 고정). 사용자 지시 2026-10-30: 상품명·제조사·단가·수량·상품상태·카테고리·
 // 최소 주문 수량·주문단위·납기일·등록일. 거래상태 칸은 두지 않는다(기본 검색이 거래 가능만 보여 준다)
 const listColumns: Column[] = [
-  { label: c.brand, sort: LISTING_SORT_COLUMNS.brand, width: "w-32", title: (i) => i.prodBrand, cell: (i) => i.prodBrand },
+  { label: c.brand, sort: LISTING_SORT_COLUMNS.brand, width: "w-24", title: (i) => i.prodBrand, cell: (i) => i.prodBrand },
   { label: c.price, sort: LISTING_SORT_COLUMNS.price, width: "w-28", align: "right", mono: true, strong: true, cell: (i) => formatPrice(i.salesUnitPrice) },
   { label: c.quantity, sort: LISTING_SORT_COLUMNS.stock, width: "w-20", align: "right", mono: true, cell: (i) => (i.stockQuantity === null ? DASH : qty.format(i.stockQuantity)) },
-  { label: c.state, sort: LISTING_SORT_COLUMNS.state, width: "w-26", cell: (i, done) => (done ? <CompletedBadge /> : i.prodState) },
-  { label: c.category, sort: LISTING_SORT_COLUMNS.category, width: "w-56", title: (i) => i.categoryPath ?? i.category, cell: (i) => (i.categoryPath ? leafCategoryName(i.categoryPath) : i.category) },
-  { label: c.minOrder, sort: LISTING_SORT_COLUMNS.minOrder, width: "w-28", align: "right", mono: true, cell: (i) => (i.minOrderQuantity === null ? DASH : qty.format(i.minOrderQuantity)) },
-  { label: c.orderUnit, sort: LISTING_SORT_COLUMNS.orderUnit, width: "w-22", align: "right", mono: true, cell: (i) => (i.orderUnit === null ? DASH : qty.format(i.orderUnit)) },
+  { label: c.state, sort: LISTING_SORT_COLUMNS.state, width: "w-22", cell: (i, done) => (done ? <CompletedBadge /> : i.prodState) },
+  { label: c.category, sort: LISTING_SORT_COLUMNS.category, width: "w-32", title: (i) => i.categoryPath ?? i.category, cell: (i) => (i.categoryPath ? leafCategoryName(i.categoryPath) : i.category) },
+  { label: c.minOrder, sort: LISTING_SORT_COLUMNS.minOrder, width: "w-32", align: "right", mono: true, cell: (i) => (i.minOrderQuantity === null ? DASH : qty.format(i.minOrderQuantity)) },
+  { label: c.orderUnit, sort: LISTING_SORT_COLUMNS.orderUnit, width: "w-24", align: "right", mono: true, cell: (i) => (i.orderUnit === null ? DASH : qty.format(i.orderUnit)) },
   { label: c.deliveryDate, sort: LISTING_SORT_COLUMNS.delivery, width: "w-26", mono: true, muted: true, cell: (i) => i.deliveryDate ?? DASH },
   { label: c.regDate, sort: LISTING_SORT_COLUMNS.regDate, width: "w-26", mono: true, muted: true, cell: (i) => formatRegDate(i.regDate).slice(0, 10) },
 ];
@@ -374,10 +374,10 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
           표↔카드 기준은 @md(768)가 아니라 칸 폭 576 — 타일 반반 분할이면 칸이 768 미만(1440 창이면 720)이라
           카드로 줄어들었다. 분할에서도 표가 옆으로 펼쳐져야 한다 (사용자 지시). 폰(390)은 그대로 카드 */}
       <StickyXScroll memoryKey={mine ? "mine-result-table" : "search-result-table"} className="hidden @min-[36rem]:block rounded-md border border-line bg-surface">
-        <table className={`w-full ${mine ? "min-w-334" : "min-w-322"} table-fixed text-[13px]`}>
+        <table className={`w-full ${mine ? "min-w-300" : "min-w-288"} table-fixed text-[13px]`}>
           <colgroup>
             {!mine && <col className="w-10" />}
-            <col className="w-48" />
+            <col className="w-44" />
             {columns.map((c) => (
               <col key={c.label} className={c.width} />
             ))}
@@ -397,7 +397,7 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
                 className={`sticky ${mine ? "left-0 pl-3" : "left-10"} z-10 bg-bg px-2 font-medium border-r border-line-2`}
               />
               {columns.map((c, i) => {
-                const cls = `px-2 font-medium ${alignClass[c.align ?? "left"]} ${i === columns.length - 1 ? "pr-3" : ""}`;
+                const cls = `px-2 font-medium whitespace-nowrap ${alignClass[c.align ?? "left"]} ${i === columns.length - 1 ? "pr-3" : ""}`;
                 return c.sort ? (
                   <SortableTh key={c.label} label={c.label} state={sortStateOf(query.sort, c.sort)} onSort={() => sortBy(c.sort!)} className={cls} />
                 ) : (
@@ -472,7 +472,7 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
                 </div>
               )}
               <div className="min-w-0 grow flex flex-col gap-1">
-                <Link href={listingHref(item)} onClick={stop} className="truncate text-sm font-medium">
+                <Link href={listingHref(item)} onClick={stop} className="block line-clamp-2 break-words text-sm font-medium">
                   {item.prodName}
                 </Link>
                 <p className="truncate text-xs text-ink-2">
