@@ -36,7 +36,7 @@ docs {
   로그인(login.bru) 먼저 — 쿠키(access_token)는 Bruno가 자동으로 실어 보낸다.
   201 { ok, data: ListingResponse }. 상품마스터에서 골랐으면 body 에 "prodId"(products/search.bru 결과)만 넣는다 — 상품 칸(categoryCode·prodName·prodBrand …)은 무시하고 마스터 값을 쓴다.
   데이터시트·사진을 안 보내면 마스터의 것을 복사한다(마스터에 사진이 있으면 photos 생략 가능).
-  prodId 가 없으면 직접 입력 — categoryCode·prodName·prodBrand 필수(400 fields.<칸> "필수 입력입니다."), 상품명·제조사·물품분류번호·제조일이 모두 같은 마스터를 찾고 없으면 새로 만든다(사양은 안 봄, 2026-10-28)(새 마스터의 대표사진은 첫 사진, 데이터시트는 올린 것).
+  prodId 가 없으면 직접 입력 — categoryCode·prodName·prodBrand 필수(400 fields.<칸> "필수 입력입니다."), 상품명·제조사·물품분류번호가 모두 같은 마스터를 찾고 없으면 새로 만든다(사양은 안 봄, 2026-10-28)(새 마스터의 대표사진은 첫 사진, 데이터시트는 올린 것).
   categoryCode 는 소분류 경로 — 카테고리 마스터에서 대·중·소 부모 관계가 맞아야 한다(아니면 400 fields.categoryCode). 제조사 40자.
   선택 칸: prodClassNo(20자)·prodUsefulLife(개월 수, 3·6·…·60 중 하나)·warrantyMethod(20자)·alterProdName(40자). 마스터를 고르면 무시.
   400 VALIDATION: 필드별 fields.<필드명>. 가격 0~10억, 수량 1~100,000 (security.md "입력 검증 > 매물"). 제공가능일 deliveryDate(YYYY-MM-DD, 오늘 이후) 필수 — 없으면 400 fields.deliveryDate (2026-10-27).

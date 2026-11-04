@@ -169,7 +169,6 @@ public class ListingService {
 			throw new ApiException(ErrorCode.LISTING_COMPLETED);
 		}
 		// 이미 저장된 납기일을 그대로 다시 보내면(수정 화면이 모든 칸을 보낼 때) 지난 날짜여도 통과
-		Product currentProduct = products.get(listing.getProdId());
 		// 제공가능일은 정의서 NOT NULL — 수정에서 비울 수 없다 (null = 안 바꿈)
 		if (req.deliveryDate() != null && req.deliveryDate().isBlank()) {
 			throw new ValidationException(Map.of("deliveryDate", ListingCreateRequest.DELIVERY_DATE_REQUIRED));
@@ -196,6 +195,7 @@ public class ListingService {
 		}
 
 		// 상품 칸은 매물 칸보다 먼저 — 422 면 아무것도 바뀌지 않고, 업로드 키도 건드리지 않는다
+		Product currentProduct = products.get(listing.getProdId());
 		Product product = applyProductFields(listing, currentProduct, req);
 
 		List<UploadRef> files = new ArrayList<>();
@@ -247,8 +247,8 @@ public class ListingService {
 	}
 
 	/**
-	 * 상품 칸 규칙 (스펙 2026-10-06-my-listings). 상품마스터는 이름·제조사·분류번호·제조일이 같으면 같은 상품이고 다른 판매자 매물과 공유한다.
-	 * 이름·제조사·제조일이 바뀌면 등록과 같은 findOrCreate 로 네 값이 맞는 상품을 찾아 이 매물만 옮긴다 (있으면 그 상품 값, 없으면 새로 만든다).
+	 * 상품 칸 규칙 (스펙 2026-10-06-my-listings). 상품마스터는 이름·제조사·분류번호가 같으면 같은 상품이고 다른 판매자 매물과 공유한다.
+	 * 이름·제조사가 바뀌면 등록과 같은 findOrCreate 로 세 값이 맞는 상품을 찾아 이 매물만 옮긴다 (있으면 그 상품 값, 없으면 새로 만든다).
 	 * 분류번호는 수정 화면에 없어 지금 상품 값을 이어받는다 (2026-10-27 설계 PR 2).
 	 * 그대로이고 번호·사양·카테고리만 바뀌면 이 매물만 쓰는 상품일 때만 고친다 — 공유 중이면 남의 매물까지 바뀌므로 422.
 	 */

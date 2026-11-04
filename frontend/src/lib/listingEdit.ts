@@ -24,7 +24,7 @@ export function prodStateFromStored(stored: string): ProdState | "" {
 
 /** 수정 폼의 입력 상태. 숫자 칸은 문자열(빈 칸 = 미입력), 파일 칸은 업로드 키("" = 없음) */
 export interface ListingEditValues {
-  // 상품 칸 (2026-11-02 행 안 수정 폐지로 수정 화면이 맡는다). 
+  // 상품 칸 (2026-11-02 행 안 수정 폐지로 수정 화면이 맡는다).
   prodName: string;
   prodBrand: string;
   prodNo: string;

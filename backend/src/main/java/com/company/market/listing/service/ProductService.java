@@ -22,7 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 상품마스터: 이름·제조사·분류번호·제조일이 모두 같은 상품이 있으면 재사용, 없으면 채번해서 새로 만든다.
+ * 상품마스터: 이름·제조사·분류번호가 모두 같은 상품이 있으면 재사용, 없으면 채번해서 새로 만든다.
  * 사양은 비교하지 않는다 (2026-10-27 설계 PR 2 — 2026-09-29 의 이름+제조사 재사용을 대체)
  */
 @Service
