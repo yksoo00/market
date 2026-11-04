@@ -43,7 +43,7 @@ export function ListingSummaryCard({
         {/* 이 칸은 옆 정보 표 높이만큼 늘어나고(stretch), 대표 사진은 제 비율대로, 768~1279 에선 그 아래 나머지 사진이 남는 높이를 채운다 (PhotoThumbs).
             모바일·전체 화면의 나머지 사진은 아래 사진 카드(PhotosCard) */}
         <div className="w-full @md:w-80 @min-[80rem]:w-150 shrink-0 flex flex-col gap-2">
-          <ListingMainPhoto photo={photo} alt={detail.prodName} />
+          <ListingMainPhoto key={photo ?? "none"} photo={photo} alt={detail.prodName} />
           <PhotoThumbs photos={detail.photos.slice(1)} firstNo={2} />
         </div>
 

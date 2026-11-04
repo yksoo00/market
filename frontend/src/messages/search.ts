@@ -3,7 +3,7 @@ export const search = {
     label: "장비 검색",
     fieldLabel: "검색 구분",
     fields: { all: "전체", name: "상품명", brand: "제조사" },
-    placeholder: "모델명 · 상품번호",
+    placeholder: "모델명·상품번호·제조사",
     button: "검색",
   },
   // 검색 화면 맨 위 범위 전환 (SearchScopeTabs)

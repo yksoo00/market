@@ -374,7 +374,7 @@ export function ResultList({ items, query, total, scope = "search", pendingCount
           표↔카드 기준은 @md(768)가 아니라 칸 폭 576 — 타일 반반 분할이면 칸이 768 미만(1440 창이면 720)이라
           카드로 줄어들었다. 분할에서도 표가 옆으로 펼쳐져야 한다 (사용자 지시). 폰(390)은 그대로 카드 */}
       <StickyXScroll memoryKey={mine ? "mine-result-table" : "search-result-table"} className="hidden @min-[36rem]:block rounded-md border border-line bg-surface">
-        <table className={`w-full ${mine ? "min-w-300" : "min-w-282"} table-fixed text-[13px]`}>
+        <table className={`w-full ${mine ? "min-w-300" : "min-w-288"} table-fixed text-[13px]`}>
           <colgroup>
             {!mine && <col className="w-10" />}
             <col className="w-44" />
