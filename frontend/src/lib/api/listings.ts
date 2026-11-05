@@ -1,5 +1,6 @@
-import { api } from "@/lib/api/client";
+import { api, fetchFile, upload } from "@/lib/api/client";
 import { searchApiParams, type SearchQuery, type SearchScope } from "@/lib/search";
+import type { BulkCheckResponse, BulkCommitResponse, BulkParseResponse, BulkRowApi } from "@/types/listingBulk";
 import type { ListingCreated, ListingCreateRequest, ListingDetail, ListingMinePage, ListingSearchPage, ListingUpdateRequest } from "@/types/listing";
 
 const path = (userId: string, regDate: string) => `/api/v1/listings/${userId}/${regDate}`;
@@ -17,4 +18,16 @@ export const listingsApi = {
   update: (userId: string, regDate: string, patch: ListingUpdateRequest) =>
     api<ListingDetail>(path(userId, regDate), { method: "PATCH", body: JSON.stringify(patch) }),
   remove: (userId: string, regDate: string) => api<null>(path(userId, regDate), { method: "DELETE" }),
+};
+
+/** 엑셀 다량 등록 (계획 2026-11-05-bulk-listing-excel.md). 서버는 줄 상태를 저장하지 않아 검사·확정 때마다 줄을 전부 보낸다 */
+export const listingBulkApi = {
+  parse: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return upload<BulkParseResponse>("/api/v1/listings/bulk/parse", form);
+  },
+  check: (rows: BulkRowApi[]) => api<BulkCheckResponse>("/api/v1/listings/bulk/check", { method: "POST", body: JSON.stringify({ rows }) }),
+  commit: (rows: BulkRowApi[]) => api<BulkCommitResponse>("/api/v1/listings/bulk/commit", { method: "POST", body: JSON.stringify({ rows }) }),
+  template: () => fetchFile("/api/v1/listings/bulk/template"),
 };
