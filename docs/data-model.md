@@ -93,7 +93,6 @@
 | prod_useful_life | integer | | 보증년수 — 값은 개월 수, 목록 3·6·…·60 (사용자 결정 2026-10-28) |
 | warranty_method | varchar(20) | | 정품보증방법 |
 | alter_prod_name | varchar(40) | | 대체상품명 |
-| prod_mufc_date | varchar(14) | | 제조일시. 정의서에 없지만 유지 (재사용 키, 사용자 결정) |
 | prod_data_sheet | varchar(100) | | 경로정보 (정의서 40, 저장 키 길이로 100) |
 | prod_image | varchar(100) | | 경로정보 (2026-10-28 `prod_photo_1` 에서 이름 변경, 정의서 40 → 100). 상품 처음 등록 시 그 매물의 첫 사진 키를 그대로 씀 (파일 공유). API 이름은 `prodPhoto1` |
 | reg_date | varchar(14) | null | 등록일시 (정의서 nullable, 서버는 항상 채움) |
@@ -181,6 +180,8 @@
 
 ### trd_cart_info (TRD_CART_INFO — 장바구니 정보)
 
+> **정의서와 다른 점 (사용자 결정 2026-11-04)**: 정의서 CART_INFO 의 `MUFC_DATE`(제조일시)가 없다. 원본인 상품 제조일(`trd_prod_master.prod_mufc_date`)을 지우면서 같이 지웠다(`V202611050900`, decisions.md "제조일 삭제"). 정의서 파일은 사용자 쪽에서 고친다 — 정의서 헤더 그대로의 엑셀을 임시 테이블에 불러오면 "제조일시"가 모르는 컬럼으로 거절된다.
+
 > 구현: `V202610291000__create_cart_info.sql`. 장바구니·비교 한 건 = `trd_trade_info` 1행(`구매검토`, 거래상태 `장바구니`|`비교용`) + 이 테이블 1행(같은 거래ID). 외래키 없음. 결정: decisions.md 2026-10-29.
 
 | 컬럼 | 타입 | 제약 | 비고 |
@@ -194,7 +195,6 @@
 | prod_name | varchar(50) | not null | 담을 때 상품마스터에서 복사 |
 | prod_no | varchar(20) | not null | 상품고유ID(`prod_id`). 매물은 `seller_id` + `prod_date` + `prod_no` 로 찾는다. 매물 상품이 바뀌면 따라간다 |
 | manufacturer | varchar(50) | | 제조사(`prod_brand`) |
-| mufc_date | varchar(14) | | 제조일시 |
 | prod_spec_info | varchar(100) | not null | 사양. 비면 `''` |
 | prod_state | varchar(20) | not null | |
 | prov_date | varchar(10) | not null | 제공가능일 |

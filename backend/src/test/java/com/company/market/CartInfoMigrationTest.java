@@ -54,6 +54,7 @@ class CartInfoMigrationTest {
 				""");
 		seller = jdbc.queryForObject("select uid from carttest.trd_user_info where user_id = 'cseller'", UUID.class);
 		buyer = jdbc.queryForObject("select uid from carttest.trd_user_info where user_id = 'cbuyer'", UUID.class);
+		// prod_mufc_date 는 V202611050900 에서 지운다 — flyway("202611021000") 까지만 적용하므로 이 열이 아직 있다
 		jdbc.update("""
 				insert into carttest.trd_prod_master (prod_id, major_category, middle_category, minor_category, prod_name,
 					prod_part_no, prod_brand, prod_mufc_date, prod_spec_info, reg_date)
@@ -70,7 +71,8 @@ class CartInfoMigrationTest {
 		insertTrade("26102910001", "구매검토", "장바구니", "20261015100000", "CARTMIG01", 3);
 		insertTrade("26102910002", "구매검토", "장바구니", "20261015100001", "CARTMIG02", 1);
 		insertTrade("26102910003", "견적조정", "견적요청", "20261015100000", "CARTMIG01", 2);
-		flyway(null).migrate();
+		// 장바구니로 옮기는 마이그레이션과 그 뒤 비교용 unique 까지만 본다 — 제조일 삭제(V202611050900)를 적용하면 mufc_date 복사를 확인할 수 없다
+		flyway("202611021000").migrate();
 	}
 
 	private void insertTrade(String tradeId, String type, String stats, String prodRegDate, String prodId, int quantity) {
