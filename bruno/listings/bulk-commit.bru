@@ -1,0 +1,35 @@
+meta {
+  name: 다량 등록 확정
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{baseUrl}}/api/v1/listings/bulk/commit
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "rows": [
+      {
+        "rowNo": 2,
+        "prodName": "노트북 X",
+        "prodBrand": "삼성",
+        "categoryCode": "P01-Q01-R001",
+        "prodState": "신품",
+        "salesUnitPrice": "500000",
+        "salesQuantity": "3",
+        "deliveryDate": "2099-12-31"
+      }
+    ]
+  }
+}
+
+docs {
+  로그인 먼저. 보낸 줄(체크한 것만)을 서버가 전부 다시 검사하고, 통과하면 한 트랜잭션으로 등록한다. 응답 { ok, data: { created } }.
+  하나라도 걸리면 409 LISTING_BULK_INVALID, 아무것도 저장 안 됨. fields 의 키는 "줄번호.칸"(예: "3.salesQuantity").
+  등록 시각(reg_date)은 확정한 시각부터 줄 순서대로 1초씩 올려 부여한다(같은 사용자 같은 초 불가). 사진은 마스터 것을 쓰고 없으면 비어 있다.
+  신규 마스터는 상품명·제조사·카테고리 코드가 모두 있어야 만들어진다.
+}

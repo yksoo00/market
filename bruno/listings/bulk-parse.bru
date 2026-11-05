@@ -1,0 +1,22 @@
+meta {
+  name: 다량 등록 엑셀 읽기·검사
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/listings/bulk/parse
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  file: @file(bulk.xlsx)
+}
+
+docs {
+  로그인(auth/login.bru) 먼저. file 은 bulk-template.bru 로 받은 양식을 채워 실제 파일로 바꿔 고른다.
+  200 { ok, data: { rows: BulkRowDto[], results: BulkRowResult[] } } — rows[i] 와 results[i] 가 같은 줄. 저장은 하지 않는다.
+  results[].status: MATCHED(마스터 찾음) · NEW_MASTER(새 마스터로 만들어짐) · FAILED(fields 에 칸별 사유). candidates = 이름이 겹치는 기존 상품(최대 5).
+  400 VALIDATION fields.file: .xlsx 아님·읽을 수 없음·양식 헤더 없음·데이터 201줄 이상. 데이터 줄이 없으면 rows·results 가 빈 배열.
+}

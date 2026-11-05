@@ -45,6 +45,7 @@ public enum ErrorCode {
 	PRODUCT_SHARED(HttpStatus.UNPROCESSABLE_ENTITY, "다른 매물과 같이 쓰는 상품 정보라 고칠 수 없습니다."),
 	LISTING_COMPLETED(HttpStatus.CONFLICT, "거래가 끝난 매물입니다."),
 	LISTING_HAS_TRADES(HttpStatus.CONFLICT, "거래 내역이 있는 매물은 삭제할 수 없습니다."),
+	LISTING_BULK_INVALID(HttpStatus.CONFLICT, "등록할 수 없는 줄이 있어요. 줄마다 사유를 확인해 주세요."),
 
 	// 거래
 	TRADE_NOT_FOUND(HttpStatus.NOT_FOUND, "거래를 찾을 수 없습니다."),

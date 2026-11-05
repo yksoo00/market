@@ -20,6 +20,15 @@ public interface ProductRepository extends JpaRepository<Product, String> {
 		""")
 	List<Product> findAllSame(@Param("name") String name, @Param("brand") String brand, @Param("classNo") String classNo, Pageable pageable);
 
+	/** 엑셀 다량 등록용 느슨한 일치 — 대소문자만 무시한다(입력 쪽 공백은 호출하는 쪽이 정리). 분류번호는 위와 같이 null 을 "" 로 넘긴다 */
+	@Query("""
+		select p from Product p
+		where lower(p.prodName) = lower(:name) and lower(p.prodBrand) = lower(:brand) and lower(coalesce(p.prodClassNo, '')) = lower(:classNo)
+		order by p.prodId
+		""")
+	List<Product> findAllSameIgnoreCase(@Param("name") String name, @Param("brand") String brand, @Param("classNo") String classNo,
+			Pageable pageable);
+
 	/** 제조일만 달라 따로 있던 옛 마스터가 여럿이면 가장 오래된(prod_id 가 작은) 한 행 — 단일 결과 예외를 피한다 */
 	default Optional<Product> findSame(String name, String brand, String classNo) {
 		return findAllSame(name, brand, classNo, PageRequest.of(0, 1)).stream().findFirst();

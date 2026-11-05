@@ -1,0 +1,16 @@
+meta {
+  name: 다량 등록 양식 내려받기
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/v1/listings/bulk/template
+  body: none
+  auth: none
+}
+
+docs {
+  200 .xlsx 첨부 파일(헤더만, 예시 줄 없음). 상품상태 칸은 드롭다운. * 가 붙은 칸이 필수.
+  GET /api/v1/listings/{a}/{b} 공개 규칙에 걸려 로그인 없이도 받는다 — 헤더뿐인 파일이라 노출되는 정보가 없다.
+}
