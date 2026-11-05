@@ -2,7 +2,9 @@ package com.company.market.devtools;
 
 import java.io.ByteArrayOutputStream;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
+import java.util.TreeMap;
 
 import com.company.market.TestInfraConfiguration;
 import org.apache.poi.ss.usermodel.Row;
@@ -97,13 +99,25 @@ class DevTableAliasTest {
 	@Test
 	@DisplayName("DB 코멘트(한글)가 모든 테이블·컬럼에서 별명표(정의서 논리명)와 같다")
 	void db_comments_match_aliases() {
+		// 키: "테이블" 또는 "테이블.컬럼". DB 에 있는 것 전부를 한 번에 읽어 양쪽을 비교하므로 코멘트 없는 새 컬럼·테이블도, 어긋난 곳 전체도 한 번에 보인다
+		Map<String, String> expected = new TreeMap<>();
 		DevTableAliases.TABLES.forEach((table, logical) -> {
-			assertThat(jdbc.queryForObject("select obj_description(?::regclass, 'pg_class')", String.class, table))
-				.as(table + " 테이블 코멘트").isEqualTo(logical);
-			DevTableAliases.COLUMNS.get(table).forEach((column, columnLogical) -> assertThat(jdbc.queryForObject(
-					"select col_description(?::regclass, a.attnum) from pg_attribute a where a.attrelid = ?::regclass and a.attname = ?",
-					String.class, table, table, column)).as(table + "." + column + " 컬럼 코멘트").isEqualTo(columnLogical));
+			expected.put(table, logical);
+			DevTableAliases.COLUMNS.get(table).forEach((column, columnLogical) -> expected.put(table + "." + column, columnLogical));
 		});
+		Map<String, String> actual = new TreeMap<>();
+		jdbc.query("""
+				select c.relname, a.attname, case when a.attnum = 0 then obj_description(c.oid, 'pg_class') else col_description(c.oid, a.attnum) end
+				from pg_class c
+				join pg_namespace n on n.oid = c.relnamespace
+				join (select attrelid, attname, attnum from pg_attribute where attnum > 0 and not attisdropped
+				      union all select oid, null, 0 from pg_class) a on a.attrelid = c.oid
+				where n.nspname = current_schema() and c.relkind = 'r' and c.relname like 'trd\\_%'
+				""", rs -> {
+			String name = rs.getString(2) == null ? rs.getString(1) : rs.getString(1) + "." + rs.getString(2);
+			actual.put(name, rs.getString(3));
+		});
+		assertThat(actual).isEqualTo(expected);
 	}
 
 	private static Set<String> normalized(Iterable<String> names) {

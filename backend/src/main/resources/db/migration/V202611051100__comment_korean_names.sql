@@ -144,4 +144,3 @@ comment on column trd_trade_history.trade_unit_price is '거래단가';
 comment on column trd_trade_history.trade_quantity is '거래량';
 comment on column trd_trade_history.trade_amount is '거래금액';
 comment on column trd_trade_history.spare_col is '예비컬럼';
-
