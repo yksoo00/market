@@ -54,6 +54,7 @@ class CartInfoMigrationTest {
 				""");
 		seller = jdbc.queryForObject("select uid from carttest.trd_user_info where user_id = 'cseller'", UUID.class);
 		buyer = jdbc.queryForObject("select uid from carttest.trd_user_info where user_id = 'cbuyer'", UUID.class);
+		// prod_mufc_date 는 V202611050900 에서 지운다 — flyway("202611021000") 까지만 적용하므로 이 열이 아직 있다
 		jdbc.update("""
 				insert into carttest.trd_prod_master (prod_id, major_category, middle_category, minor_category, prod_name,
 					prod_part_no, prod_brand, prod_mufc_date, prod_spec_info, reg_date)

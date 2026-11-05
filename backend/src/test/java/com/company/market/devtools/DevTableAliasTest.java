@@ -77,7 +77,7 @@ class DevTableAliasTest {
 	}
 
 	@Test
-	@DisplayName("DB 의 모든 테이블·컬럼에 별명이 있고한 테이블 안에서 이름이 겹치지 않는다")
+	@DisplayName("DB 의 모든 테이블·컬럼에 별명이 있고, 한 테이블 안에서 이름이 겹치지 않는다")
 	void every_column_has_unique_alias() {
 		assertThat(DevTableAliases.TABLES.keySet()).containsExactlyInAnyOrderElementsOf(DevTableService.TABLES);
 		assertThat(normalized(DevTableAliases.TABLES.values())).hasSize(DevTableService.TABLES.size());
