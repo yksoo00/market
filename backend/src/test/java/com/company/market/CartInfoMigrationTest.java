@@ -70,7 +70,8 @@ class CartInfoMigrationTest {
 		insertTrade("26102910001", "구매검토", "장바구니", "20261015100000", "CARTMIG01", 3);
 		insertTrade("26102910002", "구매검토", "장바구니", "20261015100001", "CARTMIG02", 1);
 		insertTrade("26102910003", "견적조정", "견적요청", "20261015100000", "CARTMIG01", 2);
-		flyway(null).migrate();
+		// 장바구니로 옮기는 마이그레이션과 그 뒤 비교용 unique 까지만 본다 — 제조일 삭제(V202611050900)를 적용하면 mufc_date 복사를 확인할 수 없다
+		flyway("202611021000").migrate();
 	}
 
 	private void insertTrade(String tradeId, String type, String stats, String prodRegDate, String prodId, int quantity) {

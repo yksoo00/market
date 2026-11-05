@@ -8,7 +8,7 @@ import java.util.Optional;
 /**
  * 임시 테이블 엑셀 불러오기의 한글 별명 (계획 2026-11-04-dev-table-korean-alias.md). 정의서(KPIT-BRK-테이블정의서.xlsx,
  * 2026-10-27 판)의 "논리명"을 글자 그대로 — 오타(시용자ID, 개업년원일, 일렬번호)도 그대로 — 쓰고, 불러올 때 현재 DB 물리명으로
- * 바꿔 준다. DB 이름은 바꾸지 않는다. 정의서에 없거나 지우는 중인 컬럼(prod_mufc_date, 장바구니 mufc_date — 2026-11-04 제조일 삭제)은 별명 없이 물리명으로만 받는다.
+ * 바꿔 준다. DB 이름은 바꾸지 않는다. 모든 DB 컬럼에 별명이 있다(DevTableAliasTest). 제조일(prod_mufc_date·mufc_date)은 2026-11-04 에 DB 에서 지웠다.
  * 정의서가 바뀌면 이 표도 같이 고친다.
  */
 final class DevTableAliases {
@@ -79,8 +79,8 @@ final class DevTableAliases {
 	}
 
 	/**
-	 * 헤더 이름(물리명 또는 논리명) → 그 테이블의 물리 컬럼 이름. 별명이 없으면 이름을 정리한 그대로 돌려준다 — 별명이 없는
-	 * 컬럼(prod_mufc_date·mufc_date)도 물리명으로 받으려는 것이라, 실제 있는 컬럼인지는 호출한 쪽이 확인한다
+	 * 헤더 이름(물리명 또는 논리명) → 그 테이블의 물리 컬럼 이름. 별명에 없으면 이름을 정리한 그대로 돌려준다 — 물리명을
+	 * 그대로 쓴 헤더를 받으려는 것이라, 실제 있는 컬럼인지는 호출한 쪽이 확인한다
 	 */
 	static String column(String table, String name) {
 		String key = normalize(name);
