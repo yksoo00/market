@@ -62,6 +62,11 @@ public class ProductService {
 		return value == null || value.isBlank() ? null : value.trim();
 	}
 
+	/** 엑셀 다량 등록의 상품 찾기 — findOrCreate 의 "같은 상품"과 같은 세 값이되 대소문자를 무시한다. 만들지는 않는다 */
+	public Optional<Product> findSameIgnoreCase(String prodName, String prodBrand, String prodClassNo) {
+		return products.findAllSameIgnoreCase(prodName, prodBrand, orEmpty(prodClassNo), PageRequest.of(0, 1)).stream().findFirst();
+	}
+
 	/** 등록 폼이 고른 마스터. 없으면 호출한 쪽이 400 으로 알린다 */
 	public Optional<Product> find(String prodId) {
 		return products.findById(prodId);
