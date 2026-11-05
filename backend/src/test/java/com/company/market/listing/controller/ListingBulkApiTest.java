@@ -82,7 +82,7 @@ class ListingBulkApiTest {
 		cleanUp();
 		userId = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("bulkapitester")
 			.passwordHash("$2a$12$hash").nickname("bulkapitester").email("bulkapitester@example.com")
-			.name("홍길동").phone("01012345678").phoneHash(hasher.hash("01012345678")).build()).getId();
+			.name("홍길동").phone("01077770123").phoneHash(hasher.hash("01077770123")).build()).getId();
 		authCookie = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId));
 		products.findOrCreate(new ProductDraft(CategoryFragments.parse("P01-Q01-R001"), "API 스위치", null, "Cisco", null, null, null,
 				null, null, null, "public/listings/photos/2026/10/a.jpg"));

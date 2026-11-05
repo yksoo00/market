@@ -76,7 +76,7 @@ class ListingBulkCommitTest {
 		service = new ListingBulkService(products, categories, validator, fixed, listings);
 		sellerId = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("bulkcommit")
 			.passwordHash("$2a$12$hash").nickname("bulkcommit").email("bulkcommit@example.com")
-			.name("홍길동").phone("01012345678").phoneHash(hasher.hash("01012345678")).build()).getId();
+			.name("홍길동").phone("01077770124").phoneHash(hasher.hash("01077770124")).build()).getId();
 		withPhotoId = products.findOrCreate(new ProductDraft(CategoryFragments.parse(CATEGORY), "일괄 스위치", null, "Cisco",
 				null, null, null, null, null, "master-sheet.pdf", "public/listings/photos/2026/10/a.jpg")).getProdId();
 		noPhotoId = products.findOrCreate(new ProductDraft(CategoryFragments.parse(CATEGORY), "일괄 라우터", null, "Cisco",
