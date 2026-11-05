@@ -3,6 +3,8 @@
 > 현재 계정 데이터는 `trd_user_info` 한 테이블에 둔다. 다른 계정 테이블은 사용하지 않는다.
 > 매물 스키마(`trd_prod_master`, `trd_prod_reg`)는 사용자가 제공한 레거시 스펙을 그대로 옮긴 초안이다. PRD 확정 전이라 카테고리 마스터·이미지 구조·상태값 체계는 다시 바뀔 수 있다. 거래 스키마(`trd_trade_info`, `trd_trade_history`)는 직접 구매·견적·장바구니가 쓴다 — 비교는 화면만이라 행이 없다(2026-10-22) (채팅은 기능에서 제외, decisions.md 2026-10-01).
 
+> 모든 테이블·컬럼에 정의서 논리명(한글)을 DB 코멘트로 달았다(`V202611051100__comment_korean_names.sql`, 2026-11-05). DBeaver·pgAdmin·ERD 도구에서 한글로 보이는 표시용이고 이름·타입·제약은 그대로다. 값은 `DevTableAliases`(임시 테이블 별명)와 같고 `DevTableAliasTest` 가 둘이 같은지 확인한다 — 새 컬럼을 만들면 코멘트와 별명을 같이 단다.
+
 ## 계정: `trd_user_info`
 
 단일 계정 테이블은 `V202609281200__replace_user_account_model.sql`에서 생성한다. 마이그레이션은 기존 계정 테이블과 데이터를 제거하므로 개발 DB를 초기화한 뒤 적용한다.

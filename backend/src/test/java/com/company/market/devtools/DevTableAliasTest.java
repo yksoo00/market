@@ -94,6 +94,18 @@ class DevTableAliasTest {
 		}
 	}
 
+	@Test
+	@DisplayName("DB 코멘트(한글)가 모든 테이블·컬럼에서 별명표(정의서 논리명)와 같다")
+	void db_comments_match_aliases() {
+		DevTableAliases.TABLES.forEach((table, logical) -> {
+			assertThat(jdbc.queryForObject("select obj_description(?::regclass, 'pg_class')", String.class, table))
+				.as(table + " 테이블 코멘트").isEqualTo(logical);
+			DevTableAliases.COLUMNS.get(table).forEach((column, columnLogical) -> assertThat(jdbc.queryForObject(
+					"select col_description(?::regclass, a.attnum) from pg_attribute a where a.attrelid = ?::regclass and a.attname = ?",
+					String.class, table, table, column)).as(table + "." + column + " 컬럼 코멘트").isEqualTo(columnLogical));
+		});
+	}
+
 	private static Set<String> normalized(Iterable<String> names) {
 		Set<String> out = new HashSet<>();
 		names.forEach(n -> out.add(DevTableAliases.normalize(n)));
