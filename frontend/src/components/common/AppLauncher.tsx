@@ -5,6 +5,7 @@ import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
 import { Icon } from "@/components/common/Icon";
 import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
 import { QuickIcon, type QuickIconName } from "@/components/common/QuickIcon";
+import { BulkListingDialog } from "@/components/listing/BulkListingDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,6 +51,8 @@ export function AppLauncher() {
   const kindRef = useRef<UploadKind>("excel");
   const { notice, show, close: closeNotice } = useNotice();
   const [open, setOpen] = useState(false);
+  // 판매상품 다량 등록은 파일 선택창 대신 끌어 놓기 모달 (2026-11-05). 메뉴를 먼저 닫고 연다
+  const [bulkOpen, setBulkOpen] = useState(false);
   // 판매상품 등록의 등록 방법(직접 입력·파일) 펼침
   const [newOpen, setNewOpen] = useState(false);
   // 링크 항목은 onClick 으로 직접 닫는다 — 타일 엔진이 링크 클릭을 캡처 단계에서 preventDefault 해서
@@ -126,7 +129,13 @@ export function AppLauncher() {
             >
               <Cell icon="sellNew" label={t.sellNew} />
             </DropdownMenuItem>
-            <DropdownMenuItem className={`${cellClass} ${toneClass.sell}`} onSelect={(e) => onPick(e, "excel")}>
+            <DropdownMenuItem
+              className={`${cellClass} ${toneClass.sell}`}
+              onSelect={() => {
+                close();
+                setBulkOpen(true);
+              }}
+            >
               <Cell icon="sellBulk" label={t.sellBulk} />
             </DropdownMenuItem>
             <LinkCell tone="sell" icon="sellExtra" label={t.sellExtra} href={routes.sellExtra} onClick={close} />
@@ -143,6 +152,7 @@ export function AppLauncher() {
       </DropdownMenu>
       <input ref={fileRef} type="file" className="hidden" onChange={onFile} tabIndex={-1} aria-hidden="true" />
       <NoticeDialog notice={notice} onClose={closeNotice} />
+      {bulkOpen && <BulkListingDialog onClose={() => setBulkOpen(false)} />}
     </>
   );
 }
