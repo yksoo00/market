@@ -3,6 +3,8 @@ package com.company.market.listing.service;
 import java.lang.annotation.Annotation;
 import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,15 +13,20 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 
+import com.company.market.common.exception.ApiException;
+import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.exception.ValidationException;
 import com.company.market.common.time.KoreanDates;
 import com.company.market.listing.domain.CategoryFragments;
+import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.dto.BulkRowDto;
 import com.company.market.listing.dto.BulkRowResult;
 import com.company.market.listing.dto.BulkRowResult.Candidate;
 import com.company.market.listing.dto.BulkRowResult.Status;
 import com.company.market.listing.dto.ListingCreateRequest;
+import com.company.market.listing.repository.ListingRepository;
+import com.company.market.listing.service.ProductService.ProductDraft;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import jakarta.validation.constraints.Max;
@@ -29,6 +36,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 엑셀 판매상품 다량 등록 (계획 2026-11-05-bulk-listing-excel.md). 검사는 직접 등록(ListingService.create)과 같은 규칙을 쓴다 —
@@ -38,6 +46,8 @@ import org.springframework.stereotype.Service;
 @Service
 @RequiredArgsConstructor
 public class ListingBulkService {
+
+	private static final DateTimeFormatter REG_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
 	private static final String REQUIRED = "필수 입력입니다.";
 
@@ -53,12 +63,65 @@ public class ListingBulkService {
 
 	private final Clock clock;
 
+	private final ListingRepository listings;
+
 	/**
 	 * 줄별 검사 결과. 저장은 안 한다. 트랜잭션을 걸지 않는다 — CategoryService.resolveMinor 가 예외로 끝나며 바깥 트랜잭션을
 	 * rollback-only 로 표시해, 잡아서 줄 오류로 바꿔도 UnexpectedRollbackException 이 나기 때문이다
 	 */
 	public List<BulkRowResult> check(UUID userId, List<BulkRowDto> rows) {
 		return checkAll(rows).stream().map(Checked::result).toList();
+	}
+
+	/**
+	 * 확정. 줄을 전부 다시 검사하고(브라우저가 "통과"라고 한 것은 믿지 않는다) 하나라도 걸리면 아무것도 저장하지 않는다.
+	 * 잠금 순서는 직접 등록과 같다 — 마스터 생성 잠금 → 사용자 등록 잠금 (교착 방지).
+	 * 등록 시각(regDate)은 직접 등록처럼 같은 사용자 같은 초를 못 쓰므로, 시작 시각부터 줄 순서대로 1초씩 올려 부여한다
+	 * (이미 있는 초는 건너뛴다). 200줄이면 최대 약 3분 뒤 시각이 찍힌다 — 계획 2026-11-05 가정 1.
+	 */
+	@Transactional
+	public int commit(UUID userId, List<BulkRowDto> rows) {
+		List<Checked> checked = checkAll(rows);
+		Map<String, String> failures = new LinkedHashMap<>();
+		for (Checked c : checked) {
+			c.result().fields().forEach((field, message) -> failures.put(c.result().rowNo() + "." + field, message));
+		}
+		if (!failures.isEmpty()) {
+			throw new ApiException(ErrorCode.LISTING_BULK_INVALID, ErrorCode.LISTING_BULK_INVALID.message(), failures);
+		}
+
+		List<Product> resolved = checked.stream().map(c -> c.master() != null ? c.master() : products.findOrCreate(
+				new ProductDraft(c.category(), c.request().prodName(), c.request().prodNo(), c.request().prodBrand(),
+						c.request().prodClassNo(), null, null, null, null, null, null))).toList();
+
+		listings.lockRegistration(userId);
+		LocalDateTime cursor = LocalDateTime.now(clock);
+		for (int i = 0; i < checked.size(); i++) {
+			ListingCreateRequest req = checked.get(i).request();
+			Product product = resolved.get(i);
+			while (listings.existsByUserIdAndRegDate(userId, cursor.format(REG_DATE_FORMAT))) {
+				cursor = cursor.plusSeconds(1);
+			}
+			int quantity = req.salesQuantity();
+			listings.saveAndFlush(Listing.builder()
+				.userId(userId)
+				.regDate(cursor.format(REG_DATE_FORMAT))
+				.prodId(product.getProdId())
+				.tradeType(req.tradeType())
+				.prodState(req.prodState())
+				.salesUnitPrice(req.salesUnitPrice())
+				.salesQuantity(quantity)
+				.minOrderQuantity(req.minOrderQuantity() == null ? 1 : req.minOrderQuantity())
+				.orderUnit(req.orderUnit() == null ? 1 : req.orderUnit())
+				.deliveryDate(req.deliveryDate())
+				.stockQuantity(quantity)
+				.prodDescription(req.description())
+				.prodDataSheet(product.getProdDataSheet())
+				.prodPhoto1(product.getProdPhoto1())
+				.build());
+			cursor = cursor.plusSeconds(1);
+		}
+		return checked.size();
 	}
 
 	/** 검사 결과 + 확정(commit)이 쓸 해석값. 신규 마스터의 category 는 NEW_MASTER 일 때만 있다 */
