@@ -1,6 +1,9 @@
 package com.company.market.listing.service;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.lang.annotation.Annotation;
+import java.math.BigInteger;
 import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -20,6 +23,7 @@ import com.company.market.common.time.KoreanDates;
 import com.company.market.listing.domain.CategoryFragments;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.Product;
+import com.company.market.listing.dto.BulkParseResponse;
 import com.company.market.listing.dto.BulkRowDto;
 import com.company.market.listing.dto.BulkRowResult;
 import com.company.market.listing.dto.BulkRowResult.Candidate;
@@ -37,6 +41,7 @@ import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 엑셀 판매상품 다량 등록 (계획 2026-11-05-bulk-listing-excel.md). 검사는 직접 등록(ListingService.create)과 같은 규칙을 쓴다 —
@@ -64,6 +69,26 @@ public class ListingBulkService {
 	private final Clock clock;
 
 	private final ListingRepository listings;
+
+	private final ListingBulkParser parser;
+
+	/**
+	 * 업로드한 엑셀을 읽고 줄마다 검사한다 (저장 없음). 데이터 줄이 하나도 없으면 빈 결과 — 화면이 "입력한 줄이 없어요"를 보이게
+	 */
+	public BulkParseResponse parse(UUID userId, MultipartFile file) {
+		String name = file.getOriginalFilename();
+		if (file.isEmpty() || name == null || !name.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
+			throw new ValidationException(Map.of("file", "엑셀(.xlsx) 파일을 올려 주세요."));
+		}
+		List<BulkRowDto> rows;
+		try (InputStream in = file.getInputStream()) {
+			rows = parser.parse(in);
+		}
+		catch (IOException e) {
+			throw new ValidationException(Map.of("file", "엑셀(.xlsx) 파일을 읽을 수 없습니다."));
+		}
+		return new BulkParseResponse(rows, rows.isEmpty() ? List.of() : check(userId, rows));
+	}
 
 	/**
 	 * 줄별 검사 결과. 저장은 안 한다. 트랜잭션을 걸지 않는다 — CategoryService.resolveMinor 가 예외로 끝나며 바깥 트랜잭션을
@@ -131,6 +156,10 @@ public class ListingBulkService {
 	List<Checked> checkAll(List<BulkRowDto> rows) {
 		if (rows == null || rows.isEmpty() || rows.size() > ListingBulkParser.MAX_ROWS) {
 			throw new ValidationException(Map.of("rows", "등록할 줄은 1~" + ListingBulkParser.MAX_ROWS + "개여야 합니다."));
+		}
+		// 줄 번호가 겹치면 화면의 줄 매칭과 확정 실패 키("줄번호.칸")가 섞인다
+		if (rows.stream().map(BulkRowDto::rowNo).distinct().count() != rows.size()) {
+			throw new ValidationException(Map.of("rows", "줄 번호가 겹칩니다."));
 		}
 		Set<String> seen = new HashSet<>();
 		return rows.stream().map(row -> checkOne(row, seen)).toList();
@@ -243,13 +272,14 @@ public class ListingBulkService {
 	}
 
 	private static Integer parseInt(String raw, String field, Map<String, String> fields) {
-		try {
-			return Integer.valueOf(raw.replace(",", "").replaceAll("\\s+", ""));
-		}
-		catch (NumberFormatException e) {
+		String digits = raw.replace(",", "").replaceAll("\\s+", "");
+		if (!digits.matches("-?\\d+")) {
 			fields.putIfAbsent(field, "숫자(정수)로 입력해 주세요.");
 			return null;
 		}
+		// int 범위를 넘는 값은 끝값으로 맞춰 둔다 — 검증기의 @Max/@Min 이 "N 이하로 입력해 주세요"를 알려 준다 ("정수로 입력"이라고 하면 틀린 안내)
+		BigInteger value = new BigInteger(digits);
+		return value.max(BigInteger.valueOf(Integer.MIN_VALUE)).min(BigInteger.valueOf(Integer.MAX_VALUE)).intValue();
 	}
 
 	/** 제약 어노테이션의 값에서 한국어 문구를 만든다 — 수치는 ListingCreateRequest 가 원본이라 여기에 다시 적지 않는다 */

@@ -73,7 +73,7 @@ class ListingBulkCommitTest {
 	void setUp() {
 		cleanUp();
 		Clock fixed = Clock.fixed(Instant.parse("2026-11-05T03:00:00Z"), ZoneId.of("Asia/Seoul"));
-		service = new ListingBulkService(products, categories, validator, fixed, listings);
+		service = new ListingBulkService(products, categories, validator, fixed, listings, new ListingBulkParser());
 		sellerId = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("bulkcommit")
 			.passwordHash("$2a$12$hash").nickname("bulkcommit").email("bulkcommit@example.com")
 			.name("홍길동").phone("01077770124").phoneHash(hasher.hash("01077770124")).build()).getId();

@@ -145,6 +145,7 @@ export const listing = {
       pick: "파일 선택",
       hint: ".xlsx 파일, 10MB 이하, 한 번에 200줄까지",
       template: "양식 내려받기",
+      templateFile: "판매상품_다량등록_양식.xlsx",
       templateFailed: "양식을 내려받지 못했어요. 잠시 후 다시 시도해 주세요",
       notXlsx: "엑셀(.xlsx) 파일만 올릴 수 있어요. .xls 는 .xlsx 로 다시 저장해서 올려 주세요",
       onlyOne: "파일은 하나만 올려 주세요",

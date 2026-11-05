@@ -1,22 +1,13 @@
 package com.company.market.listing.controller;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 
 import com.company.market.common.api.ApiResponse;
 import com.company.market.common.auth.AuthenticatedUser;
-import com.company.market.common.exception.ValidationException;
 import com.company.market.listing.dto.BulkCheckResponse;
 import com.company.market.listing.dto.BulkCommitResponse;
 import com.company.market.listing.dto.BulkParseResponse;
-import com.company.market.listing.dto.BulkRowDto;
-import com.company.market.listing.dto.BulkRowResult;
 import com.company.market.listing.dto.BulkRowsRequest;
-import com.company.market.listing.service.ListingBulkParser;
 import com.company.market.listing.service.ListingBulkService;
 import com.company.market.listing.service.ListingBulkTemplate;
 import jakarta.validation.Valid;
@@ -42,8 +33,6 @@ public class ListingBulkController {
 
 	private static final String XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-	private final ListingBulkParser parser;
-
 	private final ListingBulkService bulk;
 
 	/**
@@ -60,20 +49,7 @@ public class ListingBulkController {
 
 	@PostMapping("/parse")
 	public ApiResponse<BulkParseResponse> parse(@AuthenticationPrincipal AuthenticatedUser me, @RequestParam("file") MultipartFile file) {
-		String name = file.getOriginalFilename();
-		if (file.isEmpty() || name == null || !name.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
-			throw new ValidationException(Map.of("file", "엑셀(.xlsx) 파일을 올려 주세요."));
-		}
-		List<BulkRowDto> rows;
-		try (InputStream in = file.getInputStream()) {
-			rows = parser.parse(in);
-		}
-		catch (IOException e) {
-			throw new ValidationException(Map.of("file", "엑셀(.xlsx) 파일을 읽을 수 없습니다."));
-		}
-		// 데이터 줄이 하나도 없으면 검사할 것이 없다 — 빈 결과로 돌려 화면이 "입력한 줄이 없어요"를 보이게
-		List<BulkRowResult> results = rows.isEmpty() ? List.of() : bulk.check(me.id(), rows);
-		return ApiResponse.of(new BulkParseResponse(rows, results));
+		return ApiResponse.of(bulk.parse(me.id(), file));
 	}
 
 	@PostMapping("/check")

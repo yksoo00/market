@@ -43,6 +43,9 @@ export function BulkListingDialog({ onClose }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
   // 마지막 검사 뒤에 고친 줄. 칸을 벗어날 때 이 줄만 서버에 다시 묻는다 (고치지 않고 지나가기만 하면 묻지 않는다)
   const edited = useRef(new Set<number>());
+  // 줄마다 마지막으로 보낸 검사 번호. 먼저 보낸 요청의 응답이 늦게 와 새 결과를 덮어쓰지 않게, 번호가 다르면 그 응답은 버린다
+  const sent = useRef(new Map<number, number>());
+  const seq = useRef(0);
   const openTile = useTileOpen();
   const today = todayInSeoul();
 
@@ -54,9 +57,15 @@ export function BulkListingDialog({ onClose }: Props) {
     const wanted = new Set(rowNos);
     const lines = base.lines.filter((l) => wanted.has(l.rowNo));
     if (lines.length === 0) return;
-    lines.forEach((l) => dispatch({ type: "checking", rowNo: l.rowNo }));
+    const token = ++seq.current;
+    lines.forEach((l) => {
+      sent.current.set(l.rowNo, token);
+      dispatch({ type: "checking", rowNo: l.rowNo });
+    });
     const res = await listingBulkApi.check(lines.map(toApiRow));
-    dispatch({ type: "rechecked", results: res.ok ? res.data.results : lines.map((l) => l.result) });
+    const fresh = lines.filter((l) => sent.current.get(l.rowNo) === token);
+    const results = res.ok ? res.data.results : lines.map((l) => l.result);
+    dispatch({ type: "rechecked", results: results.filter((r) => fresh.some((l) => l.rowNo === r.rowNo)) });
     if (!res.ok) setTopError(res.fields ? Object.values(res.fields).join(" ") : (listing.errors[res.code] ?? res.message));
   };
 
@@ -122,9 +131,12 @@ export function BulkListingDialog({ onClose }: Props) {
     const url = URL.createObjectURL(res.data);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "판매상품_다량등록_양식.xlsx";
+    a.download = t.drop.templateFile;
+    // DOM 에 붙여 눌러야 브라우저가 받고, 주소는 내려받기가 시작된 뒤에 푼다 (바로 풀면 일부 브라우저가 빈 파일을 받는다)
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
 
   // 선택 확정 = 체크한 줄, 전체 확정 = 오류 없는 줄 전부
@@ -145,7 +157,11 @@ export function BulkListingDialog({ onClose }: Props) {
     if (res.code === "LISTING_BULK_INVALID") void recheckRows(state, rows.map((r) => r.rowNo));
   };
 
+  // 올리는 중·등록하는 중에 닫으면 결과를 못 보고 같은 파일을 다시 올려 이중 등록할 수 있다
+  const busy = committing || step === "reading";
+
   const close = () => {
+    if (busy) return;
     const dirty = state.lines.some((l) => l.dirty);
     if (dirty && !window.confirm(t.closeConfirm)) return;
     onClose();
@@ -319,7 +335,7 @@ export function BulkListingDialog({ onClose }: Props) {
               {t.retry}
             </button>
           )}
-          <button type="button" onClick={close} className="h-11 flex-1 rounded-md border border-line text-[15px] font-medium text-ink-2 hover:bg-bg">
+          <button type="button" onClick={close} disabled={busy} className="h-11 flex-1 rounded-md border border-line text-[15px] font-medium text-ink-2 hover:bg-bg disabled:opacity-40">
             {t.close}
           </button>
         </div>

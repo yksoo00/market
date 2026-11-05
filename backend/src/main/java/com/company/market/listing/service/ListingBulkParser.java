@@ -25,9 +25,6 @@ public class ListingBulkParser {
 	/** 한 번에 받는 데이터 줄 수 (계획 2026-11-05) */
 	public static final int MAX_ROWS = 200;
 
-	/** 빈 서식만 칠해 둔 시트가 수십만 행을 가리켜도 도는 횟수를 막는 안전 상한 */
-	private static final int MAX_SCAN_ROWS = 10_000;
-
 	/** BulkRowDto 칸 순서와 같다. * 는 필수 표시 — 읽을 땐 * 와 공백을 뗀다 */
 	public static final List<String> HEADER_LABELS = List.of("상품명*", "제조사*", "분류번호", "상품번호", "카테고리 코드", "상품ID",
 			"상품상태*", "단가*", "수량*", "최소주문수량", "주문단위", "제공가능일*", "설명");
@@ -43,13 +40,10 @@ public class ListingBulkParser {
 				throw fileError("1행(헤더)이 없습니다. 양식을 내려받아 사용해 주세요.");
 			}
 			int[] columns = columnIndexes(header);
-			if (sheet.getLastRowNum() > MAX_SCAN_ROWS) {
-				throw fileError("행이 너무 많습니다. 데이터는 " + MAX_ROWS + "줄까지 올릴 수 있어요.");
-			}
 			List<BulkRowDto> rows = new ArrayList<>();
-			for (int r = 1; r <= sheet.getLastRowNum(); r++) {
-				Row row = sheet.getRow(r);
-				if (row == null) {
+			// 서식만 칠해 둔 빈 행이 수만 개 있어도 내용이 있는 줄만 센다 (getLastRowNum 으로 막으면 정상 파일이 거절된다)
+			for (Row row : sheet) {
+				if (row.getRowNum() == 0) {
 					continue;
 				}
 				String[] v = new String[columns.length];
@@ -65,7 +59,7 @@ public class ListingBulkParser {
 					throw fileError("한 번에 " + MAX_ROWS + "줄까지 올릴 수 있어요.");
 				}
 				// HEADER_LABELS 순서(상품명…설명)를 DTO 순서(상품ID가 앞)로
-				rows.add(new BulkRowDto(r + 1, v[5], v[0], v[1], v[2], v[3], v[4], v[6], v[7], v[8], v[9], v[10], v[11], v[12]));
+				rows.add(new BulkRowDto(row.getRowNum() + 1, v[5], v[0], v[1], v[2], v[3], v[4], v[6], v[7], v[8], v[9], v[10], v[11], v[12]));
 			}
 			return rows;
 		}

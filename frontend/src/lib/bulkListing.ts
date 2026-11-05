@@ -35,6 +35,9 @@ export type BulkAction =
   | { type: "picked"; rowNo: number; candidate: BulkCandidate }
   | { type: "committed"; rowNos: number[] };
 
+/** 상품이 누구인지 정하는 칸. 이 칸을 고치면 후보로 고른 prodId 는 더 이상 맞지 않는다 */
+const PRODUCT_FIELDS: (keyof BulkFields)[] = ["prodName", "prodBrand", "prodClassNo"];
+
 export const initialBulkState: BulkState = { lines: [], created: 0 };
 
 /** 서버가 준 줄(null 허용)을 화면 입력값(빈 칸 = "")으로 */
@@ -138,6 +141,8 @@ export function bulkReducer(state: BulkState, action: BulkAction): BulkState {
     case "edited":
       return patch(state, action.rowNo, (l) => {
         const fields = { ...l.fields, [action.field]: action.value };
+        // 상품 칸을 고치면 고른 마스터(prodId)를 놓는다 — 안 그러면 숨은 prodId 가 서버에서 이름보다 앞서, 고친 이름이 조용히 무시된다
+        if (PRODUCT_FIELDS.includes(action.field) && l.fields.prodId !== "") fields.prodId = "";
         const clientErrors = validateBulkRow(fields, action.today);
         const next: BulkLine = { ...l, fields, clientErrors, dirty: true, result: withoutError(l.result, action.field) };
         return { ...next, selected: next.selected && !hasErrors(next) };

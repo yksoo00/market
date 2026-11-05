@@ -94,6 +94,21 @@ describe("bulkReducer", () => {
     expect(toApiRow(s.lines[1]).prodId).toBe("KP-9");
   });
 
+  it("후보를 고른 뒤 상품명·제조사·분류번호를 고치면 prodId 를 놓아 고친 값이 쓰인다", () => {
+    let s = bulkReducer(loaded(), {
+      type: "picked",
+      rowNo: 3,
+      candidate: { prodId: "KP-9", prodName: "스위치 C9300", prodBrand: "Cisco", prodClassNo: null },
+    });
+    s = bulkReducer(s, { type: "edited", rowNo: 3, field: "prodName", value: "다른 상품", today: TODAY });
+    expect(s.lines[1].fields.prodId).toBe("");
+    expect(toApiRow(s.lines[1])).toMatchObject({ prodId: null, prodName: "다른 상품" });
+    // 상품 칸이 아닌 칸을 고치면 prodId 는 그대로
+    s = bulkReducer(s, { type: "picked", rowNo: 3, candidate: { prodId: "KP-9", prodName: "스위치", prodBrand: "Cisco", prodClassNo: null } });
+    s = bulkReducer(s, { type: "edited", rowNo: 3, field: "salesQuantity", value: "9", today: TODAY });
+    expect(s.lines[1].fields.prodId).toBe("KP-9");
+  });
+
   it("전체 선택은 오류 없는 줄만 체크하고, 해제는 모두 푼다", () => {
     let s = bulkReducer(loaded(), { type: "selectAll", value: true });
     expect(s.lines.map((l) => l.selected)).toEqual([true, true, false]);

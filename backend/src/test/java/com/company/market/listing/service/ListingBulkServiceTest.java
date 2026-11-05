@@ -148,6 +148,24 @@ class ListingBulkServiceTest {
 	}
 
 	@Test
+	@DisplayName("int 범위를 넘는 숫자는 정수 형식 오류가 아니라 범위 오류 문구")
+	void hugeNumber() {
+		BulkRowDto huge = new BulkRowDto(2, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "3000000000", "1", null, null, "2099-12-31", null);
+
+		String message = only(huge).fields().get("salesUnitPrice");
+
+		assertThat(message).isNotNull().doesNotContain("숫자(정수)");
+	}
+
+	@Test
+	@DisplayName("줄 번호가 겹치면 거절")
+	void duplicateRowNo() {
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.check(UUID.randomUUID(),
+				List.of(row(2, "벌크 스위치 C9300", "Cisco", "CLS-1"), row(2, "벌크 라우터 ISR", "Cisco", null))))
+			.isInstanceOf(com.company.market.common.exception.ValidationException.class);
+	}
+
+	@Test
 	@DisplayName("최소주문량이 수량보다 크면 minOrderQuantity 오류")
 	void minOrderOverQuantity() {
 		BulkRowDto bad = new BulkRowDto(2, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "1", "3", "5", null, "2099-12-31", null);
