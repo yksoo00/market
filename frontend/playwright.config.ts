@@ -4,6 +4,9 @@ import { defineConfig } from "@playwright/test";
 // 다른 PC·CI 는 E2E_CHANNEL=chromium(내려받은 Chromium, `playwright install chromium` 필요)이나 chrome 등으로 바꾼다
 const channel = process.env.E2E_CHANNEL ?? "msedge";
 
+// 백엔드가 허용하는 프론트 출처(루트 .env 의 APP_URL)와 맞춰야 CORS 에 안 걸린다. 이 개발 환경은 51000 — E2E_BASE_URL=http://localhost:51000
+const baseURL = process.env.E2E_BASE_URL ?? "http://localhost:3000";
+
 // 핵심 흐름 E2E (frontend.md "Playwright: 핵심 흐름 최소 1개"). 백엔드·Postgres·Redis 가 떠 있어야 한다:
 //   docker compose up -d && (cd backend && ./gradlew bootRun)  → pnpm e2e
 // CI 에는 아직 없음 (백엔드 스택을 띄워야 해서 워크플로가 커진다 — decisions.md 2026-10-06 Playwright)
@@ -18,15 +21,15 @@ export default defineConfig({
   expect: { timeout: 15_000 },
   reporter: [["list"]],
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL,
     channel: channel === "chromium" ? undefined : channel,
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
   },
   // 떠 있는 개발 서버가 있으면 그대로 쓰고, 없으면 띄운다. 의존성을 바꾼(pnpm install) 뒤엔 떠 있던 서버가 옛 경로를 봐 500 이 나므로 다시 띄울 것
   webServer: {
-    command: "pnpm dev",
-    url: "http://localhost:3000",
+    command: `pnpm dev -p ${new URL(baseURL).port || 3000}`,
+    url: baseURL,
     reuseExistingServer: true,
     timeout: 120_000,
   },
