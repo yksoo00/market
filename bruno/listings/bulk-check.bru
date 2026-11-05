@@ -1,0 +1,34 @@
+meta {
+  name: 다량 등록 줄 다시 검사
+  type: http
+  seq: 12
+}
+
+post {
+  url: {{baseUrl}}/api/v1/listings/bulk/check
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "rows": [
+      {
+        "rowNo": 2,
+        "prodName": "노트북 X",
+        "prodBrand": "삼성",
+        "categoryCode": "P01-Q01-R001",
+        "prodState": "신품",
+        "salesUnitPrice": "500000",
+        "salesQuantity": "3",
+        "deliveryDate": "2099-12-31"
+      }
+    ]
+  }
+}
+
+docs {
+  로그인 먼저. 화면에서 칸을 고친 줄(1~200개)을 다시 보내 검사한다. 저장 안 함. 응답 { ok, data: { results } }.
+  숫자 칸도 문자열로 보낸다(엑셀 칸이 글자여도 400 대신 줄 오류가 되게). "1,000" 처럼 쉼표는 허용.
+  prodId 를 주면 그 마스터를 쓴다(후보를 골랐을 때). 400: rows 가 0개 또는 201개 이상.
+}

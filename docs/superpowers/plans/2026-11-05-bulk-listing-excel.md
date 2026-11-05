@@ -41,7 +41,8 @@
 - `GET /template` → `.xlsx` 바이트(헤더 + 예시 1줄 + 상품상태 드롭다운 검증). 바이트라 `{ ok, data }` 로 감싸지 않는다(기존 파일 응답과 같은 방식).
 - `POST /parse` (multipart `file`) → `{ ok, data: { rows: BulkRowDto[], results: BulkRowResult[] } }`. 헤더가 양식과 다르면 400 `VALIDATION`(`fields.file`). 데이터 줄이 201개 이상이면 400. 완전히 빈 줄은 건너뛴다(줄 번호는 엑셀 행 번호 그대로).
 - `POST /check` `{ rows: BulkRowDto[1~200] }` → `{ results: BulkRowResult[] }`. 줄 하나만 보내도 된다(칸 수정 후 재검사).
-- `POST /commit` `{ rows: BulkRowDto[1~200] }` → 성공 `{ created: n }`. 하나라도 걸리면 409 `LISTING_BULK_INVALID` + `{ results }`(걸린 줄 사유). 아무것도 저장되지 않는다.
+- `POST /commit` `{ rows: BulkRowDto[1~200] }` → 성공 `{ created: n }`. 하나라도 걸리면 409 `LISTING_BULK_INVALID` + `fields`(키 `줄번호.칸`, 예 `"3.salesQuantity"` — 오류 응답 형식을 안 바꾸려고 `results` 대신 기존 `fields` 에 실었다). 아무것도 저장되지 않는다. 화면은 409 를 받으면 `/check` 를 다시 불러 줄별 상태를 갱신한다.
+- 구현하며 바뀐 것(2026-11-05): 양식에 **예시 줄을 두지 않았다**(지우지 않고 올리면 가짜 상품이 후보에 오른다). `GET /template` 은 기존 보안 규칙(`GET /listings/*/*` 공개)에 걸려 로그인 없이 받을 수 있다 — 헤더뿐이라 그대로 둠(security.md 에 기록).
 
 `BulkRowDto`(전부 문자열 — 엑셀 칸이 숫자 아닌 글자여도 400 대신 줄 오류로 보이게): `rowNo`(int), `prodId`, `prodName`, `prodBrand`, `prodClassNo`, `prodNo`, `categoryCode`, `prodState`, `salesUnitPrice`, `salesQuantity`, `minOrderQuantity`, `orderUnit`, `deliveryDate`, `description`.
 
