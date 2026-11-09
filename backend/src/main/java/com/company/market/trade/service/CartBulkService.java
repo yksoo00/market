@@ -214,12 +214,19 @@ public class CartBulkService {
 			if (name == null) {
 				fields.put("prodName", REQUIRED);
 			}
-			if (brand == null) {
-				fields.put("prodBrand", REQUIRED);
-			}
-			if (name != null && brand != null) {
-				master = products.findSameIgnoreCase(name, brand, classNo).orElse(null);
-				if (master == null) {
+			else {
+				// 이름(+적었으면 제조사·분류번호)이 같은 마스터가 **하나일 때만** 자동으로 정한다. 사용자는 상품ID·분류번호를 모르는 게 보통이라
+				// 비운 칸은 보지 않고, 여럿이면 어느 것인지 알 수 없으니 고르게 한다 (계획 2026-11-09-bulk-purchase-conditions.md)
+				List<Product> matches = products.findAllLoose(name, brand, classNo, CANDIDATE_LIMIT + 1);
+				if (matches.size() == 1) {
+					master = matches.get(0);
+				}
+				else if (matches.size() > 1) {
+					fields.put("prodName", "같은 이름의 상품이 여럿이에요. 아래에서 고르세요.");
+					candidates = matches.stream().limit(CANDIDATE_LIMIT)
+						.map(p -> new Candidate(p.getProdId(), p.getProdName(), p.getProdBrand(), p.getProdClassNo())).toList();
+				}
+				else {
 					// 마스터에 없는 상품은 살 매물이 없다 — 판매 쪽의 "새 상품" 같은 건 없다
 					fields.put("prodName", "상품마스터에 없는 상품이에요. 아래에서 찾아 고르세요.");
 					candidates = products.search(name).stream().limit(CANDIDATE_LIMIT)

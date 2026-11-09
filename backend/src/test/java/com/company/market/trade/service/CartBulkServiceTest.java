@@ -328,6 +328,92 @@ class CartBulkServiceTest {
 			.isInstanceOf(ValidationException.class);
 	}
 
+	private Product withClassNo(String name, String brand, String classNo) {
+		return products.findOrCreate(new ProductDraft(CategoryFragments.parse(CATEGORY), name, null, brand, classNo, null, null, null, null, null, null));
+	}
+
+	@Test
+	@DisplayName("분류번호를 비워도 이름+제조사가 하나로 정해지면 자동으로 찾는다 (분류번호가 있는 마스터도)")
+	void blankClassNoMatchesUniqueMaster() {
+		Product classed = withClassNo("구매검사 분류품 C", "Acme", "PD-0001");
+		listing(sellerA, "20261105100000", classed, 1000, 5, 1, 1, false);
+
+		CartBulkRowResult r = only(row(2, "구매검사 분류품 C", "3"));
+
+		assertThat(r.status()).isEqualTo(Status.AVAILABLE);
+		assertThat(r.prodId()).isEqualTo(classed.getProdId());
+	}
+
+	@Test
+	@DisplayName("이름+제조사가 같은 마스터가 여럿이면 자동으로 고르지 않고 후보로 묻는다, 분류번호를 적으면 하나로 좁혀진다")
+	void severalMastersNeedChoice() {
+		Product a = withClassNo("구매검사 여럿 D", "Acme", "PD-0001");
+		Product b = withClassNo("구매검사 여럿 D", "Acme", "PD-0002");
+		listing(sellerA, "20261105100000", a, 1000, 5, 1, 1, false);
+		listing(sellerB, "20261105100001", b, 900, 5, 1, 1, false);
+
+		CartBulkRowResult ambiguous = only(row(2, "구매검사 여럿 D", "3"));
+
+		assertThat(ambiguous.status()).isEqualTo(Status.FAILED);
+		assertThat(ambiguous.prodId()).isNull();
+		assertThat(ambiguous.fields().get("prodName")).contains("여럿");
+		assertThat(ambiguous.candidates()).extracting(c -> c.prodId()).containsExactlyInAnyOrder(a.getProdId(), b.getProdId());
+
+		CartBulkRowResult narrowed = only(new CartBulkRowDto(3, null, "구매검사 여럿 D", "Acme", "pd-0002", "3", "2099-12-31", null, null, null));
+		assertThat(narrowed.status()).isEqualTo(Status.AVAILABLE);
+		assertThat(narrowed.prodId()).isEqualTo(b.getProdId());
+	}
+
+	@Test
+	@DisplayName("제조사를 비우면 이름만으로 찾는다 — 하나면 자동, 여럿이면 후보")
+	void blankBrand() {
+		Product solo = products.findOrCreate(draft("구매검사 단독 E", "Zeta", null));
+		listing(sellerA, "20261105100000", solo, 1000, 5, 1, 1, false);
+		Product dupA = products.findOrCreate(draft("구매검사 이름겹침 F", "Acme", null));
+		products.findOrCreate(draft("구매검사 이름겹침 F", "Zeta", null));
+
+		CartBulkRowResult one = only(new CartBulkRowDto(2, null, "구매검사 단독 E", null, null, "3", "2099-12-31", null, null, null));
+		CartBulkRowResult many = only(new CartBulkRowDto(3, null, "구매검사 이름겹침 F", " ", null, "3", "2099-12-31", null, null, null));
+
+		assertThat(one.status()).isEqualTo(Status.AVAILABLE);
+		assertThat(one.prodId()).isEqualTo(solo.getProdId());
+		assertThat(many.status()).isEqualTo(Status.FAILED);
+		assertThat(many.candidates()).hasSize(2).extracting(c -> c.prodId()).contains(dupA.getProdId());
+	}
+
+	@Test
+	@DisplayName("제조사를 적었는데 이름만 같고 제조사가 다르면 자동으로 붙이지 않고, 후보에는 보인다")
+	void differentBrandIsNotAutoMatched() {
+		Product other = products.findOrCreate(draft("구매검사 제조사다름 G", "Zeta", null));
+
+		CartBulkRowResult r = only(new CartBulkRowDto(2, null, "구매검사 제조사다름 G", "Acme", null, "3", "2099-12-31", null, null, null));
+
+		assertThat(r.status()).isEqualTo(Status.FAILED);
+		assertThat(r.prodId()).isNull();
+		assertThat(r.candidates()).extracting(c -> c.prodId()).contains(other.getProdId());
+	}
+
+	@Test
+	@DisplayName("대소문자·공백·하이픈 표기 차이는 같은 이름으로 본다 (R740 / R-740 / r 740)")
+	void normalizedNames() {
+		Product model = products.findOrCreate(draft("구매검사 R-740 H", "Acme", null));
+		listing(sellerA, "20261105100000", model, 1000, 5, 1, 1, false);
+
+		for (String written : List.of("구매검사 R740 H", "구매검사 r 740 h", "구매검사R-740H")) {
+			CartBulkRowResult r = only(row(2, written, "3"));
+			assertThat(r.prodId()).as(written).isEqualTo(model.getProdId());
+		}
+	}
+
+	@Test
+	@DisplayName("이름이 공백·하이픈뿐이면 아무것도 찾지 않는다")
+	void symbolOnlyName() {
+		CartBulkRowResult r = only(row(2, " - - ", "3"));
+
+		assertThat(r.status()).isEqualTo(Status.FAILED);
+		assertThat(r.prodId()).isNull();
+	}
+
 	@Test
 	@DisplayName("지금 장바구니 줄 수와 한도를 함께 돌려준다")
 	void cartCount() {
