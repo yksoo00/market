@@ -11,6 +11,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
+import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ValidationException;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.domain.ListingId;
@@ -19,7 +20,10 @@ import com.company.market.listing.dto.ListingTradeSnapshot;
 import com.company.market.listing.service.ListingService;
 import com.company.market.listing.service.ProductService;
 import com.company.market.trade.domain.CartType;
+import com.company.market.trade.dto.CartAddRequest;
 import com.company.market.trade.dto.CartBulkCheckResult;
+import com.company.market.trade.dto.CartBulkCommitResult;
+import com.company.market.trade.dto.CartBulkCommitResult.Outcome;
 import com.company.market.trade.dto.CartBulkRowDto;
 import com.company.market.trade.dto.CartBulkRowResult;
 import com.company.market.trade.dto.CartBulkRowResult.Alternative;
@@ -61,10 +65,68 @@ public class CartBulkService {
 
 	private final CartInfoRepository cartInfos;
 
+	private final CartService cart;
+
 	/** 줄별 검사 결과 + 지금 장바구니 줄 수. 저장은 안 한다 */
 	public CartBulkCheckResult check(UUID buyerId, List<CartBulkRowDto> rows) {
 		List<CartBulkRowResult> results = checkAll(buyerId, rows).stream().map(Checked::result).toList();
 		return new CartBulkCheckResult(results, cartInfos.countByUserIdAndCartType(buyerId, CartType.CART), CartService.MAX_ITEMS);
+	}
+
+	/**
+	 * 담기. 줄을 전부 다시 검사하고(브라우저가 "된다"고 한 것은 믿지 않는다), 담을 수 있는 줄을 **줄마다 한 번씩** CartService.add 로 담는다.
+	 * 이 메서드는 트랜잭션을 걸지 않는다 — add 호출마다 자기 트랜잭션이라 한 줄의 실패가 앞서 담은 줄을 되돌리지 않는다(부분 성공).
+	 * 같은 매물을 고른 두 줄은 앞 줄이 묶은 재고를 뒤 줄의 add 가 보고 판정하고, 장바구니가 중간에 가득 차면 그 줄부터 CART_FULL 로 실패한다.
+	 * 장바구니는 빼기가 쉬운 일이라 전부-아니면-전무가 아닌 줄별 결과를 택했다 (계획 2026-11-09)
+	 */
+	public CartBulkCommitResult commit(UUID buyerId, List<CartBulkRowDto> rows) {
+		List<Checked> checked = checkAll(buyerId, rows);
+		List<Outcome> outcomes = new ArrayList<>();
+		for (int i = 0; i < checked.size(); i++) {
+			CartBulkRowResult r = checked.get(i).result();
+			if (r.status() == Status.FAILED) {
+				outcomes.add(new Outcome(r.rowNo(), false, "VALIDATION", r.fields().values().iterator().next()));
+				continue;
+			}
+			if (r.status() == Status.UNAVAILABLE) {
+				outcomes.add(new Outcome(r.rowNo(), false, "NO_LISTING", "살 수 있는 매물이 없어요."));
+				continue;
+			}
+			CartBulkRowDto row = rows.get(i);
+			CartAddRequest.Item item = new CartAddRequest.Item(UUID.fromString(r.chosen().sellerId()), r.chosen().regDate(),
+					checked.get(i).quantity(), norm(row.reqDeliDate()), remarksOf(row.remarks(), r));
+			try {
+				cart.add(buyerId, new CartAddRequest(List.of(item)));
+				outcomes.add(new Outcome(r.rowNo(), true, null, null));
+			}
+			catch (ValidationException e) {
+				outcomes.add(new Outcome(r.rowNo(), false, e.getCode().name(), e.getFields().values().iterator().next()));
+			}
+			catch (ApiException e) {
+				outcomes.add(new Outcome(r.rowNo(), false, e.getCode().name(), e.getMessage()));
+			}
+		}
+		return new CartBulkCommitResult(outcomes, cartInfos.countByUserIdAndCartType(buyerId, CartType.CART));
+	}
+
+	/**
+	 * 요청사항. 대체품이면 "원래 요청: A" 를 덧붙여 판매자도 알게 한다 — 100자 안에서, 넘치면 사용자가 쓴 앞부분을 자르고 이 문구는 항상 남긴다.
+	 * 원래 요청 이름은 줄이 가리킨 마스터(요청한 상품)의 이름이다
+	 */
+	static String remarksOf(String userRemarks, CartBulkRowResult result) {
+		String user = userRemarks == null || userRemarks.isBlank() ? null : userRemarks.trim();
+		if (!result.substituted()) {
+			return user;
+		}
+		String note = "원래 요청: " + result.matchedName();
+		if (note.length() > MAX_REMARKS) {
+			note = note.substring(0, MAX_REMARKS);
+		}
+		if (user == null) {
+			return note;
+		}
+		int room = MAX_REMARKS - note.length() - " / ".length();
+		return room <= 0 ? note : (user.length() > room ? user.substring(0, room) : user) + " / " + note;
 	}
 
 	/** 검사 결과 + 담기(commit)가 쓸 해석값 — 수량은 검사를 통과한 줄만 있다 */
