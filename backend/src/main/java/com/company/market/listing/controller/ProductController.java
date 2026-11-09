@@ -1,5 +1,6 @@
 package com.company.market.listing.controller;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -42,17 +43,19 @@ public class ProductController {
 	public ApiResponse<ProductSearchPageResponse> page(@RequestParam(name = "q", defaultValue = "") String q,
 			@RequestParam(name = "category", defaultValue = "") String category, @RequestParam(name = "brand", defaultValue = "") String brand,
 			@RequestParam(name = "page", defaultValue = "1") int page) {
-		Map<String, String> failures = new java.util.LinkedHashMap<>();
-		if (q.trim().length() > MAX_QUERY_LENGTH) {
-			failures.put("q", "검색어는 " + MAX_QUERY_LENGTH + "자 이하로 입력하세요.");
-		}
-		if (brand.trim().length() > MAX_QUERY_LENGTH) {
-			failures.put("brand", "제조사는 " + MAX_QUERY_LENGTH + "자 이하로 입력하세요.");
-		}
+		Map<String, String> failures = new LinkedHashMap<>();
+		requireMaxLength(failures, "q", "검색어", q);
+		requireMaxLength(failures, "brand", "제조사", brand);
 		if (!failures.isEmpty()) {
 			throw new ValidationException(failures);
 		}
 		return ApiResponse.of(products.searchPage(q, category, brand, page));
+	}
+
+	private static void requireMaxLength(Map<String, String> failures, String field, String label, String value) {
+		if (value.trim().length() > MAX_QUERY_LENGTH) {
+			failures.put(field, label + "는 " + MAX_QUERY_LENGTH + "자 이하로 입력하세요.");
+		}
 	}
 
 }

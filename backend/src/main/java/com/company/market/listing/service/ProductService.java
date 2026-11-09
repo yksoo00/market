@@ -119,7 +119,8 @@ public class ProductService {
 		Map<String, String> names = categories.names(byId.values().stream().map(Product::getMinorCategory).filter(Objects::nonNull).distinct().toList());
 		Map<String, Integer> counts = new HashMap<>();
 		products.countAvailableListings(pageIds).forEach(row -> counts.put((String) row[0], ((Number) row[1]).intValue()));
-		List<ProductPageItemResponse> items = pageIds.stream().map(byId::get).map(p -> new ProductPageItemResponse(p.getProdId(), p.getCategoryCode(),
+		// ID 목록을 읽은 뒤 그 사이에 지워진 마스터는 건너뛴다 (두 읽기가 한 스냅샷이 아닐 수 있다)
+		List<ProductPageItemResponse> items = pageIds.stream().map(byId::get).filter(Objects::nonNull).map(p -> new ProductPageItemResponse(p.getProdId(), p.getCategoryCode(),
 				p.getMinorCategory() == null ? null : names.get(p.getMinorCategory()), p.getProdName(), p.getProdNo(), p.getProdBrand(),
 				p.getProdClassNo(), p.getProdSpecInfo(), p.getProdUsefulLife(), p.getWarrantyMethod(), p.getAlterProdName(), p.getProdDataSheet(),
 				p.getProdPhoto1(), counts.getOrDefault(p.getProdId(), 0))).toList();

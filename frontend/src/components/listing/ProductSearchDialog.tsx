@@ -50,7 +50,13 @@ export function ProductSearchDialog({ onPick, onClose }: Props) {
   useEffect(() => {
     let live = true;
     void catalogApi.searchProductsPage(filter).then((r) => {
-      if (live) setLoaded({ key, page: r.ok ? r.data : null });
+      if (!live) return;
+      // 결과가 줄어 보던 페이지가 범위 밖이 되면(400 page) 1페이지로 돌아가 다시 읽는다 — [다시 시도]로는 같은 실패만 되풀이한다
+      if (!r.ok && r.fields?.page && filter.page !== 1) {
+        setFilter((f) => ({ ...f, page: 1 }));
+        return;
+      }
+      setLoaded({ key, page: r.ok ? r.data : null });
     });
     return () => {
       live = false;
@@ -134,22 +140,27 @@ export function ProductSearchDialog({ onPick, onClose }: Props) {
           {failed && (
             <div role="alert" className="flex flex-col items-center gap-2 py-10 text-center">
               <p className="text-[13px] text-down">{t.failed}</p>
-              <button type="button" onClick={() => setAttempt((n) => n + 1)} className="h-8 rounded-md border border-primary px-3 text-[13px] font-medium text-primary hover:bg-primary-soft">
+              <button
+                type="button"
+                onClick={() => {
+                  setLoaded(null); // 불러오는 중으로 되돌려 눌렀다는 반응이 보이게
+                  setAttempt((n) => n + 1);
+                }}
+                className="h-8 rounded-md border border-primary px-3 text-[13px] font-medium text-primary hover:bg-primary-soft">
                 {t.retry}
               </button>
             </div>
           )}
           {page && page.items.length === 0 && <p role="status" className="px-4 py-10 text-center text-[13px] text-ink-2">{t.empty}</p>}
           {page && page.items.length > 0 && (
-            <ul id={listId} role="radiogroup" aria-label={t.title} className="max-h-[46vh] overflow-y-auto divide-y divide-line-2">
+            <ul id={listId} aria-label={t.title} className="max-h-[46vh] overflow-y-auto divide-y divide-line-2">
               {page.items.map((p) => {
                 const on = selected?.prodId === p.prodId;
                 return (
                   <li key={p.prodId}>
                     <button
                       type="button"
-                      role="radio"
-                      aria-checked={on}
+                      aria-pressed={on}
                       aria-label={t.chooseNamed(p.prodName)}
                       onClick={() => setSelected(p)}
                       onDoubleClick={() => onPick(p)}

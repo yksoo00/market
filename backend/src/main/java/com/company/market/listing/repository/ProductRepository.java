@@ -46,7 +46,7 @@ public interface ProductRepository extends JpaRepository<Product, String> {
 
 	/**
 	 * 상품마스터 검색(페이지 번호)의 정렬된 상품ID 전부 (계획 2026-11-09-product-search-modal.md). 빈 글("")은 "그 조건 없음" — null 바인딩의 타입 문제를 피한다.
-	 * contains·prefix·brand 는 호출하는 쪽이 %·_· 를 이스케이프()해 만든 LIKE 패턴, q 는 이름 비교용 원문.
+	 * contains·prefix·brand 는 호출하는 쪽이 %·_·\ 를 이스케이프(\)해 만든 LIKE 패턴, q 는 이름 비교용 원문.
 	 * 정렬: 이름이 q 와 정확히 같음 → q 로 시작 → q 를 포함 → 그 밖(제조사·번호·분류번호에서만 걸림), 같은 등급 안에서는 이름순·상품ID순 (결정적이라 페이지 사이에 중복·누락이 없다)
 	 */
 	@Query(value = """
