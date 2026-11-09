@@ -14,8 +14,10 @@ export const authApi = {
   },
   login: async (body: { loginId: string; password: string; remember: boolean }) => {
     const result = await post<{ userId: string }>("/api/v1/auth/login", body);
-    if (result.ok) clearBulk();
-    clearBuyBulk();
+    if (result.ok) {
+      clearBulk();
+      clearBuyBulk();
+    }
     return result;
   },
 
@@ -26,8 +28,10 @@ export const authApi = {
     remember: boolean;
   }) => {
     const result = await post<{ userId: string }>("/api/v1/auth/login/business", body);
-    if (result.ok) clearBulk();
-    clearBuyBulk();
+    if (result.ok) {
+      clearBulk();
+      clearBuyBulk();
+    }
     return result;
   },
 
