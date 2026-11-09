@@ -154,4 +154,68 @@ class CartBulkParserTest {
 		assertThat(parse(CartBulkTemplate.build())).isEmpty();
 	}
 
+	@Test
+	@DisplayName("양식 헤더는 TEMPLATE_LABELS 순서이고, 최소상태·최소보증·증빙 5칸에 드롭다운이 걸린다")
+	void templateHeadersAndDropdowns() throws IOException {
+		try (XSSFWorkbook wb = new XSSFWorkbook(new ByteArrayInputStream(CartBulkTemplate.build()))) {
+			Sheet sheet = wb.getSheetAt(0);
+			List<String> headers = new ArrayList<>();
+			for (Cell cell : sheet.getRow(0)) {
+				headers.add(cell.getStringCellValue());
+			}
+			assertThat(headers).isEqualTo(CartBulkParser.TEMPLATE_LABELS);
+			// 최소상태 1 + 최소보증 1 + 증빙 5
+			assertThat(sheet.getDataValidations()).hasSize(7);
+		}
+	}
+
+	/** 양식 전체 열(조건 포함) 순서대로 한 줄: 상품명, 제조사, 분류번호, 상품ID, 수량, 납품희망일, 최소상태, 단가상한, 최소보증, 데이터시트, 사진, 불량지원, 테스트리포트, 정품인증서, 요청사항 */
+	@Test
+	@DisplayName("조건 칸을 읽는다 — 숫자 셀 6 은 \"6\", 단가 1000.0 은 \"1000\"")
+	void readsConditionColumns() throws IOException {
+		Object[] row = { "스위치", "Cisco", null, null, 3, "2026-12-01", "신품대비 80~89%", 1500000.0, 6, "Y", null, "Y", null, "Y", "메모" };
+
+		CartBulkRowDto r = parse(workbook(CartBulkParser.TEMPLATE_LABELS, List.<Object[]>of(row))).get(0);
+
+		assertThat(r.prodName()).isEqualTo("스위치");
+		assertThat(r.remarks()).isEqualTo("메모");
+		assertThat(r.minState()).isEqualTo("신품대비 80~89%");
+		assertThat(r.maxPrice()).isEqualTo("1500000");
+		assertThat(r.minWarrantyMonths()).isEqualTo("6");
+		assertThat(r.needDataSheet()).isEqualTo("Y");
+		assertThat(r.needPhoto()).isNull();
+		assertThat(r.needCoverage()).isEqualTo("Y");
+		assertThat(r.needTestReport()).isNull();
+		assertThat(r.needCertificate()).isEqualTo("Y");
+	}
+
+	@Test
+	@DisplayName("조건 열이 없던 옛 양식 파일도 읽힌다 (조건은 모두 비어 있음)")
+	void oldTemplateWithoutConditionColumns() throws IOException {
+		CartBulkRowDto r = parse(workbook(CartBulkParser.HEADER_LABELS, List.<Object[]>of(line("A", 1, "2026-12-01")))).get(0);
+
+		assertThat(r.minState()).isNull();
+		assertThat(r.maxPrice()).isNull();
+		assertThat(r.minWarrantyMonths()).isNull();
+		assertThat(r.needDataSheet()).isNull();
+		assertThat(r.needCertificate()).isNull();
+	}
+
+	@Test
+	@DisplayName("제조사 헤더의 * 가 있든 없든 읽는다 (옛 양식은 \"제조사*\")")
+	void brandHeaderWithOrWithoutStar() throws IOException {
+		List<String> oldHeaders = new ArrayList<>(CartBulkParser.HEADER_LABELS);
+		oldHeaders.set(1, "제조사*");
+
+		assertThat(parse(workbook(oldHeaders, List.<Object[]>of(line("A", 1, "2026-12-01")))).get(0).prodBrand()).isEqualTo("Cisco");
+	}
+
+	@Test
+	@DisplayName("조건 칸만 채워진 줄도 데이터 줄로 센다 (그래야 필수 칸 오류가 보인다)")
+	void conditionOnlyRowCounts() throws IOException {
+		Object[] row = { null, null, null, null, null, null, "신품", null, null, null, null, null, null, null, null };
+
+		assertThat(parse(workbook(CartBulkParser.TEMPLATE_LABELS, List.<Object[]>of(row)))).hasSize(1);
+	}
+
 }

@@ -18,9 +18,11 @@ body:json {
         "prodName": "노트북 X",
         "prodBrand": "삼성",
         "orderQuantity": "3",
-        "reqDeliDate": "2099-12-31"
+        "reqDeliDate": "2099-12-31",
+        "minWarrantyMonths": "6"
       }
-    ]
+    ],
+    "sort": "price"
   }
 }
 
@@ -28,5 +30,6 @@ docs {
   로그인 먼저. 보낸 줄(체크한 것만)을 서버가 전부 다시 검사하고 담을 수 있는 줄을 줄마다 장바구니에 담는다 — 부분 성공이다.
   응답 { ok, data: { results: [{ rowNo, ok, code?, message? }], cartCount } }, results 는 입력 줄과 같은 개수·순서. 실패한 줄은 code(VALIDATION · NO_LISTING · CART_FULL · TRADE_OUT_OF_STOCK 등)와 message.
   담으면 그 수량만큼 재고가 묶이고 1시간 뒤 자동으로 풀린다 (장바구니 규칙 그대로, 최대 100줄). 단가는 매물 단가.
+  조건 칸(minState·maxPrice·minWarrantyMonths·need*)과 sort 는 check 와 같다 — 화면이 본 기본 매물과 담는 매물이 같도록 두 호출에 같은 값을 보낸다.
   대체품 매물을 골랐으면 요청사항에 "원래 요청: <상품명>" 이 덧붙는다(100자 안에서 사용자 글의 앞부분을 자름).
 }
