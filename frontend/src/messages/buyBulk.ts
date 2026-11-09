@@ -120,6 +120,7 @@ export const buyBulk = {
     delivery: (date: string) => `납기 ${date}`,
     changeListing: "다른 매물 보기",
     noListing: "살 수 있는 매물이 없어요.",
+    blockedWhy: "이유",
     alternatives: "대체품 제안",
     useAlternative: "대체품으로 바꾸기",
     alternativeOffer: (name: string, nickname: string | null, price: string) => `${name} · ${nickname ?? "판매자"} · 단가 ${price}`,

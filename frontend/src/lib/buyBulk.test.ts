@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CartBulkResult, CartBulkRowApi, ListingOption } from "@/types/cartBulk";
-import { buyReducer, canSelect, errorsOf, initialBuyState, isLocked, markDuplicates, summary, toCheckRow, toCommitRow, type BuyState } from "./buyBulk";
+import { blockedReasons, buyReducer, canSelect, errorsOf, initialBuyState, isLocked, markDuplicates, summary, toCheckRow, toCommitRow, type BuyState } from "./buyBulk";
 import { buyBulk } from "@/messages/buyBulk";
 
 const TODAY = "2026-11-09";
@@ -110,6 +110,11 @@ describe("buyReducer", () => {
     const sorted = buyReducer(initialBuyState, { type: "sorted", sort: "state" });
     const reloaded = buyReducer(sorted, { type: "loaded", rows: [row(2)], results: [result(2, "UNAVAILABLE")], cartCount: 0, cartMax: 100 });
     expect(reloaded.sort).toBe("state");
+  });
+
+  it("못 사는 이유는 같은 문구를 한 번만, 앞에서 3개까지 — 살 수 있는 매물은 빠진다", () => {
+    const options = [option("A", 1, "재고 부족"), option("B", 2, "재고 부족"), option("C", 3), option("D", 4, "상한 초과"), option("E", 5, "보증"), option("F", 6, "서류")];
+    expect(blockedReasons({ ...result(2, "UNAVAILABLE"), options })).toEqual(["재고 부족", "상한 초과", "보증"]);
   });
 
   it("읽으면 살 매물이 골라진 줄만 체크하고, 장바구니 줄 수를 담는다", () => {

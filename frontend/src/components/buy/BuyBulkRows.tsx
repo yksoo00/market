@@ -3,7 +3,7 @@
 import { BuyConditionFields } from "@/components/buy/BuyConditionFields";
 import { TraitsLine } from "@/components/buy/TraitsLine";
 import { Checkbox } from "@/components/ui/checkbox";
-import { canSelect, errorsOf, isLocked, type BuyLine, type BuyPick } from "@/lib/buyBulk";
+import { blockedReasons, canSelect, errorsOf, isLocked, type BuyLine, type BuyPick } from "@/lib/buyBulk";
 import { tabOf } from "@/lib/buyBulkView";
 import { formatPrice } from "@/lib/format";
 import { BUY_CONDITION_FIELDS, BUY_INPUT_FIELDS, type BuyFields, type BuyInputField } from "@/lib/validation/buyBulk";
@@ -130,7 +130,17 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
         ) : (
           !failed &&
           !line.added &&
-          result.status === "UNAVAILABLE" && <p className="text-[13px] text-ink-2">{t.line.noListing}</p>
+          result.status === "UNAVAILABLE" && (
+            <div className="flex flex-col gap-0.5">
+              <p className="text-[13px] text-ink-2">{t.line.noListing}</p>
+              {/* 어떤 조건에서 막혔는지 줄에서 바로 보이게 — 팝업까지 열지 않아도 엑셀·조건 칸을 고칠 수 있다 */}
+              {blockedReasons(result).map((reason) => (
+                <p key={reason} className="text-[12px] text-down">
+                  {t.line.blockedWhy}: {reason}
+                </p>
+              ))}
+            </div>
+          )
         )}
         {errors.listing && (
           <p role="alert" className="text-[12px] text-down">

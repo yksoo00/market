@@ -158,6 +158,9 @@ export function markDuplicates(state: BuyState): BuyState {
   return { ...state, lines: state.lines.map((l) => (l.duplicate === duplicateRows.has(l.rowNo) ? l : { ...l, duplicate: duplicateRows.has(l.rowNo) })) };
 }
 
+/** 매물 없음 줄에 바로 보일 못 사는 이유 — 같은 문구는 한 번만, 앞에서 max 개. 전부는 [다른 매물 보기]에 있다 */
+export const blockedReasons = (result: CartBulkResult, max = 3): string[] => [...new Set(result.options.flatMap((o) => o.reason ?? []))].slice(0, max);
+
 export const hasErrors = (line: BuyLine): boolean => Object.keys(errorsOf(line)).length > 0;
 
 /** 담지 않았고, 오류(파일 안 중복 포함)가 없고, 살 매물이 골라져 있고, 서버에 물어보는 중이 아니면 체크할 수 있다 */
