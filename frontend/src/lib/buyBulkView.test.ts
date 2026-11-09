@@ -14,8 +14,18 @@ const row = (rowNo: number, patch: Partial<CartBulkRowApi>): CartBulkRowApi => (
   remarks: null,
   sellerId: null,
   regDate: null,
+  minState: null,
+  maxPrice: null,
+  minWarrantyMonths: null,
+  needDataSheet: null,
+  needPhoto: null,
+  needCoverage: null,
+  needTestReport: null,
+  needCertificate: null,
   ...patch,
 });
+
+const traits = { prodState: "신품", warrantyDays: null, hasDataSheet: false, hasPhoto: false, hasWarrantyCoverage: false, hasTestReport: false, hasCertificate: false };
 
 const option = (price: number): ListingOption => ({
   sellerId: "S",
@@ -28,6 +38,7 @@ const option = (price: number): ListingOption => ({
   deliveryDate: null,
   replaceHint: null,
   reason: null,
+  traits,
 });
 
 const result = (rowNo: number, status: CartBulkResult["status"], chosen: ListingOption | null, fields: Record<string, string> = {}, matchedName: string | null = null): CartBulkResult => ({

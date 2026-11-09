@@ -1,6 +1,6 @@
-import { validateBuyRow, type BuyFields } from "@/lib/validation/buyBulk";
+import { BUY_CONDITION_FIELDS, validateBuyRow, type BuyFields } from "@/lib/validation/buyBulk";
 import { buyBulk } from "@/messages/buyBulk";
-import type { BuyCandidate, CartBulkOutcome, CartBulkResult, CartBulkRowApi } from "@/types/cartBulk";
+import type { BuyCandidate, BuySort, CartBulkOutcome, CartBulkResult, CartBulkRowApi } from "@/types/cartBulk";
 
 // 엑셀 대량구매의 표 상태 (계획 2026-11-09-bulk-purchase-excel.md). 판매 다량 등록(lib/bulkListing)과 같은 틀이지만 줄의 칸이 달라
 // 구매 전용으로 따로 둔다. 서버는 줄 상태를 저장하지 않아 수정·체크는 전부 여기(브라우저)에 있고, 검사·담기 때마다 서버로 다시 보낸다.
@@ -31,6 +31,8 @@ export interface BuyState {
   /** 서버가 알려 준 지금 장바구니 줄 수·한도 */
   cartCount: number;
   cartMax: number;
+  /** 조건을 통과한 매물 중 기본으로 고르는 기준 — 모든 줄·검사·담기에 같은 값을 보낸다 */
+  sort: BuySort;
 }
 
 /** 줄에서 마스터를 고를 때 넘기는 값 (후보 버튼·[상품 찾기]) */
@@ -50,7 +52,9 @@ export type BuyAction =
   | { type: "unlocked"; rowNo: number }
   /** 다른 매물(또는 대체품 매물)을 고른다 */
   | { type: "chose"; rowNo: number; sellerId: string; regDate: string }
-  | { type: "committed"; outcomes: CartBulkOutcome[]; cartCount: number };
+  | { type: "committed"; outcomes: CartBulkOutcome[]; cartCount: number }
+  /** 기본 매물을 고르는 기준을 바꾼다 — 화면이 열린 줄 전부를 새 기준으로 다시 검사한다 */
+  | { type: "sorted"; sort: BuySort };
 
 /** 마스터를 고르면 잠기는 칸 — 마스터 값이 기준이라 직접 고치지 않는다 (판매 다량 등록·등록 폼과 같은 방식) */
 export const LOCKED_FIELDS: (keyof BuyFields)[] = ["prodName", "prodBrand", "prodClassNo"];
@@ -58,7 +62,9 @@ export const LOCKED_FIELDS: (keyof BuyFields)[] = ["prodName", "prodBrand", "pro
 /** 마스터를 고른 줄(후보·[상품 찾기]·엑셀의 상품 ID)이면 상품 칸이 잠긴다 */
 export const isLocked = (line: BuyLine): boolean => line.fields.prodId !== "";
 
-export const initialBuyState: BuyState = { lines: [], added: 0, cartCount: 0, cartMax: 100 };
+export const DEFAULT_SORT: BuySort = "price";
+
+export const initialBuyState: BuyState = { lines: [], added: 0, cartCount: 0, cartMax: 100, sort: DEFAULT_SORT };
 
 /** 서버가 준 줄(null 허용)을 화면 입력값(빈 칸 = "")으로 */
 export function toFields(row: CartBulkRowApi): BuyFields {
@@ -72,6 +78,14 @@ export function toFields(row: CartBulkRowApi): BuyFields {
     remarks: row.remarks ?? "",
     sellerId: row.sellerId ?? "",
     regDate: row.regDate ?? "",
+    minState: row.minState ?? "",
+    maxPrice: row.maxPrice ?? "",
+    minWarrantyMonths: row.minWarrantyMonths ?? "",
+    needDataSheet: row.needDataSheet ?? "",
+    needPhoto: row.needPhoto ?? "",
+    needCoverage: row.needCoverage ?? "",
+    needTestReport: row.needTestReport ?? "",
+    needCertificate: row.needCertificate ?? "",
   };
 }
 
@@ -93,6 +107,14 @@ export function toCheckRow(line: BuyLine): CartBulkRowApi {
     remarks: n(f.remarks),
     sellerId: n(f.sellerId),
     regDate: n(f.regDate),
+    minState: n(f.minState),
+    maxPrice: n(f.maxPrice),
+    minWarrantyMonths: n(f.minWarrantyMonths),
+    needDataSheet: n(f.needDataSheet),
+    needPhoto: n(f.needPhoto),
+    needCoverage: n(f.needCoverage),
+    needTestReport: n(f.needTestReport),
+    needCertificate: n(f.needCertificate),
   };
 }
 
@@ -196,7 +218,7 @@ function reduce(state: BuyState, action: BuyAction): BuyState {
           duplicate: false,
         });
       }
-      return { lines, added: 0, cartCount: action.cartCount, cartMax: action.cartMax };
+      return { lines, added: 0, cartCount: action.cartCount, cartMax: action.cartMax, sort: state.sort };
     }
     case "restored":
       return action.state;
@@ -205,13 +227,24 @@ function reduce(state: BuyState, action: BuyAction): BuyState {
         // 마스터를 고른 줄의 상품 칸은 잠겨 있다 — 고치려면 먼저 [직접 입력으로 바꾸기]
         if (isLocked(l) && LOCKED_FIELDS.includes(action.field)) return l;
         const fields = { ...l.fields, [action.field]: action.value };
-        // 상품이 바뀌면 전에 고른 매물은 더 맞지 않는다. 수량·납품희망일·요청사항을 고칠 땐 고른 매물을 그대로 두고 서버가 다시 판정한다
-        if (action.field === "prodName" || action.field === "prodBrand" || action.field === "prodClassNo") {
+        // 상품이 바뀌면 전에 고른 매물은 더 맞지 않는다. 조건을 바꿔도 조건이 곧 기본 매물을 정하는 기준이라 직접 고른 매물을 비우고 서버가 다시 정하게 한다.
+        // 수량·납품희망일·요청사항을 고칠 땐 고른 매물을 그대로 두고 서버가 다시 판정한다
+        const changesPick =
+          action.field === "prodName" || action.field === "prodBrand" || action.field === "prodClassNo" || (BUY_CONDITION_FIELDS as readonly string[]).includes(action.field);
+        if (changesPick) {
           fields.sellerId = "";
           fields.regDate = "";
         }
         const clientErrors = validateBuyRow(fields, action.today);
-        const next: BuyLine = { ...l, fields, clientErrors, dirty: true, addError: null, result: withoutError(l.result, action.field) };
+        const next: BuyLine = {
+          ...l,
+          fields,
+          clientErrors,
+          dirty: true,
+          addError: null,
+          // 고른 매물을 비웠으니 그 매물에 대한 서버 사유(listing)도 같이 지운다
+          result: changesPick ? { ...l.result, fields: withoutKeys(l.result.fields, [action.field, "listing"]) } : withoutError(l.result, action.field),
+        };
         return { ...next, selected: next.selected && !hasErrors(next) };
       });
     case "checking":
@@ -289,5 +322,7 @@ function reduce(state: BuyState, action: BuyAction): BuyState {
       });
       return { ...state, lines, added: state.added + addedNow, cartCount: action.cartCount };
     }
+    case "sorted":
+      return { ...state, sort: action.sort };
   }
 }

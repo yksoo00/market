@@ -1,16 +1,39 @@
-import type { BuyLine, BuyState } from "@/lib/buyBulk";
+import { DEFAULT_SORT, type BuyLine, type BuyState } from "@/lib/buyBulk";
 
 // 대량구매 작업을 브라우저 sessionStorage 에 보관한다 (계획 2026-11-09-bulk-purchase-excel.md). 새로고침해도 고친 줄·체크를 잃지 않게.
 // 판매 다량 등록의 보관(lib/bulkStorage)과 같은 규칙: 서버에는 저장하지 않고, 탭을 닫으면 사라지며, 저장 실패는 조용히 넘기고,
 // 모양이 어긋난 보관본은 버린다. 키가 한 개라 계정 구분이 없으므로 로그인·로그아웃 때 비운다(lib/api/auth.ts).
 
 /** 줄의 입력 칸 이름 전부 (BuyFields) */
-const FIELD_KEYS = ["prodId", "prodName", "prodBrand", "prodClassNo", "orderQuantity", "reqDeliDate", "remarks", "sellerId", "regDate"] as const;
+const FIELD_KEYS = [
+  "prodId",
+  "prodName",
+  "prodBrand",
+  "prodClassNo",
+  "orderQuantity",
+  "reqDeliDate",
+  "remarks",
+  "sellerId",
+  "regDate",
+  "minState",
+  "maxPrice",
+  "minWarrantyMonths",
+  "needDataSheet",
+  "needPhoto",
+  "needCoverage",
+  "needTestReport",
+  "needCertificate",
+] as const;
+
+const SORTS = ["price", "state", "warranty"];
 
 /** 보관 형식이 바뀌면 올린다 — 다른 버전의 보관본은 읽지 않고 버린다 */
-const VERSION = 1;
+const VERSION = 2;
 
-export const BUY_STORAGE_KEY = "market.buyBulk.v1";
+export const BUY_STORAGE_KEY = "market.buyBulk.v2";
+
+/** 조건 열이 생기기 전(v1)의 보관본 — 읽지 않고 지운다 */
+const LEGACY_KEYS = ["market.buyBulk.v1"];
 
 const browserStorage = (): Storage | null => {
   try {
@@ -52,6 +75,8 @@ const isLine = (v: unknown): v is BuyLine => {
     ["AVAILABLE", "UNAVAILABLE", "FAILED"].includes(String(result.status)) &&
     typeof result.substituted === "boolean" &&
     Array.isArray(result.options) &&
+    // 후보 팝업이 매물 특성(traits)을 읽는다 — 빠진 보관본을 받으면 화면이 죽는다
+    result.options.every((o) => isRecord(o) && isRecord(o.traits)) &&
     Array.isArray(result.alternatives) &&
     Array.isArray(result.candidates) &&
     Array.isArray(result.notices) &&
@@ -63,6 +88,7 @@ const isLine = (v: unknown): v is BuyLine => {
 export function loadBuyBulk(storage: Storage | null = browserStorage()): BuyState | null {
   if (!storage) return null;
   try {
+    LEGACY_KEYS.forEach((k) => storage.removeItem(k));
     const raw = storage.getItem(BUY_STORAGE_KEY);
     if (raw === null) return null;
     const parsed: unknown = JSON.parse(raw);
@@ -74,13 +100,20 @@ export function loadBuyBulk(storage: Storage | null = browserStorage()): BuyStat
       !state.lines.every(isLine) ||
       typeof state.added !== "number" ||
       typeof state.cartCount !== "number" ||
-      typeof state.cartMax !== "number"
+      typeof state.cartMax !== "number" ||
+      !SORTS.includes(String(state.sort))
     ) {
       storage.removeItem(BUY_STORAGE_KEY);
       return null;
     }
     // 서버 응답을 기다리던 줄이 영영 "검사 중"으로 남지 않게 푼다
-    return { lines: state.lines.map((l) => ({ ...l, checking: false })), added: state.added, cartCount: state.cartCount, cartMax: state.cartMax };
+    return {
+      lines: state.lines.map((l) => ({ ...l, checking: false })),
+      added: state.added,
+      cartCount: state.cartCount,
+      cartMax: state.cartMax,
+      sort: SORTS.includes(String(state.sort)) ? state.sort! : DEFAULT_SORT,
+    };
   } catch {
     try {
       storage.removeItem(BUY_STORAGE_KEY);
@@ -94,6 +127,7 @@ export function loadBuyBulk(storage: Storage | null = browserStorage()): BuyStat
 export function clearBuyBulk(storage: Storage | null = browserStorage()): void {
   try {
     storage?.removeItem(BUY_STORAGE_KEY);
+    LEGACY_KEYS.forEach((k) => storage?.removeItem(k));
   } catch {
     // 막힌 저장소
   }

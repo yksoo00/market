@@ -16,8 +16,18 @@ const row = (rowNo: number, patch: Partial<CartBulkRowApi> = {}): CartBulkRowApi
   remarks: null,
   sellerId: null,
   regDate: null,
+  minState: null,
+  maxPrice: null,
+  minWarrantyMonths: null,
+  needDataSheet: null,
+  needPhoto: null,
+  needCoverage: null,
+  needTestReport: null,
+  needCertificate: null,
   ...patch,
 });
+
+const traits = { prodState: "신품", warrantyDays: null, hasDataSheet: false, hasPhoto: false, hasWarrantyCoverage: false, hasTestReport: false, hasCertificate: false };
 
 const option = (sellerId: string, price = 1000, reason: string | null = null): ListingOption => ({
   sellerId,
@@ -30,6 +40,7 @@ const option = (sellerId: string, price = 1000, reason: string | null = null): L
   deliveryDate: "2099-12-31",
   replaceHint: null,
   reason,
+  traits,
 });
 
 const result = (rowNo: number, status: CartBulkResult["status"], fields: Record<string, string> = {}, chosen: ListingOption | null = null): CartBulkResult => ({
@@ -58,6 +69,49 @@ function loaded(): BuyState {
 }
 
 describe("buyReducer", () => {
+  it("조건을 고치면 직접 고른 매물과 그 사유(listing)가 비워지고 서버가 기본 매물을 다시 정한다, 수량은 그대로 둔다", () => {
+    const picked = buyReducer(loaded(), { type: "chose", rowNo: 2, sellerId: "B", regDate: "20261105100001" });
+    const edited = buyReducer(picked, { type: "edited", rowNo: 2, field: "maxPrice", value: "500", today: TODAY });
+    expect(edited.lines[0].fields).toMatchObject({ maxPrice: "500", sellerId: "", regDate: "" });
+    expect(toCheckRow(edited.lines[0])).toMatchObject({ maxPrice: "500", sellerId: null, regDate: null });
+
+    const withListingError = buyReducer(loaded(), { type: "rechecked", results: [result(2, "FAILED", { listing: "상한을 넘어요" })] });
+    const cleared = buyReducer(withListingError, { type: "edited", rowNo: 2, field: "minState", value: "신품", today: TODAY });
+    expect(errorsOf(cleared.lines[0]).listing).toBeUndefined();
+
+    const qty = buyReducer(picked, { type: "edited", rowNo: 2, field: "orderQuantity", value: "4", today: TODAY });
+    expect(qty.lines[0].fields.sellerId).toBe("B");
+  });
+
+  it("조건 칸의 형식 오류가 바로 붙고, 조건은 검사·담기 요청에 실린다 (비면 null)", () => {
+    const bad = buyReducer(loaded(), { type: "edited", rowNo: 2, field: "minWarrantyMonths", value: "5", today: TODAY });
+    expect(errorsOf(bad.lines[0]).minWarrantyMonths).toBe(buyBulk.validation.minWarrantyMonths);
+    expect(canSelect(bad.lines[0])).toBe(false);
+
+    let s = buyReducer(loaded(), { type: "edited", rowNo: 2, field: "needDataSheet", value: "Y", today: TODAY });
+    s = buyReducer(s, { type: "edited", rowNo: 2, field: "minState", value: "신품대비 80~89%", today: TODAY });
+    expect(toCheckRow(s.lines[0])).toMatchObject({ needDataSheet: "Y", minState: "신품대비 80~89%", maxPrice: null, needPhoto: null });
+    expect(toCommitRow(s.lines[0])).toMatchObject({ needDataSheet: "Y", minState: "신품대비 80~89%" });
+  });
+
+  it("엑셀에 적힌 조건이 줄 칸으로 들어온다", () => {
+    const s = buyReducer(initialBuyState, {
+      type: "loaded",
+      rows: [row(2, { minState: "신품", maxPrice: "1500000", minWarrantyMonths: "6", needCertificate: "Y" })],
+      results: [result(2, "UNAVAILABLE")],
+      cartCount: 0,
+      cartMax: 100,
+    });
+    expect(s.lines[0].fields).toMatchObject({ minState: "신품", maxPrice: "1500000", minWarrantyMonths: "6", needCertificate: "Y", needPhoto: "" });
+  });
+
+  it("매물 고르는 기준(sort)은 기본 price, 바꾸면 새 파일을 읽어도 유지된다", () => {
+    expect(initialBuyState.sort).toBe("price");
+    const sorted = buyReducer(initialBuyState, { type: "sorted", sort: "state" });
+    const reloaded = buyReducer(sorted, { type: "loaded", rows: [row(2)], results: [result(2, "UNAVAILABLE")], cartCount: 0, cartMax: 100 });
+    expect(reloaded.sort).toBe("state");
+  });
+
   it("읽으면 살 매물이 골라진 줄만 체크하고, 장바구니 줄 수를 담는다", () => {
     const s = loaded();
     expect(s.lines.map((l) => [l.rowNo, l.selected])).toEqual([

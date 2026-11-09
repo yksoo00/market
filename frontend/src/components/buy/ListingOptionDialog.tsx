@@ -1,5 +1,6 @@
 "use client";
 
+import { TraitsLine } from "@/components/buy/TraitsLine";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -101,6 +102,7 @@ function OptionList({
                     {o.deliveryDate && <span className="num">{buyBulk.line.delivery(o.deliveryDate)}</span>}
                   </span>
                   <span className="num text-[12px] text-ink-3">{t.minOrder(o.minOrder, o.orderUnit)}</span>
+                  <TraitsLine traits={o.traits} className="text-[12px] text-ink-3" />
                   {o.replaceHint && <span className="text-[12px] text-ink-3">{t.replaceHint(o.replaceHint)}</span>}
                   {o.reason && <span className="text-[12px] text-down">{o.reason}</span>}
                 </button>

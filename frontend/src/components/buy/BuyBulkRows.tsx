@@ -1,10 +1,12 @@
 "use client";
 
+import { BuyConditionFields } from "@/components/buy/BuyConditionFields";
+import { TraitsLine } from "@/components/buy/TraitsLine";
 import { Checkbox } from "@/components/ui/checkbox";
 import { canSelect, errorsOf, isLocked, type BuyLine, type BuyPick } from "@/lib/buyBulk";
 import { tabOf } from "@/lib/buyBulkView";
 import { formatPrice } from "@/lib/format";
-import { BUY_INPUT_FIELDS, type BuyFields, type BuyInputField } from "@/lib/validation/buyBulk";
+import { BUY_CONDITION_FIELDS, BUY_INPUT_FIELDS, type BuyFields, type BuyInputField } from "@/lib/validation/buyBulk";
 import { cn } from "@/lib/utils";
 import { buyBulk } from "@/messages/buyBulk";
 
@@ -19,6 +21,8 @@ interface RowsProps {
   lines: BuyLine[];
   onToggle: (rowNo: number) => void;
   onEdit: (rowNo: number, field: keyof BuyFields, value: string) => void;
+  /** 고르는 칸(조건의 상태·보증·증빙)은 바꾼 즉시 그 줄을 다시 검사한다 */
+  onEditNow: (rowNo: number, field: keyof BuyFields, value: string) => void;
   onBlurLine: (rowNo: number) => void;
   onPick: (rowNo: number, pick: BuyPick) => void;
   onFind: (rowNo: number) => void;
@@ -38,7 +42,7 @@ export function BuyBulkRows({ lines, ...handlers }: RowsProps) {
   );
 }
 
-function BuyBulkRow({ line, onToggle, onEdit, onBlurLine, onPick, onFind, onUnlock, onOpenOptions, onChoose }: { line: BuyLine } & Omit<RowsProps, "lines">) {
+function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onFind, onUnlock, onOpenOptions, onChoose }: { line: BuyLine } & Omit<RowsProps, "lines">) {
   const errors = errorsOf(line);
   const failed = Object.keys(errors).length > 0;
   const tab = tabOf(line);
@@ -109,6 +113,7 @@ function BuyBulkRow({ line, onToggle, onEdit, onBlurLine, onPick, onFind, onUnlo
         )}
       </div>
       <div className="grid grid-cols-2 gap-x-3 gap-y-2 p-3 @md:grid-cols-3 @3xl:grid-cols-4">{BUY_INPUT_FIELDS.map((name) => field(name))}</div>
+      {!line.added && <BuyConditionFields line={line} onEdit={onEdit} onBlurLine={onBlurLine} onEditNow={onEditNow} />}
 
       {/* 고른 매물 */}
       <div className="flex flex-col gap-1.5 border-t border-line-2 px-3 py-2">
@@ -119,6 +124,7 @@ function BuyBulkRow({ line, onToggle, onEdit, onBlurLine, onPick, onFind, onUnlo
             <span className="num">{t.line.price(formatPrice(chosen.unitPrice))}</span>
             <span className="num">{t.line.stock(chosen.stock)}</span>
             {chosen.deliveryDate && <span className="num">{t.line.delivery(chosen.deliveryDate)}</span>}
+            <TraitsLine traits={chosen.traits} className="text-[12px] text-ink-2" />
             {chosen.replaceHint && <span className="text-[12px] text-ink-3">{t.option.replaceHint(chosen.replaceHint)}</span>}
           </div>
         ) : (
@@ -167,7 +173,8 @@ function BuyBulkRow({ line, onToggle, onEdit, onBlurLine, onPick, onFind, onUnlo
 
       {/* 서버가 칸에 못 붙인 사유(prodId 등) */}
       {Object.entries(errors)
-        .filter(([key]) => !(BUY_INPUT_FIELDS as readonly string[]).includes(key) && key !== "listing")
+        // 조건 칸의 오류는 조건 구역에서 그 칸 아래에 보인다
+        .filter(([key]) => !(BUY_INPUT_FIELDS as readonly string[]).includes(key) && !(BUY_CONDITION_FIELDS as readonly string[]).includes(key) && key !== "listing")
         .map(([key, message]) => (
           <p key={key} role="alert" className="px-3 pb-2 text-[12px] text-down">
             {t.fields[key] ?? key}: {message}

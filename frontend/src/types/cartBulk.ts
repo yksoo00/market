@@ -14,6 +14,29 @@ export interface CartBulkRowApi {
   remarks: string | null;
   sellerId: string | null;
   regDate: string | null;
+  /** 조건 칸 — 모두 선택, 비우면 조건 없음. need* 는 "Y" 만 의미가 있다 (그 증빙이 매물에 있어야 함) */
+  minState: string | null;
+  maxPrice: string | null;
+  minWarrantyMonths: string | null;
+  needDataSheet: string | null;
+  needPhoto: string | null;
+  needCoverage: string | null;
+  needTestReport: string | null;
+  needCertificate: string | null;
+}
+
+/** 조건을 통과한 매물 중 기본으로 고르는 기준 (서버 CartBulkSort). 모든 줄에 하나가 적용된다 */
+export type BuySort = "price" | "state" | "warranty";
+
+/** 매물 상태·보증일·증빙 유무 (파일 키는 없다). warrantyDays 가 null 이면 보증 없음 */
+export interface ListingTraits {
+  prodState: string | null;
+  warrantyDays: number | null;
+  hasDataSheet: boolean;
+  hasPhoto: boolean;
+  hasWarrantyCoverage: boolean;
+  hasTestReport: boolean;
+  hasCertificate: boolean;
 }
 
 /** 매물 한 건. reason 이 null 이면 살 수 있고, 있으면 못 사는 사유 */
@@ -28,6 +51,7 @@ export interface ListingOption {
   deliveryDate: string | null;
   replaceHint: string | null;
   reason: string | null;
+  traits: ListingTraits;
 }
 
 export interface Alternative {

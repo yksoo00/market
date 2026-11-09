@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buyBulk } from "@/messages/buyBulk";
-import { validateBuyRow, type BuyFields } from "./buyBulk";
+import { conditionCount, validateBuyRow, type BuyFields } from "./buyBulk";
 
 const v = buyBulk.validation;
 const TODAY = "2026-11-09";
@@ -14,6 +14,14 @@ const ok: BuyFields = {
   remarks: "",
   sellerId: "",
   regDate: "",
+  minState: "",
+  maxPrice: "",
+  minWarrantyMonths: "",
+  needDataSheet: "",
+  needPhoto: "",
+  needCoverage: "",
+  needTestReport: "",
+  needCertificate: "",
 };
 const check = (patch: Partial<BuyFields>) => validateBuyRow({ ...ok, ...patch }, TODAY);
 
@@ -22,9 +30,10 @@ describe("validateBuyRow", () => {
     expect(check({})).toEqual({});
   });
 
-  it("상품명·제조사: 비우면 필수, 상품 ID 가 있으면 비워도 된다", () => {
-    expect(check({ prodName: " ", prodBrand: "" })).toEqual({ prodName: v.required, prodBrand: v.required });
+  it("상품명: 비우면 필수, 상품 ID 가 있으면 비워도 된다. 제조사는 비워도 된다 (이름만으로 찾는다)", () => {
+    expect(check({ prodName: " ", prodBrand: "" })).toEqual({ prodName: v.required });
     expect(check({ prodId: "KP-2026-000001", prodName: "", prodBrand: "" })).toEqual({});
+    expect(check({ prodBrand: "" })).toEqual({});
   });
 
   it("글자 수 상한: 상품명 50 · 제조사 40 · 분류번호 20 · 요청사항 100", () => {
@@ -45,6 +54,29 @@ describe("validateBuyRow", () => {
     expect(check({ orderQuantity: "1" }).orderQuantity).toBeUndefined();
     expect(check({ orderQuantity: "100000" }).orderQuantity).toBeUndefined();
     expect(check({ orderQuantity: "1,000" }).orderQuantity).toBeUndefined();
+  });
+
+  it("조건 칸: 비움은 조건 없음, 상태는 목록 안, 단가는 1~10억, 보증은 1·3·6·12·24·36, 증빙은 Y(대소문자 무시)만", () => {
+    expect(check({})).toEqual({});
+    expect(check({ minState: "신품대비 80~89%" }).minState).toBeUndefined();
+    expect(check({ minState: "양호" }).minState).toBe(v.minState);
+
+    expect(check({ maxPrice: "1,500,000" }).maxPrice).toBeUndefined();
+    expect(check({ maxPrice: "1000000000" }).maxPrice).toBeUndefined();
+    expect(check({ maxPrice: "0" }).maxPrice).toBe(v.maxPrice);
+    expect(check({ maxPrice: "1000000001" }).maxPrice).toBe(v.maxPrice);
+    expect(check({ maxPrice: "싸게" }).maxPrice).toBe(v.maxPrice);
+
+    for (const m of ["1", "3", "6", "12", "24", "36"]) expect(check({ minWarrantyMonths: m }).minWarrantyMonths).toBeUndefined();
+    for (const m of ["0", "5", "37", "육개월"]) expect(check({ minWarrantyMonths: m }).minWarrantyMonths).toBe(v.minWarrantyMonths);
+
+    expect(check({ needDataSheet: "Y", needPhoto: "y" })).toEqual({});
+    expect(check({ needCoverage: "예" }).needCoverage).toBe(v.need);
+  });
+
+  it("조건 개수: 값이 있는 조건 칸만 센다", () => {
+    expect(conditionCount(ok)).toBe(0);
+    expect(conditionCount({ ...ok, minState: "신품", needPhoto: "Y", maxPrice: " " })).toBe(2);
   });
 
   it("납품희망일: 비움은 필수, 없는 날짜는 형식, 오늘 이전은 거절, 오늘은 통과", () => {
