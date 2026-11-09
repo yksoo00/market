@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -21,6 +20,7 @@ import com.company.market.listing.domain.Product;
 import com.company.market.listing.domain.ListingId;
 import com.company.market.listing.dto.ListingCreateRequest;
 import com.company.market.listing.dto.ListingTradeSnapshot;
+import com.company.market.listing.dto.ListingTraits;
 import com.company.market.listing.service.ListingService;
 import com.company.market.listing.service.ProductService;
 import com.company.market.trade.domain.CartType;
@@ -35,6 +35,7 @@ import com.company.market.trade.dto.CartBulkRowResult.Alternative;
 import com.company.market.trade.dto.CartBulkRowResult.Candidate;
 import com.company.market.trade.dto.CartBulkRowResult.ListingOption;
 import com.company.market.trade.dto.CartBulkRowResult.Status;
+import com.company.market.trade.dto.CartBulkSort;
 import com.company.market.trade.dto.TradeCreateRequest;
 import com.company.market.trade.repository.CartInfoRepository;
 import com.company.market.user.service.UserDirectory;
@@ -78,7 +79,7 @@ public class CartBulkService {
 	private final CartBulkParser parser;
 
 	/** 업로드한 엑셀을 읽고 줄마다 검사한다 (저장 없음). 데이터 줄이 하나도 없으면 빈 결과 — 화면이 "입력한 줄이 없어요"를 보이게 */
-	public CartBulkParseResponse parse(UUID buyerId, MultipartFile file) {
+	public CartBulkParseResponse parse(UUID buyerId, MultipartFile file, CartBulkSort sort) {
 		String fileName = file.getOriginalFilename();
 		if (file.isEmpty() || fileName == null || !fileName.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
 			throw new ValidationException(Map.of("file", "엑셀(.xlsx) 파일을 올려 주세요."));
@@ -93,13 +94,23 @@ public class CartBulkService {
 		if (rows.isEmpty()) {
 			return new CartBulkParseResponse(rows, List.of(), cartInfos.countByUserIdAndCartType(buyerId, CartType.CART), CartService.MAX_ITEMS);
 		}
-		CartBulkCheckResult checked = check(buyerId, rows);
+		CartBulkCheckResult checked = check(buyerId, rows, sort);
 		return new CartBulkParseResponse(rows, checked.results(), checked.cartCount(), checked.cartMax());
 	}
 
-	/** 줄별 검사 결과 + 지금 장바구니 줄 수. 저장은 안 한다 */
+	/** 정렬 기준을 안 정하면 최저가 우선 */
 	public CartBulkCheckResult check(UUID buyerId, List<CartBulkRowDto> rows) {
-		List<CartBulkRowResult> results = checkAll(buyerId, rows).stream().map(Checked::result).toList();
+		return check(buyerId, rows, CartBulkSort.PRICE);
+	}
+
+	/** 정렬 기준을 안 정하면 최저가 우선 */
+	public CartBulkCommitResult commit(UUID buyerId, List<CartBulkRowDto> rows) {
+		return commit(buyerId, rows, CartBulkSort.PRICE);
+	}
+
+	/** 줄별 검사 결과 + 지금 장바구니 줄 수. 저장은 안 한다. 기본 매물은 sort 기준으로 고른다 */
+	public CartBulkCheckResult check(UUID buyerId, List<CartBulkRowDto> rows, CartBulkSort sort) {
+		List<CartBulkRowResult> results = checkAll(buyerId, rows, sort).stream().map(Checked::result).toList();
 		return new CartBulkCheckResult(results, cartInfos.countByUserIdAndCartType(buyerId, CartType.CART), CartService.MAX_ITEMS);
 	}
 
@@ -109,8 +120,8 @@ public class CartBulkService {
 	 * 같은 매물을 고른 두 줄은 앞 줄이 묶은 재고를 뒤 줄의 add 가 보고 판정하고, 장바구니가 중간에 가득 차면 그 줄부터 CART_FULL 로 실패한다.
 	 * 장바구니는 빼기가 쉬운 일이라 전부-아니면-전무가 아닌 줄별 결과를 택했다 (계획 2026-11-09)
 	 */
-	public CartBulkCommitResult commit(UUID buyerId, List<CartBulkRowDto> rows) {
-		List<Checked> checked = checkAll(buyerId, rows);
+	public CartBulkCommitResult commit(UUID buyerId, List<CartBulkRowDto> rows, CartBulkSort sort) {
+		List<Checked> checked = checkAll(buyerId, rows, sort);
 		List<Outcome> outcomes = new ArrayList<>();
 		boolean cartFull = false;
 		for (int i = 0; i < checked.size(); i++) {
@@ -176,7 +187,7 @@ public class CartBulkService {
 	record Checked(CartBulkRowResult result, Integer quantity) {
 	}
 
-	List<Checked> checkAll(UUID buyerId, List<CartBulkRowDto> rows) {
+	List<Checked> checkAll(UUID buyerId, List<CartBulkRowDto> rows, CartBulkSort sort) {
 		if (rows == null || rows.isEmpty() || rows.size() > MAX_ROWS) {
 			throw new ValidationException(Map.of("rows", "담을 줄은 1~" + MAX_ROWS + "개여야 합니다."));
 		}
@@ -185,10 +196,10 @@ public class CartBulkService {
 			throw new ValidationException(Map.of("rows", "줄 번호가 겹칩니다."));
 		}
 		Set<String> seen = new HashSet<>();
-		return rows.stream().map(row -> checkOne(buyerId, row, seen)).toList();
+		return rows.stream().map(row -> checkOne(buyerId, row, seen, sort)).toList();
 	}
 
-	private Checked checkOne(UUID buyerId, CartBulkRowDto row, Set<String> seen) {
+	private Checked checkOne(UUID buyerId, CartBulkRowDto row, Set<String> seen, CartBulkSort sort) {
 		Map<String, String> fields = new LinkedHashMap<>();
 		String name = norm(row.prodName());
 		String brand = norm(row.prodBrand());
@@ -197,6 +208,7 @@ public class CartBulkService {
 
 		Integer quantity = quantity(row.orderQuantity(), fields);
 		dateFailure(norm(row.reqDeliDate()), fields);
+		CartBulkConditions.Conditions conditions = CartBulkConditions.of(row, fields);
 		String remarks = row.remarks() == null ? null : row.remarks().trim();
 		if (remarks != null && remarks.length() > MAX_REMARKS) {
 			fields.put("remarks", "요청사항은 " + MAX_REMARKS + "자 이하로 입력해 주세요.");
@@ -243,12 +255,13 @@ public class CartBulkService {
 			if (!seen.add(master.getProdId())) {
 				fields.putIfAbsent(name != null ? "prodName" : "prodId", "파일 안에서 같은 상품이 이미 있어요.");
 			}
-			options = optionsOf(master.getProdId(), quantity, buyerId);
+			String reqDeliDate = norm(row.reqDeliDate());
+			options = optionsOf(master.getProdId(), quantity, buyerId, conditions, reqDeliDate);
 			String sellerId = norm(row.sellerId());
 			String regDate = norm(row.regDate());
 			// 대체품은 살 수 있는 매물이 없을 때 제안하는 것이다. 사용자가 매물을 골라 보냈으면(대체 매물일 수 있다) 검증하려고 계산한다
-			boolean wantsAlternatives = sellerId != null || defaultPick(options) == null;
-			alternatives = wantsAlternatives ? alternativesOf(master, quantity, buyerId) : List.of();
+			boolean wantsAlternatives = sellerId != null || defaultPick(options, sort) == null;
+			alternatives = wantsAlternatives ? alternativesOf(master, quantity, buyerId, conditions, reqDeliDate) : List.of();
 			if (sellerId != null && regDate != null) {
 				// 사용자가 고른 매물 — 후보와 대조한다. 못 찾거나 못 사면 서버가 다른 매물로 바꾸지 않고 줄 오류로 돌려준다(조용한 교체 금지)
 				Optional<ListingOption> inMain = find(options, sellerId, regDate);
@@ -267,7 +280,7 @@ public class CartBulkService {
 				}
 			}
 			else {
-				chosen = defaultPick(options);
+				chosen = defaultPick(options, sort);
 			}
 		}
 
@@ -278,49 +291,56 @@ public class CartBulkService {
 	}
 
 	/** 그 마스터의 모든 매물을 후보로 — 못 사는 매물도 사유(reason)와 함께 남긴다 */
-	private List<ListingOption> optionsOf(String prodId, Integer quantity, UUID buyerId) {
+	private List<ListingOption> optionsOf(String prodId, Integer quantity, UUID buyerId, CartBulkConditions.Conditions conditions, String reqDeliDate) {
 		List<ListingTradeSnapshot> snapshots = listings.snapshotsOfProduct(prodId);
 		if (snapshots.isEmpty()) {
 			return List.of();
 		}
+		List<ListingId> ids = snapshots.stream().map(ListingTradeSnapshot::id).toList();
 		Map<UUID, String> nicknames = userDirectory.nicknamesOf(snapshots.stream().map(ListingTradeSnapshot::sellerId).distinct().toList());
-		Map<ListingId, String> hints = listings.replaceHints(snapshots.stream().map(ListingTradeSnapshot::id).toList());
+		Map<ListingId, String> hints = listings.replaceHints(ids);
+		Map<ListingId, ListingTraits> traits = listings.traitsOf(ids);
 		List<ListingOption> options = new ArrayList<>();
 		for (ListingTradeSnapshot s : snapshots) {
 			int price = s.salesUnitPrice() == null ? 0 : s.salesUnitPrice();
+			// 조회 사이에 지워진 매물이면 특성이 없다 — 알 수 없는 값으로 두면 조건을 확인할 수 없어 못 사는 쪽으로 판정된다
+			ListingTraits t = traits.getOrDefault(s.id(), new ListingTraits(null, null, false, false, false, false, false));
 			options.add(new ListingOption(s.sellerId().toString(), s.regDate(), nicknames.get(s.sellerId()), price,
 					s.stockQuantity() == null ? 0 : s.stockQuantity(), s.minOrderQuantity() == null ? 1 : s.minOrderQuantity(),
-					s.orderUnit() == null ? 1 : s.orderUnit(), s.provDate(), hints.get(s.id()), reasonOf(s, quantity, buyerId)));
+					s.orderUnit() == null ? 1 : s.orderUnit(), s.provDate(), hints.get(s.id()), reasonOf(s, t, quantity, buyerId, conditions, reqDeliDate), t));
 		}
 		return options;
 	}
 
 	/**
-	 * 못 사는 이유. 담기(CartService.add)가 거절하는 것과 같은 조건을 미리 보인다 — 거래완료·내 매물·최소주문량·주문단위·재고.
-	 * 수량이 틀렸으면(null) 수량 때문에 못 사는지는 알 수 없어 거래완료·내 매물만 본다
+	 * 못 사는 이유(첫 번째). 담기(CartService.add)가 거절하는 것과 같은 조건을 미리 보인다 — 거래완료·내 매물·최소주문량·주문단위·재고 — 그다음
+	 * 줄에 쓴 조건과 제공가능일(CartBulkConditions). 수량이 틀렸으면(null) 수량 때문에 못 사는지는 알 수 없어 그 부분은 건너뛴다
 	 */
-	private String reasonOf(ListingTradeSnapshot s, Integer quantity, UUID buyerId) {
+	private String reasonOf(ListingTradeSnapshot s, ListingTraits traits, Integer quantity, UUID buyerId, CartBulkConditions.Conditions conditions,
+			String reqDeliDate) {
 		if (s.completed()) {
 			return "거래가 끝난 매물이에요.";
 		}
 		if (buyerId.equals(s.sellerId())) {
 			return "내 매물이에요.";
 		}
-		if (quantity == null) {
-			return null;
+		if (quantity != null) {
+			String failure = rules.quantityFailure(s, quantity, s.salesUnitPrice() == null ? 0 : s.salesUnitPrice());
+			if (failure == null && (s.stockQuantity() == null || quantity > s.stockQuantity())) {
+				failure = "재고(%d)가 수량보다 적어요.".formatted(s.stockQuantity() == null ? 0 : s.stockQuantity());
+			}
+			if (failure != null) {
+				return failure;
+			}
 		}
-		String failure = rules.quantityFailure(s, quantity, s.salesUnitPrice() == null ? 0 : s.salesUnitPrice());
-		if (failure == null && (s.stockQuantity() == null || quantity > s.stockQuantity())) {
-			failure = "재고(%d)가 수량보다 적어요.".formatted(s.stockQuantity() == null ? 0 : s.stockQuantity());
-		}
-		return failure;
+		return conditions.failure(s, traits, reqDeliDate);
 	}
 
 	/** 마스터의 대체상품명과 이름이 같은 마스터 중 살 수 있는 매물이 있는 것만 — 제안일 뿐 고르지 않는다 */
-	private List<Alternative> alternativesOf(Product master, Integer quantity, UUID buyerId) {
+	private List<Alternative> alternativesOf(Product master, Integer quantity, UUID buyerId, CartBulkConditions.Conditions conditions, String reqDeliDate) {
 		List<Alternative> out = new ArrayList<>();
 		for (Product alt : products.alternatesOf(master)) {
-			List<ListingOption> options = optionsOf(alt.getProdId(), quantity, buyerId);
+			List<ListingOption> options = optionsOf(alt.getProdId(), quantity, buyerId, conditions, reqDeliDate);
 			if (options.stream().anyMatch(o -> o.reason() == null)) {
 				out.add(new Alternative(alt.getProdId(), alt.getProdName(), alt.getProdBrand(), options));
 			}
@@ -328,12 +348,9 @@ public class CartBulkService {
 		return out;
 	}
 
-	/** 살 수 있는 매물 중 단가가 가장 낮은 것, 같으면 재고가 많은 것, 그래도 같으면 등록일시가 빠른 것 */
-	private static ListingOption defaultPick(List<ListingOption> options) {
-		return options.stream().filter(o -> o.reason() == null)
-			.min(Comparator.comparingInt(ListingOption::unitPrice).thenComparing(Comparator.comparingInt(ListingOption::stock).reversed())
-				.thenComparing(ListingOption::regDate))
-			.orElse(null);
+	/** 조건을 통과한(살 수 있는) 매물 중 정렬 기준 1순위 — 순서는 CartBulkSort·CartBulkConditions.comparator */
+	private static ListingOption defaultPick(List<ListingOption> options, CartBulkSort sort) {
+		return options.stream().filter(o -> o.reason() == null).min(CartBulkConditions.comparator(sort)).orElse(null);
 	}
 
 	private static Optional<ListingOption> find(List<ListingOption> options, String sellerId, String regDate) {
