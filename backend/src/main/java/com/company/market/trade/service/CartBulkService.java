@@ -15,6 +15,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import com.company.market.common.exception.ApiException;
+import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.exception.ValidationException;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.domain.ListingId;
@@ -38,6 +39,7 @@ import com.company.market.trade.dto.TradeCreateRequest;
 import com.company.market.trade.repository.CartInfoRepository;
 import com.company.market.user.service.UserDirectory;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -45,6 +47,7 @@ import org.springframework.web.multipart.MultipartFile;
  * 엑셀 대량구매 (계획 2026-11-09-bulk-purchase-excel.md). 줄 → 상품마스터 → 그 마스터의 매물 후보를 대조해 "살 수 있는 매물"을 정한다.
  * 서버는 줄 상태를 저장하지 않는다: 브라우저가 들고 있다가 검사·담기 때마다 전부 다시 보낸다. 담기는 기존 CartService 를 줄마다 부른다.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CartBulkService {
@@ -109,6 +112,7 @@ public class CartBulkService {
 	public CartBulkCommitResult commit(UUID buyerId, List<CartBulkRowDto> rows) {
 		List<Checked> checked = checkAll(buyerId, rows);
 		List<Outcome> outcomes = new ArrayList<>();
+		boolean cartFull = false;
 		for (int i = 0; i < checked.size(); i++) {
 			CartBulkRowResult r = checked.get(i).result();
 			if (r.status() == Status.FAILED) {
@@ -117,6 +121,11 @@ public class CartBulkService {
 			}
 			if (r.status() == Status.UNAVAILABLE) {
 				outcomes.add(new Outcome(r.rowNo(), false, "NO_LISTING", "살 수 있는 매물이 없어요."));
+				continue;
+			}
+			// 장바구니가 가득 찼으면 남은 줄은 담기를 시도하지 않는다 — 줄마다 매물을 잠그고 세고 되돌리는 일이 헛돈다
+			if (cartFull) {
+				outcomes.add(new Outcome(r.rowNo(), false, ErrorCode.CART_FULL.name(), ErrorCode.CART_FULL.message()));
 				continue;
 			}
 			CartBulkRowDto row = rows.get(i);
@@ -130,7 +139,14 @@ public class CartBulkService {
 				outcomes.add(new Outcome(r.rowNo(), false, e.getCode().name(), e.getFields().values().iterator().next()));
 			}
 			catch (ApiException e) {
+				cartFull |= e.getCode() == ErrorCode.CART_FULL;
 				outcomes.add(new Outcome(r.rowNo(), false, e.getCode().name(), e.getMessage()));
+			}
+			catch (RuntimeException e) {
+				// 예상 밖 실패(교착·잠금 시간 초과 등) 한 줄이 이미 담은 앞 줄의 결과까지 잃게 하지 않는다 — 500 으로 끝나면 화면이 담긴 줄을
+				// 몰라 다시 담아 같은 줄이 두 번 생긴다. 사용자 정보는 로그에 없이 줄 번호만 남긴다
+				log.warn("대량구매 담기 줄 {} 이 예상 밖으로 실패했습니다", r.rowNo(), e);
+				outcomes.add(new Outcome(r.rowNo(), false, ErrorCode.INTERNAL.name(), "담지 못했어요. 장바구니를 확인한 뒤 다시 시도해 주세요."));
 			}
 		}
 		return new CartBulkCommitResult(outcomes, cartInfos.countByUserIdAndCartType(buyerId, CartType.CART));
@@ -221,9 +237,11 @@ public class CartBulkService {
 				fields.putIfAbsent(name != null ? "prodName" : "prodId", "파일 안에서 같은 상품이 이미 있어요.");
 			}
 			options = optionsOf(master.getProdId(), quantity, buyerId);
-			alternatives = alternativesOf(master, quantity, buyerId);
 			String sellerId = norm(row.sellerId());
 			String regDate = norm(row.regDate());
+			// 대체품은 살 수 있는 매물이 없을 때 제안하는 것이다. 사용자가 매물을 골라 보냈으면(대체 매물일 수 있다) 검증하려고 계산한다
+			boolean wantsAlternatives = sellerId != null || defaultPick(options) == null;
+			alternatives = wantsAlternatives ? alternativesOf(master, quantity, buyerId) : List.of();
 			if (sellerId != null && regDate != null) {
 				// 사용자가 고른 매물 — 후보와 대조한다. 못 찾거나 못 사면 서버가 다른 매물로 바꾸지 않고 줄 오류로 돌려준다(조용한 교체 금지)
 				Optional<ListingOption> inMain = find(options, sellerId, regDate);

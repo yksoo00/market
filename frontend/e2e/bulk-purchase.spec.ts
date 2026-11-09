@@ -8,7 +8,7 @@ import { signup } from "@/messages/signup";
 import { xlsx } from "./support/xlsx";
 
 // 엑셀 대량구매 (계획 2026-11-09-bulk-purchase-excel.md): 판매자가 상품 둘을 등록 → 구매자가 /buy/bulk 에 엑셀 3줄(매물 있음 · 수량 0 오류 · 마스터에 없는 상품)을 올린다
-// → 확인 필요 탭에서 수량 0 줄을 고치고(고치는 중에 줄이 탭에서 안 빠진다) → 선택해서 담기 → 담김 탭 → 새로고침해도 이어짐 → 장바구니에 줄이 있다
+// → 확인 필요 탭에서 수량 0 줄을 고치고(고치는 중에 줄이 탭에서 안 빠진다) → 선택해서 담기 → 담김 탭 → 새로고침해도 이어짐(선택은 풀리고 다시 맞춰 봄) → 장바구니에 줄이 있다
 const password = "Test1234!@";
 const t = buyBulk;
 
@@ -142,10 +142,14 @@ test("엑셀 대량구매: 올리고 → 확인 필요 탭에서 고치고 → �
     await expect(page.getByRole("button", { name: t.actions.commitSelected(2) })).toBeVisible();
   });
 
-  await test.step("새로고침해도 고친 줄·체크가 남는다 (sessionStorage 보관)", async () => {
+  await test.step("새로고침해도 고친 줄이 남는다 (sessionStorage 보관) — 낡았을 수 있어 선택은 풀려 있고 [다시 맞춰 보기] 뒤에 다시 고른다", async () => {
     await page.reload();
     await expect(page.getByText(t.restored)).toBeVisible();
     await expect(qty(3)).toHaveValue("2");
+    await expect(page.getByRole("button", { name: t.actions.commitSelected(0) })).toBeDisabled();
+    await page.getByRole("button", { name: t.recheckAll }).click();
+    await expect(card(3).getByRole("checkbox")).toBeEnabled();
+    await page.getByRole("button", { name: t.selectVisible }).click();
     await expect(page.getByRole("button", { name: t.actions.commitSelected(2) })).toBeVisible();
   });
 

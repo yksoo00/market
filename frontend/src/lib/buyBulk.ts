@@ -1,4 +1,5 @@
 import { validateBuyRow, type BuyFields } from "@/lib/validation/buyBulk";
+import { buyBulk } from "@/messages/buyBulk";
 import type { BuyCandidate, CartBulkOutcome, CartBulkResult, CartBulkRowApi } from "@/types/cartBulk";
 
 // 엑셀 대량구매의 표 상태 (계획 2026-11-09-bulk-purchase-excel.md). 판매 다량 등록(lib/bulkListing)과 같은 틀이지만 줄의 칸이 달라
@@ -19,6 +20,8 @@ export interface BuyLine {
   added: boolean;
   /** 담기에 실패한 사유(그 줄에 보임). 다음에 고치거나 다시 검사하면 지워진다 */
   addError: string | null;
+  /** 같은 상품이 앞 줄에도 있다 — 화면이 줄 전체를 보고 정한다(markDuplicates). 한 줄만 다시 검사하면 서버가 다른 줄을 못 보기 때문 */
+  duplicate: boolean;
 }
 
 export interface BuyState {
@@ -103,14 +106,39 @@ export function toCommitRow(line: BuyLine): CartBulkRowApi {
   return chosen ? { ...row, sellerId: chosen.sellerId, regDate: chosen.regDate } : row;
 }
 
-/** 지금 이 줄의 칸별 오류 = 서버 사유 + 입력 중 형식 오류 (같은 칸이면 입력 중 오류가 앞선다) */
+/** 지금 이 줄의 칸별 오류 = 서버 사유 + 입력 중 형식 오류 (같은 칸이면 입력 중 오류가 앞선다) + 파일 안 중복 */
 export function errorsOf(line: BuyLine): Record<string, string> {
-  return { ...line.result.fields, ...line.clientErrors };
+  const errors = { ...line.result.fields, ...line.clientErrors };
+  if (line.duplicate && !errors.prodName) errors.prodName = buyBulk.duplicate;
+  return errors;
+}
+
+/** 서버가 파일 안 중복으로 단 오류는 지운다 — 화면이 줄 전체를 보고 다시 정하므로(markDuplicates) 낡은 중복 오류가 남지 않게 */
+const withoutDuplicate = (result: CartBulkResult): CartBulkResult => {
+  const fields = Object.fromEntries(Object.entries(result.fields).filter(([, message]) => message !== buyBulk.duplicate));
+  return Object.keys(fields).length === Object.keys(result.fields).length ? result : { ...result, fields };
+};
+
+/**
+ * 같은 상품(해석된 마스터)이 앞 줄에도 있으면 그 줄을 중복으로 표시한다. 담지 않은 줄만 행 번호 순으로 본다.
+ * 서버(checkAll)도 같은 기준이지만, 줄 하나만 다시 검사하면 서버가 다른 줄을 못 봐서 화면이 이 기준을 이어 간다. 담기 때는 서버가 전부 다시 본다
+ */
+export function markDuplicates(state: BuyState): BuyState {
+  const seen = new Set<string>();
+  const open = [...state.lines].filter((l) => !l.added).sort((a, b) => a.rowNo - b.rowNo);
+  const duplicateRows = new Set<number>();
+  for (const l of open) {
+    const key = l.result.prodId;
+    if (key === null) continue;
+    if (seen.has(key)) duplicateRows.add(l.rowNo);
+    else seen.add(key);
+  }
+  return { ...state, lines: state.lines.map((l) => (l.duplicate === duplicateRows.has(l.rowNo) ? l : { ...l, duplicate: duplicateRows.has(l.rowNo) })) };
 }
 
 export const hasErrors = (line: BuyLine): boolean => Object.keys(errorsOf(line)).length > 0;
 
-/** 담지 않았고, 오류가 없고, 살 매물이 골라져 있고, 서버에 물어보는 중이 아니면 체크할 수 있다 */
+/** 담지 않았고, 오류(파일 안 중복 포함)가 없고, 살 매물이 골라져 있고, 서버에 물어보는 중이 아니면 체크할 수 있다 */
 export const canSelect = (line: BuyLine): boolean =>
   !line.added && !line.checking && !hasErrors(line) && line.result.status === "AVAILABLE" && line.result.chosen !== null;
 
@@ -143,6 +171,10 @@ const withoutKeys = (record: Record<string, string>, keys: string[]): Record<str
   Object.fromEntries(Object.entries(record).filter(([k]) => !keys.includes(k)));
 
 export function buyReducer(state: BuyState, action: BuyAction): BuyState {
+  return markDuplicates(reduce(state, action));
+}
+
+function reduce(state: BuyState, action: BuyAction): BuyState {
   switch (action.type) {
     case "loaded": {
       const byRow = new Map(action.results.map((r) => [r.rowNo, r]));
@@ -153,7 +185,7 @@ export function buyReducer(state: BuyState, action: BuyAction): BuyState {
         lines.push({
           rowNo: row.rowNo,
           fields: toFields(row),
-          result,
+          result: withoutDuplicate(result),
           // 살 매물이 골라진 줄만 처음부터 체크. 매물 없음·오류는 체크할 수 없다
           selected: result.status === "AVAILABLE" && result.chosen !== null,
           checking: false,
@@ -161,6 +193,7 @@ export function buyReducer(state: BuyState, action: BuyAction): BuyState {
           dirty: false,
           added: false,
           addError: null,
+          duplicate: false,
         });
       }
       return { lines, added: 0, cartCount: action.cartCount, cartMax: action.cartMax };
@@ -192,7 +225,7 @@ export function buyReducer(state: BuyState, action: BuyAction): BuyState {
           const result = byRow.get(l.rowNo);
           if (!result || l.added) return l;
           // 다시 검사한 줄은 체크를 풀어 둔다 — 바뀐 결과를 사용자가 눈으로 보고 다시 체크하게 (특히 고를 매물이 바뀐 줄)
-          return { ...l, result, checking: false, selected: false, addError: null };
+          return { ...l, result: withoutDuplicate(result), checking: false, selected: false, addError: null };
         }),
       };
     }
@@ -207,6 +240,8 @@ export function buyReducer(state: BuyState, action: BuyAction): BuyState {
         ...l,
         dirty: true,
         addError: null,
+        // 다시 검사 결과가 오기 전엔 담을 수 없다 — 옛 마스터의 고른 매물이 새 상품과 같이 담기는 일을 막는다
+        selected: false,
         // 고른 마스터가 기준이라 상품 칸을 마스터 값으로 맞추고 잠근다. 전에 고른 매물은 다른 상품의 것이라 비운다
         fields: {
           ...l.fields,
@@ -226,6 +261,7 @@ export function buyReducer(state: BuyState, action: BuyAction): BuyState {
       return patch(state, action.rowNo, (l) => ({
         ...l,
         dirty: true,
+        selected: false,
         fields: { ...l.fields, prodId: "", sellerId: "", regDate: "" },
         result: { ...l.result, fields: withoutKeys(l.result.fields, ["prodId", "listing"]) },
       }));
@@ -234,6 +270,7 @@ export function buyReducer(state: BuyState, action: BuyAction): BuyState {
         ...l,
         dirty: true,
         addError: null,
+        selected: false,
         fields: { ...l.fields, sellerId: action.sellerId, regDate: action.regDate },
         result: withoutError(l.result, "listing"),
       }));

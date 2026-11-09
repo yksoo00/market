@@ -175,6 +175,24 @@ class CartBulkCommitTest {
 	}
 
 	@Test
+	@DisplayName("장바구니가 가득 찬 뒤 남은 줄은 담기를 시도하지 않고 CART_FULL 로 표시한다")
+	void remainingRowsAfterCartFull() {
+		listing("20261105100000", a, 100, 1000);
+		listing("20261105100001", b, 100, 1000);
+		Product d = products.findOrCreate(draft("구매담기 상품 D", null));
+		String regD = listing("20261105100002", d, 100, 5);
+		for (int i = 0; i < 100; i++) {
+			cart.add(buyer, new CartAddRequest(List.of(new CartAddRequest.Item(seller, "20261105100000", 1, "2099-12-31", null))));
+		}
+
+		CartBulkCommitResult result = service.commit(buyer, List.of(row(2, "구매담기 상품 B", "1", null), row(3, "구매담기 상품 D", "1", null)));
+
+		assertThat(result.results()).extracting(Outcome::code).containsExactly("CART_FULL", "CART_FULL");
+		// 두 번째 줄은 시도조차 하지 않았으므로 재고가 그대로다
+		assertThat(stockOf(regD)).isEqualTo(5);
+	}
+
+	@Test
 	@DisplayName("고른 매물이 재고 부족으로 못 사게 됐으면 그 줄만 실패하고 사유가 보인다")
 	void choiceNoLongerBuyable() {
 		String regA = listing("20261105100000", a, 1500, 1);

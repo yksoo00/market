@@ -76,7 +76,7 @@ public class ProductService {
 		if (name == null) {
 			return List.of();
 		}
-		return products.findAllByNameIgnoreCase(name.replaceAll("\s+", " ")).stream()
+		return products.findAllByNameIgnoreCase(name.replaceAll("\\s+", " ")).stream()
 			.filter(p -> !p.getProdId().equals(master.getProdId()))
 			.toList();
 	}

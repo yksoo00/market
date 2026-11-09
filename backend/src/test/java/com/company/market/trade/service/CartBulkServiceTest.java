@@ -213,6 +213,20 @@ class CartBulkServiceTest {
 	}
 
 	@Test
+	@DisplayName("살 수 있는 매물이 있으면 대체품은 계산하지 않는다 — 다만 사용자가 대체 매물을 골라 보냈으면 검증하려고 계산한다")
+	void alternativesOnlyWhenNeeded() {
+		listing(sellerA, "20261105100000", main, 1000, 5, 1, 1, false);
+		listing(sellerB, "20261105100001", alt, 700, 5, 1, 1, false);
+
+		assertThat(only(row(2, "구매검사 원품 A", "3")).alternatives()).isEmpty();
+
+		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", "2099-12-31", null, sellerB.toString(), "20261105100001");
+		CartBulkRowResult r = only(pick);
+		assertThat(r.chosen().sellerId()).isEqualTo(sellerB.toString());
+		assertThat(r.substituted()).isTrue();
+	}
+
+	@Test
 	@DisplayName("대체 매물을 고르면 chosen 이 되고 substituted — 서버가 판단한다")
 	void choosingAlternative() {
 		listing(sellerA, "20261105100000", alt, 700, 5, 1, 1, false);

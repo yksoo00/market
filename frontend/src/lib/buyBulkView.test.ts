@@ -33,7 +33,7 @@ const option = (price: number): ListingOption => ({
 const result = (rowNo: number, status: CartBulkResult["status"], chosen: ListingOption | null, fields: Record<string, string> = {}, matchedName: string | null = null): CartBulkResult => ({
   rowNo,
   status,
-  prodId: null,
+  prodId: status === "FAILED" ? null : `KP-${rowNo}`,
   matchedName,
   chosen,
   options: [],

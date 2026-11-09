@@ -18,7 +18,7 @@ const wideFields: BuyInputField[] = ["prodName", "remarks"];
 interface RowsProps {
   lines: BuyLine[];
   onToggle: (rowNo: number) => void;
-  onEdit: (rowNo: number, field: keyof BuyFields, value: string, immediate: boolean) => void;
+  onEdit: (rowNo: number, field: keyof BuyFields, value: string) => void;
   onBlurLine: (rowNo: number) => void;
   onPick: (rowNo: number, pick: BuyPick) => void;
   onFind: (rowNo: number) => void;
@@ -73,7 +73,7 @@ function BuyBulkRow({ line, onToggle, onEdit, onBlurLine, onPick, onFind, onUnlo
             aria-invalid={Boolean(error)}
             className={inputClass}
             inputMode={name === "orderQuantity" ? "numeric" : undefined}
-            onChange={(e) => onEdit(line.rowNo, name, e.target.value, false)}
+            onChange={(e) => onEdit(line.rowNo, name, e.target.value)}
             // 칸을 벗어날 때 그 줄만 서버가 다시 검사한다 (상품 칸이면 마스터도, 수량이면 살 수 있는 매물도 다시 정한다)
             onBlur={() => onBlurLine(line.rowNo)}
           />

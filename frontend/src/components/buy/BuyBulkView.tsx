@@ -6,7 +6,7 @@ import { BuyBulkRows } from "@/components/buy/BuyBulkRows";
 import { ListingOptionDialog } from "@/components/buy/ListingOptionDialog";
 import { ProductSearchDialog } from "@/components/listing/ProductSearchDialog";
 import { cartBulkApi } from "@/lib/api/cartBulk";
-import { buyReducer, canSelect, initialBuyState, summary, toCheckRow, toCommitRow, type BuyAction, type BuyLine, type BuyPick, type BuyState } from "@/lib/buyBulk";
+import { buyReducer, canSelect, initialBuyState, markDuplicates, summary, toCheckRow, toCommitRow, type BuyAction, type BuyLine, type BuyPick, type BuyState } from "@/lib/buyBulk";
 import { initialBuyView, tabCounts, visibleLines, type BuySortKey, type BuyTab, type BuyView } from "@/lib/buyBulkView";
 import { clearBuyBulk, loadBuyBulk, saveBuyBulk } from "@/lib/buyBulkStorage";
 import { todayInSeoul } from "@/lib/listingForm";
@@ -15,6 +15,7 @@ import { isXlsx } from "@/lib/validation/bulkListing";
 import type { BuyFields } from "@/lib/validation/buyBulk";
 import { checkUpload } from "@/lib/validation/upload";
 import { buyBulk } from "@/messages/buyBulk";
+import { UNREACHABLE } from "@/types/api";
 import type { ProductSearchItem } from "@/types/listing";
 
 const t = buyBulk;
@@ -36,8 +37,12 @@ function persist(state: BuyState): void {
  * 담기는 장바구니까지 — 구매·견적은 기존 장바구니 화면에서 한다
  */
 export function BuyBulkView() {
-  // 새로고침해도 이어서 하게 보관본으로 시작한다. 로그인 확인(RequireLogin)이 끝난 뒤에 그려져 서버 렌더와 어긋나지 않는다
-  const [state, dispatch] = useReducer(buyReducer, initialBuyState, () => loadBuyBulk() ?? initialBuyState);
+  // 새로고침해도 이어서 하게 보관본으로 시작한다. 로그인 확인(RequireLogin)이 끝난 뒤에 그려져 서버 렌더와 어긋나지 않는다.
+  // 보관해 둔 결과(재고·단가·고른 매물)는 낡았을 수 있어 선택은 풀어 두고, [다시 맞춰 보기]로 다시 확인한 뒤 고르게 한다
+  const [state, dispatch] = useReducer(buyReducer, initialBuyState, () => {
+    const stored = loadBuyBulk();
+    return stored ? markDuplicates({ ...stored, lines: stored.lines.map((l) => ({ ...l, selected: false })) }) : initialBuyState;
+  });
   const [restored, setRestored] = useState(() => state.lines.length > 0);
   // 새 파일을 읽거나 처음부터 다시 하면 올린다 — 보이는 줄 목록을 이때만 다시 짠다 (아래 visibleNos)
   const [loadId, setLoadId] = useState(0);
@@ -105,13 +110,10 @@ export function BuyBulkView() {
     if (!res.ok) setTopError(res.fields ? Object.values(res.fields).join(" ") : (t.errors[res.code] ?? res.message));
   };
 
-  const edit = (rowNo: number, field: keyof BuyFields, value: string, immediate: boolean) => {
-    const action: BuyAction = { type: "edited", rowNo, field, value, today };
-    dispatch(action);
-    if (immediate) {
-      edited.current.delete(rowNo); // 방금 바로 검사하므로 칸을 벗어날 때 또 묻지 않는다
-      void recheckRows(buyReducer(state, action), [rowNo]);
-    } else edited.current.add(rowNo);
+  // 글자를 치는 칸이라 칠 때마다 묻지 않고, 칸을 벗어날 때 그 줄만 서버에 다시 묻는다
+  const edit = (rowNo: number, field: keyof BuyFields, value: string) => {
+    dispatch({ type: "edited", rowNo, field, value, today });
+    edited.current.add(rowNo);
   };
 
   const blurLine = (rowNo: number) => {
@@ -197,7 +199,8 @@ export function BuyBulkView() {
     const res = await cartBulkApi.commit(rows);
     setCommitting(false);
     if (!res.ok) {
-      setTopError(t.errors[res.code] ?? res.message);
+      // 요청이 끝까지 가지 못했으면(네트워크·서버 오류) 일부는 이미 담겼을 수 있다 — 장바구니를 먼저 보게 한다
+      setTopError(res.code === UNREACHABLE ? t.commitUnknown : (t.errors[res.code] ?? res.message));
       return;
     }
     dispatch({ type: "committed", outcomes: res.data.results, cartCount: res.data.cartCount });
@@ -293,9 +296,20 @@ export function BuyBulkView() {
       </div>
 
       {restored && compact && (
-        <p role="status" className="text-[13px] text-ink-2">
-          {t.restored}
-        </p>
+        <div role="status" className="flex flex-wrap items-center gap-2">
+          <p className="text-[13px] text-ink-2">{t.restored}</p>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => {
+              setRestored(false);
+              void recheckRows(state, state.lines.filter((l) => !l.added).map((l) => l.rowNo));
+            }}
+            className={buttonClass}
+          >
+            {t.recheckAll}
+          </button>
+        </div>
       )}
       {state.added > 0 && (
         <div role="status" className="flex flex-col gap-1">

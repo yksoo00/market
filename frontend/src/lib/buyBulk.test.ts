@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CartBulkResult, CartBulkRowApi, ListingOption } from "@/types/cartBulk";
-import { buyReducer, canSelect, errorsOf, initialBuyState, isLocked, summary, toCheckRow, toCommitRow, type BuyState } from "./buyBulk";
+import { buyReducer, canSelect, errorsOf, initialBuyState, isLocked, markDuplicates, summary, toCheckRow, toCommitRow, type BuyState } from "./buyBulk";
+import { buyBulk } from "@/messages/buyBulk";
 
 const TODAY = "2026-11-09";
 
@@ -34,7 +35,7 @@ const option = (sellerId: string, price = 1000, reason: string | null = null): L
 const result = (rowNo: number, status: CartBulkResult["status"], fields: Record<string, string> = {}, chosen: ListingOption | null = null): CartBulkResult => ({
   rowNo,
   status,
-  prodId: status === "FAILED" ? null : "KP-1",
+  prodId: status === "FAILED" ? null : `KP-${rowNo}`,
   matchedName: status === "FAILED" ? null : "스위치",
   chosen,
   options: chosen ? [chosen] : [],
@@ -186,6 +187,59 @@ describe("buyReducer", () => {
     expect(s.lines[0].addError).toBe("가득 찼어요");
     s = buyReducer(s, { type: "edited", rowNo: 2, field: "orderQuantity", value: "4", today: TODAY });
     expect(s.lines[0].addError).toBeNull();
+  });
+
+  it("[상품 찾기]로 마스터를 고르면 다시 검사 결과가 오기 전에는 담을 수 없다 (옛 매물이 새 상품과 같이 담기는 일을 막는다)", () => {
+    const base = loaded();
+    for (const action of [
+      { type: "picked", rowNo: 2, pick: { prodId: "KP-9", prodName: "다른", prodBrand: "Cisco", prodClassNo: null } },
+      { type: "unlocked", rowNo: 2 },
+      { type: "chose", rowNo: 2, sellerId: "B", regDate: "1" },
+    ] as const) {
+      expect(buyReducer(base, action).lines[0].selected).toBe(false);
+    }
+  });
+
+  describe("파일 안 중복 — 화면이 줄 전체를 보고 정한다 (한 줄만 다시 검사하면 서버가 다른 줄을 못 봐서)", () => {
+    /** 2·3 이 같은 마스터(KP-X). 서버는 parse 때 3 에 중복 오류를 달았다 */
+    function dupState(): BuyState {
+      const a = { ...result(2, "AVAILABLE", {}, option("A")), prodId: "KP-X" };
+      const b = { ...result(3, "AVAILABLE", { prodName: buyBulk.duplicate }, option("A")), prodId: "KP-X" };
+      return buyReducer(initialBuyState, { type: "loaded", rows: [row(2), row(3)], results: [a, b], cartCount: 0, cartMax: 100 });
+    }
+
+    it("뒤 줄만 중복이고 서버가 단 낡은 중복 오류는 지워진다", () => {
+      const s = dupState();
+      expect(s.lines.map((l) => l.duplicate)).toEqual([false, true]);
+      expect(s.lines[1].result.fields).toEqual({});
+      expect(errorsOf(s.lines[1]).prodName).toBe(buyBulk.duplicate);
+      expect(canSelect(s.lines[1])).toBe(false);
+    });
+
+    it("뒤 줄을 고쳐 다시 검사해도(서버는 그 줄만 보므로 통과) 같은 마스터면 중복이 유지된다", () => {
+      let s = buyReducer(dupState(), { type: "rechecked", results: [{ ...result(3, "AVAILABLE", {}, option("A")), prodId: "KP-X" }] });
+      expect(s.lines[1].duplicate).toBe(true);
+      expect(errorsOf(s.lines[1]).prodName).toBe(buyBulk.duplicate);
+      // 다른 상품으로 바뀌어 다시 검사되면 풀린다
+      s = buyReducer(s, { type: "rechecked", results: [{ ...result(3, "AVAILABLE", {}, option("A")), prodId: "KP-Y" }] });
+      expect(s.lines[1].duplicate).toBe(false);
+      expect(errorsOf(s.lines[1])).toEqual({});
+    });
+
+    it("앞 줄이 다른 상품으로 바뀌면 뒤 줄이 앞 줄이 된다", () => {
+      const s = buyReducer(dupState(), { type: "rechecked", results: [{ ...result(2, "AVAILABLE", {}, option("A")), prodId: "KP-Z" }] });
+      expect(s.lines.map((l) => l.duplicate)).toEqual([false, false]);
+    });
+
+    it("담은 줄은 중복 판정에서 빠진다", () => {
+      const s = buyReducer(dupState(), { type: "committed", outcomes: [{ rowNo: 2, ok: true, code: null, message: null }], cartCount: 1 });
+      expect(s.lines.map((l) => l.duplicate)).toEqual([false, false]);
+    });
+
+    it("보관본에서 되살려도 markDuplicates 로 다시 정해진다", () => {
+      const stale = { ...dupState(), lines: dupState().lines.map((l) => ({ ...l, duplicate: false })) };
+      expect(markDuplicates(stale).lines.map((l) => l.duplicate)).toEqual([false, true]);
+    });
   });
 
   it("보이는 줄만 선택한다: selectVisible 은 넘긴 줄만 바꾸고 못 고르는 줄은 선택하지 않는다", () => {

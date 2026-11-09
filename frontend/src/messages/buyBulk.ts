@@ -27,7 +27,10 @@ export const buyBulk = {
   reading: "엑셀을 읽고 매물과 맞춰 보는 중이에요",
   emptyFile: "양식에 입력한 줄이 없어요. 양식을 채워서 다시 올려 주세요.",
   readFailed: "엑셀을 읽지 못했어요. 다시 시도해 주세요",
-  restored: "이전에 하던 작업을 이어서 보여 드려요.",
+  restored: "이전에 하던 작업을 이어서 보여 드려요. 재고·단가가 바뀌었을 수 있어서 선택은 풀어 뒀어요.",
+  recheckAll: "다시 맞춰 보기",
+  // 서버가 파일 안 중복에 쓰는 문구와 같다 — 화면도 같은 기준으로 중복을 표시한다 (한 줄만 다시 검사하면 서버가 다른 줄을 못 봐서)
+  duplicate: "파일 안에서 같은 상품이 이미 있어요.",
   reset: "처음부터 다시",
   resetConfirm: "하던 작업이 사라져요. 처음부터 다시 할까요?",
   overwriteConfirm: "하던 작업이 새 파일로 바뀌어요. 계속할까요?",
@@ -108,6 +111,8 @@ export const buyBulk = {
   allDone: "모든 줄을 처리했어요.",
   openCart: "장바구니 열기",
   commitFailedSome: (n: number) => `${n}건은 담지 못했어요. 줄마다 사유를 확인해 주세요.`,
+  // 담기 요청이 끝까지 가지 못했으면 일부는 이미 담겼을 수 있다 — 같은 줄이 두 번 담기지 않게 장바구니를 먼저 보게 한다
+  commitUnknown: "담기 결과를 확인하지 못했어요. 일부는 담겼을 수 있으니 장바구니를 먼저 확인한 뒤 다시 담아 주세요.",
   closeDialog: "닫기",
   stateSelect: "선택",
   validation: {

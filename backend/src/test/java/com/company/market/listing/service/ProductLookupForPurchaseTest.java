@@ -119,6 +119,14 @@ class ProductLookupForPurchaseTest {
 	}
 
 	@Test
+	@DisplayName("대체상품명의 탭·줄바꿈 같은 공백도 한 칸 공백으로 보고 찾는다")
+	void whitespaceKinds() {
+		// 이름은 공백 한 칸인데 대체상품명은 탭·공백이 섞여 있다
+		Product tabbed = products.findOrCreate(draft("구매조회 탭 D", "Acme", "구매조회	대체품	X"));
+		assertThat(products.alternatesOf(tabbed)).extracting(Product::getProdId).containsExactly(alt.getProdId());
+	}
+
+	@Test
 	@DisplayName("대체상품명이 없거나 비어 있으면 빈 목록")
 	void noAlternate() {
 		assertThat(products.alternatesOf(alt)).isEmpty();
