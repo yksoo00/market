@@ -67,6 +67,20 @@ public class ProductService {
 		return products.findAllSameIgnoreCase(prodName, prodBrand, orEmpty(prodClassNo), PageRequest.of(0, 1)).stream().findFirst();
 	}
 
+	/**
+	 * 엑셀 대량구매의 대체품 제안 — 이 마스터의 대체상품명(자유 글)과 이름이 같은 마스터. 한 단계만 본다(대체품의 대체품은 따라가지 않아
+	 * A → X → A 같은 순환이 없다). 자기 자신은 뺀다. 대체상품명이 비어 있으면 빈 목록
+	 */
+	public List<Product> alternatesOf(Product master) {
+		String name = blankToNull(master.getAlterProdName());
+		if (name == null) {
+			return List.of();
+		}
+		return products.findAllByNameIgnoreCase(name.replaceAll("\s+", " ")).stream()
+			.filter(p -> !p.getProdId().equals(master.getProdId()))
+			.toList();
+	}
+
 	/** 등록 폼이 고른 마스터. 없으면 호출한 쪽이 400 으로 알린다 */
 	public Optional<Product> find(String prodId) {
 		return products.findById(prodId);

@@ -379,6 +379,28 @@ public class ListingService {
 		return found.stream().collect(Collectors.toMap(Listing::getId, l -> toSnapshot(l, productsById.get(l.getProdId()))));
 	}
 
+	/**
+	 * 엑셀 대량구매의 매물 후보 — 이 상품마스터의 모든 매물(거래완료 포함: 왜 못 사는지 사유를 보이려고). 잠금 없는 읽기라 담기에서 다시 잠그고 판정한다.
+	 * 없는 마스터·매물 없는 마스터는 빈 목록
+	 */
+	@Transactional(readOnly = true)
+	public List<ListingTradeSnapshot> snapshotsOfProduct(String prodId) {
+		List<Listing> found = listings.findAllByProdIdOrderByRegDate(prodId);
+		if (found.isEmpty()) {
+			return List.of();
+		}
+		Product product = products.get(prodId);
+		return found.stream().map(l -> toSnapshot(l, product)).toList();
+	}
+
+	/** 매물에 적힌 대체품 글(자유 글). 비어 있는 매물은 빠진다 — 대량구매 후보 줄의 힌트로만 쓴다 */
+	@Transactional(readOnly = true)
+	public Map<ListingId, String> replaceHints(Collection<ListingId> ids) {
+		return listings.findAllById(ids).stream()
+			.filter(l -> hasText(l.getReplaceProd()))
+			.collect(Collectors.toMap(Listing::getId, Listing::getReplaceProd));
+	}
+
 	/** 장바구니 목록용 — 검색 결과와 같은 칸(지금 매물 값)을 매물·상품 각 한 쿼리로. 없는 키는 빠진다 */
 	public Map<ListingId, ListingSearchItemResponse> searchItems(Collection<ListingId> ids) {
 		List<Listing> found = listings.findAllById(ids);
