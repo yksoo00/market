@@ -78,6 +78,19 @@ describe("작업 보관", () => {
     expect(storage.getItem(BULK_STORAGE_KEY)).toBeNull();
   });
 
+  it("화면이 읽는 칸이 빠진 보관본(result.notices 없음·fields 일부 없음)은 버리고 지운다 — 불러올 때마다 화면이 죽지 않게", () => {
+    const broken = JSON.parse(JSON.stringify(state())) as BulkState;
+    delete (broken.lines[0].result as Partial<BulkResult>).notices;
+    storage.setItem(BULK_STORAGE_KEY, JSON.stringify({ version: 1, state: broken }));
+    expect(loadBulk(storage)).toBeNull();
+    expect(storage.getItem(BULK_STORAGE_KEY)).toBeNull();
+
+    const noField = JSON.parse(JSON.stringify(state())) as BulkState;
+    delete (noField.lines[0].fields as Partial<BulkState["lines"][0]["fields"]>).prodName;
+    storage.setItem(BULK_STORAGE_KEY, JSON.stringify({ version: 1, state: noField }));
+    expect(loadBulk(storage)).toBeNull();
+  });
+
   it("줄이 없는 상태를 저장하면 보관본을 지운다 (빈 보관본을 이어서 보여 주지 않게)", () => {
     saveBulk(state(), storage);
     saveBulk(initialBulkState, storage);

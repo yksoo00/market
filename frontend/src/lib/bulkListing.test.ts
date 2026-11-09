@@ -106,6 +106,18 @@ describe("bulkReducer", () => {
     expect(s.lines[1].fields.salesQuantity).toBe("9");
   });
 
+  it("마스터를 고르면 잠기는 칸의 입력 오류가 같이 지워진다 (잠긴 칸의 오류는 고칠 길이 없다)", () => {
+    let s = bulkReducer(loaded(), { type: "edited", rowNo: 3, field: "prodNo", value: "x".repeat(21), today: TODAY });
+    expect(errorsOf(s.lines[1]).prodNo).toBeDefined();
+    s = bulkReducer(s, {
+      type: "picked",
+      rowNo: 3,
+      candidate: { prodId: "KP-9", prodName: "스위치 C9300", prodBrand: "Cisco", prodClassNo: null, prodNo: "N-1", categoryCode: "P01-Q01-R001" },
+    });
+    expect(errorsOf(s.lines[1]).prodNo).toBeUndefined();
+    expect(s.lines[1].fields).toMatchObject({ prodNo: "N-1", categoryCode: "P01-Q01-R001" });
+  });
+
   it("[직접 입력으로 바꾸기]: prodId 만 비고 상품 칸은 마스터 값이 남은 채 편집할 수 있다", () => {
     let s = bulkReducer(loaded(), {
       type: "picked",

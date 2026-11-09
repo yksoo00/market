@@ -131,11 +131,15 @@ test("엑셀 다량 등록 페이지: 올리고 → 탭·검색으로 보고 →
   });
 
   await test.step("수량 0 인 3행을 고친다 — 칸을 벗어나면 그 줄만 다시 검사하고 체크를 풀어 둔다", async () => {
+    // 확인 필요 탭에서 고친다 — 오류가 풀려도 줄이 탭에서 빠지지 않아야 계속 칠 수 있고 칸을 벗어날 때 재검사도 돈다 (코드리뷰)
+    await tab(p.tabs.failed, 1).click();
     await expect(qty(3)).toHaveValue("0");
     await qty(3).fill("4");
+    await expect(card(3)).toBeVisible();
     await qty(3).blur();
     await expect(card(3).getByRole("checkbox")).toBeEnabled();
     await card(3).getByRole("checkbox").check();
+    await tab(p.tabs.all, 3).click();
   });
 
   await test.step("새 상품(4행)은 일부러 체크해야 등록된다", async () => {

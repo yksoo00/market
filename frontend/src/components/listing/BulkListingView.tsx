@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useReducer, useRef, useState, type DragEvent } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState, type DragEvent } from "react";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { BulkHeader, BulkRows } from "@/components/listing/BulkRows";
 import { CategoryPickDialog } from "@/components/listing/CategoryPickDialog";
@@ -22,6 +22,12 @@ const p = listing.bulk.page;
 const TABS: BulkTab[] = ["all", "ok", "new", "failed", "done"];
 const SORT_KEYS: BulkSortKey[] = ["rowNo", "prodName", "prodBrand", "salesUnitPrice", "salesQuantity", "status"];
 
+/** 남은 일이 없으면(전부 등록됨) 보관본을 비우고, 아니면 저장한다 */
+function persist(state: BulkState): void {
+  if (state.lines.length > 0 && state.lines.every((l) => l.committed)) clearBulk();
+  else saveBulk(state);
+}
+
 const buttonClass = "h-8 px-3 rounded-md border border-line text-[13px] font-medium text-ink-2 hover:bg-bg disabled:opacity-40";
 
 /**
@@ -32,7 +38,9 @@ const buttonClass = "h-8 px-3 rounded-md border border-line text-[13px] font-med
 export function BulkListingView() {
   // 새로고침해도 이어서 하게 보관본으로 시작한다. 로그인 확인(RequireLogin)이 끝난 뒤에 그려져 서버 렌더와 어긋나지 않는다
   const [state, dispatch] = useReducer(bulkReducer, initialBulkState, () => loadBulk() ?? initialBulkState);
-  const [restored] = useState(() => state.lines.length > 0);
+  const [restored, setRestored] = useState(() => state.lines.length > 0);
+  // 새 파일을 읽거나 처음부터 다시 하면 올린다 — 보이는 줄 목록을 이때만 다시 짠다 (아래 visibleNos)
+  const [loadId, setLoadId] = useState(0);
   const [view, setView] = useState<BulkView>(initialBulkView);
   const [step, setStep] = useState<"idle" | "reading">("idle");
   const [pickError, setPickError] = useState<string | null>(null);
@@ -50,15 +58,32 @@ export function BulkListingView() {
   const openTile = useTileOpen();
   const today = todayInSeoul();
 
-  // 줄이 바뀔 때마다 보관한다. 남은 일이 없으면(전부 등록됨) 보관본을 비운다
+  // 줄이 바뀌면 보관한다. 글자를 칠 때마다 줄 전체를 다시 쓰지 않게 잠깐 모아서 쓰고, 떠나거나 새로고침할 때는 마저 쓴다.
+  // 남은 일이 없으면(전부 등록됨) 보관본을 비운다
+  const latest = useRef(state);
   useEffect(() => {
-    if (state.lines.length > 0 && state.lines.every((l) => l.committed)) clearBulk();
-    else saveBulk(state);
+    latest.current = state;
+    const timer = setTimeout(() => persist(state), 250);
+    return () => clearTimeout(timer);
   }, [state]);
+  useEffect(() => {
+    const flush = () => persist(latest.current);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, []);
 
-  const stat = summary(state.lines);
-  const counts = tabCounts(state.lines);
-  const shown = visibleLines(state.lines, view);
+  const stat = useMemo(() => summary(state.lines), [state.lines]);
+  const counts = useMemo(() => tabCounts(state.lines), [state.lines]);
+  const committable = useMemo(() => state.lines.filter(canSelect).length, [state.lines]);
+  // 보이는 줄은 탭·검색·정렬을 바꾸거나 새 파일을 읽거나 확정했을 때만 다시 짠다. 칸을 고칠 때마다 다시 짜면 오류가 풀린 줄이 탭에서 빠져
+  // 입력 칸이 사라진다(칸을 벗어남 검사도 안 돈다). 고친 줄은 다른 탭을 누르기 전까지 그 자리에 있다 — 개수만 바로 바뀐다
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const visibleNos = useMemo(() => visibleLines(state.lines, view).map((l) => l.rowNo), [view, loadId, state.created]);
+  const byRow = new Map(state.lines.map((l) => [l.rowNo, l]));
+  const shown = visibleNos.flatMap((n) => byRow.get(n) ?? []);
   const hasOpen = state.lines.some((l) => !l.committed);
   const busy = committing || step === "reading";
 
@@ -84,8 +109,10 @@ export function BulkListingView() {
     const action: BulkAction = { type: "edited", rowNo, field, value, today };
     dispatch(action);
     // 목록에서 고르는 칸은 고르는 순간 끝난 입력이라 바로 검사하고, 글자 입력 칸은 벗어날 때 검사한다
-    if (immediate) void recheckRows(bulkReducer(state, action), [rowNo]);
-    else edited.current.add(rowNo);
+    if (immediate) {
+      edited.current.delete(rowNo); // 방금 바로 검사하므로 칸을 벗어날 때 또 묻지 않는다
+      void recheckRows(bulkReducer(state, action), [rowNo]);
+    } else edited.current.add(rowNo);
   };
 
   const blurLine = (rowNo: number) => {
@@ -127,7 +154,9 @@ export function BulkListingView() {
     edited.current.clear();
     sent.current.clear();
     setTopError(null);
+    setRestored(false);
     setView(initialBulkView);
+    setLoadId((n) => n + 1);
     dispatch({ type: "loaded", rows: res.data.rows, results: res.data.results });
   };
 
@@ -159,9 +188,12 @@ export function BulkListingView() {
   };
 
   // 선택 확정 = 체크한 줄, 전체 확정 = 오류 없는 줄 전부(필터로 숨은 줄 포함 — 확인 문구에 개수)
-  const commit = async (lines: BulkLine[], hidden: number) => {
+  const commit = async (lines: BulkLine[]) => {
     if (lines.length === 0 || busy) return;
     const rows = lines.map(toApiRow);
+    // 필터·검색으로 지금 안 보이는데 확정에 들어가는 줄 — 선택 확정에도 있을 수 있다(체크한 뒤 탭을 옮긴 경우)
+    const visible = new Set(visibleNos);
+    const hidden = lines.filter((l) => !visible.has(l.rowNo)).length;
     if (!window.confirm(t.confirm(rows.length, lines.filter((l) => l.result.status === "NEW_MASTER").length, hidden))) return;
     setCommitting(true);
     setTopError(null);
@@ -176,12 +208,8 @@ export function BulkListingView() {
     if (res.code === "LISTING_BULK_INVALID") void recheckRows(state, rows.map((r) => r.rowNo));
   };
 
-  const commitSelected = () => void commit(state.lines.filter((l) => l.selected && !l.committed), 0);
-  const commitAll = () => {
-    const all = state.lines.filter(canSelect);
-    const visible = new Set(shown.map((l) => l.rowNo));
-    void commit(all, all.filter((l) => !visible.has(l.rowNo)).length);
-  };
+  const commitSelected = () => void commit(state.lines.filter((l) => l.selected && !l.committed));
+  const commitAll = () => void commit(state.lines.filter(canSelect));
 
   const reset = () => {
     if (hasOpen && !window.confirm(p.resetConfirm)) return;
@@ -189,12 +217,13 @@ export function BulkListingView() {
     sent.current.clear();
     setTopError(null);
     setPickError(null);
+    setRestored(false);
     setView(initialBulkView);
+    setLoadId((n) => n + 1);
     dispatch({ type: "restored", state: initialBulkState });
     clearBulk();
   };
 
-  const visibleNos = shown.map((l) => l.rowNo);
   const compact = state.lines.length > 0;
 
   return (
@@ -290,8 +319,9 @@ export function BulkListingView() {
         </p>
       )}
 
+      {/* 확정·읽는 중에는 칸 수정·체크를 막는다 — 보낸 뒤에 고친 값이 "등록됨"으로 표시돼 저장 안 된 값이 남는 일을 막는다 */}
       {compact && (
-        <>
+        <fieldset disabled={busy} className="contents">
           <div role="tablist" aria-label={p.title} className="flex gap-1 overflow-x-auto border-b border-line">
             {TABS.map((tab) => (
               <button
@@ -382,13 +412,13 @@ export function BulkListingView() {
             <button
               type="button"
               onClick={commitAll}
-              disabled={busy || stat.ok === 0}
+              disabled={busy || committable === 0}
               className="h-10 px-5 rounded-md border border-primary text-primary text-[14px] font-bold hover:bg-primary-soft disabled:opacity-40"
             >
-              {t.actions.commitAll(stat.ok)}
+              {t.actions.commitAll(committable)}
             </button>
           </div>
-        </>
+        </fieldset>
       )}
 
       {finder !== null && (

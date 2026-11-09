@@ -51,7 +51,8 @@ export function ProductSearchDialog({ onPick, onClose }: Props) {
   const status = result === null ? t.searching : result.items === null ? t.failed : result.items.length === 0 ? t.noResult : null;
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (items.length === 0) return;
+    // 한글 입력 중 글자를 확정하는 Enter 는 목록에서 고르는 Enter 가 아니다 (조합 중에는 isComposing)
+    if (items.length === 0 || e.nativeEvent.isComposing) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setActive((i) => Math.min(i + 1, items.length - 1));

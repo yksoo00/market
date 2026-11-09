@@ -4,6 +4,23 @@ import type { BulkLine, BulkState } from "@/lib/bulkListing";
 // 서버에는 저장하지 않는다는 결정(2026-11-05)과 안 부딪힌다 — 이 탭의 브라우저 안에만 있고 탭을 닫으면 사라진다.
 // 줄에는 상품·가격 정보뿐이고 개인정보(이메일·전화)가 없다. 보관에 실패해도(용량·차단) 작업은 계속된다.
 
+/** 줄의 입력 칸 이름 전부 (BulkFields) */
+const FIELD_KEYS = [
+  "prodId",
+  "prodName",
+  "prodBrand",
+  "prodClassNo",
+  "prodNo",
+  "categoryCode",
+  "prodState",
+  "salesUnitPrice",
+  "salesQuantity",
+  "minOrderQuantity",
+  "orderUnit",
+  "deliveryDate",
+  "description",
+] as const;
+
 /** 보관 형식이 바뀌면 올린다 — 다른 버전의 보관본은 읽지 않고 버린다 */
 const VERSION = 1;
 
@@ -31,17 +48,24 @@ export function saveBulk(state: BulkState, storage: Storage | null = browserStor
   }
 }
 
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** 화면이 읽는 칸(fields 전부 글자, result 의 배열·객체)이 다 있어야 한다 — 하나라도 빠진 보관본을 받으면 화면이 매번 죽는다 */
 const isLine = (v: unknown): v is BulkLine => {
-  if (typeof v !== "object" || v === null) return false;
-  const l = v as Partial<BulkLine>;
+  if (!isRecord(v) || !isRecord(v.fields) || !isRecord(v.result) || !isRecord(v.clientErrors)) return false;
+  const result = v.result;
   return (
-    typeof l.rowNo === "number" &&
-    typeof l.fields === "object" &&
-    l.fields !== null &&
-    typeof l.result === "object" &&
-    l.result !== null &&
-    typeof l.selected === "boolean" &&
-    typeof l.committed === "boolean"
+    typeof v.rowNo === "number" &&
+    typeof v.selected === "boolean" &&
+    typeof v.committed === "boolean" &&
+    typeof v.checking === "boolean" &&
+    typeof v.dirty === "boolean" &&
+    FIELD_KEYS.every((k) => typeof (v.fields as Record<string, unknown>)[k] === "string") &&
+    typeof result.rowNo === "number" &&
+    ["MATCHED", "NEW_MASTER", "FAILED"].includes(String(result.status)) &&
+    Array.isArray(result.candidates) &&
+    Array.isArray(result.notices) &&
+    isRecord(result.fields)
   );
 };
 

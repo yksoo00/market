@@ -206,7 +206,8 @@ export function bulkReducer(state: BulkState, action: BulkAction): BulkState {
           categoryCode: action.candidate.categoryCode ?? l.fields.categoryCode,
         },
         result: { ...l.result, fields: withoutKeys(l.result.fields, ["prodId", "prodName", "prodBrand", "categoryCode"]) },
-        clientErrors: withoutKeys(l.clientErrors, ["prodName", "prodBrand"]),
+        // 마스터 값이 기준이고 이 칸들은 잠기므로, 전에 있던 입력 오류도 같이 지운다 — 남으면 잠긴 칸의 오류를 고칠 길이 없다
+        clientErrors: withoutKeys(l.clientErrors, LOCKED_FIELDS),
       }));
     case "unlocked":
       // prodId 만 비운다 — 상품 칸은 마스터 값이 그대로 남아 편집할 수 있고, 서버는 이 값으로 다시 마스터를 찾는다
