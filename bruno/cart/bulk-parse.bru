@@ -1,0 +1,23 @@
+meta {
+  name: 대량구매 엑셀 읽기·매물 대조
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/cart/bulk/parse
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  file: @file(bulk.xlsx)
+}
+
+docs {
+  로그인 먼저. file 은 bulk-template.bru 로 받은 양식을 채워 실제 파일로 바꿔 고른다.
+  200 { ok, data: { rows, results, cartCount, cartMax } } — rows[i] 와 results[i] 가 같은 줄. 저장은 하지 않는다.
+  results[].status: AVAILABLE(살 매물이 골라짐) · UNAVAILABLE(마스터는 있는데 살 수 있는 매물이 없음) · FAILED(fields 에 칸별 사유).
+  options = 그 마스터의 모든 매물 (못 사는 매물은 reason 이 있음), alternatives = 대체상품명과 이름이 같은 마스터의 매물 제안(자동으로 고르지 않음).
+  400 VALIDATION fields.file: .xlsx 아님·읽을 수 없음·양식 헤더 없음·데이터 101줄 이상. 데이터 줄이 없으면 rows·results 가 빈 배열.
+}

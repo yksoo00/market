@@ -1,11 +1,14 @@
 package com.company.market.trade.service;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -24,6 +27,7 @@ import com.company.market.trade.dto.CartAddRequest;
 import com.company.market.trade.dto.CartBulkCheckResult;
 import com.company.market.trade.dto.CartBulkCommitResult;
 import com.company.market.trade.dto.CartBulkCommitResult.Outcome;
+import com.company.market.trade.dto.CartBulkParseResponse;
 import com.company.market.trade.dto.CartBulkRowDto;
 import com.company.market.trade.dto.CartBulkRowResult;
 import com.company.market.trade.dto.CartBulkRowResult.Alternative;
@@ -35,6 +39,7 @@ import com.company.market.trade.repository.CartInfoRepository;
 import com.company.market.user.service.UserDirectory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * 엑셀 대량구매 (계획 2026-11-09-bulk-purchase-excel.md). 줄 → 상품마스터 → 그 마스터의 매물 후보를 대조해 "살 수 있는 매물"을 정한다.
@@ -66,6 +71,28 @@ public class CartBulkService {
 	private final CartInfoRepository cartInfos;
 
 	private final CartService cart;
+
+	private final CartBulkParser parser;
+
+	/** 업로드한 엑셀을 읽고 줄마다 검사한다 (저장 없음). 데이터 줄이 하나도 없으면 빈 결과 — 화면이 "입력한 줄이 없어요"를 보이게 */
+	public CartBulkParseResponse parse(UUID buyerId, MultipartFile file) {
+		String fileName = file.getOriginalFilename();
+		if (file.isEmpty() || fileName == null || !fileName.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
+			throw new ValidationException(Map.of("file", "엑셀(.xlsx) 파일을 올려 주세요."));
+		}
+		List<CartBulkRowDto> rows;
+		try (InputStream in = file.getInputStream()) {
+			rows = parser.parse(in);
+		}
+		catch (IOException e) {
+			throw new ValidationException(Map.of("file", "엑셀(.xlsx) 파일을 읽을 수 없습니다."));
+		}
+		if (rows.isEmpty()) {
+			return new CartBulkParseResponse(rows, List.of(), cartInfos.countByUserIdAndCartType(buyerId, CartType.CART), CartService.MAX_ITEMS);
+		}
+		CartBulkCheckResult checked = check(buyerId, rows);
+		return new CartBulkParseResponse(rows, checked.results(), checked.cartCount(), checked.cartMax());
+	}
 
 	/** 줄별 검사 결과 + 지금 장바구니 줄 수. 저장은 안 한다 */
 	public CartBulkCheckResult check(UUID buyerId, List<CartBulkRowDto> rows) {
