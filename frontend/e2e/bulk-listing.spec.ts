@@ -10,6 +10,7 @@ import { xlsx } from "./support/xlsx";
 // 엑셀 3줄(마스터 찾음 · 수량 0 오류 · 새 마스터)을 올린다 → 오류 줄을 고치고 새 마스터 줄을 체크 → [선택 확정] → 3건 등록됨
 const password = "Test1234!@";
 const b = listing.bulk;
+const p = listing.bulk.page;
 const CATEGORY = "P01-Q01-R001"; // 인텔 CPU (대분류 PC주요부품 > CPU/프로세서 > 인텔 CPU)
 
 const checkButton = (page: Page, name: string) =>
@@ -74,7 +75,7 @@ function line(name: string, quantity: string, category: string | null): (string 
   return [name, "Dell", null, null, category, null, "신품", "20000", quantity, null, null, date, null];
 }
 
-test("엑셀 다량 등록: 모달에서 올리고 → 오류 줄을 고치고 → 새 상품은 직접 체크해 → 선택 확정", async ({ page }) => {
+test("엑셀 다량 등록 페이지: 올리고 → 탭·검색으로 보고 → 오류 줄을 고치고 → 새 상품은 직접 체크해 → 선택 확정 → 등록됨 탭", async ({ page }) => {
   const stamp = Date.now().toString().slice(-8);
   const seller = `e2ebk${stamp}`;
   const known = `E2E다량 ${stamp}`;
@@ -87,8 +88,8 @@ test("엑셀 다량 등록: 모달에서 올리고 → 오류 줄을 고치고 �
     await register(page, known);
   });
 
-  const dialog = page.getByRole("dialog", { name: b.title });
-  const card = (n: number) => dialog.getByRole("listitem").filter({ has: page.getByText(b.line.row(n), { exact: true }) });
+  const card = (n: number) => page.getByRole("listitem").filter({ has: page.getByText(b.line.row(n), { exact: true }) });
+  const tab = (name: string, count: number) => page.getByRole("tab", { name: `${name} ${count}` });
 
   // 칸의 이름이 오류 문구까지 포함해 읽히므로(label 이 입력 칸과 오류 문구를 함께 감싼다) 이름이 "수량"으로 시작하는 칸을 찾는다. "최소주문수량"과 안 겹치게 앞을 고정
   const qty = (n: number) =>
@@ -97,40 +98,69 @@ test("엑셀 다량 등록: 모달에서 올리고 → 오류 줄을 고치고 �
       .filter({ hasText: new RegExp(`^${b.fields.salesQuantity}`) })
       .locator("input");
 
-  await test.step("홈 아이콘으로 모달을 열고 엑셀 3줄을 올린다 (대소문자가 다른 이름 · 수량 0 · 새 상품)", async () => {
+  await test.step("홈 아이콘이 다량 등록 페이지로 가는 링크이고, 페이지에서 엑셀 3줄을 올린다 (대소문자가 다른 이름 · 수량 0 · 새 상품)", async () => {
     await page.goto("/");
-    await page.getByRole("button", { name: home.quick.sellBulk }).click();
-    await expect(dialog).toBeVisible();
+    await expect(page.getByRole("link", { name: home.quick.sellBulk })).toHaveAttribute("href", "/listings/bulk");
+    await page.goto("/listings/bulk");
+    await expect(page.getByRole("heading", { name: p.title })).toBeVisible();
     const file = xlsx([HEADERS, line(known.toUpperCase(), "3", null), line(`${known} 오류`, "0", CATEGORY), line(fresh, "2", CATEGORY)]);
-    await dialog.locator('input[type="file"]').setInputFiles({
+    await page.locator('input[type="file"][accept=".xlsx"]').setInputFiles({
       name: "bulk.xlsx",
       mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       buffer: file,
     });
-    // 2행: 마스터 찾음(체크됨, 등록 가능 목록), 3행: 수량 0 이라 확인 필요 목록, 4행: 새 상품(등록 가능 목록, 체크 해제)
-    await expect(dialog.getByText(b.okTitle(2))).toBeVisible();
-    await expect(dialog.getByText(b.failedTitle(1))).toBeVisible();
+    // 2행: 마스터 찾음(체크됨), 3행: 수량 0 이라 확인 필요, 4행: 새 상품(체크 해제)
+    await expect(tab(p.tabs.all, 3)).toBeVisible();
+    await expect(tab(p.tabs.ok, 1)).toBeVisible();
+    await expect(tab(p.tabs.new, 1)).toBeVisible();
+    await expect(tab(p.tabs.failed, 1)).toBeVisible();
     await expect(card(2).getByRole("checkbox")).toBeChecked();
     await expect(card(3).getByRole("checkbox")).toBeDisabled();
   });
 
+  await test.step("탭과 검색으로 줄을 걸러 본다", async () => {
+    await tab(p.tabs.failed, 1).click();
+    await expect(card(3)).toBeVisible();
+    await expect(card(2)).toBeHidden();
+    await tab(p.tabs.all, 3).click();
+    await page.getByRole("searchbox", { name: p.searchLabel }).fill("새상품");
+    await expect(card(4)).toBeVisible();
+    await expect(card(2)).toBeHidden();
+    await page.getByRole("searchbox", { name: p.searchLabel }).fill("");
+    await expect(card(2)).toBeVisible();
+  });
+
   await test.step("수량 0 인 3행을 고친다 — 칸을 벗어나면 그 줄만 다시 검사하고 체크를 풀어 둔다", async () => {
+    // 확인 필요 탭에서 고친다 — 오류가 풀려도 줄이 탭에서 빠지지 않아야 계속 칠 수 있고 칸을 벗어날 때 재검사도 돈다 (코드리뷰)
+    await tab(p.tabs.failed, 1).click();
     await expect(qty(3)).toHaveValue("0");
     await qty(3).fill("4");
+    await expect(card(3)).toBeVisible();
     await qty(3).blur();
     await expect(card(3).getByRole("checkbox")).toBeEnabled();
     await card(3).getByRole("checkbox").check();
+    await tab(p.tabs.all, 3).click();
   });
 
   await test.step("새 상품(4행)은 일부러 체크해야 등록된다", async () => {
     await expect(card(4).getByRole("checkbox")).not.toBeChecked();
     await card(4).getByRole("checkbox").check();
-    await expect(dialog.getByRole("button", { name: b.actions.commitSelected(3) })).toBeVisible();
+    await expect(page.getByRole("button", { name: b.actions.commitSelected(3) })).toBeVisible();
   });
 
-  await test.step("선택 확정 → 3건 등록됨", async () => {
-    await dialog.getByRole("button", { name: b.actions.commitSelected(3) }).click();
-    await expect(dialog.getByText(b.done(3))).toBeVisible();
-    await expect(dialog.getByText(b.allDone)).toBeVisible();
+  await test.step("새로고침해도 고친 줄·체크가 남는다 (sessionStorage 보관)", async () => {
+    await page.reload();
+    await expect(page.getByText(p.restored)).toBeVisible();
+    await expect(qty(3)).toHaveValue("4");
+    await expect(page.getByRole("button", { name: b.actions.commitSelected(3) })).toBeVisible();
+  });
+
+  await test.step("선택 확정 → 3건 등록됨, 등록됨 탭에 남는다", async () => {
+    await page.getByRole("button", { name: b.actions.commitSelected(3) }).click();
+    await expect(page.getByText(b.done(3))).toBeVisible();
+    await expect(page.getByText(b.allDone)).toBeVisible();
+    await tab(p.tabs.done, 3).click();
+    await expect(card(2).getByText(p.committedBadge)).toBeVisible();
+    await expect(card(2).getByRole("checkbox")).toBeDisabled();
   });
 });

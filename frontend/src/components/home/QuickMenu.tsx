@@ -1,10 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useRef, type ChangeEvent, type ReactNode } from "react";
 import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
 import { QuickIcon, type QuickIconName } from "@/components/common/QuickIcon";
-import { BulkListingDialog } from "@/components/listing/BulkListingDialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,6 +22,7 @@ const t = home.quick;
 const routes = {
   sellManual: "/listings/new",
   sellExtra: "/listings/extra",
+  sellBulk: "/listings/bulk",
   sellQuote: "/my/activity?tab=requests",
   buyRequest: "/search",
   buyQuotes: "/my/activity?tab=purchases",
@@ -43,8 +43,6 @@ export function QuickMenu() {
   const fileRef = useRef<HTMLInputElement>(null);
   const kindRef = useRef<UploadKind>("excel");
   const { notice, show, close } = useNotice();
-  // 판매상품 다량 등록은 파일 선택창 대신 끌어 놓기 모달 (2026-11-05)
-  const [bulkOpen, setBulkOpen] = useState(false);
 
   // 파일 input 하나를 종류마다 accept 만 바꿔 쓴다. 클릭 이벤트 안에서 바로 열어야 브라우저가 막지 않으므로
   // state 대신 ref·DOM 속성으로 넘긴다 (setState 는 다음 렌더에야 반영됨)
@@ -85,7 +83,7 @@ export function QuickMenu() {
               <DropdownMenuItem onSelect={() => pickFile("image")}>{t.fileImage}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <FileButton tone="sell" icon="sellBulk" label={t.sellBulk} onClick={() => setBulkOpen(true)} />
+          <LinkItem tone="sell" icon="sellBulk" label={t.sellBulk} href={routes.sellBulk} />
           <LinkItem tone="sell" icon="sellExtra" label={t.sellExtra} href={routes.sellExtra} />
           <LinkItem tone="sell" icon="sellQuote" label={t.sellQuote} href={routes.sellQuote} />
         </Group>
@@ -99,7 +97,6 @@ export function QuickMenu() {
       <input ref={fileRef} type="file" className="hidden" onChange={onFile} tabIndex={-1} aria-hidden="true" />
 
       <NoticeDialog notice={notice} onClose={close} />
-      {bulkOpen && <BulkListingDialog onClose={() => setBulkOpen(false)} />}
     </div>
   );
 }

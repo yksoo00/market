@@ -41,6 +41,7 @@ describe("screenOf", () => {
     expect(screenOf("/quotes/adjust")).toEqual({ id: "sellQuote", group: "sell" });
     expect(screenOf("/listings/new")).toEqual({ id: "sellNew", group: "sell" });
     expect(screenOf("/listings/extra")).toEqual({ id: "sellExtra", group: "sell" });
+    expect(screenOf("/listings/bulk")).toEqual({ id: "sellBulk", group: "sell" });
     expect(screenOf("/my/activity?tab=sales&q=R740")).toEqual({ id: "myActivity", group: "common" });
   });
 

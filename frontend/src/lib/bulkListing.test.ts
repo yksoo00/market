@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { listing } from "@/messages/listing";
 import type { BulkResult, BulkRowApi } from "@/types/listingBulk";
-import { bulkReducer, canSelect, errorsOf, initialBulkState, selectedRows, summary, toApiRow, type BulkState } from "./bulkListing";
+import { bulkReducer, canSelect, errorsOf, initialBulkState, isLocked, selectedRows, summary, toApiRow, type BulkState } from "./bulkListing";
 
 const TODAY = "2026-11-05";
 
@@ -43,14 +43,14 @@ function loaded(): BulkState {
 }
 
 describe("bulkReducer", () => {
-  it("읽으면 목록을 정하고, 마스터를 찾은 줄만 체크한다 (새 마스터·실패는 해제)", () => {
+  it("읽으면 마스터를 찾은 줄만 체크한다 (새 마스터·실패는 해제)", () => {
     const s = loaded();
-    expect(s.lines.map((l) => [l.rowNo, l.group, l.selected])).toEqual([
-      [2, "ok", true],
-      [3, "ok", false],
-      [4, "failed", false],
+    expect(s.lines.map((l) => [l.rowNo, l.selected])).toEqual([
+      [2, true],
+      [3, false],
+      [4, false],
     ]);
-    expect(summary(s.lines)).toEqual({ ok: 2, failed: 1, selected: 1, newMasters: 0 });
+    expect(summary(s.lines)).toEqual({ ok: 2, failed: 1, selected: 1, newMasters: 0, committed: 0 });
   });
 
   it("오류가 있는 줄은 체크가 막힌다", () => {
@@ -59,13 +59,12 @@ describe("bulkReducer", () => {
     expect(canSelect(s.lines[2])).toBe(false);
   });
 
-  it("칸을 고치면 그 칸의 서버 오류가 지워지고 형식 오류가 즉시 붙는다. 줄은 목록을 옮기지 않는다", () => {
+  it("칸을 고치면 그 칸의 서버 오류가 지워지고 형식 오류가 즉시 붙는다", () => {
     let s = bulkReducer(loaded(), { type: "edited", rowNo: 4, field: "salesQuantity", value: "abc", today: TODAY });
     expect(errorsOf(s.lines[2]).salesQuantity).toBe(listing.validation.salesQuantity);
     expect(s.lines[2].dirty).toBe(true);
     s = bulkReducer(s, { type: "edited", rowNo: 4, field: "salesQuantity", value: "5", today: TODAY });
     expect(errorsOf(s.lines[2])).toEqual({});
-    expect(s.lines[2].group).toBe("failed");
   });
 
   it("체크한 줄을 고쳐 오류가 생기면 체크가 풀린다", () => {
@@ -94,19 +93,47 @@ describe("bulkReducer", () => {
     expect(toApiRow(s.lines[1]).prodId).toBe("KP-9");
   });
 
-  it("후보를 고른 뒤 상품명·제조사·분류번호를 고치면 prodId 를 놓아 고친 값이 쓰인다", () => {
+  it("마스터를 고른 줄은 상품 칸이 잠겨 고쳐지지 않고, 상품 칸이 아닌 칸은 고칠 수 있다", () => {
     let s = bulkReducer(loaded(), {
       type: "picked",
       rowNo: 3,
       candidate: { prodId: "KP-9", prodName: "스위치 C9300", prodBrand: "Cisco", prodClassNo: null },
     });
+    expect(isLocked(s.lines[1])).toBe(true);
     s = bulkReducer(s, { type: "edited", rowNo: 3, field: "prodName", value: "다른 상품", today: TODAY });
-    expect(s.lines[1].fields.prodId).toBe("");
-    expect(toApiRow(s.lines[1])).toMatchObject({ prodId: null, prodName: "다른 상품" });
-    // 상품 칸이 아닌 칸을 고치면 prodId 는 그대로
-    s = bulkReducer(s, { type: "picked", rowNo: 3, candidate: { prodId: "KP-9", prodName: "스위치", prodBrand: "Cisco", prodClassNo: null } });
+    expect(s.lines[1].fields).toMatchObject({ prodId: "KP-9", prodName: "스위치 C9300" });
     s = bulkReducer(s, { type: "edited", rowNo: 3, field: "salesQuantity", value: "9", today: TODAY });
-    expect(s.lines[1].fields.prodId).toBe("KP-9");
+    expect(s.lines[1].fields.salesQuantity).toBe("9");
+  });
+
+  it("마스터를 고르면 잠기는 칸의 입력 오류가 같이 지워진다 (잠긴 칸의 오류는 고칠 길이 없다)", () => {
+    let s = bulkReducer(loaded(), { type: "edited", rowNo: 3, field: "prodNo", value: "x".repeat(21), today: TODAY });
+    expect(errorsOf(s.lines[1]).prodNo).toBeDefined();
+    s = bulkReducer(s, {
+      type: "picked",
+      rowNo: 3,
+      candidate: { prodId: "KP-9", prodName: "스위치 C9300", prodBrand: "Cisco", prodClassNo: null, prodNo: "N-1", categoryCode: "P01-Q01-R001" },
+    });
+    expect(errorsOf(s.lines[1]).prodNo).toBeUndefined();
+    expect(s.lines[1].fields).toMatchObject({ prodNo: "N-1", categoryCode: "P01-Q01-R001" });
+  });
+
+  it("[직접 입력으로 바꾸기]: prodId 만 비고 상품 칸은 마스터 값이 남은 채 편집할 수 있다", () => {
+    let s = bulkReducer(loaded(), {
+      type: "picked",
+      rowNo: 3,
+      candidate: { prodId: "KP-9", prodName: "스위치 C9300", prodBrand: "Cisco", prodClassNo: "CLS-1" },
+    });
+    s = bulkReducer(s, { type: "unlocked", rowNo: 3 });
+    expect(isLocked(s.lines[1])).toBe(false);
+    expect(s.lines[1].fields).toMatchObject({ prodId: "", prodName: "스위치 C9300", prodClassNo: "CLS-1" });
+    s = bulkReducer(s, { type: "edited", rowNo: 3, field: "prodName", value: "다른 상품", today: TODAY });
+    expect(toApiRow(s.lines[1])).toMatchObject({ prodId: null, prodName: "다른 상품" });
+  });
+
+  it("엑셀에 상품 ID 가 있던 줄도 잠겨 있다", () => {
+    const s = bulkReducer(initialBulkState, { type: "loaded", rows: [row(2, { prodId: "KP-1" })], results: [result(2, "MATCHED")] });
+    expect(isLocked(s.lines[0])).toBe(true);
   });
 
   it("전체 선택은 오류 없는 줄만 체크하고, 해제는 모두 푼다", () => {
@@ -123,9 +150,41 @@ describe("bulkReducer", () => {
     expect(rows[0]).toMatchObject({ rowNo: 2, prodId: null, prodClassNo: null });
   });
 
-  it("등록된 줄은 사라지고 안 보낸 줄은 남는다. 등록 건수는 누적", () => {
+  it("등록된 줄은 지워지지 않고 등록됨으로 남는다. 등록 건수는 누적, 요약에서는 빠진다", () => {
     const s = bulkReducer(loaded(), { type: "committed", rowNos: [2] });
-    expect(s.lines.map((l) => l.rowNo)).toEqual([3, 4]);
+    expect(s.lines.map((l) => [l.rowNo, l.committed])).toEqual([
+      [2, true],
+      [3, false],
+      [4, false],
+    ]);
+    expect(s.lines[0].selected).toBe(false);
     expect(s.created).toBe(1);
+    expect(summary(s.lines)).toEqual({ ok: 1, failed: 1, selected: 0, newMasters: 0, committed: 1 });
+  });
+
+  it("등록된 줄은 고치기·체크·재검사·다시 확정이 막힌다", () => {
+    let s = bulkReducer(loaded(), { type: "committed", rowNos: [2] });
+    s = bulkReducer(s, { type: "edited", rowNo: 2, field: "salesQuantity", value: "9", today: TODAY });
+    s = bulkReducer(s, { type: "toggled", rowNo: 2 });
+    s = bulkReducer(s, { type: "checking", rowNo: 2 });
+    s = bulkReducer(s, { type: "rechecked", results: [result(2, "FAILED", { prodName: "x" })] });
+    s = bulkReducer(s, { type: "selectAll", value: true });
+    expect(s.lines[0]).toMatchObject({ committed: true, selected: false, checking: false });
+    expect(s.lines[0].fields.salesQuantity).toBe("3");
+    expect(s.lines[0].result.status).toBe("MATCHED");
+    expect(canSelect(s.lines[0])).toBe(false);
+    expect(selectedRows(s.lines).map((r) => r.rowNo)).not.toContain(2);
+  });
+
+  it("보이는 줄만 선택한다: selectVisible 은 넘긴 줄만 바꾸고 오류 있는 줄은 선택하지 않는다", () => {
+    let s = bulkReducer(loaded(), { type: "selectAll", value: false });
+    s = bulkReducer(s, { type: "selectVisible", rowNos: [3, 4], value: true });
+    expect(s.lines.map((l) => [l.rowNo, l.selected])).toEqual([
+      [2, false], // 숨겨진 줄은 그대로
+      [3, true],
+      [4, false], // 오류 있는 줄은 선택 불가
+    ]);
+    s = bulkReducer(s, { type: "selectVisible", rowNos: [3], value: false });
+    expect(s.lines[1].selected).toBe(false);
   });
 });
