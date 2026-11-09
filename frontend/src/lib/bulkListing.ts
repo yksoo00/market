@@ -1,6 +1,9 @@
 import { validateBulkRow, type BulkFields } from "@/lib/validation/bulkListing";
 import type { BulkCandidate, BulkResult, BulkRowApi } from "@/types/listingBulk";
 
+/** 줄에서 마스터를 고를 때 넘기는 값. 후보 버튼은 기본 칸만, [상품 찾기]는 상품번호·카테고리까지 준다 */
+export type BulkPick = BulkCandidate & { prodNo?: string | null; categoryCode?: string };
+
 // 엑셀 다량 등록의 표 상태 (계획 2026-11-05-bulk-listing-excel.md, 2026-11-06-bulk-listing-page.md).
 // 서버는 줄 상태를 저장하지 않아 수정·체크는 전부 여기(브라우저)에 있고, 검사·확정 때마다 서버로 다시 보낸다.
 
@@ -36,7 +39,7 @@ export type BulkAction =
   | { type: "selectAll"; value: boolean }
   /** 지금 보이는 줄(필터·검색 적용)만 선택·해제 — 숨은 줄은 건드리지 않는다 */
   | { type: "selectVisible"; rowNos: number[]; value: boolean }
-  | { type: "picked"; rowNo: number; candidate: BulkCandidate }
+  | { type: "picked"; rowNo: number; candidate: BulkPick }
   /** 마스터를 고른 줄을 직접 입력으로 바꾼다 (상품 칸은 마스터 값을 그대로 둔 채 편집할 수 있게 된다) */
   | { type: "unlocked"; rowNo: number }
   | { type: "committed"; rowNos: number[] };
@@ -197,6 +200,9 @@ export function bulkReducer(state: BulkState, action: BulkAction): BulkState {
           prodName: action.candidate.prodName,
           prodBrand: action.candidate.prodBrand,
           prodClassNo: action.candidate.prodClassNo ?? "",
+          // 후보 버튼은 이 둘을 모른다 — 줄에 있던 값을 그대로 둔다
+          prodNo: action.candidate.prodNo ?? l.fields.prodNo,
+          categoryCode: action.candidate.categoryCode ?? l.fields.categoryCode,
         },
         result: { ...l.result, fields: withoutKeys(l.result.fields, ["prodId", "prodName", "prodBrand", "categoryCode"]) },
         clientErrors: withoutKeys(l.clientErrors, ["prodName", "prodBrand"]),
