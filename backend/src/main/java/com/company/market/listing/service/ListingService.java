@@ -37,6 +37,7 @@ import com.company.market.listing.dto.ListingResponse;
 import com.company.market.listing.dto.ListingSearchCondition;
 import com.company.market.listing.dto.ListingSearchItemResponse;
 import com.company.market.listing.dto.ListingTradeSnapshot;
+import com.company.market.listing.dto.ListingTraits;
 import com.company.market.listing.dto.ListingUpdateRequest;
 import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.repository.ListingSearchRepository;
@@ -399,6 +400,15 @@ public class ListingService {
 		return listings.findAllById(ids).stream()
 			.filter(l -> hasText(l.getReplaceProd()))
 			.collect(Collectors.toMap(Listing::getId, Listing::getReplaceProd));
+	}
+
+	/** 엑셀 대량구매의 조건 판정용 매물 특성(상태·보증·증빙 유무). 한 쿼리로, 없는 키는 빠진다 */
+	@Transactional(readOnly = true)
+	public Map<ListingId, ListingTraits> traitsOf(Collection<ListingId> ids) {
+		return listings.findAllById(ids).stream().collect(Collectors.toMap(Listing::getId,
+				l -> new ListingTraits(l.getProdState(), l.getWarrantyPeriod(), hasText(l.getProdDataSheet()),
+						hasText(l.getProdPhoto1()) || hasText(l.getProdPhoto2()) || hasText(l.getProdPhoto3()) || hasText(l.getProdImage4()),
+						hasText(l.getWarrantyCoverage()), hasText(l.getTestReport()), hasText(l.getCertificateOfAuthen()))));
 	}
 
 	/** 장바구니 목록용 — 검색 결과와 같은 칸(지금 매물 값)을 매물·상품 각 한 쿼리로. 없는 키는 빠진다 */
