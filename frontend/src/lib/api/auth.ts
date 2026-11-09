@@ -1,18 +1,21 @@
 import { api, post } from "@/lib/api/client";
 import { clearBulk } from "@/lib/bulkStorage";
+import { clearBuyBulk } from "@/lib/buyBulkStorage";
 
 // 경로는 백엔드 구현 시 확정. 지금은 rules/backend.md 규칙대로 추정한 값
 export const authApi = {
   me: () => api<{ id: string; kind: "PERSONAL" | "BUSINESS"; nickname: string }>("/api/v1/users/me", { cache: "no-store" }),
-  // 다량 등록 작업 보관본(sessionStorage)은 계정 구분 없이 한 키라, 로그아웃·로그인 때 비워 다른 계정에 이어지지 않게 한다 (코드리뷰)
+  // 다량 등록·대량구매 작업 보관본(sessionStorage)은 계정 구분 없이 한 키라, 로그아웃·로그인 때 비워 다른 계정에 이어지지 않게 한다 (코드리뷰)
   logout: async () => {
     const result = await post<null>("/api/v1/auth/logout", {});
     clearBulk();
+    clearBuyBulk();
     return result;
   },
   login: async (body: { loginId: string; password: string; remember: boolean }) => {
     const result = await post<{ userId: string }>("/api/v1/auth/login", body);
     if (result.ok) clearBulk();
+    clearBuyBulk();
     return result;
   },
 
@@ -24,6 +27,7 @@ export const authApi = {
   }) => {
     const result = await post<{ userId: string }>("/api/v1/auth/login/business", body);
     if (result.ok) clearBulk();
+    clearBuyBulk();
     return result;
   },
 

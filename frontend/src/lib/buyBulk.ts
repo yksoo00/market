@@ -1,0 +1,256 @@
+import { validateBuyRow, type BuyFields } from "@/lib/validation/buyBulk";
+import type { BuyCandidate, CartBulkOutcome, CartBulkResult, CartBulkRowApi } from "@/types/cartBulk";
+
+// 엑셀 대량구매의 표 상태 (계획 2026-11-09-bulk-purchase-excel.md). 판매 다량 등록(lib/bulkListing)과 같은 틀이지만 줄의 칸이 달라
+// 구매 전용으로 따로 둔다. 서버는 줄 상태를 저장하지 않아 수정·체크는 전부 여기(브라우저)에 있고, 검사·담기 때마다 서버로 다시 보낸다.
+
+export interface BuyLine {
+  rowNo: number;
+  fields: BuyFields;
+  /** 서버의 마지막 검사 결과 (방금 수정해 다시 검사 중이면 이전 값을 유지한다) */
+  result: CartBulkResult;
+  selected: boolean;
+  /** 서버에 다시 물어보는 중 — 체크할 수 없다 */
+  checking: boolean;
+  /** 입력하는 동안 바로 보여 주는 형식·범위 오류 (zod). 서버 오류와 따로 둔다 */
+  clientErrors: Record<string, string>;
+  dirty: boolean;
+  /** 이미 장바구니에 담은 줄 — 화면에 남기되 수정·체크·재검사·재담기를 막는다 */
+  added: boolean;
+  /** 담기에 실패한 사유(그 줄에 보임). 다음에 고치거나 다시 검사하면 지워진다 */
+  addError: string | null;
+}
+
+export interface BuyState {
+  lines: BuyLine[];
+  /** 이번 작업에서 담은 줄 수 */
+  added: number;
+  /** 서버가 알려 준 지금 장바구니 줄 수·한도 */
+  cartCount: number;
+  cartMax: number;
+}
+
+/** 줄에서 마스터를 고를 때 넘기는 값 (후보 버튼·[상품 찾기]) */
+export type BuyPick = BuyCandidate;
+
+export type BuyAction =
+  | { type: "loaded"; rows: CartBulkRowApi[]; results: CartBulkResult[]; cartCount: number; cartMax: number }
+  | { type: "restored"; state: BuyState }
+  | { type: "edited"; rowNo: number; field: keyof BuyFields; value: string; today: string }
+  | { type: "checking"; rowNo: number }
+  | { type: "rechecked"; results: CartBulkResult[]; cartCount?: number }
+  | { type: "toggled"; rowNo: number }
+  /** 지금 보이는 줄(필터·검색 적용)만 선택·해제 — 숨은 줄은 건드리지 않는다 */
+  | { type: "selectVisible"; rowNos: number[]; value: boolean }
+  | { type: "picked"; rowNo: number; pick: BuyPick }
+  /** 마스터를 고른 줄을 직접 입력으로 바꾼다 (상품 칸은 마스터 값을 그대로 둔 채 편집할 수 있게 된다) */
+  | { type: "unlocked"; rowNo: number }
+  /** 다른 매물(또는 대체품 매물)을 고른다 */
+  | { type: "chose"; rowNo: number; sellerId: string; regDate: string }
+  | { type: "committed"; outcomes: CartBulkOutcome[]; cartCount: number };
+
+/** 마스터를 고르면 잠기는 칸 — 마스터 값이 기준이라 직접 고치지 않는다 (판매 다량 등록·등록 폼과 같은 방식) */
+export const LOCKED_FIELDS: (keyof BuyFields)[] = ["prodName", "prodBrand", "prodClassNo"];
+
+/** 마스터를 고른 줄(후보·[상품 찾기]·엑셀의 상품 ID)이면 상품 칸이 잠긴다 */
+export const isLocked = (line: BuyLine): boolean => line.fields.prodId !== "";
+
+export const initialBuyState: BuyState = { lines: [], added: 0, cartCount: 0, cartMax: 100 };
+
+/** 서버가 준 줄(null 허용)을 화면 입력값(빈 칸 = "")으로 */
+export function toFields(row: CartBulkRowApi): BuyFields {
+  return {
+    prodId: row.prodId ?? "",
+    prodName: row.prodName ?? "",
+    prodBrand: row.prodBrand ?? "",
+    prodClassNo: row.prodClassNo ?? "",
+    orderQuantity: row.orderQuantity ?? "",
+    reqDeliDate: row.reqDeliDate ?? "",
+    remarks: row.remarks ?? "",
+    sellerId: row.sellerId ?? "",
+    regDate: row.regDate ?? "",
+  };
+}
+
+const n = (s: string) => (s.trim() === "" ? null : s);
+
+/**
+ * 검사에 보낼 줄 — 사용자가 직접 고른 매물만 담는다. 안 골랐으면 서버가 (바뀐 수량에 맞게) 기본 매물을 다시 정한다
+ */
+export function toCheckRow(line: BuyLine): CartBulkRowApi {
+  const f = line.fields;
+  return {
+    rowNo: line.rowNo,
+    prodId: n(f.prodId),
+    prodName: n(f.prodName),
+    prodBrand: n(f.prodBrand),
+    prodClassNo: n(f.prodClassNo),
+    orderQuantity: n(f.orderQuantity),
+    reqDeliDate: n(f.reqDeliDate),
+    remarks: n(f.remarks),
+    sellerId: n(f.sellerId),
+    regDate: n(f.regDate),
+  };
+}
+
+/**
+ * 담기에 보낼 줄 — 화면에 보인 매물을 명시한다(보인 것과 담기는 것이 같도록). 그 사이 못 사게 됐으면 서버가 다른 매물로 바꾸지 않고
+ * 그 줄을 실패로 돌려준다
+ */
+export function toCommitRow(line: BuyLine): CartBulkRowApi {
+  const row = toCheckRow(line);
+  const chosen = line.result.chosen;
+  return chosen ? { ...row, sellerId: chosen.sellerId, regDate: chosen.regDate } : row;
+}
+
+/** 지금 이 줄의 칸별 오류 = 서버 사유 + 입력 중 형식 오류 (같은 칸이면 입력 중 오류가 앞선다) */
+export function errorsOf(line: BuyLine): Record<string, string> {
+  return { ...line.result.fields, ...line.clientErrors };
+}
+
+export const hasErrors = (line: BuyLine): boolean => Object.keys(errorsOf(line)).length > 0;
+
+/** 담지 않았고, 오류가 없고, 살 매물이 골라져 있고, 서버에 물어보는 중이 아니면 체크할 수 있다 */
+export const canSelect = (line: BuyLine): boolean =>
+  !line.added && !line.checking && !hasErrors(line) && line.result.status === "AVAILABLE" && line.result.chosen !== null;
+
+/** 담은 줄은 세지 않는다 — 요약은 아직 남은 일 */
+export function summary(lines: BuyLine[]): { available: number; unavailable: number; failed: number; selected: number; added: number } {
+  const open = lines.filter((l) => !l.added);
+  return {
+    available: open.filter((l) => !hasErrors(l) && l.result.status === "AVAILABLE").length,
+    unavailable: open.filter((l) => !hasErrors(l) && l.result.status === "UNAVAILABLE").length,
+    failed: open.filter(hasErrors).length,
+    selected: open.filter((l) => l.selected).length,
+    added: lines.length - open.length,
+  };
+}
+
+/** 담지 않은 줄만 바꾼다 */
+const patch = (state: BuyState, rowNo: number, change: (l: BuyLine) => BuyLine): BuyState => ({
+  ...state,
+  lines: state.lines.map((l) => (l.rowNo === rowNo && !l.added ? change(l) : l)),
+});
+
+/** 서버 오류는 고친 칸의 것만 지운다. 다시 검사한 결과가 오면 새로 채워진다 */
+const withoutError = (result: CartBulkResult, field: string): CartBulkResult => {
+  const fields = { ...result.fields };
+  delete fields[field];
+  return { ...result, fields };
+};
+
+const withoutKeys = (record: Record<string, string>, keys: string[]): Record<string, string> =>
+  Object.fromEntries(Object.entries(record).filter(([k]) => !keys.includes(k)));
+
+export function buyReducer(state: BuyState, action: BuyAction): BuyState {
+  switch (action.type) {
+    case "loaded": {
+      const byRow = new Map(action.results.map((r) => [r.rowNo, r]));
+      const lines: BuyLine[] = [];
+      for (const row of action.rows) {
+        const result = byRow.get(row.rowNo);
+        if (!result) continue;
+        lines.push({
+          rowNo: row.rowNo,
+          fields: toFields(row),
+          result,
+          // 살 매물이 골라진 줄만 처음부터 체크. 매물 없음·오류는 체크할 수 없다
+          selected: result.status === "AVAILABLE" && result.chosen !== null,
+          checking: false,
+          clientErrors: {},
+          dirty: false,
+          added: false,
+          addError: null,
+        });
+      }
+      return { lines, added: 0, cartCount: action.cartCount, cartMax: action.cartMax };
+    }
+    case "restored":
+      return action.state;
+    case "edited":
+      return patch(state, action.rowNo, (l) => {
+        // 마스터를 고른 줄의 상품 칸은 잠겨 있다 — 고치려면 먼저 [직접 입력으로 바꾸기]
+        if (isLocked(l) && LOCKED_FIELDS.includes(action.field)) return l;
+        const fields = { ...l.fields, [action.field]: action.value };
+        // 상품이 바뀌면 전에 고른 매물은 더 맞지 않는다. 수량·납품희망일·요청사항을 고칠 땐 고른 매물을 그대로 두고 서버가 다시 판정한다
+        if (action.field === "prodName" || action.field === "prodBrand" || action.field === "prodClassNo") {
+          fields.sellerId = "";
+          fields.regDate = "";
+        }
+        const clientErrors = validateBuyRow(fields, action.today);
+        const next: BuyLine = { ...l, fields, clientErrors, dirty: true, addError: null, result: withoutError(l.result, action.field) };
+        return { ...next, selected: next.selected && !hasErrors(next) };
+      });
+    case "checking":
+      return patch(state, action.rowNo, (l) => ({ ...l, checking: true, selected: false }));
+    case "rechecked": {
+      const byRow = new Map(action.results.map((r) => [r.rowNo, r]));
+      return {
+        ...state,
+        cartCount: action.cartCount ?? state.cartCount,
+        lines: state.lines.map((l) => {
+          const result = byRow.get(l.rowNo);
+          if (!result || l.added) return l;
+          // 다시 검사한 줄은 체크를 풀어 둔다 — 바뀐 결과를 사용자가 눈으로 보고 다시 체크하게 (특히 고를 매물이 바뀐 줄)
+          return { ...l, result, checking: false, selected: false, addError: null };
+        }),
+      };
+    }
+    case "toggled":
+      return patch(state, action.rowNo, (l) => (canSelect(l) ? { ...l, selected: !l.selected } : l));
+    case "selectVisible": {
+      const visible = new Set(action.rowNos);
+      return { ...state, lines: state.lines.map((l) => (visible.has(l.rowNo) ? { ...l, selected: action.value && canSelect(l) } : l)) };
+    }
+    case "picked":
+      return patch(state, action.rowNo, (l) => ({
+        ...l,
+        dirty: true,
+        addError: null,
+        // 고른 마스터가 기준이라 상품 칸을 마스터 값으로 맞추고 잠근다. 전에 고른 매물은 다른 상품의 것이라 비운다
+        fields: {
+          ...l.fields,
+          prodId: action.pick.prodId,
+          prodName: action.pick.prodName,
+          prodBrand: action.pick.prodBrand,
+          prodClassNo: action.pick.prodClassNo ?? "",
+          sellerId: "",
+          regDate: "",
+        },
+        result: { ...l.result, fields: withoutKeys(l.result.fields, ["prodId", "prodName", "prodBrand", "listing"]) },
+        // 잠기는 칸의 입력 오류는 같이 지운다 — 남으면 잠긴 칸의 오류를 고칠 길이 없다
+        clientErrors: withoutKeys(l.clientErrors, LOCKED_FIELDS),
+      }));
+    case "unlocked":
+      // prodId 만 비운다 — 상품 칸은 마스터 값이 그대로 남아 편집할 수 있고, 서버는 이 값으로 다시 마스터를 찾는다
+      return patch(state, action.rowNo, (l) => ({
+        ...l,
+        dirty: true,
+        fields: { ...l.fields, prodId: "", sellerId: "", regDate: "" },
+        result: { ...l.result, fields: withoutKeys(l.result.fields, ["prodId", "listing"]) },
+      }));
+    case "chose":
+      return patch(state, action.rowNo, (l) => ({
+        ...l,
+        dirty: true,
+        addError: null,
+        fields: { ...l.fields, sellerId: action.sellerId, regDate: action.regDate },
+        result: withoutError(l.result, "listing"),
+      }));
+    case "committed": {
+      const byRow = new Map(action.outcomes.map((o) => [o.rowNo, o]));
+      let addedNow = 0;
+      const lines = state.lines.map((l) => {
+        const outcome = byRow.get(l.rowNo);
+        if (!outcome || l.added) return l;
+        if (outcome.ok) {
+          addedNow += 1;
+          return { ...l, added: true, selected: false, checking: false, addError: null };
+        }
+        // 실패한 줄은 사유와 함께 남긴다. 체크는 풀어 같은 실패를 되풀이해 보내지 않게
+        return { ...l, selected: false, addError: outcome.message ?? "담지 못했어요." };
+      });
+      return { ...state, lines, added: state.added + addedNow, cartCount: action.cartCount };
+    }
+  }
+}
