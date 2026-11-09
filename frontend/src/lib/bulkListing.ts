@@ -12,8 +12,6 @@ export interface BulkLine {
   fields: BulkFields;
   /** 서버의 마지막 검사 결과. 아직 없으면(방금 수정해 다시 검사 중 포함) 이전 값을 유지한다 */
   result: BulkResult;
-  /** 처음 읽었을 때의 검사 결과로 정한 목록. 줄은 고쳐도 목록을 옮겨 다니지 않는다 (위아래로 튀면 오입력이 늘어서) */
-  group: "ok" | "failed";
   selected: boolean;
   /** 서버에 다시 물어보는 중 — 체크할 수 없다 */
   checking: boolean;
@@ -32,6 +30,8 @@ export interface BulkState {
 
 export type BulkAction =
   | { type: "loaded"; rows: BulkRowApi[]; results: BulkResult[] }
+  /** 보관해 둔 작업을 되살린다 (lib/bulkStorage) */
+  | { type: "restored"; state: BulkState }
   | { type: "edited"; rowNo: number; field: keyof BulkFields; value: string; today: string }
   | { type: "checking"; rowNo: number }
   | { type: "rechecked"; results: BulkResult[] }
@@ -147,7 +147,6 @@ export function bulkReducer(state: BulkState, action: BulkAction): BulkState {
           rowNo: row.rowNo,
           fields: toFields(row),
           result,
-          group: result.status === "FAILED" ? "failed" : "ok",
           // 마스터를 찾은 줄만 처음부터 체크. 새 마스터는 사용자가 일부러 체크해야 한다
           selected: result.status === "MATCHED",
           checking: false,
@@ -158,6 +157,8 @@ export function bulkReducer(state: BulkState, action: BulkAction): BulkState {
       }
       return { lines, created: 0 };
     }
+    case "restored":
+      return action.state;
     case "edited":
       return patch(state, action.rowNo, (l) => {
         // 마스터를 고른 줄의 상품 칸은 잠겨 있다 — 고치려면 먼저 [직접 입력으로 바꾸기]

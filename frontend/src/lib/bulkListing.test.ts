@@ -43,12 +43,12 @@ function loaded(): BulkState {
 }
 
 describe("bulkReducer", () => {
-  it("읽으면 목록을 정하고, 마스터를 찾은 줄만 체크한다 (새 마스터·실패는 해제)", () => {
+  it("읽으면 마스터를 찾은 줄만 체크한다 (새 마스터·실패는 해제)", () => {
     const s = loaded();
-    expect(s.lines.map((l) => [l.rowNo, l.group, l.selected])).toEqual([
-      [2, "ok", true],
-      [3, "ok", false],
-      [4, "failed", false],
+    expect(s.lines.map((l) => [l.rowNo, l.selected])).toEqual([
+      [2, true],
+      [3, false],
+      [4, false],
     ]);
     expect(summary(s.lines)).toEqual({ ok: 2, failed: 1, selected: 1, newMasters: 0, committed: 0 });
   });
@@ -59,13 +59,12 @@ describe("bulkReducer", () => {
     expect(canSelect(s.lines[2])).toBe(false);
   });
 
-  it("칸을 고치면 그 칸의 서버 오류가 지워지고 형식 오류가 즉시 붙는다. 줄은 목록을 옮기지 않는다", () => {
+  it("칸을 고치면 그 칸의 서버 오류가 지워지고 형식 오류가 즉시 붙는다", () => {
     let s = bulkReducer(loaded(), { type: "edited", rowNo: 4, field: "salesQuantity", value: "abc", today: TODAY });
     expect(errorsOf(s.lines[2]).salesQuantity).toBe(listing.validation.salesQuantity);
     expect(s.lines[2].dirty).toBe(true);
     s = bulkReducer(s, { type: "edited", rowNo: 4, field: "salesQuantity", value: "5", today: TODAY });
     expect(errorsOf(s.lines[2])).toEqual({});
-    expect(s.lines[2].group).toBe("failed");
   });
 
   it("체크한 줄을 고쳐 오류가 생기면 체크가 풀린다", () => {

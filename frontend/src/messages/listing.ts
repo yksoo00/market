@@ -152,6 +152,33 @@ export const listing = {
       zone: "엑셀 파일 올리는 곳. 누르면 파일을 고를 수 있어요",
     },
     reading: "엑셀을 읽고 검사하는 중이에요",
+    // 페이지 (/listings/bulk)
+    page: {
+      title: "판매상품 다량 등록",
+      subtitle: "엑셀 양식을 올리면 줄마다 검사해서 보여 드려요. 고친 뒤 원하는 줄만 등록할 수 있어요.",
+      restored: "이전에 하던 작업을 이어서 보여 드려요.",
+      reset: "처음부터 다시",
+      resetConfirm: "하던 작업이 사라져요. 처음부터 다시 할까요?",
+      overwriteConfirm: "하던 작업이 새 파일로 바뀌어요. 계속할까요?",
+      tabs: { all: "전체", ok: "등록 가능", new: "새 상품", failed: "확인 필요", done: "등록됨" },
+      searchLabel: "상품명·제조사 검색",
+      searchPlaceholder: "상품명 · 제조사로 찾기",
+      sortLabel: "정렬",
+      sortOptions: { rowNo: "행 번호", prodName: "상품명", prodBrand: "제조사", salesUnitPrice: "단가", salesQuantity: "수량", status: "오류 먼저" },
+      columns: { row: "행", status: "상태" },
+      sortAsc: "오름차순",
+      sortDesc: "내림차순",
+      emptyView: "조건에 맞는 줄이 없어요",
+      selectVisible: "보이는 줄 모두 선택",
+      clearVisible: "보이는 줄 선택 해제",
+      committedBadge: "등록됨",
+      findProduct: "상품 찾기",
+      findOther: "다른 상품 찾기",
+      enterManual: "직접 입력으로 바꾸기",
+      categoryEmpty: "카테고리 고르기",
+      masterLocked: (name: string) => `상품마스터: ${name}`,
+      dropCompact: "다른 엑셀 파일 올리기",
+    },
     emptyFile: "양식에 입력한 줄이 없어요. 양식을 채워서 다시 올려 주세요.",
     readFailed: "엑셀을 읽지 못했어요. 다시 시도해 주세요",
     retry: "다른 파일 올리기",
@@ -215,8 +242,14 @@ export const listing = {
       commitAll: (n: number) => `전체 확정 (${n}건)`,
       committing: "등록하는 중이에요",
     },
-    confirm: (n: number, newMasters: number) =>
-      newMasters > 0 ? `${n}건을 등록할까요?\n새 상품 ${newMasters}건은 상품마스터에도 추가돼요.` : `${n}건을 등록할까요?`,
+    // hidden = 필터·검색으로 지금 안 보이는데 확정에 들어가는 줄 (전체 확정에서만)
+    confirm: (n: number, newMasters: number, hidden = 0) =>
+      [
+        hidden > 0 ? `${n}건(숨겨진 ${hidden}건 포함)을 등록할까요?` : `${n}건을 등록할까요?`,
+        newMasters > 0 ? `새 상품 ${newMasters}건은 상품마스터에도 추가돼요.` : null,
+      ]
+        .filter(Boolean)
+        .join("\n"),
     done: (n: number) => `${n}건을 등록했어요.`,
     remaining: (n: number) => `남은 ${n}건은 등록하지 않았어요. 고쳐서 이어서 등록할 수 있어요.`,
     allDone: "모든 줄을 처리했어요.",
