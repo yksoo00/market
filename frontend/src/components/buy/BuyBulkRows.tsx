@@ -111,7 +111,7 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
       : parts.noneSelectable
         ? t.group.unavailable
         : t.group.none;
-  const needsAttention = failed || result.status === "CHOOSE" || Boolean(line.addError);
+  const needsAttention = failed || result.status === "CHOOSE" || showAlternatives || Boolean(line.addError);
   const [open, setOpen] = useState(needsAttention && !line.added);
   // 조건·수량을 고쳐 다시 검사한 결과 손볼 일이 생기면 펼친다 (렌더 중 상태 보정 — effect 로 하면 한 번 더 그려진다)
   const [seenAttention, setSeenAttention] = useState(needsAttention);
@@ -119,7 +119,13 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
     setSeenAttention(needsAttention);
     if (needsAttention && !line.added) setOpen(true);
   }
-  const regionId = `line-${line.rowNo}`;
+  // 담은 줄은 접는다 (펼쳐 둔 줄도)
+  const [seenAdded, setSeenAdded] = useState(line.added);
+  if (seenAdded !== line.added) {
+    setSeenAdded(line.added);
+    if (line.added) setOpen(false);
+  }
+  const regionId = `buy-line-${line.rowNo}`;
 
   return (
     <li className={cn("rounded-md border bg-surface", failed && !line.added ? "border-down" : "border-line", line.added && "opacity-70")}>
@@ -128,28 +134,35 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
         <button
           type="button"
           aria-expanded={open}
-          aria-controls={regionId}
+          aria-controls={open ? regionId : undefined}
           onClick={() => setOpen((v) => !v)}
-          className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-left"
+          className="flex min-w-0 flex-1 flex-col gap-1 text-left"
         >
-          <span className="num text-[13px] font-semibold text-ink">{t.line.row(line.rowNo)}</span>
-          <span className={cn("rounded px-1.5 py-0.5 text-[12px] font-bold", badgeClass)}>{badge}</span>
-          <span className="min-w-0 truncate text-[14px] font-bold text-ink">{name.trim() === "" ? t.line.untitled : name}</span>
-          {hasMaster && !line.added && <span className="text-[12px] text-ink-2">{t.group.count(result.options.length)}</span>}
-          {hasMaster && !line.added && <span className={cn("rounded px-1.5 py-0.5 text-[12px]", chosen ? "bg-green-soft text-green" : "bg-surface text-ink-2")}>{state}</span>}
-          {result.substituted && chosen && (
-            <span className="rounded bg-primary-soft px-1.5 py-0.5 text-[12px] font-bold text-primary">
-              {t.line.substituted(result.matchedName ?? line.fields.prodName, result.alternatives.find((a) => a.options.some((o) => o.sellerId === chosen.sellerId && o.regDate === chosen.regDate))?.prodName ?? "")}
+          {/* 윗줄은 한 줄 고정(이름만 줄어든다), 아랫줄 요약은 좁으면 줄바꿈 — 접은 줄이 모바일에서도 두 줄을 넘지 않게 */}
+          <span className="flex min-w-0 items-center gap-x-2">
+            <span className="num shrink-0 text-[13px] font-semibold text-ink">{t.line.row(line.rowNo)}</span>
+            <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[12px] font-bold", badgeClass)}>{badge}</span>
+            <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-ink">{name.trim() === "" ? t.line.untitled : name}</span>
+            <span aria-hidden="true" className="shrink-0 text-ink-2">
+              {open ? "▾" : "▸"}
             </span>
-          )}
-          {line.checking && (
-            <span aria-busy="true" className="text-[12px] text-ink-3">
-              {t.line.checking}
-            </span>
-          )}
-          <span aria-hidden="true" className="ml-auto text-ink-2">
-            {open ? "▾" : "▸"}
           </span>
+          {(hasMaster || line.checking) && (
+            <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+              {hasMaster && !line.added && <span className="text-[12px] text-ink-2">{t.group.count(result.options.length)}</span>}
+              {hasMaster && <span className={cn("rounded px-1.5 py-0.5 text-[12px]", chosen ? "bg-green-soft text-green" : "bg-surface text-ink-2")}>{state}</span>}
+              {result.substituted && chosen && (
+                <span className="min-w-0 truncate rounded bg-primary-soft px-1.5 py-0.5 text-[12px] font-bold text-primary">
+                  {t.line.substituted(result.matchedName ?? line.fields.prodName, result.alternatives.find((a) => a.options.some((o) => o.sellerId === chosen.sellerId && o.regDate === chosen.regDate))?.prodName ?? "")}
+                </span>
+              )}
+              {line.checking && (
+                <span aria-busy="true" className="text-[12px] text-ink-3">
+                  {t.line.checking}
+                </span>
+              )}
+            </span>
+          )}
         </button>
       </div>
       {open && (
@@ -160,75 +173,75 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
           {/* 이 줄 상품의 매물 카드 — 어느 매물을 살지는 구매자가 고른다 */}
           {!line.added && hasMaster && <ListingCards line={line} parts={parts} onChoose={onChoose} />}
 
-      {hasExtra && (
-        <div className="flex flex-col gap-1.5 border-t border-line-2 px-3 py-2">
-          {/* 대체 매물을 골랐으면 그 매물은 위 그룹(원래 상품의 매물)에 없어서 여기에 보인다 */}
-          {result.substituted && chosen && (
-            <div className="flex flex-col gap-0.5 rounded-md border border-primary bg-primary-soft px-2 py-1.5">
-              <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[13px]">
-                <span className="font-semibold text-ink">{t.line.seller(chosen.sellerNickname)}</span>
-                <span className="num">{t.line.price(formatPrice(chosen.unitPrice))}</span>
-                <span className="num">{t.line.stock(chosen.stock)}</span>
-                {chosen.deliveryDate && <span className="num">{t.line.delivery(chosen.deliveryDate)}</span>}
-              </div>
-              <TraitsLine traits={chosen.traits} className="text-[12px] text-ink-2" />
-              {chosen.mismatches.map((text) => (
-                <p key={text} className="text-[12px] text-ink-2">
-                  {t.option.mismatch(text)}
+          {hasExtra && (
+            <div className="flex flex-col gap-1.5 border-t border-line-2 px-3 py-2">
+              {/* 대체 매물을 골랐으면 그 매물은 위 그룹(원래 상품의 매물)에 없어서 여기에 보인다 */}
+              {result.substituted && chosen && (
+                <div className="flex flex-col gap-0.5 rounded-md border border-primary bg-primary-soft px-2 py-1.5">
+                  <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[13px]">
+                    <span className="font-semibold text-ink">{t.line.seller(chosen.sellerNickname)}</span>
+                    <span className="num">{t.line.price(formatPrice(chosen.unitPrice))}</span>
+                    <span className="num">{t.line.stock(chosen.stock)}</span>
+                    {chosen.deliveryDate && <span className="num">{t.line.delivery(chosen.deliveryDate)}</span>}
+                  </div>
+                  <TraitsLine traits={chosen.traits} className="text-[12px] text-ink-2" />
+                  {chosen.mismatches.map((text) => (
+                    <p key={text} className="text-[12px] text-ink-2">
+                      {t.option.mismatch(text)}
+                    </p>
+                  ))}
+                </div>
+              )}
+              {errors.listing && (
+                <p role="alert" className="text-[12px] text-down">
+                  {t.fields.listing}: {errors.listing}
                 </p>
-              ))}
+              )}
+              {showAlternatives && (
+                <div className="flex flex-col gap-1">
+                  <p className="text-[12px] font-semibold text-ink">{t.line.alternatives}</p>
+                  <ul className="flex flex-col gap-1">
+                    {result.alternatives.map((alt) => {
+                      // 조건에 맞는 매물을 먼저, 없으면 조건과 다른 매물 중 가장 싼 것을 제안한다 (고르면 다른 점이 줄에 남는다)
+                      const best = [...alt.options].filter((o) => o.reason === null).sort((a, b) => Number(!isClean(a)) - Number(!isClean(b)) || a.unitPrice - b.unitPrice)[0];
+                      return (
+                        <li key={alt.prodId} className="flex flex-wrap items-center gap-2">
+                          <span className="text-[12px] text-ink-2">
+                            {best ? t.line.alternativeOffer(alt.prodName, best.sellerNickname, formatPrice(best.unitPrice)) : alt.prodName}
+                            {best && !isClean(best) && ` (${t.line.mismatchNote}: ${best.mismatches.join(" · ")})`}
+                          </span>
+                          {best && (
+                            <button type="button" onClick={() => onChoose(line.rowNo, best.sellerId, best.regDate)} className="h-7 rounded-md border border-line px-2 text-[12px] text-ink hover:bg-bg">
+                              {t.line.useAlternative}
+                            </button>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
+              {line.addError && (
+                <p role="alert" className="text-[12px] text-down">
+                  {line.addError}
+                </p>
+              )}
             </div>
           )}
-          {errors.listing && (
-            <p role="alert" className="text-[12px] text-down">
-              {t.fields.listing}: {errors.listing}
-            </p>
-          )}
-          {showAlternatives && (
-            <div className="flex flex-col gap-1">
-              <p className="text-[12px] font-semibold text-ink">{t.line.alternatives}</p>
-              <ul className="flex flex-col gap-1">
-                {result.alternatives.map((alt) => {
-                  // 조건에 맞는 매물을 먼저, 없으면 조건과 다른 매물 중 가장 싼 것을 제안한다 (고르면 다른 점이 줄에 남는다)
-                  const best = [...alt.options].filter((o) => o.reason === null).sort((a, b) => Number(!isClean(a)) - Number(!isClean(b)) || a.unitPrice - b.unitPrice)[0];
-                  return (
-                    <li key={alt.prodId} className="flex flex-wrap items-center gap-2">
-                      <span className="text-[12px] text-ink-2">
-                        {best ? t.line.alternativeOffer(alt.prodName, best.sellerNickname, formatPrice(best.unitPrice)) : alt.prodName}
-                        {best && !isClean(best) && ` (${t.line.mismatchNote}: ${best.mismatches.join(" · ")})`}
-                      </span>
-                      {best && (
-                        <button type="button" onClick={() => onChoose(line.rowNo, best.sellerId, best.regDate)} className="h-7 rounded-md border border-line px-2 text-[12px] text-ink hover:bg-bg">
-                          {t.line.useAlternative}
-                        </button>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-          {line.addError && (
-            <p role="alert" className="text-[12px] text-down">
-              {line.addError}
-            </p>
-          )}
-        </div>
-      )}
 
-      {/* 서버가 칸에 못 붙인 사유(prodId 등) */}
-      {Object.entries(errors)
-        // 조건 칸의 오류는 조건 구역에서 그 칸 아래에 보인다
-        .filter(([key]) => !(BUY_INPUT_FIELDS as readonly string[]).includes(key) && !(BUY_CONDITION_FIELDS as readonly string[]).includes(key) && key !== "listing")
-        .map(([key, message]) => (
-          <p key={key} role="alert" className="px-3 pb-2 text-[12px] text-down">
-            {t.fields[key] ?? key}: {message}
-          </p>
-        ))}
+          {/* 서버가 칸에 못 붙인 사유(prodId 등) */}
+          {Object.entries(errors)
+            // 조건 칸의 오류는 조건 구역에서 그 칸 아래에 보인다
+            .filter(([key]) => !(BUY_INPUT_FIELDS as readonly string[]).includes(key) && !(BUY_CONDITION_FIELDS as readonly string[]).includes(key) && key !== "listing")
+            .map(([key, message]) => (
+              <p key={key} role="alert" className="px-3 pb-2 text-[12px] text-down">
+                {t.fields[key] ?? key}: {message}
+              </p>
+            ))}
 
-      {!line.added && (
-        <ProductActions line={line} tab={tab} locked={locked} onPick={(pick) => onPick(line.rowNo, pick)} onFind={() => onFind(line.rowNo)} onUnlock={() => onUnlock(line.rowNo)} />
-      )}
+          {!line.added && (
+            <ProductActions line={line} tab={tab} locked={locked} onPick={(pick) => onPick(line.rowNo, pick)} onFind={() => onFind(line.rowNo)} onUnlock={() => onUnlock(line.rowNo)} />
+          )}
         </div>
       )}
     </li>
