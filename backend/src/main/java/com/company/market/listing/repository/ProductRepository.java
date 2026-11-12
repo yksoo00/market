@@ -1,5 +1,6 @@
 package com.company.market.listing.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -60,6 +61,39 @@ public interface ProductRepository extends JpaRepository<Product, String> {
 	Integer lockCreation();
 
 	long countByProdIdStartingWith(String prefix);
+
+	/**
+	 * 상품마스터 검색(페이지 번호)의 정렬된 상품ID 전부 (계획 2026-11-09-product-search-modal.md). 빈 글("")은 "그 조건 없음" — null 바인딩의 타입 문제를 피한다.
+	 * contains·prefix·brand 는 호출하는 쪽이 %·_·\ 를 이스케이프(\)해 만든 LIKE 패턴, q 는 이름 비교용 원문.
+	 * 정렬: 이름이 q 와 정확히 같음 → q 로 시작 → q 를 포함 → 그 밖(제조사·번호·분류번호에서만 걸림), 같은 등급 안에서는 이름순·상품ID순 (결정적이라 페이지 사이에 중복·누락이 없다)
+	 */
+	@Query(value = """
+		select p.prod_id from trd_prod_master p
+		 where (:major = '' or p.major_category = :major)
+		   and (:middle = '' or p.middle_category = :middle)
+		   and (:minor = '' or p.minor_category = :minor)
+		   and (:brand = '' or lower(p.prod_brand) like lower(:brand) escape '\\')
+		   and (:q = '' or lower(p.prod_name) like lower(:contains) escape '\\'
+		        or lower(p.prod_brand) like lower(:contains) escape '\\'
+		        or lower(coalesce(p.prod_part_no, '')) like lower(:contains) escape '\\'
+		        or lower(coalesce(p.prod_class_no, '')) like lower(:contains) escape '\\')
+		 order by case when :q = '' then 0
+		               when lower(p.prod_name) = lower(:q) then 0
+		               when lower(p.prod_name) like lower(:prefix) escape '\\' then 1
+		               when lower(p.prod_name) like lower(:contains) escape '\\' then 2
+		               else 3 end,
+		          lower(p.prod_name), p.prod_id
+		""", nativeQuery = true)
+	List<String> orderedIds(@Param("q") String q, @Param("contains") String contains, @Param("prefix") String prefix,
+			@Param("major") String major, @Param("middle") String middle, @Param("minor") String minor, @Param("brand") String brand);
+
+	/** 마스터별 판매 가능한 매물 수 — 재고가 있고 거래완료가 아닌 것. 없는 마스터는 결과에 안 나온다 */
+	@Query(value = """
+		select r.prod_id, count(*) from trd_prod_reg r
+		 where r.prod_id in (:ids) and r.dt_expire is null and r.stock_quantity > 0
+		 group by r.prod_id
+		""", nativeQuery = true)
+	List<Object[]> countAvailableListings(@Param("ids") Collection<String> ids);
 
 	/** pattern 은 호출하는 쪽이 %·_ 를 이스케이프(\)해 만든 LIKE 패턴 — 이름·제조사·상품번호 어디든 부분 일치 */
 	@Query("""

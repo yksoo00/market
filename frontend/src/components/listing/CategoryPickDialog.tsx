@@ -14,13 +14,15 @@ interface Props {
   value: string;
   onPick: (code: string, name: string) => void;
   onClose: () => void;
+  /** 대·중분류도 고를 수 있게 한다 — 검색 필터용. 열마다 맨 위에 "○○ 전체" 가 생긴다. 아니면 소분류만 고른다(줄·등록 폼의 카테고리) */
+  anyLevel?: boolean;
 }
 
 /**
  * 다량 등록 줄에서 여는 카테고리 고르기 (계획 2026-11-06-bulk-listing-page.md). 등록 폼의 CategoryPicker 는 react-hook-form 에 묶여
  * 표 칸에서 쓸 수 없어 같은 목록 API·트리 함수로 따로 만든 독립 팝업. 소분류를 누르면 바로 정해지고 닫힌다
  */
-export function CategoryPickDialog({ value, onPick, onClose }: Props) {
+export function CategoryPickDialog({ value, onPick, onClose, anyLevel = false }: Props) {
   const [tree, setTree] = useState<CategoryNode[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [large, setLarge] = useState<CategoryNode | null>(null);
@@ -90,10 +92,28 @@ export function CategoryPickDialog({ value, onPick, onClose }: Props) {
               ))}
             </Column>
             <Column title={t.categoryMid}>
-              {large ? large.children.map((n) => <Item key={n.code} node={n} active={mid?.code === n.code} onClick={() => setMid(n)} />) : <Hint text={t.categoryPickLarge} />}
+              {large ? (
+                <>
+                  {anyLevel && <Item node={{ ...large, name: t.categoryWhole(large.name) }} active={value === large.code} onClick={() => onPick(large.code, large.name)} />}
+                  {large.children.map((n) => (
+                    <Item key={n.code} node={n} active={mid?.code === n.code} onClick={() => setMid(n)} />
+                  ))}
+                </>
+              ) : (
+                <Hint text={t.categoryPickLarge} />
+              )}
             </Column>
             <Column title={t.categorySmall}>
-              {mid ? mid.children.map((n) => <Item key={n.code} node={n} active={n.code === value} onClick={() => choose(n)} />) : <Hint text={large ? t.categoryPickMid : t.categoryPickLarge} />}
+              {mid ? (
+                <>
+                  {anyLevel && <Item node={{ ...mid, name: t.categoryWhole(mid.name) }} active={value === mid.code} onClick={() => onPick(mid.code, [large?.name, mid.name].filter(Boolean).join(" > "))} />}
+                  {mid.children.map((n) => (
+                    <Item key={n.code} node={n} active={n.code === value} onClick={() => choose(n)} />
+                  ))}
+                </>
+              ) : (
+                <Hint text={large ? t.categoryPickMid : t.categoryPickLarge} />
+              )}
             </Column>
           </div>
         )}
