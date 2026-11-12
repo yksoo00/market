@@ -435,6 +435,7 @@ export function BuyBulkView() {
               // 새 파일이면 줄 번호가 같아도 조건 구역의 펼침 상태를 새로 정하게 다시 그린다
               key={loadId}
               lines={shown}
+              sort={state.sort}
               onToggle={(rowNo) => dispatch({ type: "toggled", rowNo })}
               onEdit={edit}
               onEditNow={editNow}

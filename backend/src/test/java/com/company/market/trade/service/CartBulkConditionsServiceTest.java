@@ -269,7 +269,7 @@ class CartBulkConditionsServiceTest {
 	}
 
 	@Test
-	@DisplayName("조건과 다른 대체 매물도 고르면 허용(substituted)하고 다른 점이 실린다 — 조건에 맞는 매물이 없는 대체품은 제안에서 빠진다")
+	@DisplayName("조건과 다른 대체 매물도 고르면 허용(substituted)하고 다른 점이 실린다 — 고른 대체품은 제안 목록에 그대로 남는다")
 	void chosenAlternativeBreaksCondition() {
 		Product alt = products.findOrCreate(new ProductDraft(CategoryFragments.parse("P01-Q01-R001"), "구매조건 대체 B", null, "Acme", null, null, null, null, null, null, null));
 		jdbc.update("update trd_prod_master set alter_prod_name = ? where prod_id = ?", "구매조건 대체 B", master.getProdId());
@@ -282,7 +282,7 @@ class CartBulkConditionsServiceTest {
 		assertThat(r.status()).isEqualTo(Status.AVAILABLE);
 		assertThat(r.substituted()).isTrue();
 		assertThat(r.chosen().mismatches()).anySatisfy(m -> assertThat(m).contains("상한"));
-		assertThat(r.alternatives()).isEmpty();
+		assertThat(r.alternatives()).extracting(a -> a.prodId()).containsExactly(alt.getProdId());
 	}
 
 	@Test

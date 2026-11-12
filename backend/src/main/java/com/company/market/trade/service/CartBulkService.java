@@ -254,9 +254,10 @@ public class CartBulkService {
 			String regDate = norm(row.regDate());
 			// 대체품은 살 수 있는 매물이 없을 때 제안하는 것이다. 사용자가 매물을 골라 보냈으면(대체 매물일 수 있다) 검증하려고 계산한다
 			boolean wantsAlternatives = sellerId != null || defaultPick(options, sort) == null;
-			// 고른 매물 검증엔 못 사는 대체 매물까지 필요하다(사유를 알려 주려고). 응답에는 살 수 있는 매물이 있는 대체품만 제안한다
+			// 고른 매물 검증엔 못 사는 대체 매물까지 필요하다(사유를 알려 주려고). 응답에는 살 수 있는(하드 막힘 없는) 매물이 있는 대체품을 제안한다 —
+			// 조건과 다른 점만 있는 매물도 포함한다(고른 대체 매물이 응답에서 사라지지 않게, 조건과 다른 매물을 보여 주고 고르게 한다는 규칙과 같다)
 			List<Alternative> allAlternatives = wantsAlternatives ? alternativesOf(master, quantity, buyerId, conditions, reqDeliDate) : List.of();
-			alternatives = allAlternatives.stream().filter(a -> a.options().stream().anyMatch(CartBulkService::clean)).toList();
+			alternatives = allAlternatives.stream().filter(a -> a.options().stream().anyMatch(o -> o.reason() == null)).toList();
 			if (sellerId != null && regDate != null) {
 				// 사용자가 고른 매물 — 후보와 대조한다. 못 찾거나 못 사면(하드 막힘) 서버가 다른 매물로 바꾸지 않고 줄 오류로 돌려준다(조용한 교체 금지).
 				// 조건과 다른 점만 있으면 알고 고른 것이므로 허용하고 chosen.mismatches 로 그대로 알린다

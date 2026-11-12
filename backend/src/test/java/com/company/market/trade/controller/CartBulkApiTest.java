@@ -230,6 +230,20 @@ class CartBulkApiTest {
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.results[0].ok").value(true))
 			.andExpect(jsonPath("$.data.cartCount").value(1));
+
+		// 고르지 않으면 조건과 다른 매물만 있는 줄은 자동으로 담기지 않는다
+		String unpicked = "{\"rowNo\":3,\"prodName\":\"구매API 상품\",\"prodBrand\":\"Acme\",\"orderQuantity\":\"3\",\"reqDeliDate\":\"2099-12-31\",\"maxPrice\":\"500\"}";
+		mvc.perform(post("/api/v1/cart/bulk/commit").cookie(authCookie).contentType(MediaType.APPLICATION_JSON).content(rowsJson(unpicked)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.results[0].ok").value(false))
+			.andExpect(jsonPath("$.data.results[0].code").value("NO_LISTING"));
+
+		// 하드 막힘(재고 10 보다 많이)이면 직접 골라도 거절된다
+		String tooMany = picked.replace("\"orderQuantity\":\"3\"", "\"orderQuantity\":\"11\"").replace("\"rowNo\":2", "\"rowNo\":4");
+		mvc.perform(post("/api/v1/cart/bulk/commit").cookie(authCookie).contentType(MediaType.APPLICATION_JSON).content(rowsJson(tooMany)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.results[0].ok").value(false))
+			.andExpect(jsonPath("$.data.cartCount").value(1));
 	}
 
 	@Test

@@ -5,7 +5,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { formatPrice } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { buyBulk } from "@/messages/buyBulk";
-import type { BuyLine } from "@/lib/buyBulk";
+import { isClean, type BuyLine } from "@/lib/buyBulk";
 import type { ListingOption } from "@/types/cartBulk";
 
 const t = buyBulk.option;
@@ -17,7 +17,7 @@ interface Props {
 }
 
 /** 조건에 맞는 매물이 먼저, 조건과 다른 매물(고를 수 있음)이 그다음, 못 사는 매물이 맨 뒤 — 각각 단가 낮은 순 */
-const rank = (o: ListingOption): number => (o.reason !== null ? 2 : o.mismatches.length > 0 ? 1 : 0);
+const rank = (o: ListingOption): number => (o.reason !== null ? 2 : isClean(o) ? 0 : 1);
 const ordered = (options: ListingOption[]): ListingOption[] =>
   [...options].sort((a, b) => rank(a) - rank(b) || a.unitPrice - b.unitPrice || a.regDate.localeCompare(b.regDate));
 

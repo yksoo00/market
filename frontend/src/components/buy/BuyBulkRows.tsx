@@ -2,8 +2,9 @@
 
 import { BuyConditionFields } from "@/components/buy/BuyConditionFields";
 import { TraitsLine } from "@/components/buy/TraitsLine";
+import type { BuySort } from "@/types/cartBulk";
 import { Checkbox } from "@/components/ui/checkbox";
-import { blockedReasons, canSelect, errorsOf, isClean, isLocked, mismatchedOptions, type BuyLine, type BuyPick } from "@/lib/buyBulk";
+import { blockedReasons, canSelect, compareOptions, errorsOf, isClean, isLocked, mismatchedOptions, type BuyLine, type BuyPick } from "@/lib/buyBulk";
 import { tabOf } from "@/lib/buyBulkView";
 import { formatPrice } from "@/lib/format";
 import { BUY_CONDITION_FIELDS, BUY_INPUT_FIELDS, type BuyFields, type BuyInputField } from "@/lib/validation/buyBulk";
@@ -19,6 +20,8 @@ const wideFields: BuyInputField[] = ["prodName", "remarks"];
 
 interface RowsProps {
   lines: BuyLine[];
+  /** 페이지의 "매물 고르는 기준" — 줄에 보이는 조건과 다른 매물 목록도 이 순서로 보인다 */
+  sort: BuySort;
   onToggle: (rowNo: number) => void;
   onEdit: (rowNo: number, field: keyof BuyFields, value: string) => void;
   /** 고르는 칸(조건의 상태·보증·증빙)은 바꾼 즉시 그 줄을 다시 검사한다 */
@@ -32,17 +35,17 @@ interface RowsProps {
 }
 
 /** 줄 카드 목록. 칸 너비가 좁아도 같은 모양(칸 격자 2~4열)이고, 정렬은 위쪽 [정렬] 드롭다운으로 한다 */
-export function BuyBulkRows({ lines, ...handlers }: RowsProps) {
+export function BuyBulkRows({ lines, sort, ...handlers }: RowsProps) {
   return (
     <ul className="flex flex-col gap-2">
       {lines.map((line) => (
-        <BuyBulkRow key={line.rowNo} line={line} {...handlers} />
+        <BuyBulkRow key={line.rowNo} line={line} sort={sort} {...handlers} />
       ))}
     </ul>
   );
 }
 
-function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onFind, onUnlock, onOpenOptions, onChoose }: { line: BuyLine } & Omit<RowsProps, "lines">) {
+function BuyBulkRow({ line, sort, onToggle, onEdit, onEditNow, onBlurLine, onPick, onFind, onUnlock, onOpenOptions, onChoose }: { line: BuyLine } & Omit<RowsProps, "lines">) {
   const errors = errorsOf(line);
   const failed = Object.keys(errors).length > 0;
   const tab = tabOf(line);
@@ -131,7 +134,7 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
           !failed &&
           !line.added &&
           result.status === "UNAVAILABLE" && (
-            <MismatchedOptions line={line} onChoose={onChoose} />
+            <MismatchedOptions line={line} sort={sort} onChoose={onChoose} />
           )
         )}
         {chosen && chosen.mismatches.length > 0 && (
@@ -154,10 +157,14 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
             <p className="text-[12px] font-semibold text-ink">{t.line.alternatives}</p>
             <ul className="flex flex-col gap-1">
               {result.alternatives.map((alt) => {
-                const best = [...alt.options].filter(isClean).sort((a, b) => a.unitPrice - b.unitPrice)[0];
+                // 조건에 맞는 매물을 먼저, 없으면 조건과 다른 매물 중 가장 싼 것을 제안한다 (고르면 다른 점이 줄에 남는다)
+                const best = [...alt.options].filter((o) => o.reason === null).sort((a, b) => Number(!isClean(a)) - Number(!isClean(b)) || a.unitPrice - b.unitPrice)[0];
                 return (
                   <li key={alt.prodId} className="flex flex-wrap items-center gap-2">
-                    <span className="text-[12px] text-ink-2">{best ? t.line.alternativeOffer(alt.prodName, best.sellerNickname, formatPrice(best.unitPrice)) : alt.prodName}</span>
+                    <span className="text-[12px] text-ink-2">
+                      {best ? t.line.alternativeOffer(alt.prodName, best.sellerNickname, formatPrice(best.unitPrice)) : alt.prodName}
+                      {best && !isClean(best) && ` (${t.line.mismatchNote}: ${best.mismatches.join(" · ")})`}
+                    </span>
                     {best && (
                       <button type="button" onClick={() => onChoose(line.rowNo, best.sellerId, best.regDate)} className="h-7 rounded-md border border-line px-2 text-[12px] text-ink hover:bg-bg">
                         {t.line.useAlternative}
@@ -203,11 +210,11 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
 const INLINE_LIMIT = 5;
 
 /**
- * 매물 없음 줄: 조건과 다른 매물이 있으면 **다 보여 주고 사용자가 하나 고른다**(단가 낮은 순, 줄에는 5건까지 — 나머지는 [다른 매물 보기]).
+ * 매물 없음 줄: 조건과 다른 매물이 있으면 **다 보여 주고 사용자가 하나 고른다**(페이지의 매물 고르는 기준 순서, 줄에는 5건까지 — 나머지는 [다른 매물 보기]).
  * 하나도 없으면 막힌 이유(재고 부족 등)를 최대 3개 바로 보인다. 그래서 어느 쪽이든 줄에서 바로 다음 행동을 알 수 있다
  */
-function MismatchedOptions({ line, onChoose }: { line: BuyLine; onChoose: (rowNo: number, sellerId: string, regDate: string) => void }) {
-  const soft = [...mismatchedOptions(line.result)].sort((a, b) => a.unitPrice - b.unitPrice || a.regDate.localeCompare(b.regDate));
+function MismatchedOptions({ line, sort, onChoose }: { line: BuyLine; sort: BuySort; onChoose: (rowNo: number, sellerId: string, regDate: string) => void }) {
+  const soft = [...mismatchedOptions(line.result)].sort(compareOptions(sort));
   if (soft.length === 0) {
     return (
       <div className="flex flex-col gap-0.5">

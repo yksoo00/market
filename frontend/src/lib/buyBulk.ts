@@ -1,3 +1,4 @@
+import { PROD_STATES } from "@/lib/validation/listing";
 import { BUY_CONDITION_FIELDS, validateBuyRow, type BuyFields } from "@/lib/validation/buyBulk";
 import { buyBulk } from "@/messages/buyBulk";
 import type { BuyCandidate, BuySort, CartBulkOutcome, CartBulkResult, CartBulkRowApi, ListingOption } from "@/types/cartBulk";
@@ -162,8 +163,26 @@ export function markDuplicates(state: BuyState): BuyState {
 /** 살 수 있지만(하드 막힘 없음) 조건과 다른 점이 있는 매물 — 기본으로는 안 뽑히고 사용자가 직접 고른다 */
 export const mismatchedOptions = (result: CartBulkResult): ListingOption[] => result.options.filter((o) => o.reason === null && o.mismatches.length > 0);
 
-/** 살 수 있고 조건과 다른 점도 없는 매물 */
+/** 살 수 있고 조건과 다른 점도 없는 매물 (서버 CartBulkService.clean 과 같은 정의 — 바꾸면 함께) */
 export const isClean = (o: ListingOption): boolean => o.reason === null && o.mismatches.length === 0;
+
+/** 서버 CartBulkConditions.comparator 와 같은 순서 — 페이지의 "매물 고르는 기준"을 줄에 보이는 목록에도 적용한다 */
+export function compareOptions(sort: BuySort): (a: ListingOption, b: ListingOption) => number {
+  const state = (o: ListingOption) => {
+    const i = (PROD_STATES as readonly string[]).indexOf((o.traits.prodState ?? "").trim());
+    return i < 0 ? 99 : i;
+  };
+  const warranty = (o: ListingOption) => o.traits.warrantyDays ?? -1;
+  return (a, b) => {
+    const price = a.unitPrice - b.unitPrice;
+    const longer = warranty(b) - warranty(a);
+    const better = state(a) - state(b);
+    const lead = sort === "price" ? [price, longer, better] : sort === "state" ? [better, price, longer] : [longer, price, better];
+    // 같으면 제공가능일 빠른 것 → 재고 많은 것 → 등록일시 빠른 것 (서버와 같다)
+    const tail = (a.deliveryDate ?? "~").localeCompare(b.deliveryDate ?? "~") || b.stock - a.stock || a.regDate.localeCompare(b.regDate);
+    return lead.find((d) => d !== 0) ?? tail;
+  };
+}
 
 /** 매물 없음 줄에 바로 보일 못 사는 이유 — 같은 문구는 한 번만, 앞에서 max 개. 전부는 [다른 매물 보기]에 있다 */
 export const blockedReasons = (result: CartBulkResult, max = 3): string[] => [...new Set(result.options.flatMap((o) => o.reason ?? []))].slice(0, max);

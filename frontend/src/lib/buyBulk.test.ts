@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CartBulkResult, CartBulkRowApi, ListingOption } from "@/types/cartBulk";
-import { blockedReasons, isClean, mismatchedOptions, buyReducer, canSelect, errorsOf, initialBuyState, isLocked, markDuplicates, summary, toCheckRow, toCommitRow, type BuyState } from "./buyBulk";
+import { blockedReasons, compareOptions, isClean, mismatchedOptions, buyReducer, canSelect, errorsOf, initialBuyState, isLocked, markDuplicates, summary, toCheckRow, toCommitRow, type BuyState } from "./buyBulk";
 import { buyBulk } from "@/messages/buyBulk";
 
 const TODAY = "2026-11-09";
@@ -128,6 +128,17 @@ describe("buyReducer", () => {
     expect(isClean(soft)).toBe(false);
     expect(isClean(hard)).toBe(false);
     expect(mismatchedOptions({ ...result(2, "UNAVAILABLE"), options: [soft, hard, ok] })).toEqual([soft]);
+  });
+
+  it("매물 정렬은 페이지 기준대로: 가장 싼 것 / 상태 좋은 것 / 보증 긴 것 먼저", () => {
+    const o = (id: string, price: number, state: string, days: number | null): ListingOption => ({ ...option(id, price), traits: { ...option(id).traits, prodState: state, warrantyDays: days } });
+    const a = o("A", 1000, "신품대비 80~89%", 360);
+    const b = o("B", 900, "신품대비 70~79%", 90);
+    const c = o("C", 1200, "신품", 180);
+    const ids = (sort: "price" | "state" | "warranty") => [a, b, c].sort(compareOptions(sort)).map((x) => x.sellerId);
+    expect(ids("price")).toEqual(["B", "A", "C"]);
+    expect(ids("state")).toEqual(["C", "A", "B"]);
+    expect(ids("warranty")).toEqual(["A", "C", "B"]);
   });
 
   it("조건과 다른 매물을 고르면 담을 수 있는 줄이 되고, 고른 매물에 다른 점이 남는다", () => {
