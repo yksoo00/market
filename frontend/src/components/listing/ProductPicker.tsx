@@ -5,6 +5,7 @@ import { useFormContext, useWatch } from "react-hook-form";
 import { cn } from "cn";
 import { Input } from "@/components/ui/input";
 import { FieldShell } from "@/components/auth/FormField";
+import { ProductSearchDialog } from "@/components/listing/ProductSearchDialog";
 import { catalogApi } from "@/lib/api/catalog";
 import type { ListingFormInput } from "@/lib/validation/listing";
 import { listing } from "@/messages/listing";
@@ -35,6 +36,8 @@ export function ProductPicker() {
   const brand = useWatch({ control, name: "prodBrand" });
   const prodNo = useWatch({ control, name: "prodNo" });
   const [open, setOpen] = useState(false);
+  // 드롭다운은 앞 10건뿐이라 많을 땐 [자세히 찾기]의 큰 검색 모달(필터·페이지 번호)로 고른다 (계획 2026-11-09-product-search-modal.md)
+  const [detailOpen, setDetailOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   // items null = 불러오지 못함. q 가 지금 검색어와 같을 때만 보여 준다 (늦게 온 이전 검색어 결과 무시)
@@ -193,6 +196,24 @@ export function ProductPicker() {
           </ul>
         )}
       </div>
+      <div className="mt-1.5 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setDetailOpen(true)}
+          className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-ink-2 hover:bg-bg"
+        >
+          {t.detail}
+        </button>
+      </div>
+      {detailOpen && (
+        <ProductSearchDialog
+          onClose={() => setDetailOpen(false)}
+          onPick={(item) => {
+            setDetailOpen(false);
+            pickMaster(item);
+          }}
+        />
+      )}
     </FieldShell>
   );
 }

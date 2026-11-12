@@ -198,6 +198,19 @@ export interface ProductSearchItem {
   prodPhoto1: string | null;
 }
 
+/** GET /api/v1/products/page 의 한 줄 — 위 칸 + 판매 가능한 매물 수(재고가 있고 거래완료가 아닌 것). 백엔드 ProductPageItemResponse 와 1:1 */
+export interface ProductPageItem extends ProductSearchItem {
+  listingCount: number;
+}
+
+/** GET /api/v1/products/page 의 한 페이지 (큰 검색 모달). 백엔드 ProductSearchPageResponse 와 1:1 */
+export interface ProductSearchPage {
+  items: ProductPageItem[];
+  page: number;
+  totalPages: number;
+  total: number;
+}
+
 /** GET /api/v1/categories 의 한 줄. 백엔드 CategoryResponse 와 1:1. parentCode 는 조각(`Q01`) */
 export interface CategoryItem {
   categoryCode: string;

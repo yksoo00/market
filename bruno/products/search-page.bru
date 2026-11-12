@@ -1,0 +1,27 @@
+meta {
+  name: 상품마스터 검색 (필터·페이지 번호)
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/products/page
+  body: none
+  auth: none
+}
+
+params:query {
+  q: poweredge
+  category: P01-Q01
+  brand: dell
+  page: 1
+}
+
+docs {
+  로그인 필요(access_token 쿠키). 큰 검색 모달용 — 필터(q·category·brand)는 모두 선택, 비우면 그 조건 없음.
+  q: 이름·제조사·상품번호·분류번호 부분 일치(대소문자 무시), 공백 제거 후 50자 이하. category: 대 / 대-중 / 대-중-소 경로 코드(P01, P01-Q01, P01-Q01-R001), 형식이 틀리면 400 fields.category, 없는 코드는 빈 결과. brand: 제조사 부분 일치 50자 이하.
+  page: 1부터(기본 1), 한 페이지 20건은 서버가 고정. 범위 밖이면 400 fields.page (결과가 없어도 1페이지는 있다).
+  200 { ok, data: { items, page, totalPages, total } } — items 는 기존 검색과 같은 칸 + listingCount(재고가 있고 거래완료가 아닌 매물 수).
+  검색어가 있으면 관련도 순: 이름이 정확히 같음 → 이름이 검색어로 시작 → 이름에 포함 → 제조사·번호에서만 걸림, 같은 등급 안에서는 이름순.
+  기존 GET /api/v1/products?q= (최대 10건)는 그대로.
+}
