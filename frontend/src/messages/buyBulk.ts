@@ -103,7 +103,7 @@ export const buyBulk = {
     added: "담김",
     checking: "맞춰 보는 중이에요",
     substituted: (from: string, to: string) => `요청: ${from} → 대체: ${to}`,
-    matchedAs: (name: string) => `상품마스터: ${name}`,
+    untitled: "(상품명 없음)",
     candidates: "혹시 이 상품인가요?",
     pickCandidate: (name: string, brand: string) => `${name} (${brand}) 로 바꾸기`,
     findProduct: "상품 찾기",

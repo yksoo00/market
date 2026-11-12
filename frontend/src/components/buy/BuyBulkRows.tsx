@@ -99,29 +99,66 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
   const showAlternatives = !line.added && result.alternatives.length > 0 && cleanOptions(result).length === 0;
   const hasExtra = Boolean((result.substituted && chosen) || errors.listing || (showAlternatives) || line.addError);
 
+  // 줄 머리가 제목이자 드롭다운이다 — 눌러 줄 전체(입력 칸·조건·매물 카드)를 접고 편다. 처음엔 손볼 일이 있는 줄(선택 필요·오류·담기 실패)만 펼치고,
+  // 이미 고른 줄·매물 없음 줄·담은 줄은 접어 100줄이어도 한 줄씩 훑어볼 수 있게 한다
+  const parts = partsOf(result);
+  const name = result.matchedName ?? line.fields.prodName;
+  const hasMaster = result.prodId !== null;
+  const state = result.substituted
+    ? t.group.substituted
+    : chosen
+      ? t.group.chosen(t.line.seller(chosen.sellerNickname), formatPrice(chosen.unitPrice))
+      : parts.noneSelectable
+        ? t.group.unavailable
+        : t.group.none;
+  const needsAttention = failed || result.status === "CHOOSE" || Boolean(line.addError);
+  const [open, setOpen] = useState(needsAttention && !line.added);
+  // 조건·수량을 고쳐 다시 검사한 결과 손볼 일이 생기면 펼친다 (렌더 중 상태 보정 — effect 로 하면 한 번 더 그려진다)
+  const [seenAttention, setSeenAttention] = useState(needsAttention);
+  if (seenAttention !== needsAttention) {
+    setSeenAttention(needsAttention);
+    if (needsAttention && !line.added) setOpen(true);
+  }
+  const regionId = `line-${line.rowNo}`;
+
   return (
     <li className={cn("rounded-md border bg-surface", failed && !line.added ? "border-down" : "border-line", line.added && "opacity-70")}>
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line-2 bg-bg px-3 py-2">
+      <div className={cn("flex items-center gap-x-3 bg-bg px-3 py-2", open && "border-b border-line-2")}>
         <Checkbox checked={line.selected} disabled={!canSelect(line)} onCheckedChange={() => onToggle(line.rowNo)} aria-label={t.line.select(line.rowNo)} />
-        <span className="num text-[13px] font-semibold text-ink">{t.line.row(line.rowNo)}</span>
-        <span className={cn("rounded px-1.5 py-0.5 text-[12px] font-bold", badgeClass)}>{badge}</span>
-        {result.substituted && chosen && (
-          <span className="rounded bg-primary-soft px-1.5 py-0.5 text-[12px] font-bold text-primary">
-            {t.line.substituted(result.matchedName ?? line.fields.prodName, result.alternatives.find((a) => a.options.some((o) => o.sellerId === chosen.sellerId && o.regDate === chosen.regDate))?.prodName ?? "")}
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-controls={regionId}
+          onClick={() => setOpen((v) => !v)}
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-left"
+        >
+          <span className="num text-[13px] font-semibold text-ink">{t.line.row(line.rowNo)}</span>
+          <span className={cn("rounded px-1.5 py-0.5 text-[12px] font-bold", badgeClass)}>{badge}</span>
+          <span className="min-w-0 truncate text-[14px] font-bold text-ink">{name.trim() === "" ? t.line.untitled : name}</span>
+          {hasMaster && !line.added && <span className="text-[12px] text-ink-2">{t.group.count(result.options.length)}</span>}
+          {hasMaster && !line.added && <span className={cn("rounded px-1.5 py-0.5 text-[12px]", chosen ? "bg-green-soft text-green" : "bg-surface text-ink-2")}>{state}</span>}
+          {result.substituted && chosen && (
+            <span className="rounded bg-primary-soft px-1.5 py-0.5 text-[12px] font-bold text-primary">
+              {t.line.substituted(result.matchedName ?? line.fields.prodName, result.alternatives.find((a) => a.options.some((o) => o.sellerId === chosen.sellerId && o.regDate === chosen.regDate))?.prodName ?? "")}
+            </span>
+          )}
+          {line.checking && (
+            <span aria-busy="true" className="text-[12px] text-ink-3">
+              {t.line.checking}
+            </span>
+          )}
+          <span aria-hidden="true" className="ml-auto text-ink-2">
+            {open ? "▾" : "▸"}
           </span>
-        )}
-        {!failed && locked && result.matchedName && <span className="text-[13px] text-ink-2">{t.line.matchedAs(result.matchedName)}</span>}
-        {line.checking && (
-          <span aria-busy="true" className="text-[12px] text-ink-3">
-            {t.line.checking}
-          </span>
-        )}
+        </button>
       </div>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-2 p-3 @md:grid-cols-3 @3xl:grid-cols-4">{BUY_INPUT_FIELDS.map((name) => field(name))}</div>
-      {!line.added && <BuyConditionFields line={line} onEdit={onEdit} onBlurLine={onBlurLine} onEditNow={onEditNow} />}
+      {open && (
+        <div id={regionId}>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-2 p-3 @md:grid-cols-3 @3xl:grid-cols-4">{BUY_INPUT_FIELDS.map((name) => field(name))}</div>
+          {!line.added && <BuyConditionFields line={line} onEdit={onEdit} onBlurLine={onBlurLine} onEditNow={onEditNow} />}
 
-      {/* 이 줄 상품의 매물 — 줄마다 접고 펴는 그룹 카드, 안에 매물 카드. 어느 매물을 살지는 구매자가 고른다 */}
-      {!line.added && result.prodId !== null && <ListingGroup line={line} onChoose={onChoose} />}
+          {/* 이 줄 상품의 매물 카드 — 어느 매물을 살지는 구매자가 고른다 */}
+          {!line.added && hasMaster && <ListingCards line={line} parts={parts} onChoose={onChoose} />}
 
       {hasExtra && (
         <div className="flex flex-col gap-1.5 border-t border-line-2 px-3 py-2">
@@ -192,91 +229,59 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
       {!line.added && (
         <ProductActions line={line} tab={tab} locked={locked} onPick={(pick) => onPick(line.rowNo, pick)} onFind={() => onFind(line.rowNo)} onUnlock={() => onUnlock(line.rowNo)} />
       )}
+        </div>
+      )}
     </li>
   );
 }
 
-/**
- * 줄의 매물 그룹 — 제목(접고 펴기)과 그 안의 매물 카드들. 서버가 정렬 기준 순서로 보낸 매물을 세 구역으로 나눈다:
- * 조건에 맞는 매물(맞는 게 여럿이면 첫 카드에 "추천") → 조건과 다른 매물(알고 고를 수 있음) → 고를 수 없는 매물(이유만, 접어 둠).
- * 처음엔 고를 일이 있는 줄(선택 필요·매물 없음)만 펼치고, 이미 고른 줄은 접어 둔다. 미리 고르는 건 맞는 매물이 딱 하나일 때뿐(서버)
- */
-function ListingGroup({ line, onChoose }: { line: BuyLine; onChoose: (rowNo: number, sellerId: string, regDate: string) => void }) {
-  const result = line.result;
+/** 매물을 세 구역으로 나눈다. 서버가 고정 순서로 보낸 options 의 순서를 그대로 지킨다 */
+function partsOf(result: BuyLine["result"]) {
   const fit = cleanOptions(result);
   const soft = softOptions(result);
   const blocked = blockedOptions(result);
-  const [open, setOpen] = useState(result.status !== "AVAILABLE");
-  const [showBlocked, setShowBlocked] = useState(false);
-  // 조건·수량을 고쳐 다시 검사한 결과 고를 일이 생기면 펼친다 (렌더 중 상태 보정 — effect 로 하면 한 번 더 그려진다)
-  const [seenStatus, setSeenStatus] = useState(result.status);
-  if (seenStatus !== result.status) {
-    setSeenStatus(result.status);
-    if (result.status === "CHOOSE") setOpen(true);
-  }
+  return { fit, soft, blocked, noneSelectable: fit.length + soft.length === 0 };
+}
 
-  const name = result.matchedName ?? line.fields.prodName;
-  const chosen = result.chosen;
-  const noneSelectable = fit.length + soft.length === 0;
-  // 대체품을 골랐으면 그 매물은 이 그룹(원래 상품)에 없다 — 헤더가 고른 것처럼 보이지 않게 따로 말한다
-  const state = result.substituted
-    ? t.group.substituted
-    : chosen
-      ? t.group.chosen(t.line.seller(chosen.sellerNickname), formatPrice(chosen.unitPrice))
-      : noneSelectable
-        ? t.group.unavailable
-        : t.group.none;
+/**
+ * 줄 안의 매물 카드들 — 구역 셋: 조건에 맞는 매물(맞는 게 여럿이면 첫 카드에 "추천") → 조건과 다른 매물(알고 고를 수 있음) →
+ * 고를 수 없는 매물(이유만, 고를 수 있는 매물이 있으면 접어 둠). 미리 고르는 건 맞는 매물이 딱 하나일 때뿐(서버)
+ */
+function ListingCards({ line, parts, onChoose }: { line: BuyLine; parts: ReturnType<typeof partsOf>; onChoose: (rowNo: number, sellerId: string, regDate: string) => void }) {
+  const { fit, soft, blocked, noneSelectable } = parts;
+  const [showBlocked, setShowBlocked] = useState(false);
   const blockedShown = showBlocked || noneSelectable;
-  const regionId = `listings-${line.rowNo}`;
 
   return (
-    <div className="border-t border-line-2 px-3 py-2">
-      <button
-        type="button"
-        aria-expanded={open}
-        aria-controls={regionId}
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 text-left text-[13px] hover:text-ink"
-      >
-        <span aria-hidden="true" className="text-ink-2">
-          {open ? "▾" : "▸"}
-        </span>
-        <span className="font-semibold text-ink">{name}</span>
-        <span className="text-ink-2">{t.group.count(result.options.length)}</span>
-        <span className={cn("rounded px-1.5 py-0.5 text-[12px]", chosen ? "bg-green-soft text-green" : "bg-bg text-ink-2")}>{state}</span>
-      </button>
-      {open && (
-        <div id={regionId} className="mt-2 flex flex-col gap-3">
-          {result.options.length === 0 && <p className="rounded-md border border-line py-3 text-center text-[13px] text-ink-2">{t.group.empty}</p>}
-          {fit.length > 0 && (
-            <ListingSection title={t.group.fit(fit.length)}>
-              {fit.map((o, i) => (
-                <ListingCard key={`${o.sellerId}/${o.regDate}`} option={o} line={line} recommended={fit.length > 1 && i === 0} onChoose={onChoose} />
-              ))}
-            </ListingSection>
-          )}
-          {soft.length > 0 && (
-            <ListingSection title={t.group.mismatched(soft.length)}>
-              {soft.map((o) => (
-                <ListingCard key={`${o.sellerId}/${o.regDate}`} option={o} line={line} recommended={false} onChoose={onChoose} />
-              ))}
-            </ListingSection>
-          )}
-          {blocked.length > 0 && (
-            <ListingSection
-              title={t.group.blocked(blocked.length)}
-              action={
-                noneSelectable ? null : (
-                  <button type="button" onClick={() => setShowBlocked((v) => !v)} className="text-[12px] text-primary underline underline-offset-2">
-                    {showBlocked ? t.group.hideBlocked : t.group.showBlocked}
-                  </button>
-                )
-              }
-            >
-              {blockedShown && blocked.map((o) => <ListingCard key={`${o.sellerId}/${o.regDate}`} option={o} line={line} recommended={false} onChoose={onChoose} />)}
-            </ListingSection>
-          )}
-        </div>
+    <div className="flex flex-col gap-3 border-t border-line-2 px-3 py-2">
+      {line.result.options.length === 0 && <p className="rounded-md border border-line py-3 text-center text-[13px] text-ink-2">{t.group.empty}</p>}
+      {fit.length > 0 && (
+        <ListingSection title={t.group.fit(fit.length)}>
+          {fit.map((o, i) => (
+            <ListingCard key={`${o.sellerId}/${o.regDate}`} option={o} line={line} recommended={fit.length > 1 && i === 0} onChoose={onChoose} />
+          ))}
+        </ListingSection>
+      )}
+      {soft.length > 0 && (
+        <ListingSection title={t.group.mismatched(soft.length)}>
+          {soft.map((o) => (
+            <ListingCard key={`${o.sellerId}/${o.regDate}`} option={o} line={line} recommended={false} onChoose={onChoose} />
+          ))}
+        </ListingSection>
+      )}
+      {blocked.length > 0 && (
+        <ListingSection
+          title={t.group.blocked(blocked.length)}
+          action={
+            noneSelectable ? null : (
+              <button type="button" onClick={() => setShowBlocked((v) => !v)} className="text-[12px] text-primary underline underline-offset-2">
+                {showBlocked ? t.group.hideBlocked : t.group.showBlocked}
+              </button>
+            )
+          }
+        >
+          {blockedShown && blocked.map((o) => <ListingCard key={`${o.sellerId}/${o.regDate}`} option={o} line={line} recommended={false} onChoose={onChoose} />)}
+        </ListingSection>
       )}
     </div>
   );
