@@ -100,7 +100,7 @@ public class CartBulkService {
 		return new CartBulkParseResponse(rows, checked.results(), checked.cartCount(), checked.cartMax());
 	}
 
-	/** 줄별 검사 결과 + 지금 장바구니 줄 수. 저장은 안 한다. 기본 매물은 sort 기준으로 고른다 */
+	/** 줄별 검사 결과 + 지금 장바구니 줄 수. 저장은 안 한다. sort 는 options 의 정렬 순서(화면의 "추천" 기준)이고, 미리 고르는 건 조건에 맞는 매물이 하나일 때뿐이다 */
 	public CartBulkCheckResult check(UUID buyerId, List<CartBulkRowDto> rows, CartBulkSort sort) {
 		List<CartBulkRowResult> results = checkAll(buyerId, rows, sort).stream().map(Checked::result).toList();
 		return new CartBulkCheckResult(results, cartInfos.countByUserIdAndCartType(buyerId, CartType.CART), CartService.MAX_ITEMS);
@@ -257,8 +257,8 @@ public class CartBulkService {
 			options = optionsOf(master.getProdId(), quantity, buyerId, conditions, reqDeliDate, sort);
 			String sellerId = norm(row.sellerId());
 			String regDate = norm(row.regDate());
-			// 대체품은 고를 수 있는 매물이 하나도 없을 때 제안하는 것이다(있으면 그중에서 고른다). 사용자가 매물을 골라 보냈으면(대체 매물일 수 있다) 검증하려고 계산한다
-			boolean wantsAlternatives = sellerId != null || options.stream().noneMatch(o -> o.reason() == null);
+			// 대체품은 조건에 맞는 매물이 하나도 없을 때 제안한다(조건과 다른 매물뿐이어도 — 조건에 맞는 대체품이 있을 수 있다). 사용자가 매물을 골라 보냈으면(대체 매물일 수 있다) 검증하려고 계산한다
+			boolean wantsAlternatives = sellerId != null || options.stream().noneMatch(CartBulkService::clean);
 			// 고른 매물 검증엔 못 사는 대체 매물까지 필요하다(사유를 알려 주려고). 응답에는 살 수 있는(하드 막힘 없는) 매물이 있는 대체품을 제안한다 —
 			// 조건과 다른 점만 있는 매물도 포함한다(고른 대체 매물이 응답에서 사라지지 않게, 조건과 다른 매물을 보여 주고 고르게 한다는 규칙과 같다)
 			List<Alternative> allAlternatives = wantsAlternatives ? alternativesOf(master, quantity, buyerId, conditions, reqDeliDate, sort) : List.of();

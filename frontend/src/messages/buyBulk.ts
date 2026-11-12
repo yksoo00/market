@@ -87,7 +87,7 @@ export const buyBulk = {
     hint: "매물 카드 순서와 \"추천\" 표시 기준이에요. 어느 매물을 살지는 직접 골라요.",
     options: { price: "가장 싼 것 먼저", state: "상태 좋은 것 먼저", warranty: "보증 긴 것 먼저" },
   },
-  // 후보 팝업·줄 요약의 매물 특성
+  // 매물 카드·고른 매물의 특성
   trait: {
     state: (state: string | null) => state ?? "상태 모름",
     warranty: (days: number | null) => (days === null || days === 0 ? "보증 없음" : days % 30 === 0 ? `보증 ${days / 30}개월` : `보증 ${days}일`),
@@ -115,12 +115,10 @@ export const buyBulk = {
     findProduct: "상품 찾기",
     findOther: "다른 상품 찾기",
     enterManual: "직접 입력으로 바꾸기",
-    chosen: "고른 매물",
     seller: (nickname: string | null) => nickname ?? "판매자",
     price: (price: string) => `단가 ${price}`,
     stock: (n: number) => `재고 ${n}`,
     delivery: (date: string) => `납기 ${date}`,
-    noListing: "살 수 있는 매물이 없어요.",
     mismatchNote: "조건과 다른 점",
     alternatives: "대체품 제안",
     useAlternative: "대체품으로 바꾸기",
@@ -141,7 +139,7 @@ export const buyBulk = {
     select: "선택",
     selected: "선택됨",
     recommended: "추천",
-    toggle: (name: string) => `${name} 매물 접고 펴기`,
+    substituted: "대체품을 골랐어요",
   },
   option: {
     minOrder: (n: number, unit: number) => `최소주문 ${n} · 주문단위 ${unit}`,

@@ -262,6 +262,20 @@ class CartBulkConditionsServiceTest {
 	}
 
 	@Test
+	@DisplayName("원래 상품에 조건과 다른 매물뿐이어도 조건에 맞는 대체품이 있으면 제안한다")
+	void alternativesWhenOnlyMismatched() {
+		Product alt = products.findOrCreate(new ProductDraft(CategoryFragments.parse("P01-Q01-R001"), "구매조건 대체 C", null, "Acme", null, null, null, null, null, null, null));
+		jdbc.update("update trd_prod_master set alter_prod_name = ? where prod_id = ?", "구매조건 대체 C", master.getProdId());
+		save(base(sellerA, "20261105100000", 2000));
+		listings.saveAndFlush(base(sellerB, "20261105100001", 900).prodId(alt.getProdId()).build());
+
+		CartBulkRowResult r = only(row(null, "1500", null, null, null, null, null, null));
+
+		assertThat(r.status()).isEqualTo(Status.CHOOSE);
+		assertThat(r.alternatives()).extracting(a -> a.prodId()).containsExactly(alt.getProdId());
+	}
+
+	@Test
 	@DisplayName("최소 보증 칸에 \"개월\"만 적으면 조건 없음으로 넘기지 않고 오류")
 	void monthsWordOnly() {
 		save(base(sellerA, "20261105100000", 1000));

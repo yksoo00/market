@@ -269,8 +269,11 @@ function reduce(state: BuyState, action: BuyAction): BuyState {
         lines: state.lines.map((l) => {
           const result = byRow.get(l.rowNo);
           if (!result || l.added) return l;
-          // 다시 검사한 줄은 체크를 풀어 둔다 — 바뀐 결과를 사용자가 눈으로 보고 다시 체크하게 (특히 고를 매물이 바뀐 줄)
-          return { ...l, result: withoutDuplicate(result), checking: false, selected: false, addError: null };
+          // 다시 검사해도 같은 매물이 그대로 골라져 있고 문제가 없으면 체크를 유지한다(추천 기준만 바꿨는데 모든 체크가 풀리지 않게).
+          // 고른 매물이 바뀌었거나 없어졌으면 풀어 둔다 — 바뀐 결과를 사용자가 눈으로 보고 다시 체크하게
+          const prev = l.result.chosen;
+          const same = prev !== null && result.status === "AVAILABLE" && result.chosen?.sellerId === prev.sellerId && result.chosen.regDate === prev.regDate;
+          return { ...l, result: withoutDuplicate(result), checking: false, selected: l.selected && same, addError: null };
         }),
       };
     }

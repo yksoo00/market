@@ -95,7 +95,9 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
   };
 
   const chosen = result.chosen;
-  const hasExtra = Boolean((result.substituted && chosen) || errors.listing || (result.status === "UNAVAILABLE" && result.alternatives.length > 0) || line.addError);
+  // 대체품 제안은 조건에 맞는 매물이 하나도 없을 때만 (서버도 그때만 계산한다)
+  const showAlternatives = !line.added && result.alternatives.length > 0 && cleanOptions(result).length === 0;
+  const hasExtra = Boolean((result.substituted && chosen) || errors.listing || (showAlternatives) || line.addError);
 
   return (
     <li className={cn("rounded-md border bg-surface", failed && !line.added ? "border-down" : "border-line", line.added && "opacity-70")}>
@@ -145,7 +147,7 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
               {t.fields.listing}: {errors.listing}
             </p>
           )}
-          {!line.added && result.status === "UNAVAILABLE" && result.alternatives.length > 0 && (
+          {showAlternatives && (
             <div className="flex flex-col gap-1">
               <p className="text-[12px] font-semibold text-ink">{t.line.alternatives}</p>
               <ul className="flex flex-col gap-1">
@@ -215,12 +217,15 @@ function ListingGroup({ line, onChoose }: { line: BuyLine; onChoose: (rowNo: num
 
   const name = result.matchedName ?? line.fields.prodName;
   const chosen = result.chosen;
-  const state = chosen
-    ? t.group.chosen(t.line.seller(chosen.sellerNickname), formatPrice(chosen.unitPrice))
-    : result.status === "CHOOSE"
-      ? t.group.none
-      : t.group.unavailable;
   const noneSelectable = fit.length + soft.length === 0;
+  // 대체품을 골랐으면 그 매물은 이 그룹(원래 상품)에 없다 — 헤더가 고른 것처럼 보이지 않게 따로 말한다
+  const state = result.substituted
+    ? t.group.substituted
+    : chosen
+      ? t.group.chosen(t.line.seller(chosen.sellerNickname), formatPrice(chosen.unitPrice))
+      : noneSelectable
+        ? t.group.unavailable
+        : t.group.none;
   const blockedShown = showBlocked || noneSelectable;
   const regionId = `listings-${line.rowNo}`;
 
@@ -230,7 +235,6 @@ function ListingGroup({ line, onChoose }: { line: BuyLine; onChoose: (rowNo: num
         type="button"
         aria-expanded={open}
         aria-controls={regionId}
-        aria-label={t.group.toggle(name)}
         onClick={() => setOpen((v) => !v)}
         className="flex w-full flex-wrap items-center gap-x-2 gap-y-0.5 text-left text-[13px] hover:text-ink"
       >

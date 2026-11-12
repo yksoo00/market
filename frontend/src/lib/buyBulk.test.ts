@@ -134,6 +134,17 @@ describe("buyReducer", () => {
     expect(blockedOptions(r)).toEqual([hard]);
   });
 
+  it("다시 검사해도 같은 매물이 그대로면 체크를 유지하고, 고른 매물이 바뀌거나 없어지면 푼다", () => {
+    const checked = loaded(); // 2행: 매물 A 가 골라져 있고 체크됨
+    expect(checked.lines[0].selected).toBe(true);
+    const same = buyReducer(checked, { type: "rechecked", results: [result(2, "AVAILABLE", {}, option("A", 900))] });
+    expect(same.lines[0].selected).toBe(true);
+    const changed = buyReducer(checked, { type: "rechecked", results: [result(2, "AVAILABLE", {}, option("B", 800))] });
+    expect(changed.lines[0].selected).toBe(false);
+    const gone = buyReducer(checked, { type: "rechecked", results: [{ ...result(2, "CHOOSE"), options: [option("A"), option("B")] }] });
+    expect(gone.lines[0].selected).toBe(false);
+  });
+
   it("선택 필요(CHOOSE) 줄은 체크할 수 없고, 직접 매물을 고르면(AVAILABLE) 담을 수 있다", () => {
     const loadedChoose = buyReducer(initialBuyState, { type: "loaded", rows: [row(2)], results: [{ ...result(2, "CHOOSE"), options: [option("A", 1), option("B", 2)] }], cartCount: 0, cartMax: 100 });
     expect(canSelect(loadedChoose.lines[0])).toBe(false);
