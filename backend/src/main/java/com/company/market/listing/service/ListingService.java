@@ -37,6 +37,7 @@ import com.company.market.listing.dto.ListingResponse;
 import com.company.market.listing.dto.ListingSearchCondition;
 import com.company.market.listing.dto.ListingSearchItemResponse;
 import com.company.market.listing.dto.ListingTradeSnapshot;
+import com.company.market.listing.dto.ListingTraits;
 import com.company.market.listing.dto.ListingUpdateRequest;
 import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.repository.ListingSearchRepository;
@@ -377,6 +378,37 @@ public class ListingService {
 		List<Listing> found = listings.findAllById(ids);
 		Map<String, Product> productsById = products.getAll(found.stream().map(Listing::getProdId).collect(Collectors.toSet()));
 		return found.stream().collect(Collectors.toMap(Listing::getId, l -> toSnapshot(l, productsById.get(l.getProdId()))));
+	}
+
+	/**
+	 * 엑셀 대량구매의 매물 후보 — 이 상품마스터의 모든 매물(거래완료 포함: 왜 못 사는지 사유를 보이려고). 잠금 없는 읽기라 담기에서 다시 잠그고 판정한다.
+	 * 없는 마스터·매물 없는 마스터는 빈 목록
+	 */
+	@Transactional(readOnly = true)
+	public List<ListingTradeSnapshot> snapshotsOfProduct(String prodId) {
+		List<Listing> found = listings.findAllByProdIdOrderByRegDate(prodId);
+		if (found.isEmpty()) {
+			return List.of();
+		}
+		Product product = products.get(prodId);
+		return found.stream().map(l -> toSnapshot(l, product)).toList();
+	}
+
+	/** 이 마스터 매물에 적힌 대체품 글(자유 글). 비어 있는 매물은 빠진다 — 대량구매 후보 줄의 힌트로만 쓴다. 복합키 findAllById 는 키마다 쿼리가 나가 마스터로 한 번에 읽는다 */
+	@Transactional(readOnly = true)
+	public Map<ListingId, String> replaceHintsOfProduct(String prodId) {
+		return listings.findAllByProdIdOrderByRegDate(prodId).stream()
+			.filter(l -> hasText(l.getReplaceProd()))
+			.collect(Collectors.toMap(Listing::getId, Listing::getReplaceProd));
+	}
+
+	/** 이 마스터 매물들의 조건 판정용 특성(상태·보증·증빙 유무). 복합키 findAllById 는 키마다 쿼리가 나가 마스터로 한 번에 읽는다 */
+	@Transactional(readOnly = true)
+	public Map<ListingId, ListingTraits> traitsOfProduct(String prodId) {
+		return listings.findAllByProdIdOrderByRegDate(prodId).stream().collect(Collectors.toMap(Listing::getId,
+				l -> new ListingTraits(l.getProdState(), l.getWarrantyPeriod(), hasText(l.getProdDataSheet()),
+						hasText(l.getProdPhoto1()) || hasText(l.getProdPhoto2()) || hasText(l.getProdPhoto3()) || hasText(l.getProdImage4()),
+						hasText(l.getWarrantyCoverage()), hasText(l.getTestReport()), hasText(l.getCertificateOfAuthen()))));
 	}
 
 	/** 장바구니 목록용 — 검색 결과와 같은 칸(지금 매물 값)을 매물·상품 각 한 쿼리로. 없는 키는 빠진다 */

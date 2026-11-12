@@ -7,6 +7,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -77,6 +78,38 @@ public class ProductService {
 	/** 엑셀 다량 등록의 상품 찾기 — findOrCreate 의 "같은 상품"과 같은 세 값이되 대소문자를 무시한다. 만들지는 않는다 */
 	public Optional<Product> findSameIgnoreCase(String prodName, String prodBrand, String prodClassNo) {
 		return products.findAllSameIgnoreCase(prodName, prodBrand, orEmpty(prodClassNo), PageRequest.of(0, 1)).stream().findFirst();
+	}
+
+	/**
+	 * 엑셀 대량구매의 상품 찾기 — 이름(+제조사, +분류번호)이 같은 마스터를 **전부**(최대 limit) 돌려준다. 이름·제조사는 대소문자·공백·하이픈을
+	 * 무시하고, 제조사·분류번호가 비면(null/빈 글) 그 칸은 보지 않는다. 하나일 때만 자동으로 정하는 건 부르는 쪽이다(여럿이면 사용자가 고른다)
+	 */
+	public List<Product> findAllLoose(String prodName, String prodBrand, String prodClassNo, int limit) {
+		String name = looseKey(prodName);
+		if (name.isEmpty()) {
+			// 공백·하이픈뿐인 이름이 '' 키로 모든 마스터와 겹치지 않게
+			return List.of();
+		}
+		return products.findAllLoose(name, looseKey(prodBrand), orEmpty(prodClassNo), PageRequest.of(0, limit));
+	}
+
+	/** 비교용 키 — 소문자, 공백과 하이픈 제거. 저장소 쿼리(findAllLoose)가 DB 쪽 값에 replace 로 같은 정리를 한다 */
+	private static String looseKey(String value) {
+		return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("[\\s-]+", "");
+	}
+
+	/**
+	 * 엑셀 대량구매의 대체품 제안 — 이 마스터의 대체상품명(자유 글)과 이름이 같은 마스터. 한 단계만 본다(대체품의 대체품은 따라가지 않아
+	 * A → X → A 같은 순환이 없다). 자기 자신은 뺀다. 대체상품명이 비어 있으면 빈 목록
+	 */
+	public List<Product> alternatesOf(Product master) {
+		String name = blankToNull(master.getAlterProdName());
+		if (name == null) {
+			return List.of();
+		}
+		return products.findAllByNameIgnoreCase(name.replaceAll("\\s+", " ")).stream()
+			.filter(p -> !p.getProdId().equals(master.getProdId()))
+			.toList();
 	}
 
 	/** 등록 폼이 고른 마스터. 없으면 호출한 쪽이 400 으로 알린다 */

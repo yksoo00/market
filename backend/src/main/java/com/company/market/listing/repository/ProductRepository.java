@@ -30,6 +30,24 @@ public interface ProductRepository extends JpaRepository<Product, String> {
 	List<Product> findAllSameIgnoreCase(@Param("name") String name, @Param("brand") String brand, @Param("classNo") String classNo,
 			Pageable pageable);
 
+	/** 엑셀 대량구매의 대체상품 찾기 — 이름이 (대소문자만 무시하고) 같은 마스터. 입력 쪽 공백은 호출하는 쪽이 정리 */
+	@Query("select p from Product p where lower(p.prodName) = lower(:name) order by p.prodId")
+	List<Product> findAllByNameIgnoreCase(@Param("name") String name);
+
+	/**
+	 * 엑셀 대량구매의 상품 찾기 — 이름·제조사는 대소문자·공백·하이픈을 무시하고 같아야 하되 제조사가 ''(없음)이면 보지 않고, 분류번호도
+	 * ''(없음)이면 보지 않는다(적혀 있으면 대소문자만 무시하고 같아야 함). name·brand 는 호출하는 쪽이 같은 규칙으로 정리해 넘긴다
+	 * (소문자, 공백·하이픈 제거). 여럿이면 자동으로 고르지 않고 사용자가 고르게 하려고 **전부** 돌려준다(상한은 pageable)
+	 */
+	@Query("""
+		select p from Product p
+		where lower(replace(replace(p.prodName, ' ', ''), '-', '')) = :name
+		  and (:brand = '' or lower(replace(replace(p.prodBrand, ' ', ''), '-', '')) = :brand)
+		  and (:classNo = '' or lower(coalesce(p.prodClassNo, '')) = lower(:classNo))
+		order by p.prodId
+		""")
+	List<Product> findAllLoose(@Param("name") String name, @Param("brand") String brand, @Param("classNo") String classNo, Pageable pageable);
+
 	/** 제조일만 달라 따로 있던 옛 마스터가 여럿이면 가장 오래된(prod_id 가 작은) 한 행 — 단일 결과 예외를 피한다 */
 	default Optional<Product> findSame(String name, String brand, String classNo) {
 		return findAllSame(name, brand, classNo, PageRequest.of(0, 1)).stream().findFirst();

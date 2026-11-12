@@ -1,5 +1,6 @@
 package com.company.market.listing.repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -19,6 +20,9 @@ public interface ListingRepository extends JpaRepository<Listing, ListingId> {
 	Optional<Listing> findByUserIdAndRegDate(UUID userId, String regDate);
 
 	boolean existsByUserIdAndRegDate(UUID userId, String regDate);
+
+	/** 이 상품마스터의 모든 매물 (엑셀 대량구매의 매물 후보). 등록일시 순 */
+	List<Listing> findAllByProdIdOrderByRegDate(String prodId);
 
 	/** 내 매물이 하나라도 있나 (검색 "내 판매" 탭 판정) */
 	boolean existsByUserId(UUID userId);

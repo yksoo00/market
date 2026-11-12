@@ -19,6 +19,7 @@ const SCREENS: { id: string; group: TileGroup; pattern: RegExp; solo?: true; aux
   { id: "sellNew", group: "sell", pattern: /^\/listings\/new$/ },
   { id: "sellExtra", group: "sell", pattern: /^\/listings\/extra$/ },
   { id: "sellBulk", group: "sell", pattern: /^\/listings\/bulk$/ },
+  { id: "buyBulk", group: "buy", pattern: /^\/buy\/bulk$/ },
   // 내 활동내역은 탭(요청·판매·구매)을 옮겨도 같은 화면 — 칸을 더 쌓지 않고 그 칸에서 바뀐다. 판매·구매 양쪽 일이라 공통. 옛 주소(listings·sales·purchases)는 새 주소로 넘어가는 화면이라 같이 센다
   { id: "myActivity", group: "common", pattern: /^\/my\/(activity|listings|sales|purchases)$/ },
   { id: "myHistory", group: "common", pattern: /^\/my\/history$/ },
