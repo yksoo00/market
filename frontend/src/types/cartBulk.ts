@@ -1,6 +1,6 @@
 // 엑셀 대량구매 API 타입. 백엔드 CartBulkRowDto·CartBulkRowResult·CartBulk*Result 와 1:1 (trade/dto)
 
-export type BuyStatus = "AVAILABLE" | "UNAVAILABLE" | "FAILED";
+export type BuyStatus = "AVAILABLE" | "CHOOSE" | "UNAVAILABLE" | "FAILED";
 
 /** 서버가 주고받는 한 줄. 수량도 글자로 (엑셀 칸이 글자여도 줄 오류로 보이게). sellerId·regDate = 사용자가 고른 매물 */
 export interface CartBulkRowApi {

@@ -92,6 +92,11 @@ class CartBulkServiceTest {
 		return new CartBulkRowDto(rowNo, null, name, "Acme", null, quantity, "2099-12-31", "메모", null, null, null, null, null, null, null, null, null, null);
 	}
 
+	/** 카드 순서(정렬 기준)에서 조건에 맞는(살 수 있고 다른 점 없는) 첫 매물 = 화면이 "추천"으로 표시하는 매물 */
+	private static String recommended(CartBulkRowResult r) {
+		return r.options().stream().filter(o -> o.reason() == null && o.mismatches().isEmpty()).findFirst().orElseThrow().sellerId();
+	}
+
 	private CartBulkRowResult only(CartBulkRowDto row) {
 		return service.check(buyer, List.of(row), CartBulkSort.PRICE).results().get(0);
 	}
@@ -101,7 +106,7 @@ class CartBulkServiceTest {
 	}
 
 	@Test
-	@DisplayName("마스터의 매물이 후보로 나오고, 수량을 채울 수 있는 최저가가 기본으로 골라진다")
+	@DisplayName("마스터의 매물이 후보로 나오고, 조건에 맞는 매물이 여럿이면 미리 고르지 않는다(CHOOSE) — 정렬 1순위가 추천")
 	void picksCheapestAvailable() {
 		listing(sellerA, "20261105100000", main, 1000, 5, 1, 1, false);
 		listing(sellerB, "20261105100001", main, 900, 5, 1, 1, false);
@@ -109,10 +114,10 @@ class CartBulkServiceTest {
 
 		CartBulkRowResult r = only(row(2, "구매검사 원품 A", "3"));
 
-		assertThat(r.status()).isEqualTo(Status.AVAILABLE);
+		assertThat(r.status()).isEqualTo(Status.CHOOSE);
+		assertThat(r.chosen()).isNull();
 		assertThat(r.options()).hasSize(3);
-		assertThat(r.chosen().sellerId()).isEqualTo(sellerB.toString());
-		assertThat(r.chosen().unitPrice()).isEqualTo(900);
+		assertThat(recommended(r)).isEqualTo(sellerB.toString());
 		assertThat(option(r, sellerC).reason()).contains("재고");
 		assertThat(option(r, sellerA).reason()).isNull();
 		assertThat(r.substituted()).isFalse();
@@ -120,17 +125,17 @@ class CartBulkServiceTest {
 	}
 
 	@Test
-	@DisplayName("값이 같으면 재고가 많은 것, 그래도 같으면 등록일시가 빠른 것")
+	@DisplayName("추천 순서: 값이 같으면 재고가 많은 것, 그래도 같으면 등록일시가 빠른 것")
 	void tieBreak() {
 		listing(sellerA, "20261105100000", main, 900, 5, 1, 1, false);
 		listing(sellerB, "20261105100001", main, 900, 8, 1, 1, false);
-		assertThat(only(row(2, "구매검사 원품 A", "3")).chosen().sellerId()).isEqualTo(sellerB.toString());
+		assertThat(recommended(only(row(2, "구매검사 원품 A", "3")))).isEqualTo(sellerB.toString());
 
 		cleanUp();
 		setUp();
 		listing(sellerA, "20261105100000", main, 900, 5, 1, 1, false);
 		listing(sellerB, "20261105100001", main, 900, 5, 1, 1, false);
-		assertThat(only(row(2, "구매검사 원품 A", "3")).chosen().sellerId()).isEqualTo(sellerA.toString());
+		assertThat(recommended(only(row(2, "구매검사 원품 A", "3")))).isEqualTo(sellerA.toString());
 	}
 
 	@Test

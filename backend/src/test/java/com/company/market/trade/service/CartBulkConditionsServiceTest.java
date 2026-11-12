@@ -98,6 +98,11 @@ class CartBulkConditionsServiceTest {
 		return service.check(buyer, List.of(row), sort).results().get(0);
 	}
 
+	/** 카드 순서(정렬 기준)에서 조건에 맞는(살 수 있고 다른 점 없는) 첫 매물 = 화면이 "추천"으로 표시하는 매물 */
+	private static String recommended(CartBulkRowResult r) {
+		return r.options().stream().filter(o -> o.reason() == null && o.mismatches().isEmpty()).findFirst().orElseThrow().sellerId();
+	}
+
 	private static ListingOption option(CartBulkRowResult r, UUID seller) {
 		return r.options().stream().filter(o -> o.sellerId().equals(seller.toString())).findFirst().orElseThrow();
 	}
@@ -115,8 +120,10 @@ class CartBulkConditionsServiceTest {
 		assertThat(option(r, sellerB).mismatches()).anySatisfy(m -> assertThat(m).contains("상태").contains("낮아요"));
 		assertThat(option(r, sellerA).mismatches()).isEmpty();
 		// "50% 미만"이 최소면 모든 상태가 통과, "신품"이면 신품만
-		assertThat(only(row("신품대비 50% 미만", null, null, null, null, null, null, null)).chosen().sellerId()).isEqualTo(sellerB.toString());
-		assertThat(only(row("신품", null, null, null, null, null, null, null)).status()).isEqualTo(Status.UNAVAILABLE);
+		CartBulkRowResult anyState = only(row("신품대비 50% 미만", null, null, null, null, null, null, null));
+		assertThat(anyState.status()).isEqualTo(Status.CHOOSE);
+		assertThat(recommended(anyState)).isEqualTo(sellerB.toString());
+		assertThat(only(row("신품", null, null, null, null, null, null, null)).status()).isEqualTo(Status.CHOOSE);
 	}
 
 	@Test
@@ -144,11 +151,11 @@ class CartBulkConditionsServiceTest {
 		assertThat(option(twelve, sellerC).mismatches()).anySatisfy(m -> assertThat(m).contains("보증"));
 
 		CartBulkRowResult six = only(row(null, null, "6개월", null, null, null, null, null));
-		assertThat(six.chosen().sellerId()).isEqualTo(sellerB.toString());
+		assertThat(recommended(six)).isEqualTo(sellerB.toString());
 		assertThat(option(six, sellerA).mismatches()).isEmpty();
 		assertThat(option(six, sellerC).mismatches()).isNotEmpty();
 
-		assertThat(only(plain()).chosen().sellerId()).isEqualTo(sellerC.toString());
+		assertThat(recommended(only(plain()))).isEqualTo(sellerC.toString());
 	}
 
 	@Test
@@ -164,7 +171,7 @@ class CartBulkConditionsServiceTest {
 		assertThat(option(r, sellerA).mismatches()).isEmpty();
 		assertThat(option(r, sellerB).mismatches()).anySatisfy(m -> assertThat(m).contains("제공가능일").contains("늦어요"));
 		assertThat(option(r, sellerC).mismatches()).isEmpty();
-		assertThat(r.chosen().sellerId()).isEqualTo(sellerC.toString());
+		assertThat(recommended(r)).isEqualTo(sellerC.toString());
 	}
 
 	@Test
@@ -186,12 +193,12 @@ class CartBulkConditionsServiceTest {
 	}
 
 	@Test
-	@DisplayName("조건과 맞는 매물이 하나도 없으면 UNAVAILABLE(기본 선택 없음) + 다른 점이 남고, 조건을 지우면 다시 AVAILABLE")
+	@DisplayName("조건과 맞는 매물이 하나도 없으면 CHOOSE(미리 고르지 않음) + 다른 점이 남고, 조건을 지우면 맞는 매물이 하나라 다시 AVAILABLE")
 	void allExcludedThenRelaxed() {
 		save(base(sellerA, "20261105100000", 1000));
 
 		CartBulkRowResult blocked = only(row(null, "500", null, null, null, null, null, null));
-		assertThat(blocked.status()).isEqualTo(Status.UNAVAILABLE);
+		assertThat(blocked.status()).isEqualTo(Status.CHOOSE);
 		assertThat(blocked.chosen()).isNull();
 		assertThat(option(blocked, sellerA).reason()).isNull();
 		assertThat(option(blocked, sellerA).mismatches()).anySatisfy(m -> assertThat(m).contains("상한"));
@@ -224,17 +231,20 @@ class CartBulkConditionsServiceTest {
 	}
 
 	@Test
-	@DisplayName("정렬 기준에 따라 같은 후보에서 다른 매물이 기본으로 골라진다 (최저가 / 상태 / 보증 우선)")
+	@DisplayName("정렬 기준에 따라 같은 후보의 카드 순서와 추천이 달라진다 (최저가 / 상태 / 보증 우선) — 여럿이면 미리 고르지 않는다")
 	void sortModes() {
 		save(base(sellerA, "20261105100000", 1000).prodState("신품대비 80~89%").warrantyPeriod(360));
 		save(base(sellerB, "20261105100001", 900).prodState("신품대비 70~79%").warrantyPeriod(90));
 		save(base(sellerC, "20261105100002", 1200).prodState("신품").warrantyPeriod(180));
 
-		assertThat(only(plain(), CartBulkSort.PRICE).chosen().sellerId()).isEqualTo(sellerB.toString());
-		assertThat(only(plain(), CartBulkSort.STATE).chosen().sellerId()).isEqualTo(sellerC.toString());
-		assertThat(only(plain(), CartBulkSort.WARRANTY).chosen().sellerId()).isEqualTo(sellerA.toString());
+		CartBulkRowResult byPrice = only(plain(), CartBulkSort.PRICE);
+		assertThat(byPrice.status()).isEqualTo(Status.CHOOSE);
+		assertThat(byPrice.chosen()).isNull();
+		assertThat(byPrice.options()).extracting(ListingOption::sellerId).containsExactly(sellerB.toString(), sellerA.toString(), sellerC.toString());
+		assertThat(only(plain(), CartBulkSort.STATE).options()).extracting(ListingOption::sellerId).containsExactly(sellerC.toString(), sellerA.toString(), sellerB.toString());
+		assertThat(only(plain(), CartBulkSort.WARRANTY).options()).extracting(ListingOption::sellerId).containsExactly(sellerA.toString(), sellerC.toString(), sellerB.toString());
 		// 정렬을 안 정하면 최저가 우선
-		assertThat(only(plain()).chosen().sellerId()).isEqualTo(sellerB.toString());
+		assertThat(recommended(only(plain()))).isEqualTo(sellerB.toString());
 	}
 
 	@Test
@@ -242,13 +252,13 @@ class CartBulkConditionsServiceTest {
 	void priceTieBreaks() {
 		save(base(sellerA, "20261105100000", 1000).warrantyPeriod(90).prodState("신품"));
 		save(base(sellerB, "20261105100001", 1000).warrantyPeriod(360).prodState("신품대비 70~79%"));
-		assertThat(only(plain()).chosen().sellerId()).isEqualTo(sellerB.toString());
+		assertThat(recommended(only(plain()))).isEqualTo(sellerB.toString());
 
 		cleanUp();
 		setUp();
 		save(base(sellerA, "20261105100000", 1000).warrantyPeriod(360).prodState("신품대비 70~79%"));
 		save(base(sellerB, "20261105100001", 1000).warrantyPeriod(360).prodState("신품"));
-		assertThat(only(plain()).chosen().sellerId()).isEqualTo(sellerB.toString());
+		assertThat(recommended(only(plain()))).isEqualTo(sellerB.toString());
 	}
 
 	@Test
@@ -265,7 +275,7 @@ class CartBulkConditionsServiceTest {
 		save(base(sellerA, "20261105100000", 1000).deliveryDate(""));
 		save(base(sellerB, "20261105100001", 1000).deliveryDate("2099-01-01"));
 
-		assertThat(only(plain()).chosen().sellerId()).isEqualTo(sellerB.toString());
+		assertThat(recommended(only(plain()))).isEqualTo(sellerB.toString());
 	}
 
 	@Test
@@ -317,7 +327,7 @@ class CartBulkConditionsServiceTest {
 
 		CartBulkRowResult r = only(row("신품대비 50% 미만", null, null, null, null, null, null, null));
 
-		assertThat(r.status()).isEqualTo(Status.UNAVAILABLE);
+		assertThat(r.status()).isEqualTo(Status.CHOOSE);
 		assertThat(option(r, sellerA).mismatches()).anySatisfy(m -> assertThat(m).contains("알 수 없"));
 	}
 

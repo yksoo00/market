@@ -187,7 +187,7 @@ class CartBulkApiTest {
 	}
 
 	@Test
-	@DisplayName("check·commit·parse 가 조건 칸과 sort 를 받는다: 조건과 안 맞으면 UNAVAILABLE + 다른 점(직접 고르면 담김), 모르는 sort 는 400")
+	@DisplayName("check·commit·parse 가 조건 칸과 sort 를 받는다: 조건과 안 맞으면 CHOOSE + 다른 점(직접 고르면 담김), 모르는 sort 는 400")
 	void conditionsAndSort() throws Exception {
 		String strict = "{\"rowNo\":2,\"prodName\":\"구매API 상품\",\"prodBrand\":\"Acme\",\"orderQuantity\":\"3\",\"reqDeliDate\":\"2099-12-31\","
 				+ "\"maxPrice\":\"500\",\"minState\":\"신품\",\"needDataSheet\":\"Y\"}";
@@ -195,7 +195,7 @@ class CartBulkApiTest {
 		mvc.perform(post("/api/v1/cart/bulk/check").cookie(authCookie).contentType(MediaType.APPLICATION_JSON)
 				.content("{\"sort\":\"warranty\",\"rows\":[" + strict + "]}"))
 			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.results[0].status").value("UNAVAILABLE"))
+			.andExpect(jsonPath("$.data.results[0].status").value("CHOOSE"))
 			.andExpect(jsonPath("$.data.results[0].options[0].reason").doesNotExist())
 			.andExpect(jsonPath("$.data.results[0].options[0].mismatches[0]").value(containsString("상한")))
 			.andExpect(jsonPath("$.data.results[0].options[0].traits.prodState").value("신품"));
@@ -236,7 +236,7 @@ class CartBulkApiTest {
 		mvc.perform(post("/api/v1/cart/bulk/commit").cookie(authCookie).contentType(MediaType.APPLICATION_JSON).content(rowsJson(unpicked)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.results[0].ok").value(false))
-			.andExpect(jsonPath("$.data.results[0].code").value("NO_LISTING"));
+			.andExpect(jsonPath("$.data.results[0].code").value("NO_CHOICE"));
 
 		// 하드 막힘(재고 10 보다 많이)이면 직접 골라도 거절된다
 		String tooMany = picked.replace("\"orderQuantity\":\"3\"", "\"orderQuantity\":\"11\"").replace("\"rowNo\":2", "\"rowNo\":4");

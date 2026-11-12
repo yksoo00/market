@@ -3,7 +3,7 @@ import { hasErrors, type BuyLine } from "@/lib/buyBulk";
 // 대량구매 표의 필터·검색·정렬 (계획 2026-11-09-bulk-purchase-excel.md). 서버에는 줄이 없어 전부 브라우저에서 한다.
 // 판매 다량 등록(lib/bulkListingView)과 같은 규칙: 정렬은 열(드롭다운)을 바꿀 때만 다시 돌고, 칸을 고쳐도 줄 순서는 그대로다.
 
-export type BuyTab = "all" | "available" | "unavailable" | "failed" | "done";
+export type BuyTab = "all" | "choose" | "available" | "unavailable" | "failed" | "done";
 
 export type BuySortKey = "rowNo" | "prodName" | "prodBrand" | "orderQuantity" | "unitPrice" | "status";
 
@@ -22,11 +22,12 @@ export const initialBuyView: BuyView = { tab: "all", query: "", sort: null };
 export function tabOf(line: BuyLine): Exclude<BuyTab, "all"> {
   if (line.added) return "done";
   if (hasErrors(line)) return "failed";
+  if (line.result.status === "CHOOSE") return "choose";
   return line.result.status === "UNAVAILABLE" ? "unavailable" : "available";
 }
 
 export function tabCounts(lines: BuyLine[]): Record<BuyTab, number> {
-  const counts: Record<BuyTab, number> = { all: 0, available: 0, unavailable: 0, failed: 0, done: 0 };
+  const counts: Record<BuyTab, number> = { all: 0, choose: 0, available: 0, unavailable: 0, failed: 0, done: 0 };
   for (const l of lines) {
     const tab = tabOf(l);
     counts[tab] += 1;
@@ -44,8 +45,8 @@ const matches = (line: BuyLine, query: string): boolean => {
 /** 쉼표를 뗀 수. 숫자가 아니면 NaN — 정렬에서 맨 뒤로 */
 const numberOf = (s: string): number => (/^-?\d+$/.test(s.replace(/,/g, "").trim()) ? Number(s.replace(/,/g, "").trim()) : Number.NaN);
 
-/** 오름차순에서 오류 → 매물 없음 → 매물 있음 (문제 있는 줄을 먼저 보려는 정렬) */
-const STATUS_ORDER: Record<Exclude<BuyTab, "all">, number> = { failed: 0, unavailable: 1, available: 2, done: 3 };
+/** 오름차순에서 오류 → 선택 필요 → 매물 없음 → 선택 완료 (할 일이 있는 줄을 먼저 보려는 정렬) */
+const STATUS_ORDER: Record<Exclude<BuyTab, "all">, number> = { failed: 0, choose: 1, unavailable: 2, available: 3, done: 4 };
 
 /** 정렬 값. 고른 매물이 없으면(매물 없음·오류) NaN — 방향과 상관없이 맨 뒤 */
 function valueOf(line: BuyLine, key: Extract<BuySortKey, "orderQuantity" | "unitPrice">): number {

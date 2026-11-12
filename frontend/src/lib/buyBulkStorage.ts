@@ -73,7 +73,7 @@ const isLine = (v: unknown): v is BuyLine => {
     (v.addError === null || typeof v.addError === "string") &&
     FIELD_KEYS.every((k) => typeof (v.fields as Record<string, unknown>)[k] === "string") &&
     typeof result.rowNo === "number" &&
-    ["AVAILABLE", "UNAVAILABLE", "FAILED"].includes(String(result.status)) &&
+    ["AVAILABLE", "CHOOSE", "UNAVAILABLE", "FAILED"].includes(String(result.status)) &&
     typeof result.substituted === "boolean" &&
     Array.isArray(result.options) &&
     // 후보 팝업이 매물 특성(traits)을 읽는다 — 빠진 보관본을 받으면 화면이 죽는다

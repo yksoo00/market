@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CartBulkResult, CartBulkRowApi, ListingOption } from "@/types/cartBulk";
-import { blockedReasons, compareOptions, isClean, mismatchedOptions, buyReducer, canSelect, errorsOf, initialBuyState, isLocked, markDuplicates, summary, toCheckRow, toCommitRow, type BuyState } from "./buyBulk";
+import { blockedOptions, cleanOptions, isClean, softOptions, buyReducer, canSelect, errorsOf, initialBuyState, isLocked, markDuplicates, summary, toCheckRow, toCommitRow, type BuyState } from "./buyBulk";
 import { buyBulk } from "@/messages/buyBulk";
 
 const TODAY = "2026-11-09";
@@ -120,25 +120,29 @@ describe("buyReducer", () => {
     expect(reloaded.sort).toBe("state");
   });
 
-  it("조건과 다른 매물(살 수 있지만 다른 점이 있음)은 따로 모이고, 기본으로 뽑힐 만한(clean) 매물과 구분된다", () => {
+  it("매물 카드 세 구역: 조건에 맞는 것(clean) / 조건과 다른 것(soft) / 고를 수 없는 것(blocked) — 서버가 보낸 순서를 그대로 지킨다", () => {
     const soft = { ...option("S", 5), mismatches: ["단가가 상한을 넘어요"] };
     const hard = option("H", 4, "재고 부족");
-    const ok = option("O", 6);
-    expect(isClean(ok)).toBe(true);
+    const ok1 = option("O1", 6);
+    const ok2 = option("O2", 7);
+    const r = { ...result(2, "CHOOSE"), options: [hard, ok1, soft, ok2] };
+    expect(isClean(ok1)).toBe(true);
     expect(isClean(soft)).toBe(false);
     expect(isClean(hard)).toBe(false);
-    expect(mismatchedOptions({ ...result(2, "UNAVAILABLE"), options: [soft, hard, ok] })).toEqual([soft]);
+    expect(cleanOptions(r)).toEqual([ok1, ok2]);
+    expect(softOptions(r)).toEqual([soft]);
+    expect(blockedOptions(r)).toEqual([hard]);
   });
 
-  it("매물 정렬은 페이지 기준대로: 가장 싼 것 / 상태 좋은 것 / 보증 긴 것 먼저", () => {
-    const o = (id: string, price: number, state: string, days: number | null): ListingOption => ({ ...option(id, price), traits: { ...option(id).traits, prodState: state, warrantyDays: days } });
-    const a = o("A", 1000, "신품대비 80~89%", 360);
-    const b = o("B", 900, "신품대비 70~79%", 90);
-    const c = o("C", 1200, "신품", 180);
-    const ids = (sort: "price" | "state" | "warranty") => [a, b, c].sort(compareOptions(sort)).map((x) => x.sellerId);
-    expect(ids("price")).toEqual(["B", "A", "C"]);
-    expect(ids("state")).toEqual(["C", "A", "B"]);
-    expect(ids("warranty")).toEqual(["A", "C", "B"]);
+  it("선택 필요(CHOOSE) 줄은 체크할 수 없고, 직접 매물을 고르면(AVAILABLE) 담을 수 있다", () => {
+    const loadedChoose = buyReducer(initialBuyState, { type: "loaded", rows: [row(2)], results: [{ ...result(2, "CHOOSE"), options: [option("A", 1), option("B", 2)] }], cartCount: 0, cartMax: 100 });
+    expect(canSelect(loadedChoose.lines[0])).toBe(false);
+    expect(loadedChoose.lines[0].selected).toBe(false);
+    expect(summary(loadedChoose.lines).choose).toBe(1);
+
+    const picked = buyReducer(loadedChoose, { type: "rechecked", results: [result(2, "AVAILABLE", {}, option("B", 2))] });
+    expect(canSelect(picked.lines[0])).toBe(true);
+    expect(summary(picked.lines)).toMatchObject({ choose: 0, available: 1 });
   });
 
   it("조건과 다른 매물을 고르면 담을 수 있는 줄이 되고, 고른 매물에 다른 점이 남는다", () => {
@@ -149,11 +153,6 @@ describe("buyReducer", () => {
     expect(toCommitRow(s.lines[1])).toMatchObject({ sellerId: "S" });
   });
 
-  it("못 사는 이유는 같은 문구를 한 번만, 앞에서 3개까지 — 살 수 있는 매물은 빠진다", () => {
-    const options = [option("A", 1, "재고 부족"), option("B", 2, "재고 부족"), option("C", 3), option("D", 4, "상한 초과"), option("E", 5, "보증"), option("F", 6, "서류")];
-    expect(blockedReasons({ ...result(2, "UNAVAILABLE"), options })).toEqual(["재고 부족", "상한 초과", "보증"]);
-  });
-
   it("읽으면 살 매물이 골라진 줄만 체크하고, 장바구니 줄 수를 담는다", () => {
     const s = loaded();
     expect(s.lines.map((l) => [l.rowNo, l.selected])).toEqual([
@@ -161,7 +160,7 @@ describe("buyReducer", () => {
       [3, false],
       [4, false],
     ]);
-    expect(summary(s.lines)).toEqual({ available: 1, unavailable: 1, failed: 1, selected: 1, added: 0 });
+    expect(summary(s.lines)).toEqual({ choose: 0, available: 1, unavailable: 1, failed: 1, selected: 1, added: 0 });
     expect([s.cartCount, s.cartMax]).toEqual([5, 100]);
   });
 
@@ -265,7 +264,7 @@ describe("buyReducer", () => {
     expect(s.lines[1]).toMatchObject({ added: false, selected: false, addError: "살 수 있는 매물이 없어요." });
     expect(s.added).toBe(1);
     expect(s.cartCount).toBe(6);
-    expect(summary(s.lines)).toEqual({ available: 0, unavailable: 1, failed: 1, selected: 0, added: 1 });
+    expect(summary(s.lines)).toEqual({ choose: 0, available: 0, unavailable: 1, failed: 1, selected: 0, added: 1 });
 
     // 담은 줄은 고치기·체크·재검사·선택이 막힌다
     s = buyReducer(s, { type: "edited", rowNo: 2, field: "orderQuantity", value: "9", today: TODAY });

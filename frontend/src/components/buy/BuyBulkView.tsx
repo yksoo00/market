@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useReducer, useRef, useState, type DragEvent } from "react";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { BuyBulkRows } from "@/components/buy/BuyBulkRows";
-import { ListingOptionDialog } from "@/components/buy/ListingOptionDialog";
 import { ProductSearchDialog } from "@/components/listing/ProductSearchDialog";
 import { cartBulkApi } from "@/lib/api/cartBulk";
 import { buyReducer, canSelect, initialBuyState, markDuplicates, summary, toCheckRow, toCommitRow, type BuyAction, type BuyLine, type BuyPick, type BuyState } from "@/lib/buyBulk";
@@ -21,7 +20,7 @@ import type { ProductSearchItem } from "@/types/listing";
 
 const t = buyBulk;
 
-const TABS: BuyTab[] = ["all", "available", "unavailable", "failed", "done"];
+const TABS: BuyTab[] = ["all", "choose", "available", "unavailable", "failed", "done"];
 const PICK_SORTS: BuySort[] = ["price", "state", "warranty"];
 const SORT_KEYS: BuySortKey[] = ["rowNo", "prodName", "prodBrand", "orderQuantity", "unitPrice", "status"];
 
@@ -55,7 +54,6 @@ export function BuyBulkView() {
   const [committing, setCommitting] = useState(false);
   const [dragging, setDragging] = useState(false);
   const [finder, setFinder] = useState<number | null>(null);
-  const [optionsFor, setOptionsFor] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   // 마지막 검사 뒤에 고친 줄. 칸을 벗어날 때 이 줄만 서버에 다시 묻는다
   const edited = useRef(new Set<number>());
@@ -92,7 +90,6 @@ export function BuyBulkView() {
   const shown = visibleNos.flatMap((n) => byRow.get(n) ?? []);
   const hasOpen = state.lines.some((l) => !l.added);
   const busy = committing || step === "reading";
-  const optionLine = optionsFor === null ? undefined : byRow.get(optionsFor);
 
   // 줄을 서버에 다시 물어본다. base 는 방금 낸 수정이 이미 들어간 상태 (이 렌더의 state 에는 아직 없으므로 호출한 쪽이 리듀서로 먼저 계산).
   // 응답 전엔 그 줄을 체크할 수 없다 (checking). 네트워크 실패면 이전 결과를 그대로 두고 체크만 풀린 채 둔다 — 칸을 다시 벗어나면 재시도
@@ -426,7 +423,7 @@ export function BuyBulkView() {
               </button>
             </span>
           </div>
-          <p className="num text-[13px] text-ink-2">{t.summary(stat.available, stat.unavailable, stat.failed, stat.selected)}</p>
+          <p className="num text-[13px] text-ink-2">{t.summary(stat.choose, stat.available, stat.unavailable, stat.failed, stat.selected)}</p>
 
           {shown.length === 0 ? (
             <p className="rounded-md border border-line bg-surface py-10 text-center text-[14px] text-ink-2">{t.emptyView}</p>
@@ -435,7 +432,6 @@ export function BuyBulkView() {
               // 새 파일이면 줄 번호가 같아도 조건 구역의 펼침 상태를 새로 정하게 다시 그린다
               key={loadId}
               lines={shown}
-              sort={state.sort}
               onToggle={(rowNo) => dispatch({ type: "toggled", rowNo })}
               onEdit={edit}
               onEditNow={editNow}
@@ -443,7 +439,6 @@ export function BuyBulkView() {
               onPick={pick}
               onFind={setFinder}
               onUnlock={unlock}
-              onOpenOptions={setOptionsFor}
               onChoose={choose}
             />
           )}
@@ -476,17 +471,6 @@ export function BuyBulkView() {
             const rowNo = finder;
             setFinder(null);
             pick(rowNo, { prodId: item.prodId, prodName: item.prodName, prodBrand: item.prodBrand, prodClassNo: item.prodClassNo });
-          }}
-        />
-      )}
-      {optionLine && (
-        <ListingOptionDialog
-          line={optionLine}
-          onClose={() => setOptionsFor(null)}
-          onChoose={(sellerId, regDate) => {
-            const rowNo = optionLine.rowNo;
-            setOptionsFor(null);
-            choose(rowNo, sellerId, regDate);
           }}
         />
       )}

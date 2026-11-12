@@ -89,7 +89,7 @@ describe("탭", () => {
     const added = buyReducer({ ...initialBuyState, lines: lines() }, { type: "committed", outcomes: [{ rowNo: 2, ok: true, code: null, message: null }], cartCount: 1 }).lines;
     expect(rowNos(view({ tab: "all" }), added)).toEqual([3, 4, 5]);
     expect(rowNos(view({ tab: "done" }), added)).toEqual([2]);
-    expect(tabCounts(added)).toEqual({ all: 3, available: 1, unavailable: 1, failed: 1, done: 1 });
+    expect(tabCounts(added)).toEqual({ all: 3, choose: 0, available: 1, unavailable: 1, failed: 1, done: 1 });
   });
 
   it("탭별로 걸러낸다", () => {

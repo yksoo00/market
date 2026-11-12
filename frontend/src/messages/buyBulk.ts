@@ -4,6 +4,7 @@ export const buyBulk = {
   errors: {
     CART_FULL: "장바구니는 100개까지 담을 수 있어요. 장바구니를 비운 뒤 다시 담아 주세요.",
     NO_LISTING: "살 수 있는 매물이 없어요.",
+    NO_CHOICE: "매물을 골라 주세요.",
     TRADE_OWN_LISTING: "내 매물은 구매할 수 없어요.",
     LISTING_COMPLETED: "거래가 끝난 매물이에요.",
     UNAUTHORIZED: "로그인이 만료됐어요. 다시 로그인해 주세요.",
@@ -34,7 +35,7 @@ export const buyBulk = {
   reset: "처음부터 다시",
   resetConfirm: "하던 작업이 사라져요. 처음부터 다시 할까요?",
   overwriteConfirm: "하던 작업이 새 파일로 바뀌어요. 계속할까요?",
-  tabs: { all: "전체", available: "매물 있음", unavailable: "매물 없음", failed: "확인 필요", done: "담김" },
+  tabs: { all: "전체", choose: "선택 필요", available: "선택 완료", unavailable: "매물 없음", failed: "확인 필요", done: "담김" },
   searchLabel: "상품명·제조사 검색",
   searchPlaceholder: "상품명 · 제조사로 찾기",
   sortLabel: "정렬",
@@ -44,8 +45,8 @@ export const buyBulk = {
   emptyView: "조건에 맞는 줄이 없어요",
   selectVisible: "보이는 줄 모두 선택",
   clearVisible: "보이는 줄 선택 해제",
-  summary: (available: number, unavailable: number, failed: number, selected: number) =>
-    `매물 있음 ${available}건 · 매물 없음 ${unavailable}건 · 확인 필요 ${failed}건 · 선택 ${selected}건`,
+  summary: (choose: number, available: number, unavailable: number, failed: number, selected: number) =>
+    `선택 필요 ${choose}건 · 선택 완료 ${available}건 · 매물 없음 ${unavailable}건 · 확인 필요 ${failed}건 · 담기 체크 ${selected}건`,
   cart: (count: number, max: number) => `장바구니 ${count}/${max}`,
   fields: {
     prodName: "상품명",
@@ -82,8 +83,8 @@ export const buyBulk = {
   },
   // 조건을 통과한 매물 중 기본으로 고르는 기준 — 모든 줄에 하나가 적용된다
   pickBy: {
-    label: "매물 고르는 기준",
-    hint: "조건을 통과한 매물 중에서 이 기준으로 기본 매물을 골라요.",
+    label: "추천 기준",
+    hint: "매물 카드 순서와 \"추천\" 표시 기준이에요. 어느 매물을 살지는 직접 골라요.",
     options: { price: "가장 싼 것 먼저", state: "상태 좋은 것 먼저", warranty: "보증 긴 것 먼저" },
   },
   // 후보 팝업·줄 요약의 매물 특성
@@ -101,7 +102,8 @@ export const buyBulk = {
   line: {
     row: (n: number) => `${n}행`,
     select: (n: number) => `${n}행 선택`,
-    available: "매물 있음",
+    available: "선택 완료",
+    choose: "선택 필요",
     unavailable: "매물 없음",
     failed: "고쳐야 해요",
     added: "담김",
@@ -118,28 +120,33 @@ export const buyBulk = {
     price: (price: string) => `단가 ${price}`,
     stock: (n: number) => `재고 ${n}`,
     delivery: (date: string) => `납기 ${date}`,
-    changeListing: "다른 매물 보기",
     noListing: "살 수 있는 매물이 없어요.",
-    blockedWhy: "이유",
-    mismatchedTitle: (n: number) => `조건과 다른 매물 ${n}건 — 알고 고르면 담을 수 있어요`,
-    pickMismatched: "이 매물 고르기",
     mismatchNote: "조건과 다른 점",
-    moreInDialog: (n: number) => `나머지 ${n}건은 [다른 매물 보기]에서 볼 수 있어요`,
     alternatives: "대체품 제안",
     useAlternative: "대체품으로 바꾸기",
     alternativeOffer: (name: string, nickname: string | null, price: string) => `${name} · ${nickname ?? "판매자"} · 단가 ${price}`,
   },
-  option: {
-    title: "매물 고르기",
-    desc: "수량에 맞는 매물만 고를 수 있어요. 못 고르는 매물은 이유가 보여요.",
-    main: (name: string) => `${name} 의 매물`,
-    alternative: (name: string) => `대체품 ${name} 의 매물`,
-    alternativeNote: "원래 요청과 다른 상품이에요. 고르면 요청사항에 \"원래 요청\"이 함께 적혀요.",
+  // 줄 안 매물 그룹(접고 펴는 제목) 과 매물 카드 — 고르는 건 구매자다
+  group: {
+    count: (n: number) => `매물 ${n}건`,
+    chosen: (seller: string, price: string) => `선택됨: ${seller} · ${price}`,
+    none: "아직 고르지 않았어요",
+    unavailable: "고를 수 있는 매물이 없어요",
     empty: "이 상품의 매물이 없어요.",
+    fit: (n: number) => `조건에 맞는 매물 ${n}건`,
+    mismatched: (n: number) => `조건과 다른 매물 ${n}건 — 알고 고르면 담을 수 있어요`,
+    blocked: (n: number) => `고를 수 없는 매물 ${n}건`,
+    showBlocked: "보기",
+    hideBlocked: "접기",
+    select: "선택",
+    selected: "선택됨",
+    recommended: "추천",
+    toggle: (name: string) => `${name} 매물 접고 펴기`,
+  },
+  option: {
     minOrder: (n: number, unit: number) => `최소주문 ${n} · 주문단위 ${unit}`,
     replaceHint: (text: string) => `대체품: ${text}`,
     mismatch: (text: string) => `조건과 다름: ${text}`,
-    cancel: "닫기",
   },
   actions: {
     commitSelected: (n: number) => `선택한 ${n}건 담기`,

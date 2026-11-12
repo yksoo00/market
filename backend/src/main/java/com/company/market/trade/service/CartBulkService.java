@@ -126,6 +126,11 @@ public class CartBulkService {
 				outcomes.add(new Outcome(r.rowNo(), false, "NO_LISTING", "살 수 있는 매물이 없어요."));
 				continue;
 			}
+			// 고르지 않은 줄은 담지 않는다 — 어느 매물인지 정하는 건 구매자다
+			if (r.status() == Status.CHOOSE) {
+				outcomes.add(new Outcome(r.rowNo(), false, "NO_CHOICE", "매물을 골라 주세요."));
+				continue;
+			}
 			// 장바구니가 가득 찼으면 남은 줄은 담기를 시도하지 않는다 — 줄마다 매물을 잠그고 세고 되돌리는 일이 헛돈다
 			if (cartFull) {
 				outcomes.add(new Outcome(r.rowNo(), false, ErrorCode.CART_FULL.name(), ErrorCode.CART_FULL.message()));
@@ -249,14 +254,14 @@ public class CartBulkService {
 				fields.putIfAbsent(name != null ? "prodName" : "prodId", "파일 안에서 같은 상품이 이미 있어요.");
 			}
 			String reqDeliDate = norm(row.reqDeliDate());
-			options = optionsOf(master.getProdId(), quantity, buyerId, conditions, reqDeliDate);
+			options = optionsOf(master.getProdId(), quantity, buyerId, conditions, reqDeliDate, sort);
 			String sellerId = norm(row.sellerId());
 			String regDate = norm(row.regDate());
-			// 대체품은 살 수 있는 매물이 없을 때 제안하는 것이다. 사용자가 매물을 골라 보냈으면(대체 매물일 수 있다) 검증하려고 계산한다
-			boolean wantsAlternatives = sellerId != null || defaultPick(options, sort) == null;
+			// 대체품은 고를 수 있는 매물이 하나도 없을 때 제안하는 것이다(있으면 그중에서 고른다). 사용자가 매물을 골라 보냈으면(대체 매물일 수 있다) 검증하려고 계산한다
+			boolean wantsAlternatives = sellerId != null || options.stream().noneMatch(o -> o.reason() == null);
 			// 고른 매물 검증엔 못 사는 대체 매물까지 필요하다(사유를 알려 주려고). 응답에는 살 수 있는(하드 막힘 없는) 매물이 있는 대체품을 제안한다 —
 			// 조건과 다른 점만 있는 매물도 포함한다(고른 대체 매물이 응답에서 사라지지 않게, 조건과 다른 매물을 보여 주고 고르게 한다는 규칙과 같다)
-			List<Alternative> allAlternatives = wantsAlternatives ? alternativesOf(master, quantity, buyerId, conditions, reqDeliDate) : List.of();
+			List<Alternative> allAlternatives = wantsAlternatives ? alternativesOf(master, quantity, buyerId, conditions, reqDeliDate, sort) : List.of();
 			alternatives = allAlternatives.stream().filter(a -> a.options().stream().anyMatch(o -> o.reason() == null)).toList();
 			if (sellerId != null && regDate != null) {
 				// 사용자가 고른 매물 — 후보와 대조한다. 못 찾거나 못 사면(하드 막힘) 서버가 다른 매물로 바꾸지 않고 줄 오류로 돌려준다(조용한 교체 금지).
@@ -277,18 +282,21 @@ public class CartBulkService {
 				}
 			}
 			else {
-				chosen = defaultPick(options, sort);
+				chosen = onlyClean(options);
 			}
 		}
 
-		Status status = !fields.isEmpty() ? Status.FAILED : chosen == null ? Status.UNAVAILABLE : Status.AVAILABLE;
+		// 고를 매물이 있는데 아직 안 골랐으면 CHOOSE(사용자가 고른다), 고를 수 있는 매물이 하나도 없으면 UNAVAILABLE
+		boolean selectable = options.stream().anyMatch(o -> o.reason() == null);
+		Status status = !fields.isEmpty() ? Status.FAILED : chosen != null ? Status.AVAILABLE : selectable ? Status.CHOOSE : Status.UNAVAILABLE;
 		CartBulkRowResult result = new CartBulkRowResult(row.rowNo(), status, master == null ? null : master.getProdId(),
 				master == null ? null : master.getProdName(), chosen, options, alternatives, candidates, List.of(), fields, substituted);
 		return new Checked(result, fields.containsKey("orderQuantity") ? null : quantity);
 	}
 
 	/** 그 마스터의 모든 매물을 후보로 — 못 사는 매물은 사유(reason), 조건과 다른 매물은 다른 점(mismatches)과 함께 남긴다 */
-	private List<ListingOption> optionsOf(String prodId, Integer quantity, UUID buyerId, CartBulkConditions.Conditions conditions, String reqDeliDate) {
+	private List<ListingOption> optionsOf(String prodId, Integer quantity, UUID buyerId, CartBulkConditions.Conditions conditions, String reqDeliDate,
+			CartBulkSort sort) {
 		List<ListingTradeSnapshot> snapshots = listings.snapshotsOfProduct(prodId);
 		if (snapshots.isEmpty()) {
 			return List.of();
@@ -305,6 +313,8 @@ public class CartBulkService {
 					s.stockQuantity() == null ? 0 : s.stockQuantity(), s.minOrderQuantity() == null ? 1 : s.minOrderQuantity(),
 					s.orderUnit() == null ? 1 : s.orderUnit(), s.provDate(), hints.get(s.id()), reasonOf(s, quantity, buyerId), conditions.mismatches(s, t, reqDeliDate), t));
 		}
+		// 카드 순서 = 요청의 정렬 기준. 화면은 이 순서 그대로 보이고 조건에 맞는 첫 매물에 "추천"만 붙인다
+		options.sort(conditionRules.comparator(sort));
 		return options;
 	}
 
@@ -332,18 +342,23 @@ public class CartBulkService {
 	}
 
 	/** 마스터의 대체상품명과 이름이 같은 마스터와 그 매물(못 사는 매물 포함) — 제안일 뿐 고르지 않는다 */
-	private List<Alternative> alternativesOf(Product master, Integer quantity, UUID buyerId, CartBulkConditions.Conditions conditions, String reqDeliDate) {
+	private List<Alternative> alternativesOf(Product master, Integer quantity, UUID buyerId, CartBulkConditions.Conditions conditions, String reqDeliDate,
+			CartBulkSort sort) {
 		List<Alternative> out = new ArrayList<>();
 		for (Product alt : products.alternatesOf(master)) {
-			List<ListingOption> options = optionsOf(alt.getProdId(), quantity, buyerId, conditions, reqDeliDate);
+			List<ListingOption> options = optionsOf(alt.getProdId(), quantity, buyerId, conditions, reqDeliDate, sort);
 			out.add(new Alternative(alt.getProdId(), alt.getProdName(), alt.getProdBrand(), options));
 		}
 		return out;
 	}
 
-	/** 살 수 있고 조건과 다른 점도 없는 매물 중 정렬 기준 1순위 — 순서는 CartBulkSort·CartBulkConditions.comparator. 다른 점이 있는 매물은 사용자가 직접 고른다 */
-	private ListingOption defaultPick(List<ListingOption> options, CartBulkSort sort) {
-		return options.stream().filter(CartBulkService::clean).min(conditionRules.comparator(sort)).orElse(null);
+	/**
+	 * 조건에 맞는(살 수 있고 다른 점도 없는) 매물이 **딱 하나일 때만** 미리 고른다 — 틀릴 수 없는 줄만 자동이다(상품 찾기의 "하나일 때만 자동"과 같은 원리).
+	 * 여럿이면 어느 것인지 알 수 없어 구매자가 고르고(정렬 1순위는 화면이 "추천"으로만 표시), 조건과 다른 매물뿐이어도 구매자가 고른다
+	 */
+	private static ListingOption onlyClean(List<ListingOption> options) {
+		List<ListingOption> clean = options.stream().filter(CartBulkService::clean).toList();
+		return clean.size() == 1 ? clean.get(0) : null;
 	}
 
 	/** 찾은 마스터가 전부 같은 상품(이름·제조사·분류번호가 글자 그대로 같음)인가 — 제조일만 달라 따로 남은 옛 중복 행은 고를 일이 아니다. 비어 있으면 false */
