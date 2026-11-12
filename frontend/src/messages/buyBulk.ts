@@ -156,6 +156,7 @@ export const buyBulk = {
     mismatch: (text: string) => `조건과 다름: ${text}`,
   },
   actions: {
+    summary: (selected: number, all: number) => `체크한 줄 ${selected}건 · 담을 수 있는 줄 ${all}건`,
     commitSelected: (n: number) => `선택한 ${n}건 담기`,
     commitAll: (n: number) => `담을 수 있는 ${n}건 모두 담기`,
     committing: "담는 중이에요",

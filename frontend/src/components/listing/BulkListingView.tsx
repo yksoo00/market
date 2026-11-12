@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useReducer, useRef, useState, type DragEvent } from "react";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
+import { BulkActionBar } from "@/components/common/BulkActionBar";
 import { BulkHeader, BulkRows } from "@/components/listing/BulkRows";
 import { CategoryPickDialog } from "@/components/listing/CategoryPickDialog";
 import { ProductSearchDialog } from "@/components/listing/ProductSearchDialog";
@@ -380,7 +381,7 @@ export function BulkListingView() {
               </button>
             </span>
           </div>
-          <p className="num text-[13px] text-ink-2">{t.summary(stat.ok, stat.failed, stat.selected)}</p>
+          <p className="tabular-nums text-[13px] text-ink-2">{t.summary(stat.ok, stat.failed, stat.selected)}</p>
 
           {shown.length === 0 ? (
             <p className="rounded-md border border-line bg-surface py-10 text-center text-[14px] text-ink-2">{p.emptyView}</p>
@@ -400,24 +401,11 @@ export function BulkListingView() {
             </div>
           )}
 
-          <div className="sticky bottom-0 flex flex-wrap gap-2 border-t border-line bg-surface py-3">
-            <button
-              type="button"
-              onClick={commitSelected}
-              disabled={busy || stat.selected === 0}
-              className="h-10 px-5 rounded-md bg-primary text-white text-[14px] font-bold hover:bg-primary-dark disabled:opacity-40"
-            >
-              {committing ? t.actions.committing : t.actions.commitSelected(stat.selected)}
-            </button>
-            <button
-              type="button"
-              onClick={commitAll}
-              disabled={busy || committable === 0}
-              className="h-10 px-5 rounded-md border border-primary text-primary text-[14px] font-bold hover:bg-primary-soft disabled:opacity-40"
-            >
-              {t.actions.commitAll(committable)}
-            </button>
-          </div>
+          <BulkActionBar
+            summary={t.actions.summary(stat.selected, committable)}
+            primary={{ label: committing ? t.actions.committing : t.actions.commitSelected(stat.selected), disabled: busy || stat.selected === 0, onClick: commitSelected }}
+            secondary={{ label: t.actions.commitAll(committable), disabled: busy || committable === 0, onClick: commitAll }}
+          />
         </fieldset>
       )}
 

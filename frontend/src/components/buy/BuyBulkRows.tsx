@@ -142,7 +142,7 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
         >
           {/* 윗줄은 한 줄 고정(이름만 줄어든다), 아랫줄 요약은 좁으면 줄바꿈 — 접은 줄이 모바일에서도 두 줄을 넘지 않게 */}
           <span className="flex min-w-0 items-center gap-x-2">
-            <span className="num shrink-0 text-[13px] font-semibold text-ink">{t.line.row(line.rowNo)}</span>
+            <span className="tabular-nums shrink-0 text-[13px] font-semibold text-ink">{t.line.row(line.rowNo)}</span>
             <span className={cn("shrink-0 rounded px-1.5 py-0.5 text-[12px] font-bold", badgeClass)}>{badge}</span>
             <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-ink">{name.trim() === "" ? t.line.untitled : name}</span>
             <span aria-hidden="true" className="shrink-0 text-ink-2">
@@ -182,9 +182,9 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
                 <div className="flex flex-col gap-0.5 rounded-md border border-primary bg-primary-soft px-2 py-1.5">
                   <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[13px]">
                     <span className="font-semibold text-ink">{t.line.seller(chosen.sellerNickname)}</span>
-                    <span className="num">{t.line.price(formatPrice(chosen.unitPrice))}</span>
-                    <span className="num">{t.line.stock(chosen.stock)}</span>
-                    {chosen.deliveryDate && <span className="num">{t.line.delivery(chosen.deliveryDate)}</span>}
+                    <span className="tabular-nums">{t.line.price(formatPrice(chosen.unitPrice))}</span>
+                    <span className="tabular-nums">{t.line.stock(chosen.stock)}</span>
+                    {chosen.deliveryDate && <span className="tabular-nums">{t.line.delivery(chosen.deliveryDate)}</span>}
                   </div>
                   <TraitsLine traits={chosen.traits} className="text-[12px] text-ink-2" />
                   {chosen.mismatches.map((text) => (

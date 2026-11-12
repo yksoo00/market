@@ -164,7 +164,7 @@ function BulkRow({ line, onToggle, onEdit, onBlurLine, onPick, onFind, onUnlock,
             aria-label={t.line.select(line.rowNo)}
             className="@5xl:mt-2"
           />
-          <span className="num text-[13px] font-semibold text-ink @5xl:mt-1.5">{t.line.row(line.rowNo)}</span>
+          <span className="tabular-nums text-[13px] font-semibold text-ink @5xl:mt-1.5">{t.line.row(line.rowNo)}</span>
           <span className={cn("w-fit rounded px-1.5 py-0.5 text-[12px] font-bold @5xl:mt-1", badgeClass)}>{badge}</span>
           {line.checking && (
             <span aria-busy="true" className="text-[12px] text-ink-3 @5xl:hidden">

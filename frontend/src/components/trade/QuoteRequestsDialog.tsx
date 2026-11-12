@@ -183,8 +183,8 @@ export function QuoteRequestsDialog({ open, onOpenChange, onChanged }: Props) {
                       <li key={group.regDate} className="rounded-md border border-line">
                         <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-line-2 bg-bg px-3 py-2">
                           <span className="font-semibold text-ink">{t.group(group.prodName)}</span>
-                          <span className="num text-[13px] text-ink-2">{t.stock(group.stock)}</span>
-                          <span className={cn("num text-[13px]", over ? "font-semibold text-down" : "text-ink-2")}>{t.sum(sum)}</span>
+                          <span className="tabular-nums text-[13px] text-ink-2">{t.stock(group.stock)}</span>
+                          <span className={cn("tabular-nums text-[13px]", over ? "font-semibold text-down" : "text-ink-2")}>{t.sum(sum)}</span>
                           {over && <span className="w-full text-[12px] text-down">{t.overStock}</span>}
                         </div>
                         <ul>
@@ -216,7 +216,7 @@ function Row({ item, state, busy, onReply }: { item: QuoteRequestItem; state: Ro
       <span className="w-28 truncate text-[13px] font-medium" title={buyer}>
         {buyer}
       </span>
-      <span className="num w-14 text-right text-[13px] font-semibold">{trade.bulk.quantity(item.orderQuantity)}</span>
+      <span className="tabular-nums w-14 text-right text-[13px] font-semibold">{trade.bulk.quantity(item.orderQuantity)}</span>
       <span className="num text-[13px]">
         {trade.bulk.wanted} {formatPrice(item.orderUnitPrice)}
         {item.salesUnitPrice !== null && (

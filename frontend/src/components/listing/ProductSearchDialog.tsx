@@ -175,7 +175,7 @@ export function ProductSearchDialog({ onPick, onClose }: Props) {
                       <span className="truncate text-ink-2" title={p.categoryName ?? p.categoryCode}>
                         {p.categoryName ?? p.categoryCode}
                       </span>
-                      <span className={cn("num md:text-right", p.listingCount > 0 ? "font-semibold text-green" : "text-ink-3")}>{t.listingCount(p.listingCount)}</span>
+                      <span className={cn("tabular-nums md:text-right", p.listingCount > 0 ? "font-semibold text-green" : "text-ink-3")}>{t.listingCount(p.listingCount)}</span>
                     </button>
                   </li>
                 );
