@@ -306,7 +306,7 @@ public class CartBulkService {
 		for (ListingTradeSnapshot s : snapshots) {
 			int price = s.salesUnitPrice() == null ? 0 : s.salesUnitPrice();
 			// 조회 사이에 지워진 매물이면 특성이 없다 — 알 수 없는 값으로 두면 조건을 확인할 수 없어 못 사는 쪽으로 판정된다
-			ListingTraits t = traits.getOrDefault(s.id(), new ListingTraits(null, null, false, false, false, false, false));
+			ListingTraits t = traits.getOrDefault(s.id(), new ListingTraits(null, null, false, false, null, false, false));
 			options.add(new ListingOption(s.sellerId().toString(), s.regDate(), nicknames.get(s.sellerId()), price,
 					s.stockQuantity() == null ? 0 : s.stockQuantity(), s.minOrderQuantity() == null ? 1 : s.minOrderQuantity(),
 					s.orderUnit() == null ? 1 : s.orderUnit(), s.provDate(), hints.get(s.id()), reasonOf(s, quantity, buyerId), conditions.mismatches(s, t, reqDeliDate), t));

@@ -408,7 +408,7 @@ public class ListingService {
 		return listings.findAllByProdIdOrderByRegDate(prodId).stream().collect(Collectors.toMap(Listing::getId,
 				l -> new ListingTraits(l.getProdState(), l.getWarrantyPeriod(), hasText(l.getProdDataSheet()),
 						hasText(l.getProdPhoto1()) || hasText(l.getProdPhoto2()) || hasText(l.getProdPhoto3()) || hasText(l.getProdImage4()),
-						hasText(l.getWarrantyCoverage()), hasText(l.getTestReport()), hasText(l.getCertificateOfAuthen()))));
+						hasText(l.getWarrantyCoverage()) ? l.getWarrantyCoverage() : null, hasText(l.getTestReport()), hasText(l.getCertificateOfAuthen()))));
 	}
 
 	/** 장바구니 목록용 — 검색 결과와 같은 칸(지금 매물 값)을 매물·상품 각 한 쿼리로. 없는 키는 빠진다 */

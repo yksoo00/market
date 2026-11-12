@@ -8,7 +8,7 @@ export function evidenceNames(traits: ListingTraits): string[] {
   return [
     traits.hasDataSheet && t.dataSheet,
     traits.hasPhoto && t.photo,
-    traits.hasWarrantyCoverage && t.coverage,
+    traits.warrantyCoverage !== null && t.coverage,
     traits.hasTestReport && t.testReport,
     traits.hasCertificate && t.certificate,
   ].filter((name): name is string => typeof name === "string");

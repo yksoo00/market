@@ -406,6 +406,7 @@ export function BuyBulkView() {
               onFind={setFinder}
               onUnlock={unlock}
               onChoose={choose}
+              onOpenDetail={(sellerId, regDate) => openTile(`/listings/${sellerId}/${regDate}`, false)}
             />
           )}
 

@@ -25,7 +25,7 @@ const row = (rowNo: number, patch: Partial<CartBulkRowApi>): CartBulkRowApi => (
   ...patch,
 });
 
-const traits = { prodState: "신품", warrantyDays: null, hasDataSheet: false, hasPhoto: false, hasWarrantyCoverage: false, hasTestReport: false, hasCertificate: false };
+const traits = { prodState: "신품", warrantyDays: null, hasDataSheet: false, hasPhoto: false, warrantyCoverage: null, hasTestReport: false, hasCertificate: false };
 
 const option = (price: number): ListingOption => ({
   sellerId: "S",

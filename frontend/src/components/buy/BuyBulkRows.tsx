@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BuyConditionFields } from "@/components/buy/BuyConditionFields";
-import { TraitsLine, evidenceNames } from "@/components/buy/TraitsLine";
+import { TraitsLine } from "@/components/buy/TraitsLine";
 import type { ListingOption } from "@/types/cartBulk";
 import { Checkbox } from "@/components/ui/checkbox";
 import { blockedOptions, canSelect, cleanOptions, errorsOf, isClean, isLocked, softOptions, type BuyLine, type BuyPick } from "@/lib/buyBulk";
@@ -30,6 +30,8 @@ interface RowsProps {
   onFind: (rowNo: number) => void;
   onUnlock: (rowNo: number) => void;
   onChoose: (rowNo: number, sellerId: string, regDate: string) => void;
+  /** 매물 카드 본문을 누르면 그 매물의 상세 페이지를 보조 칸으로 연다 */
+  onOpenDetail: (sellerId: string, regDate: string) => void;
 }
 
 /** 줄 카드 목록. 칸 너비가 좁아도 같은 모양(칸 격자 2~4열)이고, 정렬은 위쪽 [정렬] 드롭다운으로 한다 */
@@ -43,7 +45,7 @@ export function BuyBulkRows({ lines, ...handlers }: RowsProps) {
   );
 }
 
-function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onFind, onUnlock, onChoose }: { line: BuyLine } & Omit<RowsProps, "lines">) {
+function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onFind, onUnlock, onChoose, onOpenDetail }: { line: BuyLine } & Omit<RowsProps, "lines">) {
   const errors = errorsOf(line);
   const failed = Object.keys(errors).length > 0;
   const tab = tabOf(line);
@@ -171,7 +173,7 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
           {!line.added && <BuyConditionFields line={line} onEdit={onEdit} onBlurLine={onBlurLine} onEditNow={onEditNow} />}
 
           {/* 이 줄 상품의 매물 카드 — 어느 매물을 살지는 구매자가 고른다 */}
-          {!line.added && hasMaster && <ListingCards line={line} parts={parts} onChoose={onChoose} />}
+          {!line.added && hasMaster && <ListingCards line={line} parts={parts} onChoose={onChoose} onOpenDetail={onOpenDetail} />}
 
           {hasExtra && (
             <div className="flex flex-col gap-1.5 border-t border-line-2 px-3 py-2">
@@ -257,141 +259,152 @@ function partsOf(result: BuyLine["result"]) {
 }
 
 /**
- * 줄 안의 매물 카드들 — 구역 셋: 조건에 맞는 매물(맞는 게 여럿이면 첫 카드에 "추천") → 조건과 다른 매물(알고 고를 수 있음) →
- * 고를 수 없는 매물(이유만, 고를 수 있는 매물이 있으면 접어 둠). 미리 고르는 건 맞는 매물이 딱 하나일 때뿐(서버)
+ * 줄 안의 매물 카드들 — 매물 하나가 카드 하나다(위쪽 줄 카드와 같은 모양: 머리 띠 + 라벨·값 칸 격자). 순서는 서버가 정한 고정 순서 그대로:
+ * 조건에 맞는 매물(맞는 게 여럿이면 첫 카드에 "추천") → 조건과 다른 매물(머리에 꼬리표) → 고를 수 없는 매물(회색, 고를 수 있는 매물이 있으면 접어 둠).
+ * 미리 고르는 건 맞는 매물이 딱 하나일 때뿐(서버)
  */
-function ListingCards({ line, parts, onChoose }: { line: BuyLine; parts: ReturnType<typeof partsOf>; onChoose: (rowNo: number, sellerId: string, regDate: string) => void }) {
+function ListingCards({
+  line,
+  parts,
+  onChoose,
+  onOpenDetail,
+}: {
+  line: BuyLine;
+  parts: ReturnType<typeof partsOf>;
+  onChoose: (rowNo: number, sellerId: string, regDate: string) => void;
+  onOpenDetail: (sellerId: string, regDate: string) => void;
+}) {
   const { fit, soft, blocked, noneSelectable } = parts;
   const [showBlocked, setShowBlocked] = useState(false);
   const blockedShown = showBlocked || noneSelectable;
+  const card = (o: ListingOption, recommended = false) => (
+    <ListingCard key={`${o.sellerId}/${o.regDate}`} option={o} line={line} recommended={recommended} onChoose={onChoose} onOpenDetail={onOpenDetail} />
+  );
 
   return (
-    <div className="flex flex-col gap-3 border-t border-line-2 px-3 py-2">
+    <div className="flex flex-col gap-2 border-t border-line-2 px-3 py-2">
       {line.result.options.length === 0 && <p className="rounded-md border border-line py-3 text-center text-[13px] text-ink-2">{t.group.empty}</p>}
-      {fit.length > 0 && (
-        <ListingSection title={t.group.fit(fit.length)}>
-          {fit.map((o, i) => (
-            <ListingCard key={`${o.sellerId}/${o.regDate}`} option={o} line={line} recommended={fit.length > 1 && i === 0} onChoose={onChoose} />
-          ))}
-        </ListingSection>
+      {fit.map((o, i) => card(o, fit.length > 1 && i === 0))}
+      {soft.map((o) => card(o))}
+      {blocked.length > 0 && !noneSelectable && (
+        <div className="flex items-center gap-2">
+          <span className="text-[12px] text-ink-2">{t.group.blocked(blocked.length)}</span>
+          <button type="button" onClick={() => setShowBlocked((v) => !v)} className="text-[12px] text-primary underline underline-offset-2">
+            {showBlocked ? t.group.hideBlocked : t.group.showBlocked}
+          </button>
+        </div>
       )}
-      {soft.length > 0 && (
-        <ListingSection title={t.group.mismatched(soft.length)}>
-          {soft.map((o) => (
-            <ListingCard key={`${o.sellerId}/${o.regDate}`} option={o} line={line} recommended={false} onChoose={onChoose} />
-          ))}
-        </ListingSection>
-      )}
-      {blocked.length > 0 && (
-        <ListingSection
-          title={t.group.blocked(blocked.length)}
-          action={
-            noneSelectable ? null : (
-              <button type="button" onClick={() => setShowBlocked((v) => !v)} className="text-[12px] text-primary underline underline-offset-2">
-                {showBlocked ? t.group.hideBlocked : t.group.showBlocked}
-              </button>
-            )
-          }
-        >
-          {blockedShown && blocked.map((o) => <ListingCard key={`${o.sellerId}/${o.regDate}`} option={o} line={line} recommended={false} onChoose={onChoose} />)}
-        </ListingSection>
-      )}
+      {blockedShown && blocked.map((o) => card(o))}
     </div>
   );
 }
 
-function ListingSection({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
+/** 라벨 위 + 값 칸 아래 — 위쪽 줄 카드의 잠긴 칸과 같은 모양(읽기만) */
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <section className="flex flex-col gap-1.5">
-      <div className="flex items-center gap-2">
-        <h4 className="text-[12px] font-semibold text-ink">{title}</h4>
-        {action}
-      </div>
-      <ul className="flex flex-col gap-1.5">{children}</ul>
-    </section>
+    <span className="flex min-w-0 flex-col gap-1">
+      <span className="text-[12px] text-ink-2">{label}</span>
+      <span className="flex min-h-8 items-center truncate rounded-md bg-bg px-2 text-[13px] text-ink-2">{children}</span>
+    </span>
+  );
+}
+
+/** 서류 칩 — 있으면 ✓, 없으면 ✗ */
+function EvidenceChip({ name, has }: { name: string; has: boolean }) {
+  return (
+    <span className={cn("rounded px-1.5 py-0.5 text-[12px]", has ? "bg-green-soft text-green" : "bg-bg text-ink-3")}>
+      {has ? "✓" : "✗"} {name}
+    </span>
   );
 }
 
 /**
- * 매물 한 건 — 카드 한 줄에 비교에 쓰는 정보(판매자·단가·재고·납기·상태·보증)를 남기고, 확인용(최소주문·주문단위·서류·대체품 글)은 [상세]로 접는다.
- * 카드의 본문 전체가 선택 영역이다(안 골랐으면 빈 동그라미, 고르면 보라 테두리 + "✓ 선택됨"). 한 번 고르면 풀리지 않고 다른 카드를 눌러 바꾼다.
- * 못 고르는 매물(이유 있음)은 눌러지지 않고 회색에 이유만, 조건과 다른 매물은 다른 점이 카드에 그대로 보인다
+ * 매물 한 건. 머리 띠의 동그라미(와 판매자 이름)를 누르면 **선택**, 본문(라벨·값 격자)을 누르면 그 매물의 **상세 페이지**(보조 칸)가 열린다.
+ * 한 번 고르면 풀리지 않고 다른 카드를 눌러 바꾼다. 못 고르는 매물(이유 있음)은 머리에 선택 동그라미가 없고 이유가 빨간 글씨로 붙는다.
+ * 조건과 다른 매물은 머리에 꼬리표, 다른 점이 본문 아래에 보인다. 사진·설명·사양·파일은 상세 페이지에서 본다
  */
 function ListingCard({
   option: o,
   line,
   recommended,
   onChoose,
+  onOpenDetail,
 }: {
   option: ListingOption;
   line: BuyLine;
   recommended: boolean;
   onChoose: (rowNo: number, sellerId: string, regDate: string) => void;
+  onOpenDetail: (sellerId: string, regDate: string) => void;
 }) {
-  const [detail, setDetail] = useState(false);
   const blocked = o.reason !== null;
   const picked = line.result.chosen?.sellerId === o.sellerId && line.result.chosen.regDate === o.regDate;
-  const evidence = evidenceNames(o.traits);
-  const body = (
-    <>
-      <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[13px]">
-        <span className="font-semibold">{t.line.seller(o.sellerNickname)}</span>
-        <span className="num">{t.line.price(formatPrice(o.unitPrice))}</span>
-        <span className="num">{t.line.stock(o.stock)}</span>
-        {o.deliveryDate && <span className="num">{t.line.delivery(o.deliveryDate)}</span>}
-        <span className="text-[12px] text-ink-2">
-          {t.trait.state(o.traits.prodState)} · {t.trait.warranty(o.traits.warrantyDays)}
-        </span>
-        {recommended && <span className="rounded bg-green-soft px-1.5 py-0.5 text-[12px] font-bold text-green">{t.group.recommended}</span>}
-        {!blocked && (
-          <span className={cn("ml-auto flex items-center text-[12px] font-bold", picked ? "text-primary" : "text-ink-3")}>
-            {picked ? `✓ ${t.group.selected}` : <span aria-hidden="true" className="inline-block h-4 w-4 rounded-full border border-line" />}
-          </span>
-        )}
-      </span>
-      {o.reason && <span className="text-[12px] text-down">{o.reason}</span>}
-      {!blocked &&
-        o.mismatches.map((text) => (
-          <span key={text} className="text-[12px] text-ink-2">
-            {t.option.mismatch(text)}
-          </span>
-        ))}
-    </>
-  );
-  const bodyClass = "flex w-full flex-col gap-0.5 px-2 py-1.5 text-left";
+  const seller = t.line.seller(o.sellerNickname);
+  const qty = Number(line.fields.orderQuantity.replace(/[,\s]/g, ""));
+  const total = Number.isInteger(qty) && qty > 0 ? formatPrice(o.unitPrice * qty) : "-";
+  const tr = o.traits;
   return (
-    <li className={cn("rounded-md border", picked ? "border-primary bg-primary-soft" : "border-line", blocked && "bg-bg text-ink-3")}>
-      {blocked ? (
-        <div className={bodyClass}>{body}</div>
-      ) : (
-        <button
-          type="button"
-          aria-pressed={picked}
-          disabled={line.checking}
-          onClick={() => !picked && onChoose(line.rowNo, o.sellerId, o.regDate)}
-          className={cn(bodyClass, "rounded-md outline-none focus-visible:ring-1 focus-visible:ring-primary disabled:opacity-60", !picked && "hover:bg-bg")}
-        >
-          {body}
-        </button>
-      )}
-      <div className="px-2 pb-1.5">
-        <button
-          type="button"
-          aria-expanded={detail}
-          onClick={() => setDetail((v) => !v)}
-          className="text-[12px] text-ink-3 underline underline-offset-2 hover:text-ink"
-        >
-          {t.group.detail} {detail ? "▴" : "▾"}
-        </button>
-        {detail && (
-          <div className="mt-1 flex flex-col gap-0.5 text-[12px] text-ink-3">
-            <span className="num">{t.option.minOrder(o.minOrder, o.orderUnit)}</span>
-            <span>{evidence.length > 0 ? `${t.trait.evidence}: ${evidence.join("·")}` : t.trait.evidenceNone}</span>
-            {o.replaceHint && <span>{t.option.replaceHint(o.replaceHint)}</span>}
-          </div>
+    <div className={cn("overflow-hidden rounded-md border", picked ? "border-primary" : "border-line", blocked && "opacity-80")}>
+      <div className={cn("flex items-center gap-2 px-3 py-2", picked ? "bg-primary-soft" : "bg-bg")}>
+        {blocked ? (
+          <span className="flex min-w-0 flex-1 items-center gap-2 text-[13px] font-semibold text-ink-3">
+            <span className="truncate">{seller}</span>
+            <span className="shrink-0 rounded bg-surface px-1.5 py-0.5 text-[12px] font-normal">{t.card.blockedTag}</span>
+          </span>
+        ) : (
+          <button
+            type="button"
+            aria-pressed={picked}
+            aria-label={t.card.pickLabel(seller)}
+            disabled={line.checking}
+            onClick={() => !picked && onChoose(line.rowNo, o.sellerId, o.regDate)}
+            className="flex min-w-0 flex-1 items-center gap-2 text-left text-[13px] font-semibold text-ink outline-none focus-visible:ring-1 focus-visible:ring-primary disabled:opacity-60"
+          >
+            <span aria-hidden="true" className={cn("inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-[10px] text-white", picked ? "border-primary bg-primary" : "border-line bg-surface")}>
+              {picked ? "✓" : ""}
+            </span>
+            <span className="truncate">{seller}</span>
+            {recommended && <span className="shrink-0 rounded bg-green-soft px-1.5 py-0.5 text-[12px] font-bold text-green">{t.group.recommended}</span>}
+            {o.mismatches.length > 0 && <span className="shrink-0 rounded bg-surface px-1.5 py-0.5 text-[12px] font-normal text-ink-2">{t.card.mismatchTag}</span>}
+            {picked && <span className="ml-auto shrink-0 text-[12px] font-bold text-primary">{t.group.selected}</span>}
+          </button>
         )}
       </div>
-    </li>
+      <button type="button" onClick={() => onOpenDetail(o.sellerId, o.regDate)} title={t.card.detailHint} className="flex w-full flex-col gap-2 px-3 py-2 text-left hover:bg-bg">
+        <span className="grid grid-cols-2 gap-x-3 gap-y-2 @md:grid-cols-3">
+          <Field label={t.card.price}>{formatPrice(o.unitPrice)}</Field>
+          <Field label={t.card.total(Number.isInteger(qty) && qty > 0 ? qty : 0)}>{total}</Field>
+          <Field label={t.card.stock}>{o.stock}</Field>
+          <Field label={t.card.delivery}>{o.deliveryDate ?? "-"}</Field>
+          <Field label={t.card.state}>{tr.prodState ?? "-"}</Field>
+          <Field label={t.card.warranty}>{t.trait.warranty(tr.warrantyDays)}</Field>
+          <Field label={t.card.coverage}>{tr.warrantyCoverage ?? "-"}</Field>
+          <Field label={t.card.minOrder}>{o.minOrder}</Field>
+          <Field label={t.card.orderUnit}>{o.orderUnit}</Field>
+        </span>
+        <span className="flex flex-col gap-1">
+          <span className="text-[12px] text-ink-2">{t.card.evidence}</span>
+          <span className="flex flex-wrap gap-1.5">
+            <EvidenceChip name={t.trait.dataSheet} has={tr.hasDataSheet} />
+            <EvidenceChip name={t.trait.photo} has={tr.hasPhoto} />
+            <EvidenceChip name={t.trait.testReport} has={tr.hasTestReport} />
+            <EvidenceChip name={t.trait.certificate} has={tr.hasCertificate} />
+          </span>
+        </span>
+        {o.replaceHint && (
+          <span className="flex flex-col gap-1">
+            <span className="text-[12px] text-ink-2">{t.card.replace}</span>
+            <span className="rounded-md bg-bg px-2 py-1 text-[13px] text-ink-2">{o.replaceHint}</span>
+          </span>
+        )}
+        {o.reason && <span className="text-[12px] text-down">{o.reason}</span>}
+        {!blocked &&
+          o.mismatches.map((text) => (
+            <span key={text} className="text-[12px] text-down">
+              {t.option.mismatch(text)}
+            </span>
+          ))}
+      </button>
+    </div>
   );
 }
 

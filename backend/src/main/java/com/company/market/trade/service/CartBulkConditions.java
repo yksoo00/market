@@ -80,7 +80,7 @@ class CartBulkConditions {
 			if (photo && !t.hasPhoto()) {
 				out.add("사진이 없어요.");
 			}
-			if (coverage && !t.hasWarrantyCoverage()) {
+			if (coverage && t.warrantyCoverage() == null) {
 				out.add("불량지원방법이 없어요.");
 			}
 			if (testReport && !t.hasTestReport()) {

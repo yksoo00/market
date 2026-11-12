@@ -31,7 +31,8 @@ export interface ListingTraits {
   warrantyDays: number | null;
   hasDataSheet: boolean;
   hasPhoto: boolean;
-  hasWarrantyCoverage: boolean;
+  /** 불량지원방법 글(대체/환불), 없으면 null */
+  warrantyCoverage: string | null;
   hasTestReport: boolean;
   hasCertificate: boolean;
 }
