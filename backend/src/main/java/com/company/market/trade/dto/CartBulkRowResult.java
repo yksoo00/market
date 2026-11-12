@@ -26,7 +26,11 @@ public record CartBulkRowResult(
 	/** AVAILABLE = 살 매물이 골라져 있음, UNAVAILABLE = 마스터는 있는데 살 수 있는 매물이 없음, FAILED = 입력 오류·상품 못 찾음·고른 매물이 못 사게 바뀜 */
 	public enum Status { AVAILABLE, UNAVAILABLE, FAILED }
 
-	/** 매물 한 건. sellerId 는 UUID 글자. 판매자는 별명만 (이메일·전화는 없다). traits 는 상태·보증일·증빙 유무(파일 키 없음) */
+	/**
+	 * 매물 한 건. sellerId 는 UUID 글자. 판매자는 별명만 (이메일·전화는 없다). traits 는 상태·보증일·증빙 유무(파일 키 없음).
+	 * reason 은 **하드 막힘**(거래완료·내 매물·재고·최소주문량·주문단위 — 담기가 거절해서 못 고름, null 이면 살 수 있음),
+	 * mismatches 는 **조건과 다른 점**(상태·단가·보증·서류·제공가능일 — 사용자가 알고 고를 수 있음, 기본 매물로는 안 뽑힘)
+	 */
 	public record ListingOption(
 			String sellerId,
 			String regDate,
@@ -38,6 +42,7 @@ public record CartBulkRowResult(
 			String deliveryDate,
 			String replaceHint,
 			String reason,
+			List<String> mismatches,
 			ListingTraits traits) {
 	}
 

@@ -187,7 +187,7 @@ class CartBulkApiTest {
 	}
 
 	@Test
-	@DisplayName("check·commit·parse 가 조건 칸과 sort 를 받는다: 조건 때문에 못 사면 UNAVAILABLE + 사유, 모르는 sort 는 400")
+	@DisplayName("check·commit·parse 가 조건 칸과 sort 를 받는다: 조건과 안 맞으면 UNAVAILABLE + 다른 점(직접 고르면 담김), 모르는 sort 는 400")
 	void conditionsAndSort() throws Exception {
 		String strict = "{\"rowNo\":2,\"prodName\":\"구매API 상품\",\"prodBrand\":\"Acme\",\"orderQuantity\":\"3\",\"reqDeliDate\":\"2099-12-31\","
 				+ "\"maxPrice\":\"500\",\"minState\":\"신품\",\"needDataSheet\":\"Y\"}";
@@ -196,7 +196,8 @@ class CartBulkApiTest {
 				.content("{\"sort\":\"warranty\",\"rows\":[" + strict + "]}"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.results[0].status").value("UNAVAILABLE"))
-			.andExpect(jsonPath("$.data.results[0].options[0].reason").value(containsString("상한")))
+			.andExpect(jsonPath("$.data.results[0].options[0].reason").doesNotExist())
+			.andExpect(jsonPath("$.data.results[0].options[0].mismatches[0]").value(containsString("상한")))
 			.andExpect(jsonPath("$.data.results[0].options[0].traits.prodState").value("신품"));
 
 		mvc.perform(post("/api/v1/cart/bulk/commit").cookie(authCookie).contentType(MediaType.APPLICATION_JSON)
@@ -217,6 +218,18 @@ class CartBulkApiTest {
 				.cookie(authCookie))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.results[0].status").value("AVAILABLE"));
+	}
+
+	@Test
+	@DisplayName("조건과 다른 매물을 사용자가 직접 고르면 담기고, 하드 막힘이면 안 담긴다")
+	void commitsMismatchedChoice() throws Exception {
+		String picked = "{\"rowNo\":2,\"prodName\":\"구매API 상품\",\"prodBrand\":\"Acme\",\"orderQuantity\":\"3\",\"reqDeliDate\":\"2099-12-31\","
+				+ "\"maxPrice\":\"500\",\"sellerId\":\"" + sellerId + "\",\"regDate\":\"20261105100000\"}";
+
+		mvc.perform(post("/api/v1/cart/bulk/commit").cookie(authCookie).contentType(MediaType.APPLICATION_JSON).content(rowsJson(picked)))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.results[0].ok").value(true))
+			.andExpect(jsonPath("$.data.cartCount").value(1));
 	}
 
 	@Test

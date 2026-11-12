@@ -3,7 +3,7 @@
 import { BuyConditionFields } from "@/components/buy/BuyConditionFields";
 import { TraitsLine } from "@/components/buy/TraitsLine";
 import { Checkbox } from "@/components/ui/checkbox";
-import { blockedReasons, canSelect, errorsOf, isLocked, type BuyLine, type BuyPick } from "@/lib/buyBulk";
+import { blockedReasons, canSelect, errorsOf, isClean, isLocked, mismatchedOptions, type BuyLine, type BuyPick } from "@/lib/buyBulk";
 import { tabOf } from "@/lib/buyBulkView";
 import { formatPrice } from "@/lib/format";
 import { BUY_CONDITION_FIELDS, BUY_INPUT_FIELDS, type BuyFields, type BuyInputField } from "@/lib/validation/buyBulk";
@@ -131,16 +131,18 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
           !failed &&
           !line.added &&
           result.status === "UNAVAILABLE" && (
-            <div className="flex flex-col gap-0.5">
-              <p className="text-[13px] text-ink-2">{t.line.noListing}</p>
-              {/* 어떤 조건에서 막혔는지 줄에서 바로 보이게 — 팝업까지 열지 않아도 엑셀·조건 칸을 고칠 수 있다 */}
-              {blockedReasons(result).map((reason) => (
-                <p key={reason} className="text-[12px] text-down">
-                  {t.line.blockedWhy}: {reason}
-                </p>
-              ))}
-            </div>
+            <MismatchedOptions line={line} onChoose={onChoose} />
           )
+        )}
+        {chosen && chosen.mismatches.length > 0 && (
+          <div className="flex flex-col gap-0.5 rounded bg-bg px-2 py-1">
+            <p className="text-[12px] font-semibold text-ink">{t.line.mismatchNote}</p>
+            {chosen.mismatches.map((text) => (
+              <p key={text} className="text-[12px] text-ink-2">
+                {text}
+              </p>
+            ))}
+          </div>
         )}
         {errors.listing && (
           <p role="alert" className="text-[12px] text-down">
@@ -152,7 +154,7 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
             <p className="text-[12px] font-semibold text-ink">{t.line.alternatives}</p>
             <ul className="flex flex-col gap-1">
               {result.alternatives.map((alt) => {
-                const best = [...alt.options].filter((o) => o.reason === null).sort((a, b) => a.unitPrice - b.unitPrice)[0];
+                const best = [...alt.options].filter(isClean).sort((a, b) => a.unitPrice - b.unitPrice)[0];
                 return (
                   <li key={alt.prodId} className="flex flex-wrap items-center gap-2">
                     <span className="text-[12px] text-ink-2">{best ? t.line.alternativeOffer(alt.prodName, best.sellerNickname, formatPrice(best.unitPrice)) : alt.prodName}</span>
@@ -195,6 +197,59 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
         <ProductActions line={line} tab={tab} locked={locked} onPick={(pick) => onPick(line.rowNo, pick)} onFind={() => onFind(line.rowNo)} onUnlock={() => onUnlock(line.rowNo)} />
       )}
     </li>
+  );
+}
+
+const INLINE_LIMIT = 5;
+
+/**
+ * 매물 없음 줄: 조건과 다른 매물이 있으면 **다 보여 주고 사용자가 하나 고른다**(단가 낮은 순, 줄에는 5건까지 — 나머지는 [다른 매물 보기]).
+ * 하나도 없으면 막힌 이유(재고 부족 등)를 최대 3개 바로 보인다. 그래서 어느 쪽이든 줄에서 바로 다음 행동을 알 수 있다
+ */
+function MismatchedOptions({ line, onChoose }: { line: BuyLine; onChoose: (rowNo: number, sellerId: string, regDate: string) => void }) {
+  const soft = [...mismatchedOptions(line.result)].sort((a, b) => a.unitPrice - b.unitPrice || a.regDate.localeCompare(b.regDate));
+  if (soft.length === 0) {
+    return (
+      <div className="flex flex-col gap-0.5">
+        <p className="text-[13px] text-ink-2">{t.line.noListing}</p>
+        {blockedReasons(line.result).map((reason) => (
+          <p key={reason} className="text-[12px] text-down">
+            {t.line.blockedWhy}: {reason}
+          </p>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-1.5">
+      <p className="text-[13px] font-semibold text-ink">{t.line.mismatchedTitle(soft.length)}</p>
+      <ul className="flex flex-col gap-1.5">
+        {soft.slice(0, INLINE_LIMIT).map((o) => (
+          <li key={`${o.sellerId}/${o.regDate}`} className="flex flex-col gap-0.5 rounded-md border border-line px-2 py-1.5">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[13px]">
+              <span className="font-semibold text-ink">{t.line.seller(o.sellerNickname)}</span>
+              <span className="num">{t.line.price(formatPrice(o.unitPrice))}</span>
+              <span className="num">{t.line.stock(o.stock)}</span>
+              {o.deliveryDate && <span className="num">{t.line.delivery(o.deliveryDate)}</span>}
+              <button
+                type="button"
+                onClick={() => onChoose(line.rowNo, o.sellerId, o.regDate)}
+                className="ml-auto h-7 rounded-md border border-primary px-2 text-[12px] font-bold text-primary hover:bg-primary-soft"
+              >
+                {t.line.pickMismatched}
+              </button>
+            </div>
+            <TraitsLine traits={o.traits} className="text-[12px] text-ink-3" />
+            {o.mismatches.map((text) => (
+              <p key={text} className="text-[12px] text-ink-2">
+                {t.option.mismatch(text)}
+              </p>
+            ))}
+          </li>
+        ))}
+      </ul>
+      {soft.length > INLINE_LIMIT && <p className="text-[12px] text-ink-3">{t.line.moreInDialog(soft.length - INLINE_LIMIT)}</p>}
+    </div>
   );
 }
 

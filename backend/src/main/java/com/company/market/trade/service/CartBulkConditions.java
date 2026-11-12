@@ -1,6 +1,7 @@
 package com.company.market.trade.service;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
@@ -45,49 +46,51 @@ class CartBulkConditions {
 			boolean coverage, boolean testReport, boolean certificate) {
 
 		/**
-		 * 이 매물이 조건을 어기는 첫 사유(없으면 null). 순서: 상태 → 단가 → 보증 → 제공가능일 → 증빙.
-		 * 제공가능일은 줄 조건이 아니라 늘 걸리는 규칙이라 reqDeliDate(납품희망일, 형식이 틀리면 건너뜀)와 같이 본다
+		 * 이 매물이 조건과 다른 점 전부(없으면 빈 목록). 순서: 상태 → 단가 → 보증 → 제공가능일 → 증빙. **막는 게 아니라 알리는 것이다** —
+		 * 사용자가 알고 고를 수 있다(담기가 실제로 거절하는 하드 막힘은 CartBulkService.reasonOf). 기본 매물은 다른 점이 없는 것 중에서만 고른다.
+		 * 제공가능일은 줄 조건이 아니라 늘 보는 비교라서 reqDeliDate(납품희망일, 형식이 틀리면 건너뜀)와 같이 본다
 		 */
-		String failure(ListingTradeSnapshot s, ListingTraits t, String reqDeliDate) {
+		List<String> mismatches(ListingTradeSnapshot s, ListingTraits t, String reqDeliDate) {
+			List<String> out = new ArrayList<>();
 			if (minStateRank != null) {
 				int rank = ProdStates.rank(t.prodState());
 				if (rank < 0) {
-					return "상품상태를 알 수 없어 조건(%s 이상)을 확인할 수 없어요.".formatted(minStateLabel);
+					out.add("상품상태를 알 수 없어 조건(%s 이상)을 확인할 수 없어요.".formatted(minStateLabel));
 				}
-				if (rank > minStateRank) {
-					return "상태(%s)가 조건(%s 이상)보다 낮아요.".formatted(t.prodState(), minStateLabel);
+				else if (rank > minStateRank) {
+					out.add("상태(%s)가 조건(%s 이상)보다 낮아요.".formatted(t.prodState(), minStateLabel));
 				}
 			}
 			if (maxPrice != null && s.salesUnitPrice() != null && s.salesUnitPrice() > maxPrice) {
-				return "단가(%,d원)가 상한(%,d원)을 넘어요.".formatted(s.salesUnitPrice(), maxPrice);
+				out.add("단가(%,d원)가 상한(%,d원)을 넘어요.".formatted(s.salesUnitPrice(), maxPrice));
 			}
 			if (minWarrantyMonths != null) {
 				int need = WARRANTY_DAYS_BY_MONTHS.get(minWarrantyMonths);
 				if (t.warrantyDays() == null || t.warrantyDays() < need) {
-					return "보증기한이 조건(%d개월 이상)에 못 미쳐요.".formatted(minWarrantyMonths);
+					out.add("보증기한이 조건(%d개월 이상)에 못 미쳐요.".formatted(minWarrantyMonths));
 				}
 			}
 			LocalDate request = KoreanDates.parseIso(reqDeliDate);
 			LocalDate provide = KoreanDates.parseIso(s.provDate());
 			if (request != null && provide != null && provide.isAfter(request)) {
-				return "제공가능일(%s)이 납품희망일보다 늦어요.".formatted(s.provDate());
+				out.add("제공가능일(%s)이 납품희망일보다 늦어요.".formatted(s.provDate()));
 			}
 			if (dataSheet && !t.hasDataSheet()) {
-				return "데이터시트가 없어요.";
+				out.add("데이터시트가 없어요.");
 			}
 			if (photo && !t.hasPhoto()) {
-				return "사진이 없어요.";
+				out.add("사진이 없어요.");
 			}
 			if (coverage && !t.hasWarrantyCoverage()) {
-				return "불량지원방법이 없어요.";
+				out.add("불량지원방법이 없어요.");
 			}
 			if (testReport && !t.hasTestReport()) {
-				return "테스트리포트가 없어요.";
+				out.add("테스트리포트가 없어요.");
 			}
 			if (certificate && !t.hasCertificate()) {
-				return "정품인증서가 없어요.";
+				out.add("정품인증서가 없어요.");
 			}
-			return null;
+			return out;
 		}
 	}
 

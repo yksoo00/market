@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CartBulkResult, CartBulkRowApi, ListingOption } from "@/types/cartBulk";
-import { blockedReasons, buyReducer, canSelect, errorsOf, initialBuyState, isLocked, markDuplicates, summary, toCheckRow, toCommitRow, type BuyState } from "./buyBulk";
+import { blockedReasons, isClean, mismatchedOptions, buyReducer, canSelect, errorsOf, initialBuyState, isLocked, markDuplicates, summary, toCheckRow, toCommitRow, type BuyState } from "./buyBulk";
 import { buyBulk } from "@/messages/buyBulk";
 
 const TODAY = "2026-11-09";
@@ -40,6 +40,7 @@ const option = (sellerId: string, price = 1000, reason: string | null = null): L
   deliveryDate: "2099-12-31",
   replaceHint: null,
   reason,
+  mismatches: [],
   traits,
 });
 
@@ -117,6 +118,24 @@ describe("buyReducer", () => {
     const sorted = buyReducer(initialBuyState, { type: "sorted", sort: "state" });
     const reloaded = buyReducer(sorted, { type: "loaded", rows: [row(2)], results: [result(2, "UNAVAILABLE")], cartCount: 0, cartMax: 100 });
     expect(reloaded.sort).toBe("state");
+  });
+
+  it("조건과 다른 매물(살 수 있지만 다른 점이 있음)은 따로 모이고, 기본으로 뽑힐 만한(clean) 매물과 구분된다", () => {
+    const soft = { ...option("S", 5), mismatches: ["단가가 상한을 넘어요"] };
+    const hard = option("H", 4, "재고 부족");
+    const ok = option("O", 6);
+    expect(isClean(ok)).toBe(true);
+    expect(isClean(soft)).toBe(false);
+    expect(isClean(hard)).toBe(false);
+    expect(mismatchedOptions({ ...result(2, "UNAVAILABLE"), options: [soft, hard, ok] })).toEqual([soft]);
+  });
+
+  it("조건과 다른 매물을 고르면 담을 수 있는 줄이 되고, 고른 매물에 다른 점이 남는다", () => {
+    const soft = { ...option("S", 5), mismatches: ["단가가 상한을 넘어요"] };
+    const s = buyReducer(loaded(), { type: "rechecked", results: [result(3, "AVAILABLE", {}, soft)] });
+    expect(canSelect(s.lines[1])).toBe(true);
+    expect(s.lines[1].result.chosen?.mismatches).toEqual(["단가가 상한을 넘어요"]);
+    expect(toCommitRow(s.lines[1])).toMatchObject({ sellerId: "S" });
   });
 
   it("못 사는 이유는 같은 문구를 한 번만, 앞에서 3개까지 — 살 수 있는 매물은 빠진다", () => {

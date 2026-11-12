@@ -70,7 +70,7 @@ export const buyBulk = {
     title: "조건",
     count: (n: number) => `조건 ${n}개`,
     none: "조건 없음",
-    hint: "비워 두면 조건 없이 골라요. 조건에 안 맞는 매물은 이유와 함께 회색으로 남아요.",
+    hint: "비워 두면 조건 없이 골라요. 조건과 다른 매물은 기본으로 안 고르지만 다른 점과 함께 보여 드려서 알고 고를 수 있어요.",
     minState: "최소 상태",
     minStateAny: "상관없음",
     maxPrice: "단가 상한(원)",
@@ -121,6 +121,10 @@ export const buyBulk = {
     changeListing: "다른 매물 보기",
     noListing: "살 수 있는 매물이 없어요.",
     blockedWhy: "이유",
+    mismatchedTitle: (n: number) => `조건과 다른 매물 ${n}건 — 알고 고르면 담을 수 있어요`,
+    pickMismatched: "이 매물 고르기",
+    mismatchNote: "조건과 다른 점",
+    moreInDialog: (n: number) => `나머지 ${n}건은 [다른 매물 보기]에서 볼 수 있어요`,
     alternatives: "대체품 제안",
     useAlternative: "대체품으로 바꾸기",
     alternativeOffer: (name: string, nickname: string | null, price: string) => `${name} · ${nickname ?? "판매자"} · 단가 ${price}`,
@@ -134,6 +138,7 @@ export const buyBulk = {
     empty: "이 상품의 매물이 없어요.",
     minOrder: (n: number, unit: number) => `최소주문 ${n} · 주문단위 ${unit}`,
     replaceHint: (text: string) => `대체품: ${text}`,
+    mismatch: (text: string) => `조건과 다름: ${text}`,
     cancel: "닫기",
   },
   actions: {
@@ -142,9 +147,10 @@ export const buyBulk = {
     committing: "담는 중이에요",
   },
   // hidden = 필터·검색으로 지금 안 보이는데 담기에 들어가는 줄 (전체 담기에서만 아니라 선택한 뒤 탭을 옮긴 경우도)
-  confirm: (n: number, hidden = 0) =>
+  confirm: (n: number, hidden = 0, mismatched = 0) =>
     [
       hidden > 0 ? `${n}건(숨겨진 ${hidden}건 포함)을 장바구니에 담을까요?` : `${n}건을 장바구니에 담을까요?`,
+      ...(mismatched > 0 ? [`그중 ${mismatched}건은 적어 둔 조건과 다른 매물이에요.`] : []),
       "담으면 재고가 1시간 동안 묶여요. 1시간 안에 장바구니에서 구매나 견적을 진행해 주세요.",
     ].join("\n"),
   done: (n: number) => `${n}건을 장바구니에 담았어요.`,

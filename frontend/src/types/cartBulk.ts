@@ -39,7 +39,10 @@ export interface ListingTraits {
   hasCertificate: boolean;
 }
 
-/** 매물 한 건. reason 이 null 이면 살 수 있고, 있으면 못 사는 사유 */
+/**
+ * 매물 한 건. reason = 하드 막힘(null 이면 살 수 있고, 있으면 못 사는 사유 — 못 고름). mismatches = 조건과 다른 점(상태·단가·보증·서류·제공가능일)
+ * — 비어 있지 않아도 사용자가 알고 고를 수 있고, 기본 매물로는 안 뽑힌다
+ */
 export interface ListingOption {
   sellerId: string;
   regDate: string;
@@ -51,6 +54,7 @@ export interface ListingOption {
   deliveryDate: string | null;
   replaceHint: string | null;
   reason: string | null;
+  mismatches: string[];
   traits: ListingTraits;
 }
 

@@ -256,9 +256,10 @@ public class CartBulkService {
 			boolean wantsAlternatives = sellerId != null || defaultPick(options, sort) == null;
 			// 고른 매물 검증엔 못 사는 대체 매물까지 필요하다(사유를 알려 주려고). 응답에는 살 수 있는 매물이 있는 대체품만 제안한다
 			List<Alternative> allAlternatives = wantsAlternatives ? alternativesOf(master, quantity, buyerId, conditions, reqDeliDate) : List.of();
-			alternatives = allAlternatives.stream().filter(a -> a.options().stream().anyMatch(o -> o.reason() == null)).toList();
+			alternatives = allAlternatives.stream().filter(a -> a.options().stream().anyMatch(CartBulkService::clean)).toList();
 			if (sellerId != null && regDate != null) {
-				// 사용자가 고른 매물 — 후보와 대조한다. 못 찾거나 못 사면 서버가 다른 매물로 바꾸지 않고 줄 오류로 돌려준다(조용한 교체 금지)
+				// 사용자가 고른 매물 — 후보와 대조한다. 못 찾거나 못 사면(하드 막힘) 서버가 다른 매물로 바꾸지 않고 줄 오류로 돌려준다(조용한 교체 금지).
+				// 조건과 다른 점만 있으면 알고 고른 것이므로 허용하고 chosen.mismatches 로 그대로 알린다
 				Optional<ListingOption> inMain = find(options, sellerId, regDate);
 				Optional<ListingOption> inAlt = inMain.isPresent() ? Optional.empty()
 						: allAlternatives.stream().flatMap(a -> a.options().stream()).filter(o -> same(o, sellerId, regDate)).findFirst();
@@ -285,7 +286,7 @@ public class CartBulkService {
 		return new Checked(result, fields.containsKey("orderQuantity") ? null : quantity);
 	}
 
-	/** 그 마스터의 모든 매물을 후보로 — 못 사는 매물도 사유(reason)와 함께 남긴다 */
+	/** 그 마스터의 모든 매물을 후보로 — 못 사는 매물은 사유(reason), 조건과 다른 매물은 다른 점(mismatches)과 함께 남긴다 */
 	private List<ListingOption> optionsOf(String prodId, Integer quantity, UUID buyerId, CartBulkConditions.Conditions conditions, String reqDeliDate) {
 		List<ListingTradeSnapshot> snapshots = listings.snapshotsOfProduct(prodId);
 		if (snapshots.isEmpty()) {
@@ -301,17 +302,16 @@ public class CartBulkService {
 			ListingTraits t = traits.getOrDefault(s.id(), new ListingTraits(null, null, false, false, false, false, false));
 			options.add(new ListingOption(s.sellerId().toString(), s.regDate(), nicknames.get(s.sellerId()), price,
 					s.stockQuantity() == null ? 0 : s.stockQuantity(), s.minOrderQuantity() == null ? 1 : s.minOrderQuantity(),
-					s.orderUnit() == null ? 1 : s.orderUnit(), s.provDate(), hints.get(s.id()), reasonOf(s, t, quantity, buyerId, conditions, reqDeliDate), t));
+					s.orderUnit() == null ? 1 : s.orderUnit(), s.provDate(), hints.get(s.id()), reasonOf(s, quantity, buyerId), conditions.mismatches(s, t, reqDeliDate), t));
 		}
 		return options;
 	}
 
 	/**
-	 * 못 사는 이유(첫 번째). 담기(CartService.add)가 거절하는 것과 같은 조건을 미리 보인다 — 거래완료·내 매물·최소주문량·주문단위·재고 — 그다음
-	 * 줄에 쓴 조건과 제공가능일(CartBulkConditions). 수량이 틀렸으면(null) 수량 때문에 못 사는지는 알 수 없어 그 부분은 건너뛴다
+	 * 못 사는 이유(하드 막힘). 담기(CartService.add)가 거절하는 것과 같은 조건을 미리 보인다 — 거래완료·내 매물·최소주문량·주문단위·재고.
+	 * 수량이 틀렸으면(null) 수량 때문에 못 사는지는 알 수 없어 그 부분은 건너뛴다. 줄 조건과의 차이는 mismatches 로 따로 알린다
 	 */
-	private String reasonOf(ListingTradeSnapshot s, ListingTraits traits, Integer quantity, UUID buyerId, CartBulkConditions.Conditions conditions,
-			String reqDeliDate) {
+	private String reasonOf(ListingTradeSnapshot s, Integer quantity, UUID buyerId) {
 		if (s.completed()) {
 			return "거래가 끝난 매물이에요.";
 		}
@@ -327,7 +327,7 @@ public class CartBulkService {
 				return failure;
 			}
 		}
-		return conditions.failure(s, traits, reqDeliDate);
+		return null;
 	}
 
 	/** 마스터의 대체상품명과 이름이 같은 마스터와 그 매물(못 사는 매물 포함) — 제안일 뿐 고르지 않는다 */
@@ -340,9 +340,9 @@ public class CartBulkService {
 		return out;
 	}
 
-	/** 조건을 통과한(살 수 있는) 매물 중 정렬 기준 1순위 — 순서는 CartBulkSort·CartBulkConditions.comparator */
+	/** 살 수 있고 조건과 다른 점도 없는 매물 중 정렬 기준 1순위 — 순서는 CartBulkSort·CartBulkConditions.comparator. 다른 점이 있는 매물은 사용자가 직접 고른다 */
 	private ListingOption defaultPick(List<ListingOption> options, CartBulkSort sort) {
-		return options.stream().filter(o -> o.reason() == null).min(conditionRules.comparator(sort)).orElse(null);
+		return options.stream().filter(CartBulkService::clean).min(conditionRules.comparator(sort)).orElse(null);
 	}
 
 	/** 찾은 마스터가 전부 같은 상품(이름·제조사·분류번호가 글자 그대로 같음)인가 — 제조일만 달라 따로 남은 옛 중복 행은 고를 일이 아니다. 비어 있으면 false */
@@ -350,6 +350,11 @@ public class CartBulkService {
 		return !matches.isEmpty() && matches.stream()
 			.map(p -> p.getProdName() + "|" + p.getProdBrand() + "|" + (p.getProdClassNo() == null ? "" : p.getProdClassNo()))
 			.distinct().count() == 1;
+	}
+
+	/** 살 수 있고(하드 막힘 없음) 조건과 다른 점도 없는 매물 */
+	private static boolean clean(ListingOption o) {
+		return o.reason() == null && o.mismatches().isEmpty();
 	}
 
 	private static Optional<ListingOption> find(List<ListingOption> options, String sellerId, String regDate) {

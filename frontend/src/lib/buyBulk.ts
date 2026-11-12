@@ -1,6 +1,6 @@
 import { BUY_CONDITION_FIELDS, validateBuyRow, type BuyFields } from "@/lib/validation/buyBulk";
 import { buyBulk } from "@/messages/buyBulk";
-import type { BuyCandidate, BuySort, CartBulkOutcome, CartBulkResult, CartBulkRowApi } from "@/types/cartBulk";
+import type { BuyCandidate, BuySort, CartBulkOutcome, CartBulkResult, CartBulkRowApi, ListingOption } from "@/types/cartBulk";
 
 // 엑셀 대량구매의 표 상태 (계획 2026-11-09-bulk-purchase-excel.md). 판매 다량 등록(lib/bulkListing)과 같은 틀이지만 줄의 칸이 달라
 // 구매 전용으로 따로 둔다. 서버는 줄 상태를 저장하지 않아 수정·체크는 전부 여기(브라우저)에 있고, 검사·담기 때마다 서버로 다시 보낸다.
@@ -158,6 +158,12 @@ export function markDuplicates(state: BuyState): BuyState {
   }
   return { ...state, lines: state.lines.map((l) => (l.duplicate === duplicateRows.has(l.rowNo) ? l : { ...l, duplicate: duplicateRows.has(l.rowNo) })) };
 }
+
+/** 살 수 있지만(하드 막힘 없음) 조건과 다른 점이 있는 매물 — 기본으로는 안 뽑히고 사용자가 직접 고른다 */
+export const mismatchedOptions = (result: CartBulkResult): ListingOption[] => result.options.filter((o) => o.reason === null && o.mismatches.length > 0);
+
+/** 살 수 있고 조건과 다른 점도 없는 매물 */
+export const isClean = (o: ListingOption): boolean => o.reason === null && o.mismatches.length === 0;
 
 /** 매물 없음 줄에 바로 보일 못 사는 이유 — 같은 문구는 한 번만, 앞에서 max 개. 전부는 [다른 매물 보기]에 있다 */
 export const blockedReasons = (result: CartBulkResult, max = 3): string[] => [...new Set(result.options.flatMap((o) => o.reason ?? []))].slice(0, max);

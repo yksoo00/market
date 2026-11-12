@@ -16,9 +16,10 @@ interface Props {
   onClose: () => void;
 }
 
-/** 살 수 있는 매물이 먼저(단가 낮은 순), 못 사는 매물은 뒤에 사유와 함께 */
+/** 조건에 맞는 매물이 먼저, 조건과 다른 매물(고를 수 있음)이 그다음, 못 사는 매물이 맨 뒤 — 각각 단가 낮은 순 */
+const rank = (o: ListingOption): number => (o.reason !== null ? 2 : o.mismatches.length > 0 ? 1 : 0);
 const ordered = (options: ListingOption[]): ListingOption[] =>
-  [...options].sort((a, b) => (a.reason === null ? 0 : 1) - (b.reason === null ? 0 : 1) || a.unitPrice - b.unitPrice || a.regDate.localeCompare(b.regDate));
+  [...options].sort((a, b) => rank(a) - rank(b) || a.unitPrice - b.unitPrice || a.regDate.localeCompare(b.regDate));
 
 /**
  * 다른 매물 보기 (계획 2026-11-09-bulk-purchase-excel.md). 그 줄 상품의 모든 매물과 대체품 제안의 매물을 보여 주고 하나를 고른다.
@@ -105,6 +106,12 @@ function OptionList({
                   <TraitsLine traits={o.traits} className="text-[12px] text-ink-3" />
                   {o.replaceHint && <span className="text-[12px] text-ink-3">{t.replaceHint(o.replaceHint)}</span>}
                   {o.reason && <span className="text-[12px] text-down">{o.reason}</span>}
+                  {o.reason === null &&
+                    o.mismatches.map((text) => (
+                      <span key={text} className="text-[12px] text-ink-2">
+                        {t.mismatch(text)}
+                      </span>
+                    ))}
                 </button>
               </li>
             );

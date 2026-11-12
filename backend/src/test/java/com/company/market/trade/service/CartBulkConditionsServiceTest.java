@@ -103,7 +103,7 @@ class CartBulkConditionsServiceTest {
 	}
 
 	@Test
-	@DisplayName("최소 상태: 그 단계 이상만 통과, 더 낮은 매물은 사유와 함께 남고 더 싸도 안 뽑힌다")
+	@DisplayName("최소 상태: 그 단계 이상만 기본으로 뽑히고, 더 낮은 매물은 다른 점과 함께 남는다(더 싸도 안 뽑힘)")
 	void minState() {
 		save(base(sellerA, "20261105100000", 1000).prodState("신품대비 80~89%"));
 		save(base(sellerB, "20261105100001", 900).prodState("신품대비 70~79%"));
@@ -111,8 +111,9 @@ class CartBulkConditionsServiceTest {
 		CartBulkRowResult r = only(row("신품대비 80~89%", null, null, null, null, null, null, null));
 
 		assertThat(r.chosen().sellerId()).isEqualTo(sellerA.toString());
-		assertThat(option(r, sellerB).reason()).contains("상태").contains("낮아요");
-		assertThat(option(r, sellerA).reason()).isNull();
+		assertThat(option(r, sellerB).reason()).isNull();
+		assertThat(option(r, sellerB).mismatches()).anySatisfy(m -> assertThat(m).contains("상태").contains("낮아요"));
+		assertThat(option(r, sellerA).mismatches()).isEmpty();
 		// "50% 미만"이 최소면 모든 상태가 통과, "신품"이면 신품만
 		assertThat(only(row("신품대비 50% 미만", null, null, null, null, null, null, null)).chosen().sellerId()).isEqualTo(sellerB.toString());
 		assertThat(only(row("신품", null, null, null, null, null, null, null)).status()).isEqualTo(Status.UNAVAILABLE);
@@ -127,7 +128,7 @@ class CartBulkConditionsServiceTest {
 		CartBulkRowResult r = only(row(null, "1,000", null, null, null, null, null, null));
 
 		assertThat(r.chosen().sellerId()).isEqualTo(sellerA.toString());
-		assertThat(option(r, sellerB).reason()).contains("상한");
+		assertThat(option(r, sellerB).mismatches()).anySatisfy(m -> assertThat(m).contains("상한"));
 	}
 
 	@Test
@@ -139,13 +140,13 @@ class CartBulkConditionsServiceTest {
 
 		CartBulkRowResult twelve = only(row(null, null, "12", null, null, null, null, null));
 		assertThat(twelve.chosen().sellerId()).isEqualTo(sellerA.toString());
-		assertThat(option(twelve, sellerB).reason()).contains("보증");
-		assertThat(option(twelve, sellerC).reason()).contains("보증");
+		assertThat(option(twelve, sellerB).mismatches()).anySatisfy(m -> assertThat(m).contains("보증"));
+		assertThat(option(twelve, sellerC).mismatches()).anySatisfy(m -> assertThat(m).contains("보증"));
 
 		CartBulkRowResult six = only(row(null, null, "6개월", null, null, null, null, null));
 		assertThat(six.chosen().sellerId()).isEqualTo(sellerB.toString());
-		assertThat(option(six, sellerA).reason()).isNull();
-		assertThat(option(six, sellerC).reason()).isNotNull();
+		assertThat(option(six, sellerA).mismatches()).isEmpty();
+		assertThat(option(six, sellerC).mismatches()).isNotEmpty();
 
 		assertThat(only(plain()).chosen().sellerId()).isEqualTo(sellerC.toString());
 	}
@@ -160,9 +161,9 @@ class CartBulkConditionsServiceTest {
 
 		CartBulkRowResult r = only(plain());
 
-		assertThat(option(r, sellerA).reason()).isNull();
-		assertThat(option(r, sellerB).reason()).contains("제공가능일").contains("늦어요");
-		assertThat(option(r, sellerC).reason()).isNull();
+		assertThat(option(r, sellerA).mismatches()).isEmpty();
+		assertThat(option(r, sellerB).mismatches()).anySatisfy(m -> assertThat(m).contains("제공가능일").contains("늦어요"));
+		assertThat(option(r, sellerC).mismatches()).isEmpty();
 		assertThat(r.chosen().sellerId()).isEqualTo(sellerC.toString());
 	}
 
@@ -178,28 +179,29 @@ class CartBulkConditionsServiceTest {
 				row(null, null, null, null, null, null, null, "Y"))) {
 			CartBulkRowResult r = only(needing);
 			assertThat(r.chosen().sellerId()).isEqualTo(sellerA.toString());
-			assertThat(option(r, sellerB).reason()).contains("없어요");
+			assertThat(option(r, sellerB).mismatches()).anySatisfy(m -> assertThat(m).contains("없어요"));
 		}
 		// 증빙을 모두 요구해도 갖춘 매물은 통과
 		assertThat(only(row(null, null, null, "Y", "Y", "Y", "Y", "Y")).chosen().sellerId()).isEqualTo(sellerA.toString());
 	}
 
 	@Test
-	@DisplayName("조건 때문에 전부 탈락하면 UNAVAILABLE + 사유가 남고, 조건을 지우면 다시 AVAILABLE")
+	@DisplayName("조건과 맞는 매물이 하나도 없으면 UNAVAILABLE(기본 선택 없음) + 다른 점이 남고, 조건을 지우면 다시 AVAILABLE")
 	void allExcludedThenRelaxed() {
 		save(base(sellerA, "20261105100000", 1000));
 
 		CartBulkRowResult blocked = only(row(null, "500", null, null, null, null, null, null));
 		assertThat(blocked.status()).isEqualTo(Status.UNAVAILABLE);
 		assertThat(blocked.chosen()).isNull();
-		assertThat(option(blocked, sellerA).reason()).contains("상한");
+		assertThat(option(blocked, sellerA).reason()).isNull();
+		assertThat(option(blocked, sellerA).mismatches()).anySatisfy(m -> assertThat(m).contains("상한"));
 
 		assertThat(only(plain()).status()).isEqualTo(Status.AVAILABLE);
 	}
 
 	@Test
-	@DisplayName("사용자가 고른 매물이 조건을 어기면 다른 매물로 바꾸지 않고 listing 오류")
-	void chosenListingBreaksCondition() {
+	@DisplayName("조건과 다른 매물도 사용자가 알고 고르면 허용한다 — chosen 에 다른 점이 그대로 실린다. 하드 막힘(재고 부족)이면 listing 오류")
+	void chosenListingWithMismatches() {
 		save(base(sellerA, "20261105100000", 1000));
 		save(base(sellerB, "20261105100001", 2000));
 		CartBulkRowDto picked = new CartBulkRowDto(2, null, NAME, "Acme", null, "3", "2099-12-31", null, sellerB.toString(), "20261105100001", null, "1500",
@@ -207,9 +209,18 @@ class CartBulkConditionsServiceTest {
 
 		CartBulkRowResult r = only(picked);
 
-		assertThat(r.status()).isEqualTo(Status.FAILED);
-		assertThat(r.fields().get("listing")).contains("상한");
-		assertThat(r.chosen()).isNull();
+		assertThat(r.status()).isEqualTo(Status.AVAILABLE);
+		assertThat(r.fields()).isEmpty();
+		assertThat(r.chosen().sellerId()).isEqualTo(sellerB.toString());
+		assertThat(r.chosen().mismatches()).anySatisfy(m -> assertThat(m).contains("상한"));
+
+		// 재고(50)보다 많이 사려는 건 하드 막힘 — 다른 매물로 바꾸지 않고 listing 오류
+		CartBulkRowDto tooMany = new CartBulkRowDto(2, null, NAME, "Acme", null, "51", "2099-12-31", null, sellerB.toString(), "20261105100001", null, "1500", null, null,
+				null, null, null, null);
+		CartBulkRowResult blocked = only(tooMany);
+		assertThat(blocked.status()).isEqualTo(Status.FAILED);
+		assertThat(blocked.fields().get("listing")).contains("재고");
+		assertThat(blocked.chosen()).isNull();
 	}
 
 	@Test
@@ -258,7 +269,7 @@ class CartBulkConditionsServiceTest {
 	}
 
 	@Test
-	@DisplayName("고른 대체 매물이 조건을 어기면 찾을 수 없다가 아니라 실제 사유가 나온다 — 통과 매물이 없는 대체품은 제안에서 빠진다")
+	@DisplayName("조건과 다른 대체 매물도 고르면 허용(substituted)하고 다른 점이 실린다 — 조건에 맞는 매물이 없는 대체품은 제안에서 빠진다")
 	void chosenAlternativeBreaksCondition() {
 		Product alt = products.findOrCreate(new ProductDraft(CategoryFragments.parse("P01-Q01-R001"), "구매조건 대체 B", null, "Acme", null, null, null, null, null, null, null));
 		jdbc.update("update trd_prod_master set alter_prod_name = ? where prod_id = ?", "구매조건 대체 B", master.getProdId());
@@ -268,7 +279,9 @@ class CartBulkConditionsServiceTest {
 
 		CartBulkRowResult r = only(picked);
 
-		assertThat(r.fields().get("listing")).contains("상한");
+		assertThat(r.status()).isEqualTo(Status.AVAILABLE);
+		assertThat(r.substituted()).isTrue();
+		assertThat(r.chosen().mismatches()).anySatisfy(m -> assertThat(m).contains("상한"));
 		assertThat(r.alternatives()).isEmpty();
 	}
 
@@ -305,7 +318,7 @@ class CartBulkConditionsServiceTest {
 		CartBulkRowResult r = only(row("신품대비 50% 미만", null, null, null, null, null, null, null));
 
 		assertThat(r.status()).isEqualTo(Status.UNAVAILABLE);
-		assertThat(option(r, sellerA).reason()).contains("알 수 없");
+		assertThat(option(r, sellerA).mismatches()).anySatisfy(m -> assertThat(m).contains("알 수 없"));
 	}
 
 }

@@ -215,7 +215,8 @@ export function BuyBulkView() {
     // 필터·검색으로 지금 안 보이는데 담기에 들어가는 줄 — 선택한 뒤 탭을 옮긴 경우에도 있을 수 있다
     const visible = new Set(visibleNos);
     const hidden = lines.filter((l) => !visible.has(l.rowNo)).length;
-    if (!window.confirm(t.confirm(rows.length, hidden))) return;
+    const mismatched = lines.filter((l) => (l.result.chosen?.mismatches.length ?? 0) > 0).length;
+    if (!window.confirm(t.confirm(rows.length, hidden, mismatched))) return;
     setCommitting(true);
     setTopError(null);
     const res = await cartBulkApi.commit(rows, state.sort);

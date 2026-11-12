@@ -38,6 +38,7 @@ const option = (price: number): ListingOption => ({
   deliveryDate: null,
   replaceHint: null,
   reason: null,
+  mismatches: [],
   traits,
 });
 
