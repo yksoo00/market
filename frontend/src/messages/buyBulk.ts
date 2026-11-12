@@ -132,6 +132,7 @@ export const buyBulk = {
     hideBlocked: "접기",
     selected: "선택됨",
     recommended: "추천",
+    detail: "상세",
     substituted: "대체품을 골랐어요",
   },
   option: {

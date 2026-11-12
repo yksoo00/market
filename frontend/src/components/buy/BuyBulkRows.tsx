@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { BuyConditionFields } from "@/components/buy/BuyConditionFields";
-import { TraitsLine } from "@/components/buy/TraitsLine";
+import { TraitsLine, evidenceNames } from "@/components/buy/TraitsLine";
 import type { ListingOption } from "@/types/cartBulk";
 import { Checkbox } from "@/components/ui/checkbox";
 import { blockedOptions, canSelect, cleanOptions, errorsOf, isClean, isLocked, softOptions, type BuyLine, type BuyPick } from "@/lib/buyBulk";
@@ -313,9 +313,9 @@ function ListingSection({ title, action, children }: { title: string; action?: R
 }
 
 /**
- * 매물 한 건 — 카드 전체가 선택 영역이다(작은 [선택] 버튼 없음). 고르면 보라 테두리 + "✓ 선택됨", 안 골랐으면 빈 동그라미. 한 번 고르면 풀리지 않고
- * 다른 카드를 눌러 바꾼다(실수로 풀려 줄이 다시 "선택 필요"가 되는 일을 막는다). 못 고르는 매물(이유 있음)은 눌러지지 않고 회색에 이유만,
- * 조건과 다른 매물은 다른 점이 같이 보인다. 카드는 두 줄: 판매자·단가·재고·납기(추천) / 최소주문·주문단위·상태·보증·서류
+ * 매물 한 건 — 카드 한 줄에 비교에 쓰는 정보(판매자·단가·재고·납기·상태·보증)를 남기고, 확인용(최소주문·주문단위·서류·대체품 글)은 [상세]로 접는다.
+ * 카드의 본문 전체가 선택 영역이다(안 골랐으면 빈 동그라미, 고르면 보라 테두리 + "✓ 선택됨"). 한 번 고르면 풀리지 않고 다른 카드를 눌러 바꾼다.
+ * 못 고르는 매물(이유 있음)은 눌러지지 않고 회색에 이유만, 조건과 다른 매물은 다른 점이 카드에 그대로 보인다
  */
 function ListingCard({
   option: o,
@@ -328,8 +328,10 @@ function ListingCard({
   recommended: boolean;
   onChoose: (rowNo: number, sellerId: string, regDate: string) => void;
 }) {
+  const [detail, setDetail] = useState(false);
   const blocked = o.reason !== null;
   const picked = line.result.chosen?.sellerId === o.sellerId && line.result.chosen.regDate === o.regDate;
+  const evidence = evidenceNames(o.traits);
   const body = (
     <>
       <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[13px]">
@@ -337,6 +339,9 @@ function ListingCard({
         <span className="num">{t.line.price(formatPrice(o.unitPrice))}</span>
         <span className="num">{t.line.stock(o.stock)}</span>
         {o.deliveryDate && <span className="num">{t.line.delivery(o.deliveryDate)}</span>}
+        <span className="text-[12px] text-ink-2">
+          {t.trait.state(o.traits.prodState)} · {t.trait.warranty(o.traits.warrantyDays)}
+        </span>
         {recommended && <span className="rounded bg-green-soft px-1.5 py-0.5 text-[12px] font-bold text-green">{t.group.recommended}</span>}
         {!blocked && (
           <span className={cn("ml-auto flex items-center text-[12px] font-bold", picked ? "text-primary" : "text-ink-3")}>
@@ -344,10 +349,6 @@ function ListingCard({
           </span>
         )}
       </span>
-      <span className="text-[12px] text-ink-3">
-        <span className="num">{t.option.minOrder(o.minOrder, o.orderUnit)}</span> · <TraitsLine traits={o.traits} />
-      </span>
-      {o.replaceHint && <span className="text-[12px] text-ink-3">{t.option.replaceHint(o.replaceHint)}</span>}
       {o.reason && <span className="text-[12px] text-down">{o.reason}</span>}
       {!blocked &&
         o.mismatches.map((text) => (
@@ -357,22 +358,39 @@ function ListingCard({
         ))}
     </>
   );
-  const cardClass = cn("flex w-full flex-col gap-0.5 rounded-md border px-2 py-1.5 text-left", picked ? "border-primary bg-primary-soft" : "border-line", blocked && "bg-bg text-ink-3");
+  const bodyClass = "flex w-full flex-col gap-0.5 px-2 py-1.5 text-left";
   return (
-    <li>
+    <li className={cn("rounded-md border", picked ? "border-primary bg-primary-soft" : "border-line", blocked && "bg-bg text-ink-3")}>
       {blocked ? (
-        <div className={cardClass}>{body}</div>
+        <div className={bodyClass}>{body}</div>
       ) : (
         <button
           type="button"
           aria-pressed={picked}
           disabled={line.checking}
           onClick={() => !picked && onChoose(line.rowNo, o.sellerId, o.regDate)}
-          className={cn(cardClass, "outline-none focus-visible:border-primary disabled:opacity-60", !picked && "hover:bg-bg")}
+          className={cn(bodyClass, "rounded-md outline-none focus-visible:ring-1 focus-visible:ring-primary disabled:opacity-60", !picked && "hover:bg-bg")}
         >
           {body}
         </button>
       )}
+      <div className="px-2 pb-1.5">
+        <button
+          type="button"
+          aria-expanded={detail}
+          onClick={() => setDetail((v) => !v)}
+          className="text-[12px] text-ink-3 underline underline-offset-2 hover:text-ink"
+        >
+          {t.group.detail} {detail ? "▴" : "▾"}
+        </button>
+        {detail && (
+          <div className="mt-1 flex flex-col gap-0.5 text-[12px] text-ink-3">
+            <span className="num">{t.option.minOrder(o.minOrder, o.orderUnit)}</span>
+            <span>{evidence.length > 0 ? `${t.trait.evidence}: ${evidence.join("·")}` : t.trait.evidenceNone}</span>
+            {o.replaceHint && <span>{t.option.replaceHint(o.replaceHint)}</span>}
+          </div>
+        )}
+      </div>
     </li>
   );
 }
