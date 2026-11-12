@@ -99,7 +99,7 @@ export function BuyBulkView() {
   const recheckRows = async (base: BuyState, rowNos: number[]) => {
     const wanted = new Set(rowNos);
     const lines = base.lines.filter((l) => wanted.has(l.rowNo) && !l.added);
-    if (lines.length === 0) return;
+    if (lines.length === 0) return true;
     const token = ++seq.current;
     lines.forEach((l) => {
       sent.current.set(l.rowNo, token);
@@ -110,6 +110,7 @@ export function BuyBulkView() {
     const results = res.ok ? res.data.results : lines.map((l) => l.result);
     dispatch({ type: "rechecked", results: results.filter((r) => fresh.has(r.rowNo)), cartCount: res.ok ? res.data.cartCount : undefined });
     if (!res.ok) setTopError(res.fields ? Object.values(res.fields).join(" ") : (t.errors[res.code] ?? res.message));
+    return res.ok;
   };
 
   // 글자를 치는 칸이라 칠 때마다 묻지 않고, 칸을 벗어날 때 그 줄만 서버에 다시 묻는다
@@ -124,13 +125,17 @@ export function BuyBulkView() {
   /** 기본 매물을 고르는 기준을 바꾸면 열린 줄 전부를 새 기준으로 다시 검사한다 (직접 고른 매물은 그대로 둔다) */
   const changePickBy = (sort: BuySort) => {
     if (sort === state.sort) return;
+    const previous = state.sort;
     const action: BuyAction = { type: "sorted", sort };
     dispatch(action);
     const next = buyReducer(state, action);
     void recheckRows(
       next,
       next.lines.filter((l) => !l.added).map((l) => l.rowNo),
-    );
+    ).then((ok) => {
+      // 다시 묻지 못했으면 줄의 매물은 옛 기준 그대로다 — 드롭다운도 되돌려 화면과 맞추고, 다시 고르면 재시도된다
+      if (!ok) dispatch({ type: "sorted", sort: previous });
+    });
   };
 
   const blurLine = (rowNo: number) => {
@@ -426,6 +431,8 @@ export function BuyBulkView() {
             <p className="rounded-md border border-line bg-surface py-10 text-center text-[14px] text-ink-2">{t.emptyView}</p>
           ) : (
             <BuyBulkRows
+              // 새 파일이면 줄 번호가 같아도 조건 구역의 펼침 상태를 새로 정하게 다시 그린다
+              key={loadId}
               lines={shown}
               onToggle={(rowNo) => dispatch({ type: "toggled", rowNo })}
               onEdit={edit}

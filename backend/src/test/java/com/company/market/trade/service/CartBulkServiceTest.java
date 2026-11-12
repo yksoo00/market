@@ -16,6 +16,7 @@ import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.service.ProductService;
 import com.company.market.listing.service.ProductService.ProductDraft;
 import com.company.market.trade.dto.CartBulkRowDto;
+import com.company.market.trade.dto.CartBulkSort;
 import com.company.market.trade.dto.CartBulkRowResult;
 import com.company.market.trade.dto.CartBulkRowResult.ListingOption;
 import com.company.market.trade.dto.CartBulkRowResult.Status;
@@ -88,11 +89,11 @@ class CartBulkServiceTest {
 	}
 
 	private static CartBulkRowDto row(int rowNo, String name, String quantity) {
-		return new CartBulkRowDto(rowNo, null, name, "Acme", null, quantity, "2099-12-31", "메모", null, null);
+		return new CartBulkRowDto(rowNo, null, name, "Acme", null, quantity, "2099-12-31", "메모", null, null, null, null, null, null, null, null, null, null);
 	}
 
 	private CartBulkRowResult only(CartBulkRowDto row) {
-		return service.check(buyer, List.of(row)).results().get(0);
+		return service.check(buyer, List.of(row), CartBulkSort.PRICE).results().get(0);
 	}
 
 	private static ListingOption option(CartBulkRowResult r, UUID seller) {
@@ -167,7 +168,7 @@ class CartBulkServiceTest {
 	void looseMatch() {
 		listing(sellerA, "20261105100000", main, 1000, 5, 1, 1, false);
 
-		CartBulkRowResult r = only(new CartBulkRowDto(2, null, "  구매검사   원품 a ", "ACME", null, "3", "2099-12-31", null, null, null));
+		CartBulkRowResult r = only(new CartBulkRowDto(2, null, "  구매검사   원품 a ", "ACME", null, "3", "2099-12-31", null, null, null, null, null, null, null, null, null, null, null));
 
 		assertThat(r.prodId()).isEqualTo(main.getProdId());
 		assertThat(r.status()).isEqualTo(Status.AVAILABLE);
@@ -176,7 +177,7 @@ class CartBulkServiceTest {
 	@Test
 	@DisplayName("마스터가 없으면 FAILED + 이름이 겹치는 상품 후보")
 	void masterMissing() {
-		CartBulkRowResult r = only(new CartBulkRowDto(2, null, "구매검사 원품", "Acme", null, "3", "2099-12-31", null, null, null));
+		CartBulkRowResult r = only(new CartBulkRowDto(2, null, "구매검사 원품", "Acme", null, "3", "2099-12-31", null, null, null, null, null, null, null, null, null, null, null));
 
 		assertThat(r.status()).isEqualTo(Status.FAILED);
 		assertThat(r.fields()).containsKey("prodName");
@@ -189,8 +190,8 @@ class CartBulkServiceTest {
 	void byProdId() {
 		listing(sellerA, "20261105100000", main, 1000, 5, 1, 1, false);
 
-		CartBulkRowResult ok = only(new CartBulkRowDto(2, main.getProdId(), null, null, null, "3", "2099-12-31", null, null, null));
-		CartBulkRowResult missing = only(new CartBulkRowDto(3, "KP-0000-000000", null, null, null, "3", "2099-12-31", null, null, null));
+		CartBulkRowResult ok = only(new CartBulkRowDto(2, main.getProdId(), null, null, null, "3", "2099-12-31", null, null, null, null, null, null, null, null, null, null, null));
+		CartBulkRowResult missing = only(new CartBulkRowDto(3, "KP-0000-000000", null, null, null, "3", "2099-12-31", null, null, null, null, null, null, null, null, null, null, null));
 
 		assertThat(ok.status()).isEqualTo(Status.AVAILABLE);
 		assertThat(missing.status()).isEqualTo(Status.FAILED);
@@ -220,7 +221,7 @@ class CartBulkServiceTest {
 
 		assertThat(only(row(2, "구매검사 원품 A", "3")).alternatives()).isEmpty();
 
-		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", "2099-12-31", null, sellerB.toString(), "20261105100001");
+		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", "2099-12-31", null, sellerB.toString(), "20261105100001", null, null, null, null, null, null, null, null);
 		CartBulkRowResult r = only(pick);
 		assertThat(r.chosen().sellerId()).isEqualTo(sellerB.toString());
 		assertThat(r.substituted()).isTrue();
@@ -230,7 +231,7 @@ class CartBulkServiceTest {
 	@DisplayName("대체 매물을 고르면 chosen 이 되고 substituted — 서버가 판단한다")
 	void choosingAlternative() {
 		listing(sellerA, "20261105100000", alt, 700, 5, 1, 1, false);
-		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", "2099-12-31", null, sellerA.toString(), "20261105100000");
+		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", "2099-12-31", null, sellerA.toString(), "20261105100000", null, null, null, null, null, null, null, null);
 
 		CartBulkRowResult r = only(pick);
 
@@ -243,7 +244,7 @@ class CartBulkServiceTest {
 	@DisplayName("고른 매물이 후보에 없으면 다른 매물로 바꾸지 않고 listing 오류")
 	void unknownChoice() {
 		listing(sellerA, "20261105100000", main, 1000, 5, 1, 1, false);
-		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", "2099-12-31", null, sellerB.toString(), "20261105100999");
+		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", "2099-12-31", null, sellerB.toString(), "20261105100999", null, null, null, null, null, null, null, null);
 
 		CartBulkRowResult r = only(pick);
 
@@ -256,7 +257,7 @@ class CartBulkServiceTest {
 	@DisplayName("고른 매물이 못 사게 바뀌었으면 그 사유가 listing 오류")
 	void choiceNoLongerBuyable() {
 		listing(sellerA, "20261105100000", main, 1000, 2, 1, 1, false); // 수량 3 에 재고 2
-		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", "2099-12-31", null, sellerA.toString(), "20261105100000");
+		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", "2099-12-31", null, sellerA.toString(), "20261105100000", null, null, null, null, null, null, null, null);
 
 		CartBulkRowResult r = only(pick);
 
@@ -269,7 +270,7 @@ class CartBulkServiceTest {
 	void choiceOverridesDefault() {
 		listing(sellerA, "20261105100000", main, 1000, 5, 1, 1, false);
 		listing(sellerB, "20261105100001", main, 900, 5, 1, 1, false);
-		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", "2099-12-31", null, sellerA.toString(), "20261105100000");
+		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", "2099-12-31", null, sellerA.toString(), "20261105100000", null, null, null, null, null, null, null, null);
 
 		assertThat(only(pick).chosen().sellerId()).isEqualTo(sellerA.toString());
 	}
@@ -293,7 +294,7 @@ class CartBulkServiceTest {
 		listing(sellerA, "20261105100000", main, 1000, 5, 1, 1, false);
 
 		for (String bad : new String[] { null, "2099/12/31", "2020-01-01" }) {
-			CartBulkRowResult r = only(new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", bad, null, null, null));
+			CartBulkRowResult r = only(new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", bad, null, null, null, null, null, null, null, null, null, null, null));
 			assertThat(r.fields()).containsKey("reqDeliDate");
 		}
 	}
@@ -301,7 +302,7 @@ class CartBulkServiceTest {
 	@Test
 	@DisplayName("요청사항이 100자를 넘으면 오류")
 	void remarksLength() {
-		CartBulkRowResult r = only(new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", "2099-12-31", "가".repeat(101), null, null));
+		CartBulkRowResult r = only(new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", "2099-12-31", "가".repeat(101), null, null, null, null, null, null, null, null, null, null));
 
 		assertThat(r.fields()).containsKey("remarks");
 	}
@@ -311,7 +312,7 @@ class CartBulkServiceTest {
 	void duplicateInFile() {
 		listing(sellerA, "20261105100000", main, 1000, 50, 1, 1, false);
 
-		List<CartBulkRowResult> r = service.check(buyer, List.of(row(2, "구매검사 원품 A", "3"), row(3, "구매검사 원품 a", "4"))).results();
+		List<CartBulkRowResult> r = service.check(buyer, List.of(row(2, "구매검사 원품 A", "3"), row(3, "구매검사 원품 a", "4")), CartBulkSort.PRICE).results();
 
 		assertThat(r.get(0).status()).isEqualTo(Status.AVAILABLE);
 		assertThat(r.get(1).status()).isEqualTo(Status.FAILED);
@@ -321,10 +322,10 @@ class CartBulkServiceTest {
 	@Test
 	@DisplayName("줄이 0개·101개이거나 줄 번호가 겹치면 거절")
 	void rowCountAndRowNo() {
-		assertThatThrownBy(() -> service.check(buyer, List.of())).isInstanceOf(ValidationException.class);
+		assertThatThrownBy(() -> service.check(buyer, List.of(), CartBulkSort.PRICE)).isInstanceOf(ValidationException.class);
 		List<CartBulkRowDto> many = IntStream.range(0, 101).mapToObj(i -> row(i + 2, "구매검사 원품 A", "3")).toList();
-		assertThatThrownBy(() -> service.check(buyer, many)).isInstanceOf(ValidationException.class);
-		assertThatThrownBy(() -> service.check(buyer, List.of(row(2, "구매검사 원품 A", "3"), row(2, "구매검사 대체품 X", "3"))))
+		assertThatThrownBy(() -> service.check(buyer, many, CartBulkSort.PRICE)).isInstanceOf(ValidationException.class);
+		assertThatThrownBy(() -> service.check(buyer, List.of(row(2, "구매검사 원품 A", "3"), row(2, "구매검사 대체품 X", "3")), CartBulkSort.PRICE))
 			.isInstanceOf(ValidationException.class);
 	}
 
@@ -359,9 +360,23 @@ class CartBulkServiceTest {
 		assertThat(ambiguous.fields().get("prodName")).contains("여럿");
 		assertThat(ambiguous.candidates()).extracting(c -> c.prodId()).containsExactlyInAnyOrder(a.getProdId(), b.getProdId());
 
-		CartBulkRowResult narrowed = only(new CartBulkRowDto(3, null, "구매검사 여럿 D", "Acme", "pd-0002", "3", "2099-12-31", null, null, null));
+		CartBulkRowResult narrowed = only(new CartBulkRowDto(3, null, "구매검사 여럿 D", "Acme", "pd-0002", "3", "2099-12-31", null, null, null, null, null, null, null, null, null, null, null));
 		assertThat(narrowed.status()).isEqualTo(Status.AVAILABLE);
 		assertThat(narrowed.prodId()).isEqualTo(b.getProdId());
+	}
+
+	@Test
+	@DisplayName("이름·제조사·분류번호가 글자 그대로 같은 옛 중복 마스터는 가장 오래된 것으로 자동으로 정한다")
+	void legacyDuplicateMastersResolveToOldest() {
+		Product oldest = products.findOrCreate(draft("구매검사 옛중복 I", "Acme", null));
+		// findOrCreate 는 같은 상품을 새로 안 만든다 — 제조일만 달라 남은 옛 행을 직접 만든다
+		jdbc.update("insert into trd_prod_master (prod_id, major_category, middle_category, minor_category, prod_name, prod_brand) select ?, major_category, middle_category, minor_category, prod_name, prod_brand from trd_prod_master where prod_id = ?", "ZZ-" + oldest.getProdId(), oldest.getProdId());
+		listing(sellerA, "20261105100000", oldest, 1000, 5, 1, 1, false);
+
+		CartBulkRowResult r = only(row(2, "구매검사 옛중복 I", "3"));
+
+		assertThat(r.status()).isEqualTo(Status.AVAILABLE);
+		assertThat(r.prodId()).isEqualTo(oldest.getProdId());
 	}
 
 	@Test
@@ -372,8 +387,8 @@ class CartBulkServiceTest {
 		Product dupA = products.findOrCreate(draft("구매검사 이름겹침 F", "Acme", null));
 		products.findOrCreate(draft("구매검사 이름겹침 F", "Zeta", null));
 
-		CartBulkRowResult one = only(new CartBulkRowDto(2, null, "구매검사 단독 E", null, null, "3", "2099-12-31", null, null, null));
-		CartBulkRowResult many = only(new CartBulkRowDto(3, null, "구매검사 이름겹침 F", " ", null, "3", "2099-12-31", null, null, null));
+		CartBulkRowResult one = only(new CartBulkRowDto(2, null, "구매검사 단독 E", null, null, "3", "2099-12-31", null, null, null, null, null, null, null, null, null, null, null));
+		CartBulkRowResult many = only(new CartBulkRowDto(3, null, "구매검사 이름겹침 F", " ", null, "3", "2099-12-31", null, null, null, null, null, null, null, null, null, null, null));
 
 		assertThat(one.status()).isEqualTo(Status.AVAILABLE);
 		assertThat(one.prodId()).isEqualTo(solo.getProdId());
@@ -386,7 +401,7 @@ class CartBulkServiceTest {
 	void differentBrandIsNotAutoMatched() {
 		Product other = products.findOrCreate(draft("구매검사 제조사다름 G", "Zeta", null));
 
-		CartBulkRowResult r = only(new CartBulkRowDto(2, null, "구매검사 제조사다름 G", "Acme", null, "3", "2099-12-31", null, null, null));
+		CartBulkRowResult r = only(new CartBulkRowDto(2, null, "구매검사 제조사다름 G", "Acme", null, "3", "2099-12-31", null, null, null, null, null, null, null, null, null, null, null));
 
 		assertThat(r.status()).isEqualTo(Status.FAILED);
 		assertThat(r.prodId()).isNull();
@@ -419,7 +434,7 @@ class CartBulkServiceTest {
 	void cartCount() {
 		listing(sellerA, "20261105100000", main, 1000, 5, 1, 1, false);
 
-		var result = service.check(buyer, List.of(row(2, "구매검사 원품 A", "3")));
+		var result = service.check(buyer, List.of(row(2, "구매검사 원품 A", "3")), CartBulkSort.PRICE);
 
 		assertThat(result.cartCount()).isZero();
 		assertThat(result.cartMax()).isEqualTo(100);

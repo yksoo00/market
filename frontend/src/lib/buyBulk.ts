@@ -78,9 +78,10 @@ export function toFields(row: CartBulkRowApi): BuyFields {
     remarks: row.remarks ?? "",
     sellerId: row.sellerId ?? "",
     regDate: row.regDate ?? "",
-    minState: row.minState ?? "",
+    // 드롭다운 값과 맞춘다 — 서버는 겹공백·"12개월"도 받아 주지만 그대로 두면 선택 칸에 안 보이고 입력 검사에 걸린다
+    minState: (row.minState ?? "").trim().replace(/\s+/g, " "),
     maxPrice: row.maxPrice ?? "",
-    minWarrantyMonths: row.minWarrantyMonths ?? "",
+    minWarrantyMonths: (row.minWarrantyMonths ?? "").trim().replace(/\s*개월$/, ""),
     needDataSheet: row.needDataSheet ?? "",
     needPhoto: row.needPhoto ?? "",
     needCoverage: row.needCoverage ?? "",

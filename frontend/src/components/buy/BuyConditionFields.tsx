@@ -32,7 +32,6 @@ export function BuyConditionFields({ line, onEdit, onBlurLine, onEditNow }: Prop
   // 오류가 있는 조건 칸이 접혀 가려지지 않게 — 오류가 있으면 접어도 펼쳐 둔다
   const expanded = open || BUY_CONDITION_FIELDS.some((name) => errors[name]);
   const f = line.fields;
-  const disabled = line.added;
   const regionId = `conditions-${line.rowNo}`;
 
   return (
@@ -57,7 +56,6 @@ export function BuyConditionFields({ line, onEdit, onBlurLine, onEditNow }: Prop
               <span className="text-[12px] text-ink-2">{t.minState}</span>
               <select
                 value={f.minState}
-                disabled={disabled}
                 aria-invalid={Boolean(errors.minState)}
                 className={inputClass}
                 onChange={(e) => onEditNow(line.rowNo, "minState", e.target.value)}
@@ -75,7 +73,6 @@ export function BuyConditionFields({ line, onEdit, onBlurLine, onEditNow }: Prop
               <span className="text-[12px] text-ink-2">{t.maxPrice}</span>
               <input
                 value={f.maxPrice}
-                disabled={disabled}
                 inputMode="numeric"
                 placeholder={t.maxPricePlaceholder}
                 aria-invalid={Boolean(errors.maxPrice)}
@@ -89,7 +86,6 @@ export function BuyConditionFields({ line, onEdit, onBlurLine, onEditNow }: Prop
               <span className="text-[12px] text-ink-2">{t.minWarranty}</span>
               <select
                 value={f.minWarrantyMonths}
-                disabled={disabled}
                 aria-invalid={Boolean(errors.minWarrantyMonths)}
                 className={inputClass}
                 onChange={(e) => onEditNow(line.rowNo, "minWarrantyMonths", e.target.value)}
@@ -111,7 +107,6 @@ export function BuyConditionFields({ line, onEdit, onBlurLine, onEditNow }: Prop
                 <label key={name} className="flex items-center gap-1.5 text-[13px] text-ink">
                   <Checkbox
                     checked={f[name].trim().toUpperCase() === "Y"}
-                    disabled={disabled}
                     onCheckedChange={(checked) => onEditNow(line.rowNo, name, checked === true ? "Y" : "")}
                   />
                   {buyBulk.fields[name]}

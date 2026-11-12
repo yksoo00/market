@@ -2,7 +2,6 @@ package com.company.market.listing.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -72,17 +71,16 @@ class ListingTraitsTest {
 			.prodImage4("public/p4.png").warrantyCoverage("대체").testReport("private/tr.pdf").certificateOfAuthen("private/c.pdf"));
 		ListingId bare = save("20261105100001", Listing.builder().prodState("신품대비 70~79%").prodDataSheet("  ").prodPhoto1(""));
 
-		Map<ListingId, ListingTraits> traits = listingService.traitsOf(List.of(full, bare));
+		Map<ListingId, ListingTraits> traits = listingService.traitsOfProduct(master.getProdId());
 
 		assertThat(traits.get(full)).isEqualTo(new ListingTraits("신품", 180, true, true, true, true, true));
 		assertThat(traits.get(bare)).isEqualTo(new ListingTraits("신품대비 70~79%", null, false, false, false, false, false));
 	}
 
 	@Test
-	@DisplayName("없는 키는 빠지고, 빈 입력은 빈 맵")
+	@DisplayName("매물이 없는 마스터는 빈 맵")
 	void missing() {
-		assertThat(listingService.traitsOf(List.of(new ListingId(seller, "20000101000000", master.getProdId())))).isEmpty();
-		assertThat(listingService.traitsOf(List.of())).isEmpty();
+		assertThat(listingService.traitsOfProduct(master.getProdId())).isEmpty();
 	}
 
 }

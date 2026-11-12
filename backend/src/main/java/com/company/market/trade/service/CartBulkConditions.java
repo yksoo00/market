@@ -13,13 +13,15 @@ import com.company.market.listing.service.ProdStates;
 import com.company.market.trade.dto.CartBulkRowDto;
 import com.company.market.trade.dto.CartBulkRowResult.ListingOption;
 import com.company.market.trade.dto.CartBulkSort;
+import org.springframework.stereotype.Component;
 
 /**
  * 엑셀 대량구매 줄의 조건 판정과 기본 매물 정렬 (계획 2026-11-09-bulk-purchase-conditions.md). 조건은 매물을 **거르는** 것이고(안 맞으면 못 사는 사유가
  * 붙는다), 거른 뒤 하나를 고르는 건 정렬이다. 줄에 쓴 조건은 전부 선택 — 비우면 조건 없음.
  * 제공가능일 규칙은 줄 조건이 아니라 늘 걸린다: 매물 제공가능일이 납품희망일보다 늦으면 못 산다(날짜가 아닌 레거시 글은 비교할 수 없어 통과). 장바구니·구매 화면에는 없는 대량구매 전용 규칙이다
  */
-final class CartBulkConditions {
+@Component
+class CartBulkConditions {
 
 	/** 최소 보증 개월 → 보증기한(일). 매물의 보증기한 선택지(30·90·180·360·720·1080일)와 같은 값 */
 	static final Map<Integer, Integer> WARRANTY_DAYS_BY_MONTHS = Map.of(1, 30, 3, 90, 6, 180, 12, 360, 24, 720, 36, 1080);
@@ -41,8 +43,6 @@ final class CartBulkConditions {
 	/** 줄에서 읽은 조건. 모두 null/false 면 조건 없음 */
 	record Conditions(Integer minStateRank, String minStateLabel, Integer maxPrice, Integer minWarrantyMonths, boolean dataSheet, boolean photo,
 			boolean coverage, boolean testReport, boolean certificate) {
-
-		static final Conditions NONE = new Conditions(null, null, null, null, false, false, false, false, false);
 
 		/**
 		 * 이 매물이 조건을 어기는 첫 사유(없으면 null). 순서: 상태 → 단가 → 보증 → 제공가능일 → 증빙.
@@ -91,11 +91,8 @@ final class CartBulkConditions {
 		}
 	}
 
-	private CartBulkConditions() {
-	}
-
 	/** 줄의 조건 칸을 읽는다. 틀린 칸은 그 칸 이름으로 fields 에 사유를 넣고 그 조건은 없는 것으로 둔다 */
-	static Conditions of(CartBulkRowDto row, Map<String, String> fields) {
+	Conditions of(CartBulkRowDto row, Map<String, String> fields) {
 		Integer minStateRank = null;
 		String minStateLabel = null;
 		String state = norm(row.minState());
@@ -113,7 +110,12 @@ final class CartBulkConditions {
 		Integer months = null;
 		String rawMonths = norm(row.minWarrantyMonths());
 		if (rawMonths != null) {
-			Integer parsed = number(rawMonths.replaceAll("\\s*개월$", ""), 1, 36, "minWarrantyMonths", ERR_WARRANTY, fields);
+			String monthsText = rawMonths.replaceAll("\\s*개월$", "");
+			// "개월"만 적은 칸을 조건 없음으로 넘기지 않는다
+			if (monthsText.isBlank()) {
+				fields.put("minWarrantyMonths", ERR_WARRANTY);
+			}
+			Integer parsed = number(monthsText, 1, 36, "minWarrantyMonths", ERR_WARRANTY, fields);
 			if (parsed != null) {
 				if (WARRANTY_DAYS_BY_MONTHS.containsKey(parsed)) {
 					months = parsed;
@@ -129,7 +131,7 @@ final class CartBulkConditions {
 	}
 
 	/** 조건을 통과한 매물 중 기본으로 고르는 순서 (CartBulkSort 설명) */
-	static Comparator<ListingOption> comparator(CartBulkSort sort) {
+	Comparator<ListingOption> comparator(CartBulkSort sort) {
 		Comparator<ListingOption> price = Comparator.comparingInt(ListingOption::unitPrice);
 		// 보증이 긴 쪽이 먼저 — 없는(null) 매물은 맨 뒤
 		Comparator<ListingOption> warranty = Comparator.comparingInt((ListingOption o) -> o.traits().warrantyDays() == null ? -1 : o.traits().warrantyDays())
@@ -145,7 +147,7 @@ final class CartBulkConditions {
 		};
 		Comparator<ListingOption> result = lead.get(0).thenComparing(lead.get(1)).thenComparing(lead.get(2));
 		// 제공가능일은 빠른 쪽 먼저(비어 있으면 뒤), 재고는 많은 쪽, 마지막은 등록일시가 빠른 쪽
-		return result.thenComparing(Comparator.comparing(ListingOption::deliveryDate, Comparator.nullsLast(Comparator.naturalOrder())))
+		return result.thenComparing(Comparator.comparing((ListingOption o) -> blankToNull(o.deliveryDate()), Comparator.nullsLast(Comparator.naturalOrder())))
 			.thenComparing(Comparator.comparingInt(ListingOption::stock).reversed())
 			.thenComparing(ListingOption::regDate);
 	}
@@ -180,6 +182,11 @@ final class CartBulkConditions {
 		}
 		fields.put(field, ERR_NEED);
 		return false;
+	}
+
+	/** 제공가능일 칸은 빈 글자로 저장될 수 있다 — 정렬에서 날짜가 있는 매물보다 앞서지 않게 */
+	private static String blankToNull(String s) {
+		return s == null || s.isBlank() ? null : s;
 	}
 
 	private static String norm(String s) {

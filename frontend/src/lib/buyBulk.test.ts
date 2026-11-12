@@ -105,6 +105,13 @@ describe("buyReducer", () => {
     expect(s.lines[0].fields).toMatchObject({ minState: "신품", maxPrice: "1500000", minWarrantyMonths: "6", needCertificate: "Y", needPhoto: "" });
   });
 
+  it("엑셀의 \"12개월\"·겹공백 상태는 드롭다운 값으로 맞춰 읽고 입력 검사에 안 걸린다", () => {
+    const s = buyReducer(initialBuyState, { type: "loaded", rows: [row(2, { minState: " 신품대비  80~89% ", minWarrantyMonths: "12 개월", maxPrice: "1 000" })], results: [result(2, "UNAVAILABLE")], cartCount: 0, cartMax: 100 });
+    expect(s.lines[0].fields).toMatchObject({ minState: "신품대비 80~89%", minWarrantyMonths: "12" });
+    const edited = buyReducer(s, { type: "edited", rowNo: 2, field: "orderQuantity", value: "4", today: TODAY });
+    expect(errorsOf(edited.lines[0])).toEqual({});
+  });
+
   it("매물 고르는 기준(sort)은 기본 price, 바꾸면 새 파일을 읽어도 유지된다", () => {
     expect(initialBuyState.sort).toBe("price");
     const sorted = buyReducer(initialBuyState, { type: "sorted", sort: "state" });

@@ -394,18 +394,18 @@ public class ListingService {
 		return found.stream().map(l -> toSnapshot(l, product)).toList();
 	}
 
-	/** 매물에 적힌 대체품 글(자유 글). 비어 있는 매물은 빠진다 — 대량구매 후보 줄의 힌트로만 쓴다 */
+	/** 이 마스터 매물에 적힌 대체품 글(자유 글). 비어 있는 매물은 빠진다 — 대량구매 후보 줄의 힌트로만 쓴다. 복합키 findAllById 는 키마다 쿼리가 나가 마스터로 한 번에 읽는다 */
 	@Transactional(readOnly = true)
-	public Map<ListingId, String> replaceHints(Collection<ListingId> ids) {
-		return listings.findAllById(ids).stream()
+	public Map<ListingId, String> replaceHintsOfProduct(String prodId) {
+		return listings.findAllByProdIdOrderByRegDate(prodId).stream()
 			.filter(l -> hasText(l.getReplaceProd()))
 			.collect(Collectors.toMap(Listing::getId, Listing::getReplaceProd));
 	}
 
-	/** 엑셀 대량구매의 조건 판정용 매물 특성(상태·보증·증빙 유무). 한 쿼리로, 없는 키는 빠진다 */
+	/** 이 마스터 매물들의 조건 판정용 특성(상태·보증·증빙 유무). 복합키 findAllById 는 키마다 쿼리가 나가 마스터로 한 번에 읽는다 */
 	@Transactional(readOnly = true)
-	public Map<ListingId, ListingTraits> traitsOf(Collection<ListingId> ids) {
-		return listings.findAllById(ids).stream().collect(Collectors.toMap(Listing::getId,
+	public Map<ListingId, ListingTraits> traitsOfProduct(String prodId) {
+		return listings.findAllByProdIdOrderByRegDate(prodId).stream().collect(Collectors.toMap(Listing::getId,
 				l -> new ListingTraits(l.getProdState(), l.getWarrantyPeriod(), hasText(l.getProdDataSheet()),
 						hasText(l.getProdPhoto1()) || hasText(l.getProdPhoto2()) || hasText(l.getProdPhoto3()) || hasText(l.getProdImage4()),
 						hasText(l.getWarrantyCoverage()), hasText(l.getTestReport()), hasText(l.getCertificateOfAuthen()))));

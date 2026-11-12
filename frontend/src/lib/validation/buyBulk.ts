@@ -52,8 +52,8 @@ export const BUY_INPUT_FIELDS = ["prodName", "prodBrand", "prodClassNo", "orderQ
 
 export type BuyInputField = (typeof BUY_INPUT_FIELDS)[number];
 
-/** 쉼표("1,000")는 허용하고, 부호·소수점·지수는 거부 */
-const digits = (s: string) => s.replace(/,/g, "").trim();
+/** 쉼표·공백("1,000", "1 000")은 허용하고(서버와 같다), 부호·소수점·지수는 거부 */
+const digits = (s: string) => s.replace(/[,\s]/g, "");
 const intIn = (s: string, min: number, max: number) => /^\d+$/.test(digits(s)) && Number(digits(s)) >= min && Number(digits(s)) <= max;
 
 const text = (max: number, message: string) => z.string().trim().max(max, message);

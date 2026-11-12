@@ -91,7 +91,7 @@ class CartBulkConditionsServiceTest {
 	}
 
 	private CartBulkRowResult only(CartBulkRowDto row) {
-		return service.check(buyer, List.of(row)).results().get(0);
+		return service.check(buyer, List.of(row), CartBulkSort.PRICE).results().get(0);
 	}
 
 	private CartBulkRowResult only(CartBulkRowDto row, CartBulkSort sort) {
@@ -238,6 +238,38 @@ class CartBulkConditionsServiceTest {
 		save(base(sellerA, "20261105100000", 1000).warrantyPeriod(360).prodState("신품대비 70~79%"));
 		save(base(sellerB, "20261105100001", 1000).warrantyPeriod(360).prodState("신품"));
 		assertThat(only(plain()).chosen().sellerId()).isEqualTo(sellerB.toString());
+	}
+
+	@Test
+	@DisplayName("최소 보증 칸에 \"개월\"만 적으면 조건 없음으로 넘기지 않고 오류")
+	void monthsWordOnly() {
+		save(base(sellerA, "20261105100000", 1000));
+
+		assertThat(only(row(null, null, "개월", null, null, null, null, null)).fields()).containsKey("minWarrantyMonths");
+	}
+
+	@Test
+	@DisplayName("정렬에서 제공가능일이 빈 글자인 매물은 날짜가 있는 매물보다 앞서지 않는다")
+	void blankProvideDateSortsLast() {
+		save(base(sellerA, "20261105100000", 1000).deliveryDate(""));
+		save(base(sellerB, "20261105100001", 1000).deliveryDate("2099-01-01"));
+
+		assertThat(only(plain()).chosen().sellerId()).isEqualTo(sellerB.toString());
+	}
+
+	@Test
+	@DisplayName("고른 대체 매물이 조건을 어기면 찾을 수 없다가 아니라 실제 사유가 나온다 — 통과 매물이 없는 대체품은 제안에서 빠진다")
+	void chosenAlternativeBreaksCondition() {
+		Product alt = products.findOrCreate(new ProductDraft(CategoryFragments.parse("P01-Q01-R001"), "구매조건 대체 B", null, "Acme", null, null, null, null, null, null, null));
+		jdbc.update("update trd_prod_master set alter_prod_name = ? where prod_id = ?", "구매조건 대체 B", master.getProdId());
+		listings.saveAndFlush(base(sellerB, "20261105100001", 2000).prodId(alt.getProdId()).build());
+		CartBulkRowDto picked = new CartBulkRowDto(2, null, NAME, "Acme", null, "3", "2099-12-31", null, sellerB.toString(), "20261105100001", null, "1500", null, null,
+				null, null, null, null);
+
+		CartBulkRowResult r = only(picked);
+
+		assertThat(r.fields().get("listing")).contains("상한");
+		assertThat(r.alternatives()).isEmpty();
 	}
 
 	@Test

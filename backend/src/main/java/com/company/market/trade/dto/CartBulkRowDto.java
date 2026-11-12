@@ -32,11 +32,4 @@ public record CartBulkRowDto(
 	/** 칸마다 정확한 검사는 서비스가 한다. 여기는 그 전에 정규식·검증이 거대한 글자를 도는 일을 막는 바깥 한도 */
 	public static final int MAX_TEXT = 300;
 
-	/** 조건 없는 줄 — 상품·수량·희망일·고른 매물만 */
-	public CartBulkRowDto(int rowNo, String prodId, String prodName, String prodBrand, String prodClassNo, String orderQuantity,
-			String reqDeliDate, String remarks, String sellerId, String regDate) {
-		this(rowNo, prodId, prodName, prodBrand, prodClassNo, orderQuantity, reqDeliDate, remarks, sellerId, regDate, null, null, null, null,
-				null, null, null, null);
-	}
-
 }

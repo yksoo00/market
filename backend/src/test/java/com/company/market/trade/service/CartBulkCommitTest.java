@@ -17,6 +17,7 @@ import com.company.market.trade.dto.CartAddRequest;
 import com.company.market.trade.dto.CartBulkCommitResult;
 import com.company.market.trade.dto.CartBulkCommitResult.Outcome;
 import com.company.market.trade.dto.CartBulkRowDto;
+import com.company.market.trade.dto.CartBulkSort;
 import com.company.market.trade.dto.CartBulkRowResult;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -89,7 +90,7 @@ class CartBulkCommitTest {
 	}
 
 	private static CartBulkRowDto row(int rowNo, String name, String quantity, String remarks) {
-		return new CartBulkRowDto(rowNo, null, name, "Acme", null, quantity, "2099-12-31", remarks, null, null);
+		return new CartBulkRowDto(rowNo, null, name, "Acme", null, quantity, "2099-12-31", remarks, null, null, null, null, null, null, null, null, null, null);
 	}
 
 	private int stockOf(String regDate) {
@@ -106,7 +107,7 @@ class CartBulkCommitTest {
 		String regA = listing("20261105100000", a, 1500, 10);
 		String regB = listing("20261105100001", b, 700, 10);
 
-		CartBulkCommitResult result = service.commit(buyer, List.of(row(2, "구매담기 상품 A", "3", "메모"), row(3, "구매담기 상품 B", "2", null)));
+		CartBulkCommitResult result = service.commit(buyer, List.of(row(2, "구매담기 상품 A", "3", "메모"), row(3, "구매담기 상품 B", "2", null)), CartBulkSort.PRICE);
 
 		assertThat(result.results()).extracting(Outcome::ok).containsExactly(true, true);
 		assertThat(result.cartCount()).isEqualTo(2);
@@ -123,7 +124,7 @@ class CartBulkCommitTest {
 		listing("20261105100000", a, 1500, 10);
 		listing("20261105100001", b, 700, 10);
 
-		CartBulkCommitResult result = service.commit(buyer, List.of(row(2, "구매담기 상품 A", "0", null), row(3, "구매담기 상품 B", "2", null)));
+		CartBulkCommitResult result = service.commit(buyer, List.of(row(2, "구매담기 상품 A", "0", null), row(3, "구매담기 상품 B", "2", null)), CartBulkSort.PRICE);
 
 		assertThat(result.results().get(0).ok()).isFalse();
 		assertThat(result.results().get(0).code()).isEqualTo("VALIDATION");
@@ -135,7 +136,7 @@ class CartBulkCommitTest {
 	@Test
 	@DisplayName("살 수 있는 매물이 없는 줄은 NO_LISTING 으로 실패하고 담기지 않는다")
 	void noListingRow() {
-		CartBulkCommitResult result = service.commit(buyer, List.of(row(2, "구매담기 상품 A", "3", null)));
+		CartBulkCommitResult result = service.commit(buyer, List.of(row(2, "구매담기 상품 A", "3", null)), CartBulkSort.PRICE);
 
 		assertThat(result.results().get(0)).extracting(Outcome::ok, Outcome::code).containsExactly(false, "NO_LISTING");
 		assertThat(cartRows()).isZero();
@@ -146,9 +147,9 @@ class CartBulkCommitTest {
 	void sameListingTwoRows() {
 		String regA = listing("20261105100000", a, 1500, 3);
 		// 줄 2 = A 를 3개(재고를 다 씀), 줄 3 = C 를 요청하되 대체품으로 A 의 같은 매물을 고름 (검사 때는 둘 다 통과)
-		CartBulkRowDto second = new CartBulkRowDto(3, null, "구매담기 상품 C", "Acme", null, "2", "2099-12-31", null, seller.toString(), regA);
+		CartBulkRowDto second = new CartBulkRowDto(3, null, "구매담기 상품 C", "Acme", null, "2", "2099-12-31", null, seller.toString(), regA, null, null, null, null, null, null, null, null);
 
-		CartBulkCommitResult result = service.commit(buyer, List.of(row(2, "구매담기 상품 A", "3", null), second));
+		CartBulkCommitResult result = service.commit(buyer, List.of(row(2, "구매담기 상품 A", "3", null), second), CartBulkSort.PRICE);
 
 		assertThat(result.results().get(0).ok()).isTrue();
 		assertThat(result.results().get(1).ok()).isFalse();
@@ -167,7 +168,7 @@ class CartBulkCommitTest {
 			cart.add(buyer, new CartAddRequest(List.of(new CartAddRequest.Item(seller, "20261105100000", 1, "2099-12-31", null))));
 		}
 
-		CartBulkCommitResult result = service.commit(buyer, List.of(row(2, "구매담기 상품 A", "1", null), row(3, "구매담기 상품 B", "1", null)));
+		CartBulkCommitResult result = service.commit(buyer, List.of(row(2, "구매담기 상품 A", "1", null), row(3, "구매담기 상품 B", "1", null)), CartBulkSort.PRICE);
 
 		assertThat(result.results().get(0).ok()).isTrue();
 		assertThat(result.results().get(1)).extracting(Outcome::ok, Outcome::code).containsExactly(false, "CART_FULL");
@@ -185,7 +186,7 @@ class CartBulkCommitTest {
 			cart.add(buyer, new CartAddRequest(List.of(new CartAddRequest.Item(seller, "20261105100000", 1, "2099-12-31", null))));
 		}
 
-		CartBulkCommitResult result = service.commit(buyer, List.of(row(2, "구매담기 상품 B", "1", null), row(3, "구매담기 상품 D", "1", null)));
+		CartBulkCommitResult result = service.commit(buyer, List.of(row(2, "구매담기 상품 B", "1", null), row(3, "구매담기 상품 D", "1", null)), CartBulkSort.PRICE);
 
 		assertThat(result.results()).extracting(Outcome::code).containsExactly("CART_FULL", "CART_FULL");
 		// 두 번째 줄은 시도조차 하지 않았으므로 재고가 그대로다
@@ -197,9 +198,9 @@ class CartBulkCommitTest {
 	void choiceNoLongerBuyable() {
 		String regA = listing("20261105100000", a, 1500, 1);
 		listing("20261105100001", b, 700, 10);
-		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매담기 상품 A", "Acme", null, "3", "2099-12-31", null, seller.toString(), regA);
+		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매담기 상품 A", "Acme", null, "3", "2099-12-31", null, seller.toString(), regA, null, null, null, null, null, null, null, null);
 
-		CartBulkCommitResult result = service.commit(buyer, List.of(pick, row(3, "구매담기 상품 B", "2", null)));
+		CartBulkCommitResult result = service.commit(buyer, List.of(pick, row(3, "구매담기 상품 B", "2", null)), CartBulkSort.PRICE);
 
 		assertThat(result.results().get(0).ok()).isFalse();
 		assertThat(result.results().get(0).message()).contains("재고");
@@ -210,9 +211,9 @@ class CartBulkCommitTest {
 	@DisplayName("대체품으로 담으면 요청사항에 원래 요청이 붙는다")
 	void substitutedRemarks() {
 		String regA = listing("20261105100000", a, 1500, 10);
-		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매담기 상품 C", "Acme", null, "2", "2099-12-31", "급해요", seller.toString(), regA);
+		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매담기 상품 C", "Acme", null, "2", "2099-12-31", "급해요", seller.toString(), regA, null, null, null, null, null, null, null, null);
 
-		CartBulkCommitResult result = service.commit(buyer, List.of(pick));
+		CartBulkCommitResult result = service.commit(buyer, List.of(pick), CartBulkSort.PRICE);
 
 		assertThat(result.results().get(0).ok()).isTrue();
 		String remarks = jdbc.queryForObject("select remarks from trd_cart_info where user_id = ?", String.class, buyer);
@@ -243,7 +244,7 @@ class CartBulkCommitTest {
 	void onlyOwnCart() {
 		listing("20261105100000", a, 1500, 10);
 
-		service.commit(buyer, List.of(row(2, "구매담기 상품 A", "1", null)));
+		service.commit(buyer, List.of(row(2, "구매담기 상품 A", "1", null)), CartBulkSort.PRICE);
 
 		assertThat(jdbc.queryForObject("select count(*) from trd_cart_info where user_id <> ? and prod_name = '구매담기 상품 A'", Long.class, buyer)).isZero();
 	}

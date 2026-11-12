@@ -78,6 +78,8 @@ public class CartBulkService {
 
 	private final CartBulkParser parser;
 
+	private final CartBulkConditions conditionRules;
+
 	/** 업로드한 엑셀을 읽고 줄마다 검사한다 (저장 없음). 데이터 줄이 하나도 없으면 빈 결과 — 화면이 "입력한 줄이 없어요"를 보이게 */
 	public CartBulkParseResponse parse(UUID buyerId, MultipartFile file, CartBulkSort sort) {
 		String fileName = file.getOriginalFilename();
@@ -96,16 +98,6 @@ public class CartBulkService {
 		}
 		CartBulkCheckResult checked = check(buyerId, rows, sort);
 		return new CartBulkParseResponse(rows, checked.results(), checked.cartCount(), checked.cartMax());
-	}
-
-	/** 정렬 기준을 안 정하면 최저가 우선 */
-	public CartBulkCheckResult check(UUID buyerId, List<CartBulkRowDto> rows) {
-		return check(buyerId, rows, CartBulkSort.PRICE);
-	}
-
-	/** 정렬 기준을 안 정하면 최저가 우선 */
-	public CartBulkCommitResult commit(UUID buyerId, List<CartBulkRowDto> rows) {
-		return commit(buyerId, rows, CartBulkSort.PRICE);
 	}
 
 	/** 줄별 검사 결과 + 지금 장바구니 줄 수. 저장은 안 한다. 기본 매물은 sort 기준으로 고른다 */
@@ -208,7 +200,7 @@ public class CartBulkService {
 
 		Integer quantity = quantity(row.orderQuantity(), fields);
 		dateFailure(norm(row.reqDeliDate()), fields);
-		CartBulkConditions.Conditions conditions = CartBulkConditions.of(row, fields);
+		CartBulkConditions.Conditions conditions = conditionRules.of(row, fields);
 		String remarks = row.remarks() == null ? null : row.remarks().trim();
 		if (remarks != null && remarks.length() > MAX_REMARKS) {
 			fields.put("remarks", "요청사항은 " + MAX_REMARKS + "자 이하로 입력해 주세요.");
@@ -230,10 +222,11 @@ public class CartBulkService {
 				// 이름(+적었으면 제조사·분류번호)이 같은 마스터가 **하나일 때만** 자동으로 정한다. 사용자는 상품ID·분류번호를 모르는 게 보통이라
 				// 비운 칸은 보지 않고, 여럿이면 어느 것인지 알 수 없으니 고르게 한다 (계획 2026-11-09-bulk-purchase-conditions.md)
 				List<Product> matches = products.findAllLoose(name, brand, classNo, CANDIDATE_LIMIT + 1);
-				if (matches.size() == 1) {
+				if (sameIdentity(matches)) {
+					// 쿼리가 prod_id 순이라 첫 행이 가장 오래된 마스터 — 판매 쪽 findSame 이 매물을 붙이는 그 마스터다
 					master = matches.get(0);
 				}
-				else if (matches.size() > 1) {
+				else if (!matches.isEmpty()) {
 					fields.put("prodName", "같은 이름의 상품이 여럿이에요. 아래에서 고르세요.");
 					candidates = matches.stream().limit(CANDIDATE_LIMIT)
 						.map(p -> new Candidate(p.getProdId(), p.getProdName(), p.getProdBrand(), p.getProdClassNo())).toList();
@@ -261,12 +254,14 @@ public class CartBulkService {
 			String regDate = norm(row.regDate());
 			// 대체품은 살 수 있는 매물이 없을 때 제안하는 것이다. 사용자가 매물을 골라 보냈으면(대체 매물일 수 있다) 검증하려고 계산한다
 			boolean wantsAlternatives = sellerId != null || defaultPick(options, sort) == null;
-			alternatives = wantsAlternatives ? alternativesOf(master, quantity, buyerId, conditions, reqDeliDate) : List.of();
+			// 고른 매물 검증엔 못 사는 대체 매물까지 필요하다(사유를 알려 주려고). 응답에는 살 수 있는 매물이 있는 대체품만 제안한다
+			List<Alternative> allAlternatives = wantsAlternatives ? alternativesOf(master, quantity, buyerId, conditions, reqDeliDate) : List.of();
+			alternatives = allAlternatives.stream().filter(a -> a.options().stream().anyMatch(o -> o.reason() == null)).toList();
 			if (sellerId != null && regDate != null) {
 				// 사용자가 고른 매물 — 후보와 대조한다. 못 찾거나 못 사면 서버가 다른 매물로 바꾸지 않고 줄 오류로 돌려준다(조용한 교체 금지)
 				Optional<ListingOption> inMain = find(options, sellerId, regDate);
 				Optional<ListingOption> inAlt = inMain.isPresent() ? Optional.empty()
-						: alternatives.stream().flatMap(a -> a.options().stream()).filter(o -> same(o, sellerId, regDate)).findFirst();
+						: allAlternatives.stream().flatMap(a -> a.options().stream()).filter(o -> same(o, sellerId, regDate)).findFirst();
 				ListingOption found = inMain.or(() -> inAlt).orElse(null);
 				if (found == null) {
 					fields.put("listing", "고른 매물을 찾을 수 없어요. 다시 골라 주세요.");
@@ -296,10 +291,9 @@ public class CartBulkService {
 		if (snapshots.isEmpty()) {
 			return List.of();
 		}
-		List<ListingId> ids = snapshots.stream().map(ListingTradeSnapshot::id).toList();
 		Map<UUID, String> nicknames = userDirectory.nicknamesOf(snapshots.stream().map(ListingTradeSnapshot::sellerId).distinct().toList());
-		Map<ListingId, String> hints = listings.replaceHints(ids);
-		Map<ListingId, ListingTraits> traits = listings.traitsOf(ids);
+		Map<ListingId, String> hints = listings.replaceHintsOfProduct(prodId);
+		Map<ListingId, ListingTraits> traits = listings.traitsOfProduct(prodId);
 		List<ListingOption> options = new ArrayList<>();
 		for (ListingTradeSnapshot s : snapshots) {
 			int price = s.salesUnitPrice() == null ? 0 : s.salesUnitPrice();
@@ -336,21 +330,26 @@ public class CartBulkService {
 		return conditions.failure(s, traits, reqDeliDate);
 	}
 
-	/** 마스터의 대체상품명과 이름이 같은 마스터 중 살 수 있는 매물이 있는 것만 — 제안일 뿐 고르지 않는다 */
+	/** 마스터의 대체상품명과 이름이 같은 마스터와 그 매물(못 사는 매물 포함) — 제안일 뿐 고르지 않는다 */
 	private List<Alternative> alternativesOf(Product master, Integer quantity, UUID buyerId, CartBulkConditions.Conditions conditions, String reqDeliDate) {
 		List<Alternative> out = new ArrayList<>();
 		for (Product alt : products.alternatesOf(master)) {
 			List<ListingOption> options = optionsOf(alt.getProdId(), quantity, buyerId, conditions, reqDeliDate);
-			if (options.stream().anyMatch(o -> o.reason() == null)) {
-				out.add(new Alternative(alt.getProdId(), alt.getProdName(), alt.getProdBrand(), options));
-			}
+			out.add(new Alternative(alt.getProdId(), alt.getProdName(), alt.getProdBrand(), options));
 		}
 		return out;
 	}
 
 	/** 조건을 통과한(살 수 있는) 매물 중 정렬 기준 1순위 — 순서는 CartBulkSort·CartBulkConditions.comparator */
-	private static ListingOption defaultPick(List<ListingOption> options, CartBulkSort sort) {
-		return options.stream().filter(o -> o.reason() == null).min(CartBulkConditions.comparator(sort)).orElse(null);
+	private ListingOption defaultPick(List<ListingOption> options, CartBulkSort sort) {
+		return options.stream().filter(o -> o.reason() == null).min(conditionRules.comparator(sort)).orElse(null);
+	}
+
+	/** 찾은 마스터가 전부 같은 상품(이름·제조사·분류번호가 글자 그대로 같음)인가 — 제조일만 달라 따로 남은 옛 중복 행은 고를 일이 아니다. 비어 있으면 false */
+	private static boolean sameIdentity(List<Product> matches) {
+		return !matches.isEmpty() && matches.stream()
+			.map(p -> p.getProdName() + "|" + p.getProdBrand() + "|" + (p.getProdClassNo() == null ? "" : p.getProdClassNo()))
+			.distinct().count() == 1;
 	}
 
 	private static Optional<ListingOption> find(List<ListingOption> options, String sellerId, String regDate) {

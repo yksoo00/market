@@ -106,8 +106,7 @@ class ProductLookupForPurchaseTest {
 		listing(sellerA, "20261105100000", main.getProdId(), 1000, 5, false, "다른 규격 가능");
 		listing(sellerB, "20261105100001", main.getProdId(), 900, 5, false, null);
 
-		Map<ListingId, String> hints = listingService.replaceHints(List.of(new ListingId(sellerA, "20261105100000", main.getProdId()),
-				new ListingId(sellerB, "20261105100001", main.getProdId())));
+		Map<ListingId, String> hints = listingService.replaceHintsOfProduct(main.getProdId());
 
 		assertThat(hints).hasSize(1).containsValue("다른 규격 가능");
 	}
