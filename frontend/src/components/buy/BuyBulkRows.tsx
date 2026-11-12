@@ -312,7 +312,11 @@ function ListingSection({ title, action, children }: { title: string; action?: R
   );
 }
 
-/** 매물 한 건. 못 고르는 매물(이유 있음)은 회색에 이유만, 조건과 다른 매물은 다른 점이 같이 보인다 */
+/**
+ * 매물 한 건 — 카드 전체가 선택 영역이다(작은 [선택] 버튼 없음). 고르면 보라 테두리 + "✓ 선택됨", 안 골랐으면 빈 동그라미. 한 번 고르면 풀리지 않고
+ * 다른 카드를 눌러 바꾼다(실수로 풀려 줄이 다시 "선택 필요"가 되는 일을 막는다). 못 고르는 매물(이유 있음)은 눌러지지 않고 회색에 이유만,
+ * 조건과 다른 매물은 다른 점이 같이 보인다. 카드는 두 줄: 판매자·단가·재고·납기(추천) / 최소주문·주문단위·상태·보증·서류
+ */
 function ListingCard({
   option: o,
   line,
@@ -326,31 +330,23 @@ function ListingCard({
 }) {
   const blocked = o.reason !== null;
   const picked = line.result.chosen?.sellerId === o.sellerId && line.result.chosen.regDate === o.regDate;
-  return (
-    <li className={cn("flex flex-col gap-0.5 rounded-md border px-2 py-1.5", picked ? "border-primary bg-primary-soft" : "border-line", blocked && "bg-bg text-ink-3")}>
-      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[13px]">
+  const body = (
+    <>
+      <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-[13px]">
         <span className="font-semibold">{t.line.seller(o.sellerNickname)}</span>
         <span className="num">{t.line.price(formatPrice(o.unitPrice))}</span>
         <span className="num">{t.line.stock(o.stock)}</span>
         {o.deliveryDate && <span className="num">{t.line.delivery(o.deliveryDate)}</span>}
         {recommended && <span className="rounded bg-green-soft px-1.5 py-0.5 text-[12px] font-bold text-green">{t.group.recommended}</span>}
         {!blocked && (
-          <button
-            type="button"
-            aria-pressed={picked}
-            disabled={line.checking}
-            onClick={() => onChoose(line.rowNo, o.sellerId, o.regDate)}
-            className={cn(
-              "ml-auto h-7 rounded-md border px-2 text-[12px] font-bold disabled:opacity-40",
-              picked ? "border-primary bg-primary text-white" : "border-primary text-primary hover:bg-primary-soft",
-            )}
-          >
-            {picked ? t.group.selected : t.group.select}
-          </button>
+          <span className={cn("ml-auto flex items-center text-[12px] font-bold", picked ? "text-primary" : "text-ink-3")}>
+            {picked ? `✓ ${t.group.selected}` : <span aria-hidden="true" className="inline-block h-4 w-4 rounded-full border border-line" />}
+          </span>
         )}
-      </div>
-      <span className="num text-[12px] text-ink-3">{t.option.minOrder(o.minOrder, o.orderUnit)}</span>
-      <TraitsLine traits={o.traits} className="text-[12px] text-ink-3" />
+      </span>
+      <span className="text-[12px] text-ink-3">
+        <span className="num">{t.option.minOrder(o.minOrder, o.orderUnit)}</span> · <TraitsLine traits={o.traits} />
+      </span>
       {o.replaceHint && <span className="text-[12px] text-ink-3">{t.option.replaceHint(o.replaceHint)}</span>}
       {o.reason && <span className="text-[12px] text-down">{o.reason}</span>}
       {!blocked &&
@@ -359,6 +355,24 @@ function ListingCard({
             {t.option.mismatch(text)}
           </span>
         ))}
+    </>
+  );
+  const cardClass = cn("flex w-full flex-col gap-0.5 rounded-md border px-2 py-1.5 text-left", picked ? "border-primary bg-primary-soft" : "border-line", blocked && "bg-bg text-ink-3");
+  return (
+    <li>
+      {blocked ? (
+        <div className={cardClass}>{body}</div>
+      ) : (
+        <button
+          type="button"
+          aria-pressed={picked}
+          disabled={line.checking}
+          onClick={() => !picked && onChoose(line.rowNo, o.sellerId, o.regDate)}
+          className={cn(cardClass, "outline-none focus-visible:border-primary disabled:opacity-60", !picked && "hover:bg-bg")}
+        >
+          {body}
+        </button>
+      )}
     </li>
   );
 }

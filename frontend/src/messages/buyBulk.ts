@@ -130,7 +130,6 @@ export const buyBulk = {
     blocked: (n: number) => `고를 수 없는 매물 ${n}건`,
     showBlocked: "보기",
     hideBlocked: "접기",
-    select: "선택",
     selected: "선택됨",
     recommended: "추천",
     substituted: "대체품을 골랐어요",
