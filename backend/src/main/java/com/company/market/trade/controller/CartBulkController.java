@@ -8,7 +8,6 @@ import com.company.market.trade.dto.CartBulkCheckResult;
 import com.company.market.trade.dto.CartBulkCommitResult;
 import com.company.market.trade.dto.CartBulkParseResponse;
 import com.company.market.trade.dto.CartBulkRowsRequest;
-import com.company.market.trade.dto.CartBulkSort;
 import com.company.market.trade.service.CartBulkService;
 import com.company.market.trade.service.CartBulkTemplate;
 import jakarta.validation.Valid;
@@ -48,19 +47,18 @@ public class CartBulkController {
 	}
 
 	@PostMapping("/parse")
-	public ApiResponse<CartBulkParseResponse> parse(@AuthenticationPrincipal AuthenticatedUser me, @RequestParam("file") MultipartFile file,
-			@RequestParam(value = "sort", required = false) String sort) {
-		return ApiResponse.of(bulk.parse(me.id(), file, CartBulkSort.parse(sort)));
+	public ApiResponse<CartBulkParseResponse> parse(@AuthenticationPrincipal AuthenticatedUser me, @RequestParam("file") MultipartFile file) {
+		return ApiResponse.of(bulk.parse(me.id(), file));
 	}
 
 	@PostMapping("/check")
 	public ApiResponse<CartBulkCheckResult> check(@AuthenticationPrincipal AuthenticatedUser me, @Valid @RequestBody CartBulkRowsRequest req) {
-		return ApiResponse.of(bulk.check(me.id(), req.rows(), CartBulkSort.parse(req.sort())));
+		return ApiResponse.of(bulk.check(me.id(), req.rows()));
 	}
 
 	@PostMapping("/commit")
 	public ApiResponse<CartBulkCommitResult> commit(@AuthenticationPrincipal AuthenticatedUser me, @Valid @RequestBody CartBulkRowsRequest req) {
-		return ApiResponse.of(bulk.commit(me.id(), req.rows(), CartBulkSort.parse(req.sort())));
+		return ApiResponse.of(bulk.commit(me.id(), req.rows()));
 	}
 
 }

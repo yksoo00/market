@@ -124,16 +124,6 @@ describe("대량구매 작업 보관", () => {
     expect(loadBuyBulk(storage)).toBeNull();
   });
 
-  it("매물 고르는 기준(sort)을 저장·복원하고, 모르는 값이면 버린다", () => {
-    saveBuyBulk(buyReducer(state(), { type: "sorted", sort: "warranty" }), storage);
-    expect(loadBuyBulk(storage)?.sort).toBe("warranty");
-
-    const bad = JSON.parse(JSON.stringify(state())) as BuyState;
-    (bad as { sort: string }).sort = "cheapest";
-    storage.setItem(BUY_STORAGE_KEY, JSON.stringify({ version: 3, state: bad }));
-    expect(loadBuyBulk(storage)).toBeNull();
-  });
-
   it("줄이 없는 상태를 저장하면 보관본을 지운다, clearBuyBulk 후에는 없다", () => {
     saveBuyBulk(state(), storage);
     saveBuyBulk(initialBuyState, storage);

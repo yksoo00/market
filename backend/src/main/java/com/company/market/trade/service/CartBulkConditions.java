@@ -13,7 +13,6 @@ import com.company.market.listing.dto.ListingTradeSnapshot;
 import com.company.market.listing.service.ProdStates;
 import com.company.market.trade.dto.CartBulkRowDto;
 import com.company.market.trade.dto.CartBulkRowResult.ListingOption;
-import com.company.market.trade.dto.CartBulkSort;
 import org.springframework.stereotype.Component;
 
 /**
@@ -133,24 +132,19 @@ class CartBulkConditions {
 				need(row.needTestReport(), "needTestReport", fields), need(row.needCertificate(), "needCertificate", fields));
 	}
 
-	/** 조건을 통과한 매물 중 기본으로 고르는 순서 (CartBulkSort 설명) */
-	Comparator<ListingOption> comparator(CartBulkSort sort) {
+	/**
+	 * 매물 카드의 고정 순서: 단가 낮은 순 → 보증 긴 순(없는 매물은 뒤) → 상태 좋은 순(목록 밖은 뒤) → 제공가능일 빠른 순(비어 있으면 뒤) →
+	 * 재고 많은 순 → 등록일시 빠른 순. 조건에 맞는 매물이 여럿일 때 맨 위 카드가 "추천"이다(미리 고르지는 않는다)
+	 */
+	Comparator<ListingOption> comparator() {
 		Comparator<ListingOption> price = Comparator.comparingInt(ListingOption::unitPrice);
-		// 보증이 긴 쪽이 먼저 — 없는(null) 매물은 맨 뒤
-		Comparator<ListingOption> warranty = Comparator.comparingInt((ListingOption o) -> o.traits().warrantyDays() == null ? -1 : o.traits().warrantyDays())
-			.reversed();
+		Comparator<ListingOption> warranty = Comparator.comparingInt((ListingOption o) -> o.traits().warrantyDays() == null ? -1 : o.traits().warrantyDays()).reversed();
 		Comparator<ListingOption> state = Comparator.comparingInt(o -> {
 			int rank = ProdStates.rank(o.traits().prodState());
 			return rank < 0 ? UNKNOWN_RANK : rank;
 		});
-		List<Comparator<ListingOption>> lead = switch (sort) {
-			case PRICE -> List.of(price, warranty, state);
-			case STATE -> List.of(state, price, warranty);
-			case WARRANTY -> List.of(warranty, price, state);
-		};
-		Comparator<ListingOption> result = lead.get(0).thenComparing(lead.get(1)).thenComparing(lead.get(2));
-		// 제공가능일은 빠른 쪽 먼저(비어 있으면 뒤), 재고는 많은 쪽, 마지막은 등록일시가 빠른 쪽
-		return result.thenComparing(Comparator.comparing((ListingOption o) -> blankToNull(o.deliveryDate()), Comparator.nullsLast(Comparator.naturalOrder())))
+		return price.thenComparing(warranty).thenComparing(state)
+			.thenComparing(Comparator.comparing((ListingOption o) -> blankToNull(o.deliveryDate()), Comparator.nullsLast(Comparator.naturalOrder())))
 			.thenComparing(Comparator.comparingInt(ListingOption::stock).reversed())
 			.thenComparing(ListingOption::regDate);
 	}

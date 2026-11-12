@@ -15,13 +15,11 @@ import type { BuyFields } from "@/lib/validation/buyBulk";
 import { checkUpload } from "@/lib/validation/upload";
 import { buyBulk } from "@/messages/buyBulk";
 import { UNREACHABLE } from "@/types/api";
-import type { BuySort } from "@/types/cartBulk";
 import type { ProductSearchItem } from "@/types/listing";
 
 const t = buyBulk;
 
 const TABS: BuyTab[] = ["all", "choose", "available", "unavailable", "failed", "done"];
-const PICK_SORTS: BuySort[] = ["price", "state", "warranty"];
 const SORT_KEYS: BuySortKey[] = ["rowNo", "prodName", "prodBrand", "orderQuantity", "unitPrice", "status"];
 
 const buttonClass = "h-8 px-3 rounded-md border border-line text-[13px] font-medium text-ink-2 hover:bg-bg disabled:opacity-40";
@@ -102,7 +100,7 @@ export function BuyBulkView() {
       sent.current.set(l.rowNo, token);
       dispatch({ type: "checking", rowNo: l.rowNo });
     });
-    const res = await cartBulkApi.check(lines.map(toCheckRow), base.sort);
+    const res = await cartBulkApi.check(lines.map(toCheckRow));
     const fresh = new Set(lines.filter((l) => sent.current.get(l.rowNo) === token).map((l) => l.rowNo));
     const results = res.ok ? res.data.results : lines.map((l) => l.result);
     dispatch({ type: "rechecked", results: results.filter((r) => fresh.has(r.rowNo)), cartCount: res.ok ? res.data.cartCount : undefined });
@@ -118,22 +116,6 @@ export function BuyBulkView() {
 
   /** 고르는 칸(조건의 상태·보증·증빙)은 바꾼 즉시 서버에 다시 묻는다 — 칸을 벗어나는 순간이 따로 없어서 */
   const editNow = (rowNo: number, field: keyof BuyFields, value: string) => change({ type: "edited", rowNo, field, value, today }, rowNo);
-
-  /** 기본 매물을 고르는 기준을 바꾸면 열린 줄 전부를 새 기준으로 다시 검사한다 (직접 고른 매물은 그대로 둔다) */
-  const changePickBy = (sort: BuySort) => {
-    if (sort === state.sort) return;
-    const previous = state.sort;
-    const action: BuyAction = { type: "sorted", sort };
-    dispatch(action);
-    const next = buyReducer(state, action);
-    void recheckRows(
-      next,
-      next.lines.filter((l) => !l.added).map((l) => l.rowNo),
-    ).then((ok) => {
-      // 다시 묻지 못했으면 줄의 매물은 옛 기준 그대로다 — 드롭다운도 되돌려 화면과 맞추고, 다시 고르면 재시도된다
-      if (!ok) dispatch({ type: "sorted", sort: previous });
-    });
-  };
 
   const blurLine = (rowNo: number) => {
     if (edited.current.delete(rowNo)) void recheckRows(state, [rowNo]);
@@ -159,7 +141,7 @@ export function BuyBulkView() {
     }
     if (hasOpen && !window.confirm(t.overwriteConfirm)) return;
     setStep("reading");
-    const res = await cartBulkApi.parse(file, state.sort);
+    const res = await cartBulkApi.parse(file);
     setStep("idle");
     if (!res.ok) {
       setPickError(res.fields?.file ?? (t.errors[res.code] ?? res.message ?? t.readFailed));
@@ -216,7 +198,7 @@ export function BuyBulkView() {
     if (!window.confirm(t.confirm(rows.length, hidden, mismatched))) return;
     setCommitting(true);
     setTopError(null);
-    const res = await cartBulkApi.commit(rows, state.sort);
+    const res = await cartBulkApi.commit(rows);
     setCommitting(false);
     if (!res.ok) {
       // 요청이 끝까지 가지 못했으면(네트워크·서버 오류) 일부는 이미 담겼을 수 있다 — 장바구니를 먼저 보게 한다
@@ -307,22 +289,6 @@ export function BuyBulkView() {
         <button type="button" onClick={() => void downloadTemplate()} className="text-[13px] font-medium text-primary underline underline-offset-2">
           {t.drop.template}
         </button>
-        <label className="flex items-center gap-1.5 text-[13px] text-ink-2">
-          {t.pickBy.label}
-          <select
-            value={state.sort}
-            disabled={busy}
-            title={t.pickBy.hint}
-            onChange={(e) => changePickBy(e.target.value as BuySort)}
-            className="h-8 rounded-md border border-line bg-surface px-2 text-[13px] text-ink"
-          >
-            {PICK_SORTS.map((s) => (
-              <option key={s} value={s}>
-                {t.pickBy.options[s]}
-              </option>
-            ))}
-          </select>
-        </label>
         {compact && (
           <button type="button" onClick={reset} disabled={busy} className="text-[13px] font-medium text-ink-2 underline underline-offset-2 disabled:opacity-40">
             {t.reset}

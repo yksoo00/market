@@ -16,7 +16,6 @@ import com.company.market.trade.dto.CartBulkRowDto;
 import com.company.market.trade.dto.CartBulkRowResult;
 import com.company.market.trade.dto.CartBulkRowResult.ListingOption;
 import com.company.market.trade.dto.CartBulkRowResult.Status;
-import com.company.market.trade.dto.CartBulkSort;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -91,11 +90,7 @@ class CartBulkConditionsServiceTest {
 	}
 
 	private CartBulkRowResult only(CartBulkRowDto row) {
-		return service.check(buyer, List.of(row), CartBulkSort.PRICE).results().get(0);
-	}
-
-	private CartBulkRowResult only(CartBulkRowDto row, CartBulkSort sort) {
-		return service.check(buyer, List.of(row), sort).results().get(0);
+		return service.check(buyer, List.of(row)).results().get(0);
 	}
 
 	/** 카드 순서(정렬 기준)에서 조건에 맞는(살 수 있고 다른 점 없는) 첫 매물 = 화면이 "추천"으로 표시하는 매물 */
@@ -231,20 +226,18 @@ class CartBulkConditionsServiceTest {
 	}
 
 	@Test
-	@DisplayName("정렬 기준에 따라 같은 후보의 카드 순서와 추천이 달라진다 (최저가 / 상태 / 보증 우선) — 여럿이면 미리 고르지 않는다")
-	void sortModes() {
+	@DisplayName("카드 순서는 고정: 단가 낮은 순 → 보증 긴 순 → 상태 좋은 순. 맞는 매물이 여럿이면 미리 고르지 않고 맨 위가 추천")
+	void cardOrder() {
 		save(base(sellerA, "20261105100000", 1000).prodState("신품대비 80~89%").warrantyPeriod(360));
 		save(base(sellerB, "20261105100001", 900).prodState("신품대비 70~79%").warrantyPeriod(90));
 		save(base(sellerC, "20261105100002", 1200).prodState("신품").warrantyPeriod(180));
 
-		CartBulkRowResult byPrice = only(plain(), CartBulkSort.PRICE);
-		assertThat(byPrice.status()).isEqualTo(Status.CHOOSE);
-		assertThat(byPrice.chosen()).isNull();
-		assertThat(byPrice.options()).extracting(ListingOption::sellerId).containsExactly(sellerB.toString(), sellerA.toString(), sellerC.toString());
-		assertThat(only(plain(), CartBulkSort.STATE).options()).extracting(ListingOption::sellerId).containsExactly(sellerC.toString(), sellerA.toString(), sellerB.toString());
-		assertThat(only(plain(), CartBulkSort.WARRANTY).options()).extracting(ListingOption::sellerId).containsExactly(sellerA.toString(), sellerC.toString(), sellerB.toString());
-		// 정렬을 안 정하면 최저가 우선
-		assertThat(recommended(only(plain()))).isEqualTo(sellerB.toString());
+		CartBulkRowResult r = only(plain());
+
+		assertThat(r.status()).isEqualTo(Status.CHOOSE);
+		assertThat(r.chosen()).isNull();
+		assertThat(r.options()).extracting(ListingOption::sellerId).containsExactly(sellerB.toString(), sellerA.toString(), sellerC.toString());
+		assertThat(recommended(r)).isEqualTo(sellerB.toString());
 	}
 
 	@Test

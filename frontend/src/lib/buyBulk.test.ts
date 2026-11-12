@@ -113,13 +113,6 @@ describe("buyReducer", () => {
     expect(errorsOf(edited.lines[0])).toEqual({});
   });
 
-  it("매물 고르는 기준(sort)은 기본 price, 바꾸면 새 파일을 읽어도 유지된다", () => {
-    expect(initialBuyState.sort).toBe("price");
-    const sorted = buyReducer(initialBuyState, { type: "sorted", sort: "state" });
-    const reloaded = buyReducer(sorted, { type: "loaded", rows: [row(2)], results: [result(2, "UNAVAILABLE")], cartCount: 0, cartMax: 100 });
-    expect(reloaded.sort).toBe("state");
-  });
-
   it("매물 카드 세 구역: 조건에 맞는 것(clean) / 조건과 다른 것(soft) / 고를 수 없는 것(blocked) — 서버가 보낸 순서를 그대로 지킨다", () => {
     const soft = { ...option("S", 5), mismatches: ["단가가 상한을 넘어요"] };
     const hard = option("H", 4, "재고 부족");

@@ -81,12 +81,6 @@ export const buyBulk = {
     warrantyMonths: (m: number) => `${m}개월 이상`,
     evidence: "있어야 하는 서류·정보",
   },
-  // 조건을 통과한 매물 중 기본으로 고르는 기준 — 모든 줄에 하나가 적용된다
-  pickBy: {
-    label: "추천 기준",
-    hint: "매물 카드 순서와 \"추천\" 표시 기준이에요. 어느 매물을 살지는 직접 골라요.",
-    options: { price: "가장 싼 것 먼저", state: "상태 좋은 것 먼저", warranty: "보증 긴 것 먼저" },
-  },
   // 매물 카드·고른 매물의 특성
   trait: {
     state: (state: string | null) => state ?? "상태 모름",

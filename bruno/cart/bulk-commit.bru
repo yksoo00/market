@@ -21,8 +21,7 @@ body:json {
         "reqDeliDate": "2099-12-31",
         "minWarrantyMonths": "6"
       }
-    ],
-    "sort": "price"
+    ]
   }
 }
 
@@ -31,6 +30,6 @@ docs {
   응답 { ok, data: { results: [{ rowNo, ok, code?, message? }], cartCount } }, results 는 입력 줄과 같은 개수·순서. 실패한 줄은 code(VALIDATION · NO_LISTING · CART_FULL · TRADE_OUT_OF_STOCK 등)와 message.
   담으면 그 수량만큼 재고가 묶이고 1시간 뒤 자동으로 풀린다 (장바구니 규칙 그대로, 최대 100줄). 단가는 매물 단가.
   고르지 않은 줄(status CHOOSE)은 NO_CHOICE("매물을 골라 주세요.")로 실패한다 — 담는 매물은 구매자가 정한다.
-  조건 칸(minState·maxPrice·minWarrantyMonths·need*)은 check 와 같다. 담는 매물은 줄의 sellerId + regDate(구매자가 고른 것)이고, sort 는 정렬 순서일 뿐 담을 매물을 정하지 않는다.
+  조건 칸(minState·maxPrice·minWarrantyMonths·need*)은 check 와 같다. 담는 매물은 줄의 sellerId + regDate(구매자가 고른 것)다.
   대체품 매물을 골랐으면 요청사항에 "원래 요청: <상품명>" 이 덧붙는다(100자 안에서 사용자 글의 앞부분을 자름).
 }

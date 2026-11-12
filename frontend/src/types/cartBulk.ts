@@ -25,9 +25,6 @@ export interface CartBulkRowApi {
   needCertificate: string | null;
 }
 
-/** 조건을 통과한 매물 중 기본으로 고르는 기준 (서버 CartBulkSort). 모든 줄에 하나가 적용된다 */
-export type BuySort = "price" | "state" | "warranty";
-
 /** 매물 상태·보증일·증빙 유무 (파일 키는 없다). warrantyDays 가 null 이면 보증 없음 */
 export interface ListingTraits {
   prodState: string | null;

@@ -187,13 +187,13 @@ class CartBulkApiTest {
 	}
 
 	@Test
-	@DisplayName("check·commit·parse 가 조건 칸과 sort 를 받는다: 조건과 안 맞으면 CHOOSE + 다른 점(직접 고르면 담김), 모르는 sort 는 400")
+	@DisplayName("check·commit 이 조건 칸을 받는다: 조건과 안 맞으면 CHOOSE + 다른 점(직접 고르면 담김)")
 	void conditionsAndSort() throws Exception {
 		String strict = "{\"rowNo\":2,\"prodName\":\"구매API 상품\",\"prodBrand\":\"Acme\",\"orderQuantity\":\"3\",\"reqDeliDate\":\"2099-12-31\","
 				+ "\"maxPrice\":\"500\",\"minState\":\"신품\",\"needDataSheet\":\"Y\"}";
 
 		mvc.perform(post("/api/v1/cart/bulk/check").cookie(authCookie).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"sort\":\"warranty\",\"rows\":[" + strict + "]}"))
+				.content(rowsJson(strict)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.results[0].status").value("CHOOSE"))
 			.andExpect(jsonPath("$.data.results[0].options[0].reason").doesNotExist())
@@ -201,23 +201,10 @@ class CartBulkApiTest {
 			.andExpect(jsonPath("$.data.results[0].options[0].traits.prodState").value("신품"));
 
 		mvc.perform(post("/api/v1/cart/bulk/commit").cookie(authCookie).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"sort\":\"state\",\"rows\":[" + strict + "]}"))
+				.content(rowsJson(strict)))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.results[0].ok").value(false))
 			.andExpect(jsonPath("$.data.cartCount").value(0));
-
-		mvc.perform(post("/api/v1/cart/bulk/check").cookie(authCookie).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"sort\":\"cheapest\",\"rows\":[" + rowJson(2, "구매API 상품", "3") + "]}"))
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.fields.sort").exists());
-		mvc.perform(multipart("/api/v1/cart/bulk/parse").file(file("a.xlsx", workbook(List.<String[]>of(line("구매API 상품", "3"))))).param("sort", "cheapest")
-				.cookie(authCookie))
-			.andExpect(status().isBadRequest())
-			.andExpect(jsonPath("$.fields.sort").exists());
-		mvc.perform(multipart("/api/v1/cart/bulk/parse").file(file("a.xlsx", workbook(List.<String[]>of(line("구매API 상품", "3"))))).param("sort", "price")
-				.cookie(authCookie))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.results[0].status").value("AVAILABLE"));
 	}
 
 	@Test

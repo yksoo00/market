@@ -16,7 +16,6 @@ import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.service.ProductService;
 import com.company.market.listing.service.ProductService.ProductDraft;
 import com.company.market.trade.dto.CartBulkRowDto;
-import com.company.market.trade.dto.CartBulkSort;
 import com.company.market.trade.dto.CartBulkRowResult;
 import com.company.market.trade.dto.CartBulkRowResult.ListingOption;
 import com.company.market.trade.dto.CartBulkRowResult.Status;
@@ -98,7 +97,7 @@ class CartBulkServiceTest {
 	}
 
 	private CartBulkRowResult only(CartBulkRowDto row) {
-		return service.check(buyer, List.of(row), CartBulkSort.PRICE).results().get(0);
+		return service.check(buyer, List.of(row)).results().get(0);
 	}
 
 	private static ListingOption option(CartBulkRowResult r, UUID seller) {
@@ -317,7 +316,7 @@ class CartBulkServiceTest {
 	void duplicateInFile() {
 		listing(sellerA, "20261105100000", main, 1000, 50, 1, 1, false);
 
-		List<CartBulkRowResult> r = service.check(buyer, List.of(row(2, "구매검사 원품 A", "3"), row(3, "구매검사 원품 a", "4")), CartBulkSort.PRICE).results();
+		List<CartBulkRowResult> r = service.check(buyer, List.of(row(2, "구매검사 원품 A", "3"), row(3, "구매검사 원품 a", "4"))).results();
 
 		assertThat(r.get(0).status()).isEqualTo(Status.AVAILABLE);
 		assertThat(r.get(1).status()).isEqualTo(Status.FAILED);
@@ -327,10 +326,10 @@ class CartBulkServiceTest {
 	@Test
 	@DisplayName("줄이 0개·101개이거나 줄 번호가 겹치면 거절")
 	void rowCountAndRowNo() {
-		assertThatThrownBy(() -> service.check(buyer, List.of(), CartBulkSort.PRICE)).isInstanceOf(ValidationException.class);
+		assertThatThrownBy(() -> service.check(buyer, List.of())).isInstanceOf(ValidationException.class);
 		List<CartBulkRowDto> many = IntStream.range(0, 101).mapToObj(i -> row(i + 2, "구매검사 원품 A", "3")).toList();
-		assertThatThrownBy(() -> service.check(buyer, many, CartBulkSort.PRICE)).isInstanceOf(ValidationException.class);
-		assertThatThrownBy(() -> service.check(buyer, List.of(row(2, "구매검사 원품 A", "3"), row(2, "구매검사 대체품 X", "3")), CartBulkSort.PRICE))
+		assertThatThrownBy(() -> service.check(buyer, many)).isInstanceOf(ValidationException.class);
+		assertThatThrownBy(() -> service.check(buyer, List.of(row(2, "구매검사 원품 A", "3"), row(2, "구매검사 대체품 X", "3"))))
 			.isInstanceOf(ValidationException.class);
 	}
 
@@ -439,7 +438,7 @@ class CartBulkServiceTest {
 	void cartCount() {
 		listing(sellerA, "20261105100000", main, 1000, 5, 1, 1, false);
 
-		var result = service.check(buyer, List.of(row(2, "구매검사 원품 A", "3")), CartBulkSort.PRICE);
+		var result = service.check(buyer, List.of(row(2, "구매검사 원품 A", "3")));
 
 		assertThat(result.cartCount()).isZero();
 		assertThat(result.cartMax()).isEqualTo(100);

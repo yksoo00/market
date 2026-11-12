@@ -1,6 +1,6 @@
 import { BUY_CONDITION_FIELDS, validateBuyRow, type BuyFields } from "@/lib/validation/buyBulk";
 import { buyBulk } from "@/messages/buyBulk";
-import type { BuyCandidate, BuySort, CartBulkOutcome, CartBulkResult, CartBulkRowApi, ListingOption } from "@/types/cartBulk";
+import type { BuyCandidate, CartBulkOutcome, CartBulkResult, CartBulkRowApi, ListingOption } from "@/types/cartBulk";
 
 // 엑셀 대량구매의 표 상태 (계획 2026-11-09-bulk-purchase-excel.md). 판매 다량 등록(lib/bulkListing)과 같은 틀이지만 줄의 칸이 달라
 // 구매 전용으로 따로 둔다. 서버는 줄 상태를 저장하지 않아 수정·체크는 전부 여기(브라우저)에 있고, 검사·담기 때마다 서버로 다시 보낸다.
@@ -31,8 +31,6 @@ export interface BuyState {
   /** 서버가 알려 준 지금 장바구니 줄 수·한도 */
   cartCount: number;
   cartMax: number;
-  /** 조건을 통과한 매물 중 기본으로 고르는 기준 — 모든 줄·검사·담기에 같은 값을 보낸다 */
-  sort: BuySort;
 }
 
 /** 줄에서 마스터를 고를 때 넘기는 값 (후보 버튼·[상품 찾기]) */
@@ -52,9 +50,7 @@ export type BuyAction =
   | { type: "unlocked"; rowNo: number }
   /** 다른 매물(또는 대체품 매물)을 고른다 */
   | { type: "chose"; rowNo: number; sellerId: string; regDate: string }
-  | { type: "committed"; outcomes: CartBulkOutcome[]; cartCount: number }
-  /** 기본 매물을 고르는 기준을 바꾼다 — 화면이 열린 줄 전부를 새 기준으로 다시 검사한다 */
-  | { type: "sorted"; sort: BuySort };
+  | { type: "committed"; outcomes: CartBulkOutcome[]; cartCount: number };
 
 /** 마스터를 고르면 잠기는 칸 — 마스터 값이 기준이라 직접 고치지 않는다 (판매 다량 등록·등록 폼과 같은 방식) */
 export const LOCKED_FIELDS: (keyof BuyFields)[] = ["prodName", "prodBrand", "prodClassNo"];
@@ -62,9 +58,7 @@ export const LOCKED_FIELDS: (keyof BuyFields)[] = ["prodName", "prodBrand", "pro
 /** 마스터를 고른 줄(후보·[상품 찾기]·엑셀의 상품 ID)이면 상품 칸이 잠긴다 */
 export const isLocked = (line: BuyLine): boolean => line.fields.prodId !== "";
 
-export const DEFAULT_SORT: BuySort = "price";
-
-export const initialBuyState: BuyState = { lines: [], added: 0, cartCount: 0, cartMax: 100, sort: DEFAULT_SORT };
+export const initialBuyState: BuyState = { lines: [], added: 0, cartCount: 0, cartMax: 100 };
 
 /** 서버가 준 줄(null 허용)을 화면 입력값(빈 칸 = "")으로 */
 export function toFields(row: CartBulkRowApi): BuyFields {
@@ -230,7 +224,7 @@ function reduce(state: BuyState, action: BuyAction): BuyState {
           duplicate: false,
         });
       }
-      return { lines, added: 0, cartCount: action.cartCount, cartMax: action.cartMax, sort: state.sort };
+      return { lines, added: 0, cartCount: action.cartCount, cartMax: action.cartMax };
     }
     case "restored":
       return action.state;
@@ -269,7 +263,7 @@ function reduce(state: BuyState, action: BuyAction): BuyState {
         lines: state.lines.map((l) => {
           const result = byRow.get(l.rowNo);
           if (!result || l.added) return l;
-          // 다시 검사해도 같은 매물이 그대로 골라져 있고 문제가 없으면 체크를 유지한다(추천 기준만 바꿨는데 모든 체크가 풀리지 않게).
+          // 다시 검사해도 같은 매물이 그대로 골라져 있고 문제가 없으면 체크를 유지한다(전체를 다시 맞춰 봤다고 사용자가 해 둔 체크가 모두 풀리지 않게).
           // 고른 매물이 바뀌었거나 없어졌으면 풀어 둔다 — 바뀐 결과를 사용자가 눈으로 보고 다시 체크하게
           const prev = l.result.chosen;
           const same = prev !== null && result.status === "AVAILABLE" && result.chosen?.sellerId === prev.sellerId && result.chosen.regDate === prev.regDate;
@@ -337,7 +331,5 @@ function reduce(state: BuyState, action: BuyAction): BuyState {
       });
       return { ...state, lines, added: state.added + addedNow, cartCount: action.cartCount };
     }
-    case "sorted":
-      return { ...state, sort: action.sort };
   }
 }

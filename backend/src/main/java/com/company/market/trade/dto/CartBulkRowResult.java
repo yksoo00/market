@@ -7,7 +7,7 @@ import com.company.market.listing.dto.ListingTraits;
 
 /**
  * 엑셀 대량구매 한 줄의 검사 결과 (계획 2026-11-09-bulk-purchase-excel.md). fields 의 키는 CartBulkRowDto 필드 이름 + 고른 매물의 사유(listing).
- * options 는 그 마스터의 모든 매물 — 요청의 sort 순서로 정렬되어 오고, 못 사는 매물도 reason(사유)과 함께 남는다(reason 이 null 이면 살 수 있음).
+ * options 는 그 마스터의 모든 매물 — 고정 순서(단가 → 보증 → 상태 → 제공가능일 → 재고 → 등록일시)로 정렬되어 오고, 못 사는 매물도 reason(사유)과 함께 남는다(reason 이 null 이면 살 수 있음).
  * alternatives 는 마스터의 대체상품명과 이름이 같은 마스터의 매물(제안일 뿐, 자동으로 고르지 않는다).
  */
 public record CartBulkRowResult(

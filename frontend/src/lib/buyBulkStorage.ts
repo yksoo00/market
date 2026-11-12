@@ -1,5 +1,4 @@
 import type { BuyLine, BuyState } from "@/lib/buyBulk";
-import type { BuySort } from "@/types/cartBulk";
 
 // 대량구매 작업을 브라우저 sessionStorage 에 보관한다 (계획 2026-11-09-bulk-purchase-excel.md). 새로고침해도 고친 줄·체크를 잃지 않게.
 // 판매 다량 등록의 보관(lib/bulkStorage)과 같은 규칙: 서버에는 저장하지 않고, 탭을 닫으면 사라지며, 저장 실패는 조용히 넘기고,
@@ -25,8 +24,6 @@ const FIELD_KEYS = [
   "needTestReport",
   "needCertificate",
 ] as const;
-
-const SORTS = ["price", "state", "warranty"];
 
 /** 보관 형식이 바뀌면 올린다 — 다른 버전의 보관본은 읽지 않고 버린다 */
 const VERSION = 3;
@@ -101,8 +98,7 @@ export function loadBuyBulk(storage: Storage | null = browserStorage()): BuyStat
       !state.lines.every(isLine) ||
       typeof state.added !== "number" ||
       typeof state.cartCount !== "number" ||
-      typeof state.cartMax !== "number" ||
-      !SORTS.includes(String(state.sort))
+      typeof state.cartMax !== "number"
     ) {
       storage.removeItem(BUY_STORAGE_KEY);
       return null;
@@ -113,7 +109,6 @@ export function loadBuyBulk(storage: Storage | null = browserStorage()): BuyStat
       added: state.added,
       cartCount: state.cartCount,
       cartMax: state.cartMax,
-      sort: state.sort as BuySort,
     };
   } catch {
     try {
