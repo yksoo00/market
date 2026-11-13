@@ -48,6 +48,17 @@ public interface ProductRepository extends JpaRepository<Product, String> {
 		""")
 	List<Product> findAllLoose(@Param("name") String name, @Param("brand") String brand, @Param("classNo") String classNo, Pageable pageable);
 
+	/**
+	 * 엑셀 대량구매의 폴백 — 이름이 정확히 같은 마스터가 없을 때 이름에 키가 **포함된** 마스터. pattern 은 호출하는 쪽이 소문자·공백·하이픈을 빼고
+	 * %·_·\ 를 이스케이프해 만든 LIKE 패턴이고, DB 쪽 이름도 같은 정리를 한다. 이름이 짧은(= 더 가까운) 순
+	 */
+	@Query("""
+		select p from Product p
+		where lower(replace(replace(p.prodName, ' ', ''), '-', '')) like :pattern escape '\\'
+		order by length(p.prodName), p.prodName, p.prodId
+		""")
+	List<Product> findAllNameContains(@Param("pattern") String pattern, Pageable pageable);
+
 	/** 제조일만 달라 따로 있던 옛 마스터가 여럿이면 가장 오래된(prod_id 가 작은) 한 행 — 단일 결과 예외를 피한다 */
 	default Optional<Product> findSame(String name, String brand, String classNo) {
 		return findAllSame(name, brand, classNo, PageRequest.of(0, 1)).stream().findFirst();

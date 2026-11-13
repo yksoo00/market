@@ -93,6 +93,16 @@ public class ProductService {
 		return products.findAllLoose(name, looseKey(prodBrand), orEmpty(prodClassNo), PageRequest.of(0, limit));
 	}
 
+	/** 엑셀 대량구매의 폴백 — 이름이 정확히 같은 마스터가 없을 때 이름에 포함된 마스터(이름이 짧은 순, 최대 limit). 공백·하이픈·대소문자는 무시한다 */
+	public List<Product> findAllNameContains(String prodName, int limit) {
+		String key = looseKey(prodName);
+		if (key.isEmpty()) {
+			return List.of();
+		}
+		String escaped = key.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+		return products.findAllNameContains("%" + escaped + "%", PageRequest.of(0, limit));
+	}
+
 	/** 비교용 키 — 소문자, 공백과 하이픈 제거. 저장소 쿼리(findAllLoose)가 DB 쪽 값에 replace 로 같은 정리를 한다 */
 	private static String looseKey(String value) {
 		return value == null ? "" : value.toLowerCase(Locale.ROOT).replaceAll("[\\s-]+", "");

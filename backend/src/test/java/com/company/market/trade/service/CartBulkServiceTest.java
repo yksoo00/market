@@ -179,13 +179,27 @@ class CartBulkServiceTest {
 	}
 
 	@Test
-	@DisplayName("마스터가 없으면 FAILED + 이름이 겹치는 상품 후보")
-	void masterMissing() {
+	@DisplayName("이름이 정확히 같은 마스터가 없으면 이름이 포함된 마스터의 매물을 보이고 안내를 붙인다")
+	void containsFallback() {
+		listing(sellerA, "20261105100000", main, 1000, 5, 1, 1, false);
+
 		CartBulkRowResult r = only(new CartBulkRowDto(2, null, "구매검사 원품", "Acme", null, "3", "2099-12-31", null, null, null, null, null, null, null, null, null, null, null));
+
+		// 매물이 하나뿐이라 조건에 맞는 매물이 하나 — 미리 골라진다
+		assertThat(r.status()).isEqualTo(Status.AVAILABLE);
+		assertThat(r.notices()).anySatisfy(n -> assertThat(n).contains("비슷한"));
+		assertThat(r.options()).extracting(ListingOption::prodId).containsExactly(main.getProdId());
+		assertThat(r.chosen().prodName()).isEqualTo("구매검사 원품 A");
+	}
+
+	@Test
+	@DisplayName("이름이 정확히 같지도 포함되지도 않으면 FAILED(상품마스터에 없음), 매물 없음")
+	void masterMissing() {
+		CartBulkRowResult r = only(row(2, "구매검사 없는상품 ZZZ", "3"));
 
 		assertThat(r.status()).isEqualTo(Status.FAILED);
 		assertThat(r.fields()).containsKey("prodName");
-		assertThat(r.candidates()).extracting(c -> c.prodId()).contains(main.getProdId());
+		assertThat(r.masterCount()).isZero();
 		assertThat(r.options()).isEmpty();
 	}
 
@@ -350,23 +364,42 @@ class CartBulkServiceTest {
 	}
 
 	@Test
-	@DisplayName("이름+제조사가 같은 마스터가 여럿이면 자동으로 고르지 않고 후보로 묻는다, 분류번호를 적으면 하나로 좁혀진다")
-	void severalMastersNeedChoice() {
+	@DisplayName("이름+제조사가 같은 마스터가 여럿이어도 마스터를 고르게 하지 않고 매물을 한 줄에 합쳐 보인다, 분류번호를 적으면 하나로 좁혀진다")
+	void severalMastersAreMerged() {
 		Product a = withClassNo("구매검사 여럿 D", "Acme", "PD-0001");
 		Product b = withClassNo("구매검사 여럿 D", "Acme", "PD-0002");
 		listing(sellerA, "20261105100000", a, 1000, 5, 1, 1, false);
 		listing(sellerB, "20261105100001", b, 900, 5, 1, 1, false);
 
-		CartBulkRowResult ambiguous = only(row(2, "구매검사 여럿 D", "3"));
+		CartBulkRowResult merged = only(row(2, "구매검사 여럿 D", "3"));
 
-		assertThat(ambiguous.status()).isEqualTo(Status.FAILED);
-		assertThat(ambiguous.prodId()).isNull();
-		assertThat(ambiguous.fields().get("prodName")).contains("여럿");
-		assertThat(ambiguous.candidates()).extracting(c -> c.prodId()).containsExactlyInAnyOrder(a.getProdId(), b.getProdId());
+		assertThat(merged.status()).isEqualTo(Status.CHOOSE);
+		assertThat(merged.masterCount()).isEqualTo(2);
+		assertThat(merged.prodId()).isNull();
+		assertThat(merged.fields()).isEmpty();
+		// 두 마스터의 매물이 단가 순으로 섞여 나오고 각 매물이 자기 상품을 가진다
+		assertThat(merged.options()).extracting(ListingOption::prodId).containsExactly(b.getProdId(), a.getProdId());
+		assertThat(merged.options()).extracting(ListingOption::prodClassNo).containsExactly("PD-0002", "PD-0001");
 
 		CartBulkRowResult narrowed = only(new CartBulkRowDto(3, null, "구매검사 여럿 D", "Acme", "pd-0002", "3", "2099-12-31", null, null, null, null, null, null, null, null, null, null, null));
 		assertThat(narrowed.status()).isEqualTo(Status.AVAILABLE);
 		assertThat(narrowed.prodId()).isEqualTo(b.getProdId());
+		assertThat(narrowed.masterCount()).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("마스터가 여럿인 줄에서 고른 매물은 합친 목록과 대조한다 — 다른 마스터의 매물도 고를 수 있다")
+	void chooseFromMergedMasters() {
+		Product a = withClassNo("구매검사 합침 J", "Acme", "PD-0001");
+		Product b = withClassNo("구매검사 합침 J", "Acme", "PD-0002");
+		listing(sellerA, "20261105100000", a, 1000, 5, 1, 1, false);
+		listing(sellerB, "20261105100001", b, 900, 5, 1, 1, false);
+		CartBulkRowDto pick = new CartBulkRowDto(2, null, "구매검사 합침 J", "Acme", null, "3", "2099-12-31", null, sellerA.toString(), "20261105100000", null, null, null, null, null, null, null, null);
+
+		CartBulkRowResult r = only(pick);
+
+		assertThat(r.status()).isEqualTo(Status.AVAILABLE);
+		assertThat(r.chosen().prodId()).isEqualTo(a.getProdId());
 	}
 
 	@Test
@@ -384,32 +417,35 @@ class CartBulkServiceTest {
 	}
 
 	@Test
-	@DisplayName("제조사를 비우면 이름만으로 찾는다 — 하나면 자동, 여럿이면 후보")
+	@DisplayName("제조사를 비우면 이름만으로 찾는다 — 이름이 같은 마스터(제조사가 달라도)의 매물이 모두 나온다")
 	void blankBrand() {
 		Product solo = products.findOrCreate(draft("구매검사 단독 E", "Zeta", null));
 		listing(sellerA, "20261105100000", solo, 1000, 5, 1, 1, false);
 		Product dupA = products.findOrCreate(draft("구매검사 이름겹침 F", "Acme", null));
-		products.findOrCreate(draft("구매검사 이름겹침 F", "Zeta", null));
+		Product dupB = products.findOrCreate(draft("구매검사 이름겹침 F", "Zeta", null));
+		listing(sellerB, "20261105100001", dupA, 1000, 5, 1, 1, false);
+		listing(sellerC, "20261105100002", dupB, 900, 5, 1, 1, false);
 
 		CartBulkRowResult one = only(new CartBulkRowDto(2, null, "구매검사 단독 E", null, null, "3", "2099-12-31", null, null, null, null, null, null, null, null, null, null, null));
 		CartBulkRowResult many = only(new CartBulkRowDto(3, null, "구매검사 이름겹침 F", " ", null, "3", "2099-12-31", null, null, null, null, null, null, null, null, null, null, null));
 
 		assertThat(one.status()).isEqualTo(Status.AVAILABLE);
 		assertThat(one.prodId()).isEqualTo(solo.getProdId());
-		assertThat(many.status()).isEqualTo(Status.FAILED);
-		assertThat(many.candidates()).hasSize(2).extracting(c -> c.prodId()).contains(dupA.getProdId());
+		assertThat(many.status()).isEqualTo(Status.CHOOSE);
+		assertThat(many.options()).extracting(ListingOption::prodBrand).containsExactly("Zeta", "Acme");
 	}
 
 	@Test
-	@DisplayName("제조사를 적었는데 이름만 같고 제조사가 다르면 자동으로 붙이지 않고, 후보에는 보인다")
-	void differentBrandIsNotAutoMatched() {
+	@DisplayName("제조사를 적었는데 이름만 같고 제조사가 다르면 이름 포함 폴백으로 보이고 안내가 붙는다")
+	void differentBrandFallsBack() {
 		Product other = products.findOrCreate(draft("구매검사 제조사다름 G", "Zeta", null));
+		listing(sellerA, "20261105100000", other, 1000, 5, 1, 1, false);
 
 		CartBulkRowResult r = only(new CartBulkRowDto(2, null, "구매검사 제조사다름 G", "Acme", null, "3", "2099-12-31", null, null, null, null, null, null, null, null, null, null, null));
 
-		assertThat(r.status()).isEqualTo(Status.FAILED);
-		assertThat(r.prodId()).isNull();
-		assertThat(r.candidates()).extracting(c -> c.prodId()).contains(other.getProdId());
+		assertThat(r.status()).isEqualTo(Status.AVAILABLE);
+		assertThat(r.notices()).isNotEmpty();
+		assertThat(r.chosen().prodBrand()).isEqualTo("Zeta");
 	}
 
 	@Test

@@ -59,6 +59,7 @@ const result = (rowNo: number): CartBulkResult => ({
   notices: [],
   fields: {},
   substituted: false,
+  masterCount: 1,
 });
 
 const state = (): BuyState => buyReducer(initialBuyState, { type: "loaded", rows: [row(2), row(3)], results: [result(2), result(3)], cartCount: 4, cartMax: 100 });
@@ -85,7 +86,7 @@ describe("대량구매 작업 보관", () => {
     expect(loadBuyBulk(storage)).toBeNull();
     expect(storage.getItem(BUY_STORAGE_KEY)).toBeNull();
 
-    storage.setItem(BUY_STORAGE_KEY, JSON.stringify({ version: 3, state: { lines: "x", added: 0, cartCount: 0, cartMax: 100 } }));
+    storage.setItem(BUY_STORAGE_KEY, JSON.stringify({ version: 4, state: { lines: "x", added: 0, cartCount: 0, cartMax: 100 } }));
     expect(loadBuyBulk(storage)).toBeNull();
 
     storage.setItem(BUY_STORAGE_KEY, JSON.stringify({ version: 999, state: state() }));
@@ -96,18 +97,18 @@ describe("대량구매 작업 보관", () => {
   it("화면이 읽는 칸이 빠진 보관본(result.options 없음·fields 일부 없음)은 버리고 지운다", () => {
     const broken = JSON.parse(JSON.stringify(state())) as BuyState;
     delete (broken.lines[0].result as Partial<CartBulkResult>).options;
-    storage.setItem(BUY_STORAGE_KEY, JSON.stringify({ version: 3, state: broken }));
+    storage.setItem(BUY_STORAGE_KEY, JSON.stringify({ version: 4, state: broken }));
     expect(loadBuyBulk(storage)).toBeNull();
     expect(storage.getItem(BUY_STORAGE_KEY)).toBeNull();
 
     const noField = JSON.parse(JSON.stringify(state())) as BuyState;
     delete (noField.lines[0].fields as Partial<BuyState["lines"][0]["fields"]>).orderQuantity;
-    storage.setItem(BUY_STORAGE_KEY, JSON.stringify({ version: 3, state: noField }));
+    storage.setItem(BUY_STORAGE_KEY, JSON.stringify({ version: 4, state: noField }));
     expect(loadBuyBulk(storage)).toBeNull();
   });
 
-  it("옛 규칙(v1·v2)의 보관본은 읽지 않고 지운다 — 미리 고르던 낡은 선택이 남지 않게", () => {
-    for (const key of ["market.buyBulk.v1", "market.buyBulk.v2"]) {
+  it("옛 규칙(v1·v2·v3)의 보관본은 읽지 않고 지운다 — 미리 고르던 낡은 선택이 남지 않게", () => {
+    for (const key of ["market.buyBulk.v1", "market.buyBulk.v2", "market.buyBulk.v3"]) {
       storage.setItem(key, JSON.stringify({ version: 2, state: state() }));
       expect(loadBuyBulk(storage)).toBeNull();
       expect(storage.getItem(key)).toBeNull();
@@ -120,7 +121,7 @@ describe("대량구매 작업 보관", () => {
   it("후보 매물에 특성(traits)이 빠진 보관본은 버린다 — 후보 팝업이 읽다 죽는다", () => {
     const broken = JSON.parse(JSON.stringify(state())) as BuyState;
     broken.lines[0].result.options = [{ sellerId: "S" } as unknown as BuyState["lines"][0]["result"]["options"][0]];
-    storage.setItem(BUY_STORAGE_KEY, JSON.stringify({ version: 3, state: broken }));
+    storage.setItem(BUY_STORAGE_KEY, JSON.stringify({ version: 4, state: broken }));
     expect(loadBuyBulk(storage)).toBeNull();
   });
 

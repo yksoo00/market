@@ -26,12 +26,12 @@ const FIELD_KEYS = [
 ] as const;
 
 /** 보관 형식이 바뀌면 올린다 — 다른 버전의 보관본은 읽지 않고 버린다 */
-const VERSION = 3;
+const VERSION = 4;
 
-export const BUY_STORAGE_KEY = "market.buyBulk.v3";
+export const BUY_STORAGE_KEY = "market.buyBulk.v4";
 
-/** 옛 규칙의 보관본 — 읽지 않고 지운다. v1 = 조건 열이 생기기 전, v2 = 정렬 1순위를 미리 고르던 때(미리 고르는 규칙이 바뀌어 낡은 선택이 남는다) */
-const LEGACY_KEYS = ["market.buyBulk.v1", "market.buyBulk.v2"];
+/** 옛 규칙의 보관본 — 읽지 않고 지운다. v1 = 조건 열이 생기기 전, v2 = 정렬 1순위를 미리 고르던 때(미리 고르는 규칙이 바뀌어 낡은 선택이 남는다), v3 = 줄이 마스터 하나만 가리키던 때(masterCount·매물별 상품이 없어 카드가 안 보인다) */
+const LEGACY_KEYS = ["market.buyBulk.v1", "market.buyBulk.v2", "market.buyBulk.v3"];
 
 const browserStorage = (): Storage | null => {
   try {
@@ -72,6 +72,7 @@ const isLine = (v: unknown): v is BuyLine => {
     typeof result.rowNo === "number" &&
     ["AVAILABLE", "CHOOSE", "UNAVAILABLE", "FAILED"].includes(String(result.status)) &&
     typeof result.substituted === "boolean" &&
+    typeof result.masterCount === "number" &&
     Array.isArray(result.options) &&
     // 매물 카드가 매물 특성(traits)을 읽는다 — 빠진 보관본을 받으면 화면이 죽는다
     result.options.every((o) => isRecord(o) && isRecord(o.traits)) &&

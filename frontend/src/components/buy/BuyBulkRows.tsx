@@ -105,15 +105,17 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
   // 이미 고른 줄·매물 없음 줄·담은 줄은 접어 100줄이어도 한 줄씩 훑어볼 수 있게 한다
   const parts = partsOf(result);
   const name = result.matchedName ?? line.fields.prodName;
-  const hasMaster = result.prodId !== null;
+  // 상품을 하나 이상 찾았으면(여러 상품의 매물이 합쳐진 줄 포함) 매물 카드를 보인다
+  const hasMaster = result.masterCount > 0;
   const state = result.substituted
     ? t.group.substituted
     : chosen
-      ? t.group.chosen(t.line.seller(chosen.sellerNickname), formatPrice(chosen.unitPrice))
+      ? t.group.chosen(t.line.seller(chosen.sellerNickname), formatPrice(chosen.unitPrice)) + (result.masterCount > 1 ? ` · ${chosen.prodName}` : "")
       : parts.noneSelectable
         ? t.group.unavailable
         : t.group.none;
-  const needsAttention = failed || result.status === "CHOOSE" || showAlternatives || Boolean(line.addError);
+  // 안내(이름이 정확히 같지 않아 비슷한 상품을 보여 줌)가 있는 줄도 펼친다 — 접으면 안내가 가려져 다른 상품을 모르고 고를 수 있다
+  const needsAttention = failed || result.status === "CHOOSE" || showAlternatives || result.notices.length > 0 || Boolean(line.addError);
   const [open, setOpen] = useState(needsAttention && !line.added);
   // 조건·수량을 고쳐 다시 검사한 결과 손볼 일이 생기면 펼친다 (렌더 중 상태 보정 — effect 로 하면 한 번 더 그려진다)
   const [seenAttention, setSeenAttention] = useState(needsAttention);
@@ -278,11 +280,16 @@ function ListingCards({
   const [showBlocked, setShowBlocked] = useState(false);
   const blockedShown = showBlocked || noneSelectable;
   const card = (o: ListingOption, recommended = false) => (
-    <ListingCard key={`${o.sellerId}/${o.regDate}`} option={o} line={line} recommended={recommended} onChoose={onChoose} onOpenDetail={onOpenDetail} />
+    <ListingCard key={`${o.sellerId}/${o.regDate}`} option={o} line={line} recommended={recommended} showProduct={line.result.masterCount > 1} onChoose={onChoose} onOpenDetail={onOpenDetail} />
   );
 
   return (
     <div className="flex flex-col gap-2 border-t border-line-2 px-3 py-2">
+      {line.result.notices.map((text) => (
+        <p key={text} className="text-[12px] text-ink-2">
+          {text}
+        </p>
+      ))}
       {line.result.options.length === 0 && <p className="rounded-md border border-line py-3 text-center text-[13px] text-ink-2">{t.group.empty}</p>}
       {fit.map((o, i) => card(o, fit.length > 1 && i === 0))}
       {soft.map((o) => card(o))}
@@ -300,9 +307,9 @@ function ListingCards({
 }
 
 /** 라벨 위 + 값 칸 아래 — 위쪽 줄 카드의 잠긴 칸과 같은 모양(읽기만) */
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children, className }: { label: string; children: React.ReactNode; className?: string }) {
   return (
-    <span className="flex min-w-0 flex-col gap-1">
+    <span className={cn("flex min-w-0 flex-col gap-1", className)}>
       <span className="text-[12px] text-ink-2">{label}</span>
       <span className="flex min-h-8 items-center truncate rounded-md bg-bg px-2 text-[13px] text-ink-2">{children}</span>
     </span>
@@ -327,12 +334,15 @@ function ListingCard({
   option: o,
   line,
   recommended,
+  showProduct,
   onChoose,
   onOpenDetail,
 }: {
   option: ListingOption;
   line: BuyLine;
   recommended: boolean;
+  /** 한 줄에 여러 상품의 매물이 합쳐졌을 때만 — 어느 상품의 매물인지 보인다 */
+  showProduct: boolean;
   onChoose: (rowNo: number, sellerId: string, regDate: string) => void;
   onOpenDetail: (sellerId: string, regDate: string) => void;
 }) {
@@ -371,6 +381,11 @@ function ListingCard({
       </div>
       <button type="button" onClick={() => onOpenDetail(o.sellerId, o.regDate)} title={t.card.detailHint} className="flex w-full flex-col gap-2 px-3 py-2 text-left hover:bg-bg">
         <span className="grid grid-cols-2 gap-x-3 gap-y-2 @md:grid-cols-3">
+          {showProduct && (
+            <Field label={t.card.product} className="col-span-2 @md:col-span-3">
+              {[o.prodName, o.prodBrand, o.prodClassNo].filter(Boolean).join(" · ")}
+            </Field>
+          )}
           <Field label={t.card.price}>{formatPrice(o.unitPrice)}</Field>
           <Field label={t.card.total(Number.isInteger(qty) && qty > 0 ? qty : 0)}>{total}</Field>
           <Field label={t.card.stock}>{o.stock}</Field>
@@ -426,7 +441,7 @@ function ProductActions({
 }) {
   const buttonClass = "h-7 rounded-md border border-line px-2 text-[12px] text-ink hover:bg-bg";
   // 마스터를 못 찾은 줄(확인 필요 + 후보)이거나 이미 마스터를 고른 줄에서만 상품 바꾸기 버튼을 보인다 — 매물 있음 줄에까지 늘 보이면 시끄럽다
-  const productProblem = tab === "failed" && !line.result.prodId;
+  const productProblem = tab === "failed" && line.result.masterCount === 0;
   if (!locked && !productProblem && line.result.candidates.length === 0) {
     return (
       <div className="border-t border-line-2 px-3 py-2">

@@ -32,7 +32,6 @@ import com.company.market.trade.dto.CartBulkParseResponse;
 import com.company.market.trade.dto.CartBulkRowDto;
 import com.company.market.trade.dto.CartBulkRowResult;
 import com.company.market.trade.dto.CartBulkRowResult.Alternative;
-import com.company.market.trade.dto.CartBulkRowResult.Candidate;
 import com.company.market.trade.dto.CartBulkRowResult.ListingOption;
 import com.company.market.trade.dto.CartBulkRowResult.Status;
 import com.company.market.trade.dto.TradeCreateRequest;
@@ -61,7 +60,8 @@ public class CartBulkService {
 
 	private static final String REQUIRED = "필수 입력입니다.";
 
-	private static final int CANDIDATE_LIMIT = 5;
+	/** 한 줄에 합쳐 보이는 상품(마스터)의 최대 수 */
+	private static final int MASTER_LIMIT = 10;
 
 	private final ProductService products;
 
@@ -210,60 +210,66 @@ public class CartBulkService {
 			fields.put("remarks", "요청사항은 " + MAX_REMARKS + "자 이하로 입력해 주세요.");
 		}
 
-		Product master = null;
-		List<Candidate> candidates = List.of();
+		// 상품 찾기: 사용자는 상품ID·분류번호·"마스터"를 모른다. 이름(+적었으면 제조사·분류번호)이 같은 마스터를 **모두** 찾아 그 매물을 한 줄에 합쳐 보이고,
+		// 마스터를 고르게 하지 않는다. 이름이 같은 마스터가 없으면 이름이 포함된 마스터로 대신 보이며 안내를 붙인다 (계획 2026-11-12-bulk-purchase-name-search.md)
+		List<Product> masters = List.of();
+		List<String> notices = new ArrayList<>();
 		if (prodId != null) {
-			master = products.find(prodId).orElse(null);
-			if (master == null) {
+			Product picked = products.find(prodId).orElse(null);
+			if (picked == null) {
 				fields.put("prodId", "없는 상품입니다.");
 			}
+			else {
+				masters = List.of(picked);
+			}
+		}
+		else if (name == null) {
+			fields.put("prodName", REQUIRED);
 		}
 		else {
-			if (name == null) {
-				fields.put("prodName", REQUIRED);
+			masters = products.findAllLoose(name, brand, classNo, MASTER_LIMIT);
+			if (masters.isEmpty()) {
+				masters = products.findAllNameContains(name, MASTER_LIMIT);
+				if (!masters.isEmpty()) {
+					notices.add("이름이 정확히 같은 상품이 없어 비슷한 상품의 매물을 보여 드려요.");
+				}
 			}
-			else {
-				// 이름(+적었으면 제조사·분류번호)이 같은 마스터가 **하나일 때만** 자동으로 정한다. 사용자는 상품ID·분류번호를 모르는 게 보통이라
-				// 비운 칸은 보지 않고, 여럿이면 어느 것인지 알 수 없으니 고르게 한다 (계획 2026-11-09-bulk-purchase-conditions.md)
-				List<Product> matches = products.findAllLoose(name, brand, classNo, CANDIDATE_LIMIT + 1);
-				if (sameIdentity(matches)) {
-					// 쿼리가 prod_id 순이라 첫 행이 가장 오래된 마스터 — 판매 쪽 findSame 이 매물을 붙이는 그 마스터다
-					master = matches.get(0);
-				}
-				else if (!matches.isEmpty()) {
-					fields.put("prodName", "같은 이름의 상품이 여럿이에요. 아래에서 고르세요.");
-					candidates = matches.stream().limit(CANDIDATE_LIMIT)
-						.map(p -> new Candidate(p.getProdId(), p.getProdName(), p.getProdBrand(), p.getProdClassNo())).toList();
-				}
-				else {
-					// 마스터에 없는 상품은 살 매물이 없다 — 판매 쪽의 "새 상품" 같은 건 없다
-					fields.put("prodName", "상품마스터에 없는 상품이에요. 아래에서 찾아 고르세요.");
-					candidates = products.search(name).stream().limit(CANDIDATE_LIMIT)
-						.map(p -> new Candidate(p.prodId(), p.prodName(), p.prodBrand(), p.prodClassNo())).toList();
-				}
+			if (masters.isEmpty()) {
+				// 마스터에 없는 상품은 살 매물이 없다 — 판매 쪽의 "새 상품" 같은 건 없다
+				fields.put("prodName", "상품마스터에 없는 상품이에요. [상품 찾기]로 찾아 보세요.");
 			}
 		}
+		// 글자 그대로 같은 상품(제조일만 달라 남은 옛 중복 행)은 하나로 센다
+		int masterCount = identityCount(masters);
+		boolean single = masterCount == 1;
 
 		List<ListingOption> options = List.of();
 		List<Alternative> alternatives = List.of();
 		ListingOption chosen = null;
 		boolean substituted = false;
-		if (master != null) {
-			if (!seen.add(master.getProdId())) {
+		if (!masters.isEmpty()) {
+			// 파일 안 중복은 상품이 하나로 정해진 줄에만 건다(이 규칙은 마스터 기준이라 여러 마스터를 합친 줄에는 뜻이 없다)
+			if (single && !seen.add(masters.get(0).getProdId())) {
 				fields.putIfAbsent(name != null ? "prodName" : "prodId", "파일 안에서 같은 상품이 이미 있어요.");
 			}
 			String reqDeliDate = norm(row.reqDeliDate());
-			options = optionsOf(master.getProdId(), quantity, buyerId, conditions, reqDeliDate);
+			List<ListingOption> merged = new ArrayList<>();
+			for (Product m : masters) {
+				merged.addAll(optionsOf(m, quantity, buyerId, conditions, reqDeliDate));
+			}
+			// 카드 순서(고정). 마스터가 여럿이어도 한 줄로 합쳐 정렬한다 — 화면은 이 순서 그대로 보이고 조건에 맞는 매물이 여럿이면 첫 카드에 "추천"만 붙인다
+			merged.sort(conditionRules.comparator());
+			options = merged;
 			String sellerId = norm(row.sellerId());
 			String regDate = norm(row.regDate());
-			// 대체품은 조건에 맞는 매물이 하나도 없을 때 제안한다(조건과 다른 매물뿐이어도 — 조건에 맞는 대체품이 있을 수 있다). 사용자가 매물을 골라 보냈으면(대체 매물일 수 있다) 검증하려고 계산한다
-			boolean wantsAlternatives = sellerId != null || options.stream().noneMatch(CartBulkService::clean);
+			// 대체품은 상품이 하나로 정해졌고 조건에 맞는 매물이 하나도 없을 때 제안한다(조건과 다른 매물뿐이어도). 사용자가 매물을 골라 보냈으면(대체 매물일 수 있다) 검증하려고 계산한다
+			boolean wantsAlternatives = single && (sellerId != null || options.stream().noneMatch(CartBulkService::clean));
 			// 고른 매물 검증엔 못 사는 대체 매물까지 필요하다(사유를 알려 주려고). 응답에는 살 수 있는(하드 막힘 없는) 매물이 있는 대체품을 제안한다 —
 			// 조건과 다른 점만 있는 매물도 포함한다(고른 대체 매물이 응답에서 사라지지 않게, 조건과 다른 매물을 보여 주고 고르게 한다는 규칙과 같다)
-			List<Alternative> allAlternatives = wantsAlternatives ? alternativesOf(master, quantity, buyerId, conditions, reqDeliDate) : List.of();
+			List<Alternative> allAlternatives = wantsAlternatives ? alternativesOf(masters.get(0), quantity, buyerId, conditions, reqDeliDate) : List.of();
 			alternatives = allAlternatives.stream().filter(a -> a.options().stream().anyMatch(o -> o.reason() == null)).toList();
 			if (sellerId != null && regDate != null) {
-				// 사용자가 고른 매물 — 후보와 대조한다. 못 찾거나 못 사면(하드 막힘) 서버가 다른 매물로 바꾸지 않고 줄 오류로 돌려준다(조용한 교체 금지).
+				// 사용자가 고른 매물 — 합친 매물과 대조한다. 못 찾거나 못 사면(하드 막힘) 서버가 다른 매물로 바꾸지 않고 줄 오류로 돌려준다(조용한 교체 금지).
 				// 조건과 다른 점만 있으면 알고 고른 것이므로 허용하고 chosen.mismatches 로 그대로 알린다
 				Optional<ListingOption> inMain = find(options, sellerId, regDate);
 				Optional<ListingOption> inAlt = inMain.isPresent() ? Optional.empty()
@@ -288,16 +294,17 @@ public class CartBulkService {
 		// 고를 매물이 있는데 아직 안 골랐으면 CHOOSE(사용자가 고른다), 고를 수 있는 매물이 하나도 없으면 UNAVAILABLE
 		boolean selectable = options.stream().anyMatch(o -> o.reason() == null);
 		Status status = !fields.isEmpty() ? Status.FAILED : chosen != null ? Status.AVAILABLE : selectable ? Status.CHOOSE : Status.UNAVAILABLE;
-		CartBulkRowResult result = new CartBulkRowResult(row.rowNo(), status, master == null ? null : master.getProdId(),
-				master == null ? null : master.getProdName(), chosen, options, alternatives, candidates, List.of(), fields, substituted);
+		CartBulkRowResult result = new CartBulkRowResult(row.rowNo(), status, single ? masters.get(0).getProdId() : null,
+				single ? masters.get(0).getProdName() : null, chosen, options, alternatives, List.of(), notices, fields, substituted, masterCount);
 		return new Checked(result, fields.containsKey("orderQuantity") ? null : quantity);
 	}
 
-	/** 그 마스터의 모든 매물을 후보로 — 못 사는 매물은 사유(reason), 조건과 다른 매물은 다른 점(mismatches)과 함께 남긴다 */
-	private List<ListingOption> optionsOf(String prodId, Integer quantity, UUID buyerId, CartBulkConditions.Conditions conditions, String reqDeliDate) {
+	/** 그 마스터의 모든 매물을 후보로 — 못 사는 매물은 사유(reason), 조건과 다른 매물은 다른 점(mismatches)과 함께 남기고 각 매물에 자기 상품을 붙인다. 정렬은 부르는 쪽이 한다 */
+	private List<ListingOption> optionsOf(Product master, Integer quantity, UUID buyerId, CartBulkConditions.Conditions conditions, String reqDeliDate) {
+		String prodId = master.getProdId();
 		List<ListingTradeSnapshot> snapshots = listings.snapshotsOfProduct(prodId);
 		if (snapshots.isEmpty()) {
-			return List.of();
+			return new ArrayList<>();
 		}
 		Map<UUID, String> nicknames = userDirectory.nicknamesOf(snapshots.stream().map(ListingTradeSnapshot::sellerId).distinct().toList());
 		Map<ListingId, String> hints = listings.replaceHintsOfProduct(prodId);
@@ -309,10 +316,9 @@ public class CartBulkService {
 			ListingTraits t = traits.getOrDefault(s.id(), new ListingTraits(null, null, false, false, null, false, false));
 			options.add(new ListingOption(s.sellerId().toString(), s.regDate(), nicknames.get(s.sellerId()), price,
 					s.stockQuantity() == null ? 0 : s.stockQuantity(), s.minOrderQuantity() == null ? 1 : s.minOrderQuantity(),
-					s.orderUnit() == null ? 1 : s.orderUnit(), s.provDate(), hints.get(s.id()), reasonOf(s, quantity, buyerId), conditions.mismatches(s, t, reqDeliDate), t));
+					s.orderUnit() == null ? 1 : s.orderUnit(), s.provDate(), hints.get(s.id()), reasonOf(s, quantity, buyerId), conditions.mismatches(s, t, reqDeliDate), t,
+					master.getProdId(), master.getProdName(), master.getProdBrand(), master.getProdClassNo()));
 		}
-		// 카드 순서(고정). 화면은 이 순서 그대로 보이고, 조건에 맞는 매물이 여럿이면 첫 카드에 "추천"만 붙인다
-		options.sort(conditionRules.comparator());
 		return options;
 	}
 
@@ -343,7 +349,8 @@ public class CartBulkService {
 	private List<Alternative> alternativesOf(Product master, Integer quantity, UUID buyerId, CartBulkConditions.Conditions conditions, String reqDeliDate) {
 		List<Alternative> out = new ArrayList<>();
 		for (Product alt : products.alternatesOf(master)) {
-			List<ListingOption> options = optionsOf(alt.getProdId(), quantity, buyerId, conditions, reqDeliDate);
+			List<ListingOption> options = optionsOf(alt, quantity, buyerId, conditions, reqDeliDate);
+			options.sort(conditionRules.comparator());
 			out.add(new Alternative(alt.getProdId(), alt.getProdName(), alt.getProdBrand(), options));
 		}
 		return out;
@@ -358,11 +365,9 @@ public class CartBulkService {
 		return clean.size() == 1 ? clean.get(0) : null;
 	}
 
-	/** 찾은 마스터가 전부 같은 상품(이름·제조사·분류번호가 글자 그대로 같음)인가 — 제조일만 달라 따로 남은 옛 중복 행은 고를 일이 아니다. 비어 있으면 false */
-	private static boolean sameIdentity(List<Product> matches) {
-		return !matches.isEmpty() && matches.stream()
-			.map(p -> p.getProdName() + "|" + p.getProdBrand() + "|" + (p.getProdClassNo() == null ? "" : p.getProdClassNo()))
-			.distinct().count() == 1;
+	/** 찾은 마스터 중 글자 그대로 다른 상품(이름·제조사·분류번호)의 수 — 제조일만 달라 따로 남은 옛 중복 행은 하나로 센다 */
+	private static int identityCount(List<Product> masters) {
+		return (int) masters.stream().map(p -> p.getProdName() + "|" + p.getProdBrand() + "|" + (p.getProdClassNo() == null ? "" : p.getProdClassNo())).distinct().count();
 	}
 
 	/** 살 수 있고(하드 막힘 없음) 조건과 다른 점도 없는 매물 */

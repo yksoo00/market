@@ -134,6 +134,7 @@ export const buyBulk = {
   },
   // 매물 카드(머리 띠 + 라벨·값 격자) — 사진·설명·사양·파일은 상세 페이지에서 본다
   card: {
+    product: "상품",
     price: "단가",
     total: (qty: number) => `합계(×${qty})`,
     stock: "재고",

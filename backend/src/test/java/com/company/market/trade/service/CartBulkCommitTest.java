@@ -223,9 +223,9 @@ class CartBulkCommitTest {
 	@DisplayName("요청사항 덧붙임은 100자를 넘지 않고, 넘치면 사용자 글의 앞부분이 잘리며 원래 요청 문구는 남는다")
 	void remarksStayWithinLimit() {
 		CartBulkRowResult substituted = new CartBulkRowResult(2, CartBulkRowResult.Status.AVAILABLE, "p", "구매담기 상품 C", null, List.of(), List.of(), List.of(),
-				List.of(), Map.of(), true);
+				List.of(), Map.of(), true, 1);
 		CartBulkRowResult plain = new CartBulkRowResult(2, CartBulkRowResult.Status.AVAILABLE, "p", "구매담기 상품 C", null, List.of(), List.of(), List.of(),
-				List.of(), Map.of(), false);
+				List.of(), Map.of(), false, 1);
 
 		String longRemarks = "가".repeat(100);
 		String merged = CartBulkService.remarksOf(longRemarks, substituted);
