@@ -83,7 +83,6 @@ export interface CartBulkResult {
   chosen: ListingOption | null;
   options: ListingOption[];
   alternatives: Alternative[];
-  candidates: BuyCandidate[];
   notices: string[];
   /** 찾은 서로 다른 상품 수. 0 이면 상품을 못 찾은 줄, 2 이상이면 여러 상품의 매물이 합쳐진 줄(prodId·matchedName 은 상품이 하나일 때만 있다) */
   masterCount: number;

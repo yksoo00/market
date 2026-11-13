@@ -56,7 +56,6 @@ const result = (rowNo: number, status: CartBulkResult["status"], fields: Record<
   chosen,
   options: chosen ? [chosen] : [],
   alternatives: [],
-  candidates: [],
   notices: [],
   fields,
   substituted: false,

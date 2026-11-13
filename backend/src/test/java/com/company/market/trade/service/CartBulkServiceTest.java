@@ -185,11 +185,12 @@ class CartBulkServiceTest {
 
 		CartBulkRowResult r = only(new CartBulkRowDto(2, null, "구매검사 원품", "Acme", null, "3", "2099-12-31", null, null, null, null, null, null, null, null, null, null, null));
 
-		// 매물이 하나뿐이라 조건에 맞는 매물이 하나 — 미리 골라진다
-		assertThat(r.status()).isEqualTo(Status.AVAILABLE);
+		// 이름이 포함돼 대신 보이는 줄은 매물이 하나뿐이어도 미리 고르지 않는다 — 사용자가 적은 것과 다른 상품일 수 있다
+		assertThat(r.status()).isEqualTo(Status.CHOOSE);
+		assertThat(r.chosen()).isNull();
 		assertThat(r.notices()).anySatisfy(n -> assertThat(n).contains("비슷한"));
 		assertThat(r.options()).extracting(ListingOption::prodId).containsExactly(main.getProdId());
-		assertThat(r.chosen().prodName()).isEqualTo("구매검사 원품 A");
+		assertThat(r.options().get(0).prodName()).isEqualTo("구매검사 원품 A");
 	}
 
 	@Test
@@ -436,16 +437,56 @@ class CartBulkServiceTest {
 	}
 
 	@Test
-	@DisplayName("제조사를 적었는데 이름만 같고 제조사가 다르면 이름 포함 폴백으로 보이고 안내가 붙는다")
+	@DisplayName("제조사를 적었는데 이름만 같고 제조사가 다르면 이름 포함 폴백으로 보이고 안내가 붙지만 미리 고르지는 않는다")
 	void differentBrandFallsBack() {
 		Product other = products.findOrCreate(draft("구매검사 제조사다름 G", "Zeta", null));
 		listing(sellerA, "20261105100000", other, 1000, 5, 1, 1, false);
 
 		CartBulkRowResult r = only(new CartBulkRowDto(2, null, "구매검사 제조사다름 G", "Acme", null, "3", "2099-12-31", null, null, null, null, null, null, null, null, null, null, null));
 
-		assertThat(r.status()).isEqualTo(Status.AVAILABLE);
+		assertThat(r.status()).isEqualTo(Status.CHOOSE);
+		assertThat(r.chosen()).isNull();
 		assertThat(r.notices()).isNotEmpty();
-		assertThat(r.chosen().prodBrand()).isEqualTo("Zeta");
+		assertThat(r.options().get(0).prodBrand()).isEqualTo("Zeta");
+	}
+
+	@Test
+	@DisplayName("한 글자 이름은 포함 폴백을 쓰지 않는다 — 전부 걸리지 않게")
+	void shortNameNoFallback() {
+		listing(sellerA, "20261105100000", main, 1000, 5, 1, 1, false);
+
+		CartBulkRowResult r = only(row(2, "구", "3"));
+
+		assertThat(r.status()).isEqualTo(Status.FAILED);
+		assertThat(r.masterCount()).isZero();
+	}
+
+	@Test
+	@DisplayName("마스터가 여럿인 줄도 같은 상품 묶음이 앞 줄에 있으면 둘째 줄부터 실패한다")
+	void duplicateMergedRows() {
+		Product a = withClassNo("구매검사 묶음 M", "Acme", "PD-0001");
+		Product b = withClassNo("구매검사 묶음 M", "Acme", "PD-0002");
+		listing(sellerA, "20261105100000", a, 1000, 50, 1, 1, false);
+		listing(sellerB, "20261105100001", b, 900, 50, 1, 1, false);
+
+		List<CartBulkRowResult> r = service.check(buyer, List.of(row(2, "구매검사 묶음 M", "3"), row(3, "구매검사 묶음 m", "4"))).results();
+
+		assertThat(r.get(0).status()).isEqualTo(Status.CHOOSE);
+		assertThat(r.get(1).status()).isEqualTo(Status.FAILED);
+		assertThat(r.get(1).fields()).containsKey("prodName");
+	}
+
+	@Test
+	@DisplayName("같은 이름의 상품이 10개를 넘으면 10개만 보이고 일부만 보인다는 안내가 붙는다")
+	void tooManyMastersAreCapped() {
+		for (int i = 0; i < 11; i++) {
+			withClassNo("구매검사 많음 N", "Acme", "PD-" + String.format("%04d", i));
+		}
+
+		CartBulkRowResult r = only(row(2, "구매검사 많음 N", "3"));
+
+		assertThat(r.masterCount()).isEqualTo(10);
+		assertThat(r.notices()).anySatisfy(n -> assertThat(n).contains("일부"));
 	}
 
 	@Test

@@ -77,7 +77,6 @@ const isLine = (v: unknown): v is BuyLine => {
     // 매물 카드가 매물 특성(traits)을 읽는다 — 빠진 보관본을 받으면 화면이 죽는다
     result.options.every((o) => isRecord(o) && isRecord(o.traits)) &&
     Array.isArray(result.alternatives) &&
-    Array.isArray(result.candidates) &&
     Array.isArray(result.notices) &&
     isRecord(result.fields)
   );

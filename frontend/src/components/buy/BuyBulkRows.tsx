@@ -5,8 +5,7 @@ import { BuyConditionFields } from "@/components/buy/BuyConditionFields";
 import { TraitsLine } from "@/components/buy/TraitsLine";
 import type { ListingOption } from "@/types/cartBulk";
 import { Checkbox } from "@/components/ui/checkbox";
-import { blockedOptions, canSelect, cleanOptions, errorsOf, isClean, isLocked, softOptions, type BuyLine, type BuyPick } from "@/lib/buyBulk";
-import { tabOf } from "@/lib/buyBulkView";
+import { blockedOptions, canSelect, cleanOptions, errorsOf, isClean, isLocked, softOptions, type BuyLine } from "@/lib/buyBulk";
 import { formatPrice } from "@/lib/format";
 import { BUY_CONDITION_FIELDS, BUY_INPUT_FIELDS, type BuyFields, type BuyInputField } from "@/lib/validation/buyBulk";
 import { cn } from "@/lib/utils";
@@ -26,7 +25,6 @@ interface RowsProps {
   /** 고르는 칸(조건의 상태·보증·증빙)은 바꾼 즉시 그 줄을 다시 검사한다 */
   onEditNow: (rowNo: number, field: keyof BuyFields, value: string) => void;
   onBlurLine: (rowNo: number) => void;
-  onPick: (rowNo: number, pick: BuyPick) => void;
   onFind: (rowNo: number) => void;
   onUnlock: (rowNo: number) => void;
   onChoose: (rowNo: number, sellerId: string, regDate: string) => void;
@@ -45,10 +43,9 @@ export function BuyBulkRows({ lines, ...handlers }: RowsProps) {
   );
 }
 
-function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onFind, onUnlock, onChoose, onOpenDetail }: { line: BuyLine } & Omit<RowsProps, "lines">) {
+function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onFind, onUnlock, onChoose, onOpenDetail }: { line: BuyLine } & Omit<RowsProps, "lines">) {
   const errors = errorsOf(line);
   const failed = Object.keys(errors).length > 0;
-  const tab = tabOf(line);
   const locked = isLocked(line);
   const result = line.result;
   const disabled = line.added;
@@ -110,7 +107,9 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
   const state = result.substituted
     ? t.group.substituted
     : chosen
-      ? t.group.chosen(t.line.seller(chosen.sellerNickname), formatPrice(chosen.unitPrice)) + (result.masterCount > 1 ? ` · ${chosen.prodName}` : "")
+      ? result.masterCount > 1
+        ? t.group.chosenWithProduct(t.line.seller(chosen.sellerNickname), formatPrice(chosen.unitPrice), chosen.prodName)
+        : t.group.chosen(t.line.seller(chosen.sellerNickname), formatPrice(chosen.unitPrice))
       : parts.noneSelectable
         ? t.group.unavailable
         : t.group.none;
@@ -244,7 +243,7 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onPick, onF
             ))}
 
           {!line.added && (
-            <ProductActions line={line} tab={tab} locked={locked} onPick={(pick) => onPick(line.rowNo, pick)} onFind={() => onFind(line.rowNo)} onUnlock={() => onUnlock(line.rowNo)} />
+            <ProductActions locked={locked} onFind={() => onFind(line.rowNo)} onUnlock={() => onUnlock(line.rowNo)} />
           )}
         </div>
       )}
@@ -383,7 +382,7 @@ function ListingCard({
         <span className="grid grid-cols-2 gap-x-3 gap-y-2 @md:grid-cols-3">
           {showProduct && (
             <Field label={t.card.product} className="col-span-2 @md:col-span-3">
-              {[o.prodName, o.prodBrand, o.prodClassNo].filter(Boolean).join(" · ")}
+              {t.card.productValue(o.prodName, o.prodBrand, o.prodClassNo)}
             </Field>
           )}
           <Field label={t.card.price}>{formatPrice(o.unitPrice)}</Field>
@@ -423,60 +422,19 @@ function ListingCard({
   );
 }
 
-/** 줄 아래: 후보 칩 · [상품 찾기] · [직접 입력으로 바꾸기] */
-function ProductActions({
-  line,
-  tab,
-  locked,
-  onPick,
-  onFind,
-  onUnlock,
-}: {
-  line: BuyLine;
-  tab: ReturnType<typeof tabOf>;
-  locked: boolean;
-  onPick: (pick: BuyPick) => void;
-  onFind: () => void;
-  onUnlock: () => void;
-}) {
+/** 줄 아래: [상품 찾기] · [직접 입력으로 바꾸기] — 이름으로 매물을 못 찾았거나 다른 상품을 직접 고르고 싶을 때 */
+function ProductActions({ locked, onFind, onUnlock }: { locked: boolean; onFind: () => void; onUnlock: () => void }) {
   const buttonClass = "h-7 rounded-md border border-line px-2 text-[12px] text-ink hover:bg-bg";
-  // 마스터를 못 찾은 줄(확인 필요 + 후보)이거나 이미 마스터를 고른 줄에서만 상품 바꾸기 버튼을 보인다 — 매물 있음 줄에까지 늘 보이면 시끄럽다
-  const productProblem = tab === "failed" && line.result.masterCount === 0;
-  if (!locked && !productProblem && line.result.candidates.length === 0) {
-    return (
-      <div className="border-t border-line-2 px-3 py-2">
-        <button type="button" onClick={onFind} className={buttonClass}>
-          {t.line.findProduct}
-        </button>
-      </div>
-    );
-  }
   return (
-    <div className="flex flex-col gap-1.5 border-t border-line-2 px-3 py-2">
-      {!locked && line.result.candidates.length > 0 && (
-        <div className="flex flex-col gap-1">
-          <p className="text-[12px] font-semibold text-ink">{t.line.candidates}</p>
-          <ul className="flex flex-wrap gap-2">
-            {line.result.candidates.map((c) => (
-              <li key={c.prodId}>
-                <button type="button" onClick={() => onPick(c)} className={buttonClass}>
-                  {t.line.pickCandidate(c.prodName, c.prodBrand)}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-      <div className="flex flex-wrap items-center gap-2">
-        <button type="button" onClick={onFind} className={buttonClass}>
-          {locked ? t.line.findOther : t.line.findProduct}
+    <div className="flex flex-wrap items-center gap-2 border-t border-line-2 px-3 py-2">
+      <button type="button" onClick={onFind} className={buttonClass}>
+        {locked ? t.line.findOther : t.line.findProduct}
+      </button>
+      {locked && (
+        <button type="button" onClick={onUnlock} className={buttonClass}>
+          {t.line.enterManual}
         </button>
-        {locked && (
-          <button type="button" onClick={onUnlock} className={buttonClass}>
-            {t.line.enterManual}
-          </button>
-        )}
-      </div>
+      )}
     </div>
   );
 }

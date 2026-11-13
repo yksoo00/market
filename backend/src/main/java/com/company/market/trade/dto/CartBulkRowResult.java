@@ -19,7 +19,6 @@ public record CartBulkRowResult(
 		ListingOption chosen,
 		List<ListingOption> options,
 		List<Alternative> alternatives,
-		List<Candidate> candidates,
 		List<String> notices,
 		Map<String, String> fields,
 		boolean substituted,
@@ -57,9 +56,6 @@ public record CartBulkRowResult(
 	}
 
 	public record Alternative(String prodId, String prodName, String prodBrand, List<ListingOption> options) {
-	}
-
-	public record Candidate(String prodId, String prodName, String prodBrand, String prodClassNo) {
 	}
 
 }

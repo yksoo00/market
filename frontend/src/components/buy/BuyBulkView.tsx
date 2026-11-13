@@ -403,7 +403,6 @@ export function BuyBulkView() {
               onEdit={edit}
               onEditNow={editNow}
               onBlurLine={blurLine}
-              onPick={pick}
               onFind={setFinder}
               onUnlock={unlock}
               onChoose={choose}

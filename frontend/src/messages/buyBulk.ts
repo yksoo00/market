@@ -104,8 +104,6 @@ export const buyBulk = {
     checking: "맞춰 보는 중이에요",
     substituted: (from: string, to: string) => `요청: ${from} → 대체: ${to}`,
     untitled: "(상품명 없음)",
-    candidates: "혹시 이 상품인가요?",
-    pickCandidate: (name: string, brand: string) => `${name} (${brand}) 로 바꾸기`,
     findProduct: "상품 찾기",
     findOther: "다른 상품 찾기",
     enterManual: "직접 입력으로 바꾸기",
@@ -122,6 +120,7 @@ export const buyBulk = {
   group: {
     count: (n: number) => `매물 ${n}건`,
     chosen: (seller: string, price: string) => `선택됨: ${seller} · ${price}`,
+    chosenWithProduct: (seller: string, price: string, product: string) => `선택됨: ${seller} · ${price} · ${product}`,
     none: "아직 고르지 않았어요",
     unavailable: "고를 수 있는 매물이 없어요",
     empty: "이 상품의 매물이 없어요.",
@@ -135,6 +134,7 @@ export const buyBulk = {
   // 매물 카드(머리 띠 + 라벨·값 격자) — 사진·설명·사양·파일은 상세 페이지에서 본다
   card: {
     product: "상품",
+    productValue: (name: string, brand: string, classNo: string | null) => [name, brand, classNo].filter(Boolean).join(" · "),
     price: "단가",
     total: (qty: number) => `합계(×${qty})`,
     stock: "재고",

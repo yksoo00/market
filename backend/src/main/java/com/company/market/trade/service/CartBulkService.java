@@ -12,6 +12,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
@@ -214,6 +215,8 @@ public class CartBulkService {
 		// 마스터를 고르게 하지 않는다. 이름이 같은 마스터가 없으면 이름이 포함된 마스터로 대신 보이며 안내를 붙인다 (계획 2026-11-12-bulk-purchase-name-search.md)
 		List<Product> masters = List.of();
 		List<String> notices = new ArrayList<>();
+		// 이름이 포함된 상품으로 대신 보이는 줄 — 사용자가 적은 이름·제조사·분류번호와 다를 수 있어 미리 고르지 않는다
+		boolean fallback = false;
 		if (prodId != null) {
 			Product picked = products.find(prodId).orElse(null);
 			if (picked == null) {
@@ -227,11 +230,12 @@ public class CartBulkService {
 			fields.put("prodName", REQUIRED);
 		}
 		else {
-			masters = products.findAllLoose(name, brand, classNo, MASTER_LIMIT);
+			masters = capped(products.findAllLoose(name, brand, classNo, MASTER_LIMIT + 1), notices);
 			if (masters.isEmpty()) {
-				masters = products.findAllNameContains(name, MASTER_LIMIT);
+				masters = capped(products.findAllNameContains(name, MASTER_LIMIT + 1), notices);
 				if (!masters.isEmpty()) {
-					notices.add("이름이 정확히 같은 상품이 없어 비슷한 상품의 매물을 보여 드려요.");
+					fallback = true;
+					notices.add("이름이 정확히 같은 상품이 없어 비슷한 상품의 매물을 보여 드려요. 제조사·분류번호를 확인하고 골라 주세요.");
 				}
 			}
 			if (masters.isEmpty()) {
@@ -248,8 +252,9 @@ public class CartBulkService {
 		ListingOption chosen = null;
 		boolean substituted = false;
 		if (!masters.isEmpty()) {
-			// 파일 안 중복은 상품이 하나로 정해진 줄에만 건다(이 규칙은 마스터 기준이라 여러 마스터를 합친 줄에는 뜻이 없다)
-			if (single && !seen.add(masters.get(0).getProdId())) {
+			// 파일 안 중복: 같은 상품(들)이 앞 줄에도 있으면 둘째 줄부터 실패 — 마스터가 여럿인 줄은 그 마스터 묶음이 같을 때 같은 줄로 본다
+			String masterKey = masters.stream().map(Product::getProdId).sorted().collect(Collectors.joining(","));
+			if (!seen.add(masterKey)) {
 				fields.putIfAbsent(name != null ? "prodName" : "prodId", "파일 안에서 같은 상품이 이미 있어요.");
 			}
 			String reqDeliDate = norm(row.reqDeliDate());
@@ -287,7 +292,7 @@ public class CartBulkService {
 				}
 			}
 			else {
-				chosen = onlyClean(options);
+				chosen = fallback ? null : onlyClean(options);
 			}
 		}
 
@@ -295,7 +300,7 @@ public class CartBulkService {
 		boolean selectable = options.stream().anyMatch(o -> o.reason() == null);
 		Status status = !fields.isEmpty() ? Status.FAILED : chosen != null ? Status.AVAILABLE : selectable ? Status.CHOOSE : Status.UNAVAILABLE;
 		CartBulkRowResult result = new CartBulkRowResult(row.rowNo(), status, single ? masters.get(0).getProdId() : null,
-				single ? masters.get(0).getProdName() : null, chosen, options, alternatives, List.of(), notices, fields, substituted, masterCount);
+				single ? masters.get(0).getProdName() : null, chosen, options, alternatives, notices, fields, substituted, masterCount);
 		return new Checked(result, fields.containsKey("orderQuantity") ? null : quantity);
 	}
 
@@ -363,6 +368,15 @@ public class CartBulkService {
 	private static ListingOption onlyClean(List<ListingOption> options) {
 		List<ListingOption> clean = options.stream().filter(CartBulkService::clean).toList();
 		return clean.size() == 1 ? clean.get(0) : null;
+	}
+
+	/** limit+1 개를 읽어 limit 를 넘으면 잘라 내고 안내를 붙인다 — 같은 이름의 상품이 너무 많아 일부만 보인다는 걸 알리지 않으면 나머지 매물을 모르고 지나친다 */
+	private static List<Product> capped(List<Product> found, List<String> notices) {
+		if (found.size() <= MASTER_LIMIT) {
+			return found;
+		}
+		notices.add("같은 이름의 상품이 많아 일부(" + MASTER_LIMIT + "개)만 보여 드려요. [상품 찾기]로 좁혀 보세요.");
+		return found.subList(0, MASTER_LIMIT);
 	}
 
 	/** 찾은 마스터 중 글자 그대로 다른 상품(이름·제조사·분류번호)의 수 — 제조일만 달라 따로 남은 옛 중복 행은 하나로 센다 */

@@ -55,7 +55,6 @@ const result = (rowNo: number): CartBulkResult => ({
   chosen: null,
   options: [],
   alternatives: [],
-  candidates: [],
   notices: [],
   fields: {},
   substituted: false,
