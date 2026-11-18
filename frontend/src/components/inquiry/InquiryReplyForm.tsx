@@ -1,13 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { FormProvider, useForm, useWatch } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormError, SubmitButton } from "@/components/auth/FormStatus";
 import { InquiryTextArea } from "@/components/inquiry/InquiryTextArea";
 import { createInquiryReply } from "@/lib/api/inquiries";
 import { applyServerError } from "@/lib/form";
-import { INQUIRY_REPLY_MAX, inquiryReplySchema, type InquiryReplyFormValues } from "@/lib/validation/inquiry";
+import { inquiryReplySchema, type InquiryReplyFormValues } from "@/lib/validation/inquiry";
 import { inquiry as t } from "@/messages/inquiry";
 import { UNREACHABLE } from "@/types/api";
 import type { InquiryReply } from "@/types/inquiry";
@@ -26,12 +26,10 @@ export function InquiryReplyForm({ inquiryId, onCreated }: { inquiryId: string; 
     handleSubmit,
     setError,
     reset,
-    control,
     formState: { isValid, isSubmitting },
   } = form;
   const [formError, setFormError] = useState<string | null>(null);
   const [unreachable, setUnreachable] = useState(false);
-  const content = useWatch({ control, name: "content" });
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
@@ -55,7 +53,6 @@ export function InquiryReplyForm({ inquiryId, onCreated }: { inquiryId: string; 
           label={t.reply.content}
           placeholder={t.reply.placeholder}
           rows={3}
-          note={t.form.counter(content.length, INQUIRY_REPLY_MAX)}
         />
         <SubmitButton label={t.reply.submit} disabled={!isValid} submitting={isSubmitting} />
       </form>

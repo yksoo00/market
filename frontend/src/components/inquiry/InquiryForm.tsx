@@ -1,14 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { FormProvider, useForm, useWatch } from "react-hook-form";
+import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormField } from "@/components/auth/FormField";
 import { FormError, SubmitButton } from "@/components/auth/FormStatus";
 import { InquiryTextArea } from "@/components/inquiry/InquiryTextArea";
 import { createInquiry } from "@/lib/api/inquiries";
 import { applyServerError } from "@/lib/form";
-import { INQUIRY_CONTENT_MAX, INQUIRY_TITLE_MAX, inquirySchema, type InquiryFormValues } from "@/lib/validation/inquiry";
+import { inquirySchema, type InquiryFormValues } from "@/lib/validation/inquiry";
 import { inquiry as t } from "@/messages/inquiry";
 import { UNREACHABLE } from "@/types/api";
 import type { InquiryDetail } from "@/types/inquiry";
@@ -27,12 +27,10 @@ export function InquiryForm({ onCreated }: { onCreated: (created: InquiryDetail)
     handleSubmit,
     setError,
     reset,
-    control,
     formState: { isValid, isSubmitting },
   } = form;
   const [formError, setFormError] = useState<string | null>(null);
   const [unreachable, setUnreachable] = useState(false);
-  const [title, content] = useWatch({ control, name: ["title", "content"] });
 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
@@ -58,14 +56,12 @@ export function InquiryForm({ onCreated }: { onCreated: (created: InquiryDetail)
           label={t.form.title}
           placeholder={t.form.titlePlaceholder}
           autoComplete="off"
-          note={t.form.counter(title.length, INQUIRY_TITLE_MAX)}
         />
         <InquiryTextArea<InquiryFormValues>
           name="content"
           label={t.form.content}
           placeholder={t.form.contentPlaceholder}
           rows={5}
-          note={t.form.counter(content.length, INQUIRY_CONTENT_MAX)}
         />
         <SubmitButton label={t.form.submit} disabled={!isValid} submitting={isSubmitting} />
       </form>

@@ -20,7 +20,6 @@ export const inquiry = {
     contentPlaceholder: "문의 내용을 입력하세요",
     submit: "등록",
     failed: "문의를 등록할 수 없습니다. 잠시 후 다시 시도해 주세요.",
-    counter: (n: number, max: number) => `${n} / ${max}`,
   },
   detail: {
     loading: "불러오는 중…",

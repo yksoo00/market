@@ -9,16 +9,14 @@ interface Props<T extends FieldValues> {
   label: string;
   placeholder: string;
   rows: number;
-  /** 입력 글자 수 안내 (오류가 없을 때 필드 아래) */
-  note?: string;
 }
 
 /** 라벨 + 여러 줄 입력 + 오류 문구. FormField(한 줄)와 같은 상태 표시 규칙(blur 후 오류, 입력 중 즉시 해소) */
-export function InquiryTextArea<T extends FieldValues>({ name, label, placeholder, rows, note }: Props<T>) {
+export function InquiryTextArea<T extends FieldValues>({ name, label, placeholder, rows }: Props<T>) {
   const { register } = useFormContext<T>();
   const { error, valid, touched } = useFieldStatus<T>(name);
   return (
-    <FieldShell label={label} htmlFor={name} error={error} note={note}>
+    <FieldShell label={label} htmlFor={name} error={error}>
       <textarea
         id={name}
         rows={rows}
