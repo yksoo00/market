@@ -29,7 +29,8 @@ export function InquiryBoard() {
         setStatus("error");
         return;
       }
-      setItems(result.data.items);
+      // 목록 응답이 느린 사이 방금 쓴 글이 이미 들어와 있을 수 있다 — 응답(작성 전 목록)이 그 글을 덮어 지우지 않게 앞에 남긴다
+      setItems((prev) => [...prev.filter((p) => !result.data.items.some((n) => n.id === p.id)), ...result.data.items]);
       setNextCursor(result.data.nextCursor);
       setStatus("ready");
     });
