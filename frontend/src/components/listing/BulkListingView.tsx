@@ -12,7 +12,7 @@ import { initialBulkView, nextSortFor, tabCounts, visibleLines, type BulkSortKey
 import { clearBulk, loadBulk, saveBulk } from "@/lib/bulkStorage";
 import { todayInSeoul } from "@/lib/listingForm";
 import { isXlsx, type BulkFields } from "@/lib/validation/bulkListing";
-import { checkUpload } from "@/lib/validation/upload";
+import { BULK_UPLOAD_MAX_BYTES, checkUpload } from "@/lib/validation/upload";
 import { cn } from "@/lib/utils";
 import { listing } from "@/messages/listing";
 import type { ProductSearchItem } from "@/types/listing";
@@ -51,6 +51,9 @@ export function BulkListingView() {
   const [finder, setFinder] = useState<number | null>(null);
   const [categoryFor, setCategoryFor] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  // 엑셀 칸의 파일명과 맞출 사진·데이터시트 ZIP (선택). 엑셀을 읽을 때 같이 보낸다
+  const [zip, setZip] = useState<File | null>(null);
+  const zipRef = useRef<HTMLInputElement>(null);
   // 마지막 검사 뒤에 고친 줄. 칸을 벗어날 때 이 줄만 서버에 다시 묻는다
   const edited = useRef(new Set<number>());
   // 줄마다 마지막으로 보낸 검사 번호 — 먼저 보낸 요청의 응답이 늦게 와 새 결과를 덮어쓰지 않게, 번호가 다르면 그 응답은 버린다
@@ -133,7 +136,15 @@ export function BulkListingView() {
     void recheckRows(bulkReducer(state, action), [rowNo]);
   };
 
-  const upload = async (file: File | undefined) => {
+  // 서버도 같은 값을 다시 검사한다. 고르는 즉시 형식·크기를 알려 업로드 전에 막는다
+  const pickZip = (file: File | undefined) => {
+    if (!file || busy) return;
+    const error = checkUpload("zip", file);
+    setPickError(error);
+    if (!error) setZip(file);
+  };
+
+  const upload = async (file: File | undefined, withZip: File | null = zip) => {
     if (!file || busy) return;
     setPickError(null);
     const error = !isXlsx(file) ? t.drop.notXlsx : checkUpload("excel", file);
@@ -141,12 +152,16 @@ export function BulkListingView() {
       setPickError(error);
       return;
     }
+    if (withZip && file.size + withZip.size > BULK_UPLOAD_MAX_BYTES) {
+      setPickError(t.drop.zipTotalTooBig);
+      return;
+    }
     if (hasOpen && !window.confirm(p.overwriteConfirm)) return;
     setStep("reading");
-    const res = await listingBulkApi.parse(file);
+    const res = await listingBulkApi.parse(file, withZip);
     setStep("idle");
     if (!res.ok) {
-      setPickError(res.fields?.file ?? (listing.errors[res.code] ?? res.message ?? t.readFailed));
+      setPickError(res.fields?.file ?? res.fields?.attachments ?? (listing.errors[res.code] ?? res.message ?? t.readFailed));
       return;
     }
     if (res.data.rows.length === 0) {
@@ -159,17 +174,32 @@ export function BulkListingView() {
     setRestored(false);
     setView(initialBulkView);
     setLoadId((n) => n + 1);
+    // ZIP 은 이 엑셀에 붙었다 — 다음 엑셀에 같은 ZIP 이 몰래 따라가지 않게 비운다
+    setZip(null);
     dispatch({ type: "loaded", rows: res.data.rows, results: res.data.results });
   };
 
+  // 엑셀과 ZIP 을 같이 끌어 놓아도 된다 — 확장자로 구분. 그 밖의 조합(둘 초과, 같은 종류 둘)은 안내
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragging(false);
-    if (e.dataTransfer.files.length > 1) {
+    const files = Array.from(e.dataTransfer.files);
+    const zips = files.filter((f) => f.name.toLowerCase().endsWith(".zip"));
+    const others = files.filter((f) => !f.name.toLowerCase().endsWith(".zip"));
+    if (zips.length > 1 || others.length > 1) {
       setPickError(t.drop.onlyOne);
       return;
     }
-    void upload(e.dataTransfer.files[0]);
+    if (zips[0]) {
+      const zipError = checkUpload("zip", zips[0]);
+      if (zipError) {
+        setPickError(zipError);
+        return;
+      }
+      setZip(zips[0]);
+    }
+    // 엑셀 없이 ZIP 만 놓으면 ZIP 만 고른 것 — 엑셀을 올릴 때 같이 간다
+    if (others[0]) void upload(others[0], zips[0] ?? zip);
   };
 
   const downloadTemplate = async () => {
@@ -280,11 +310,38 @@ export function BulkListingView() {
           void upload(file);
         }}
       />
+      <input
+        ref={zipRef}
+        type="file"
+        accept=".zip"
+        className="hidden"
+        tabIndex={-1}
+        aria-hidden="true"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          e.target.value = "";
+          pickZip(file);
+        }}
+      />
       {pickError && (
         <p role="alert" className="text-[13px] text-down">
           {pickError}
         </p>
       )}
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => zipRef.current?.click()} disabled={busy} className={buttonClass}>
+          {t.drop.zipPick}
+        </button>
+        {zip && (
+          <span className="flex items-center gap-2 text-[13px] text-ink-2">
+            {t.drop.zipChosen(zip.name)}
+            <button type="button" onClick={() => setZip(null)} disabled={busy} className="font-medium text-primary underline underline-offset-2 disabled:opacity-40">
+              {t.drop.zipRemove}
+            </button>
+          </span>
+        )}
+      </div>
+      <p className="text-[12px] text-ink-3">{t.drop.zipHint}</p>
       <div className="flex flex-wrap items-center gap-3">
         <button type="button" onClick={() => void downloadTemplate()} className="text-[13px] font-medium text-primary underline underline-offset-2">
           {t.drop.template}

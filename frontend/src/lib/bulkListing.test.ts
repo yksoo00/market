@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { listing } from "@/messages/listing";
 import type { BulkResult, BulkRowApi } from "@/types/listingBulk";
-import { bulkReducer, canSelect, errorsOf, initialBulkState, isLocked, selectedRows, summary, toApiRow, type BulkState } from "./bulkListing";
+import { attachedFiles, bulkReducer, canSelect, errorsOf, initialBulkState, isLocked, selectedRows, summary, toApiRow, type BulkState } from "./bulkListing";
 
 const TODAY = "2026-11-05";
 
@@ -186,5 +186,43 @@ describe("bulkReducer", () => {
     ]);
     s = bulkReducer(s, { type: "selectVisible", rowNos: [3], value: false });
     expect(s.lines[1].selected).toBe(false);
+  });
+});
+
+describe("ZIP 첨부 칸", () => {
+  const photo = { name: "a.jpg", key: "public/listings/photos/2026/11/x.jpg", problem: null };
+
+  it("읽을 때 서버가 준 첨부를 줄에 들고, 서버로 보낼 때 그대로 돌려 보낸다 (키를 잃지 않는다)", () => {
+    const s = bulkReducer(initialBulkState, { type: "loaded", rows: [row(2, { photo1: photo })], results: [result(2, "MATCHED")] });
+
+    expect(s.lines[0].files?.photo1).toEqual(photo);
+    expect(toApiRow(s.lines[0]).photo1).toEqual(photo);
+  });
+
+  it("칸을 고쳐도 첨부는 그대로", () => {
+    let s = bulkReducer(initialBulkState, { type: "loaded", rows: [row(2, { photo1: photo })], results: [result(2, "MATCHED")] });
+    s = bulkReducer(s, { type: "edited", rowNo: 2, field: "description", value: "메모", today: TODAY });
+
+    expect(toApiRow(s.lines[0]).photo1).toEqual(photo);
+  });
+
+  it("첨부 없는 옛 줄도 보낼 수 있다 (files 가 없으면 첨부 칸을 싣지 않는다)", () => {
+    const s = bulkReducer(initialBulkState, { type: "loaded", rows: [row(2)], results: [result(2, "MATCHED")] });
+    const old = { ...s.lines[0], files: undefined };
+
+    expect(toApiRow(old)).not.toHaveProperty("photo1");
+  });
+
+  it("attachedFiles: 이름이 있는 칸만, 그 칸의 서버 오류와 함께", () => {
+    const s = bulkReducer(initialBulkState, {
+      type: "loaded",
+      rows: [row(2, { photo1: photo, photo2: { name: "b.jpg", key: null, problem: "ZIP 안에서 찾을 수 없습니다." } })],
+      results: [result(2, "FAILED", { photo2: "ZIP 안에서 찾을 수 없습니다." })],
+    });
+
+    expect(attachedFiles(s.lines[0])).toEqual([
+      { slot: "photo1", name: "a.jpg", error: null },
+      { slot: "photo2", name: "b.jpg", error: "ZIP 안에서 찾을 수 없습니다." },
+    ]);
   });
 });

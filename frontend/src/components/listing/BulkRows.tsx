@@ -1,7 +1,7 @@
 "use client";
 
 import { Checkbox } from "@/components/ui/checkbox";
-import { canSelect, errorsOf, isLocked, type BulkLine, type BulkPick } from "@/lib/bulkListing";
+import { attachedFiles, canSelect, errorsOf, isLocked, type BulkLine, type BulkPick } from "@/lib/bulkListing";
 import { tabOf, type BulkSortKey, type BulkView } from "@/lib/bulkListingView";
 import { BULK_INPUT_FIELDS, type BulkFields, type BulkInputField } from "@/lib/validation/bulkListing";
 import { PROD_STATES } from "@/lib/validation/listing";
@@ -219,6 +219,12 @@ function ProductActions({
   return (
     <div className="flex flex-col gap-1.5 border-t border-line-2 px-3 py-2">
       {tab === "new" && <p className="text-[12px] text-ink-2">{t.line.newMasterHint}</p>}
+      {attachedFiles(line).map((f) => (
+        <p key={f.slot} className={f.error ? "text-[12px] text-down" : "text-[12px] text-ink-2"}>
+          {t.fields[f.slot]}: {f.name}
+          {f.error ? ` — ${f.error}` : ""}
+        </p>
+      ))}
       {line.result.notices.map((n) => (
         <p key={n} className="text-[12px] text-ink-3">
           {n}

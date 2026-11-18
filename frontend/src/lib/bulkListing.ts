@@ -1,5 +1,5 @@
 import { validateBulkRow, type BulkFields } from "@/lib/validation/bulkListing";
-import type { BulkCandidate, BulkResult, BulkRowApi } from "@/types/listingBulk";
+import { BULK_FILE_SLOTS, type BulkCandidate, type BulkFileApi, type BulkFileSlot, type BulkResult, type BulkRowApi } from "@/types/listingBulk";
 
 /** 줄에서 마스터를 고를 때 넘기는 값. 후보 버튼은 기본 칸만, [상품 찾기]는 상품번호·카테고리까지 준다 */
 export type BulkPick = BulkCandidate & { prodNo?: string | null; categoryCode?: string };
@@ -10,6 +10,8 @@ export type BulkPick = BulkCandidate & { prodNo?: string | null; categoryCode?: 
 export interface BulkLine {
   rowNo: number;
   fields: BulkFields;
+  /** ZIP 에서 붙은 첨부 — 서버가 준 값을 그대로 들고 있다가 검사·확정 때 다시 보낸다 (화면에서 고치지 않는다). 옛 보관본에는 없다 */
+  files?: Partial<Record<BulkFileSlot, BulkFileApi | null>>;
   /** 서버의 마지막 검사 결과. 아직 없으면(방금 수정해 다시 검사 중 포함) 이전 값을 유지한다 */
   result: BulkResult;
   selected: boolean;
@@ -71,6 +73,20 @@ export function toFields(row: BulkRowApi): BulkFields {
   };
 }
 
+/** 서버가 준 줄에서 첨부 칸만 */
+export function filesOf(row: BulkRowApi): NonNullable<BulkLine["files"]> {
+  return Object.fromEntries(BULK_FILE_SLOTS.map((slot) => [slot, row[slot] ?? null]));
+}
+
+/** 줄에 붙은(이름이 있는) 첨부와 그 칸의 오류 — 화면이 "사진1: a.jpg" 와 사유를 보여 주는 용도 */
+export function attachedFiles(line: BulkLine): { slot: BulkFileSlot; name: string; error: string | null }[] {
+  const errors = errorsOf(line);
+  return BULK_FILE_SLOTS.flatMap((slot) => {
+    const name = line.files?.[slot]?.name;
+    return name ? [{ slot, name, error: errors[slot] ?? null }] : [];
+  });
+}
+
 /** 서버로 보낼 줄. 빈 칸은 null (서버가 공백도 빈 칸으로 본다) */
 export function toApiRow(line: BulkLine): BulkRowApi {
   const f = line.fields;
@@ -90,6 +106,7 @@ export function toApiRow(line: BulkLine): BulkRowApi {
     orderUnit: n(f.orderUnit),
     deliveryDate: n(f.deliveryDate),
     description: n(f.description),
+    ...line.files,
   };
 }
 
@@ -146,6 +163,7 @@ export function bulkReducer(state: BulkState, action: BulkAction): BulkState {
         lines.push({
           rowNo: row.rowNo,
           fields: toFields(row),
+          files: filesOf(row),
           result,
           // 마스터를 찾은 줄만 처음부터 체크. 새 마스터는 사용자가 일부러 체크해야 한다
           selected: result.status === "MATCHED",

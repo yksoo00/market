@@ -22,9 +22,11 @@ export const listingsApi = {
 
 /** 엑셀 다량 등록 (계획 2026-11-05-bulk-listing-excel.md). 서버는 줄 상태를 저장하지 않아 검사·확정 때마다 줄을 전부 보낸다 */
 export const listingBulkApi = {
-  parse: (file: File) => {
+  /** zip: 엑셀 칸에 적은 파일명과 이름이 같은 사진·데이터시트를 묶은 ZIP (선택) */
+  parse: (file: File, zip?: File | null) => {
     const form = new FormData();
     form.append("file", file);
+    if (zip) form.append("attachments", zip);
     return upload<BulkParseResponse>("/api/v1/listings/bulk/parse", form);
   },
   check: (rows: BulkRowApi[]) => api<BulkCheckResponse>("/api/v1/listings/bulk/check", { method: "POST", body: JSON.stringify({ rows }) }),
