@@ -80,12 +80,12 @@ export function CartCard({ item, checked, onCheckedChange, quantityBusy, removin
           ) : (
             <span>{l.prodState}</span>
           )}
-          {l.stockQuantity !== null && <span className="num">{t.stock(l.stockQuantity.toLocaleString("ko-KR"))}</span>}
-          <span className="num">{t.reqDeliDate(item.reqDeliDate)}</span>
+          {l.stockQuantity !== null && <span className="tabular-nums">{t.stock(l.stockQuantity.toLocaleString("ko-KR"))}</span>}
+          <span className="tabular-nums">{t.reqDeliDate(item.reqDeliDate)}</span>
         </p>
         <p className="text-[12px] text-ink-3">
-          <span className="num">{t.unitPrice(price)}</span>
-          {left !== null && <span className="num whitespace-nowrap"> · {t.columns.remaining} {t.remaining(left)}</span>}
+          <span className="tabular-nums">{t.unitPrice(price)}</span>
+          {left !== null && <span className="tabular-nums whitespace-nowrap"> · {t.columns.remaining} {t.remaining(left)}</span>}
         </p>
       </div>
       <div className="col-span-3 @min-[36rem]:col-span-1 flex items-center justify-between @min-[36rem]:flex-col @min-[36rem]:items-end gap-3">

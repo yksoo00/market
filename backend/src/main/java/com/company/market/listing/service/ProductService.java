@@ -82,7 +82,7 @@ public class ProductService {
 
 	/**
 	 * 엑셀 대량구매의 상품 찾기 — 이름(+제조사, +분류번호)이 같은 마스터를 **전부**(최대 limit) 돌려준다. 이름·제조사는 대소문자·공백·하이픈을
-	 * 무시하고, 제조사·분류번호가 비면(null/빈 글) 그 칸은 보지 않는다. 하나일 때만 자동으로 정하는 건 부르는 쪽이다(여럿이면 사용자가 고른다)
+	 * 무시하고, 제조사·분류번호가 비면(null/빈 글) 그 칸은 보지 않는다. 여럿이어도 고르게 하지 않고 부르는 쪽이 그 매물을 합쳐 보인다
 	 */
 	public List<Product> findAllLoose(String prodName, String prodBrand, String prodClassNo, int limit) {
 		String name = looseKey(prodName);
@@ -91,6 +91,17 @@ public class ProductService {
 			return List.of();
 		}
 		return products.findAllLoose(name, looseKey(prodBrand), orEmpty(prodClassNo), PageRequest.of(0, limit));
+	}
+
+	/** 엑셀 대량구매의 폴백 — 이름이 정확히 같은 마스터가 없을 때 이름에 포함된 마스터(이름이 짧은 순, 최대 limit). 공백·하이픈·대소문자는 무시한다 */
+	public List<Product> findAllNameContains(String prodName, int limit) {
+		String key = looseKey(prodName);
+		// 한 글자 이름은 거의 모든 마스터에 포함돼 의미 없는 매물을 보이고 전체를 훑게 만든다 — 폴백을 쓰지 않는다
+		if (key.length() < 2) {
+			return List.of();
+		}
+		String escaped = key.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_");
+		return products.findAllNameContains("%" + escaped + "%", PageRequest.of(0, limit));
 	}
 
 	/** 비교용 키 — 소문자, 공백과 하이픈 제거. 저장소 쿼리(findAllLoose)가 DB 쪽 값에 replace 로 같은 정리를 한다 */

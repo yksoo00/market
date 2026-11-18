@@ -31,7 +31,8 @@ export interface ListingTraits {
   warrantyDays: number | null;
   hasDataSheet: boolean;
   hasPhoto: boolean;
-  hasWarrantyCoverage: boolean;
+  /** 불량지원방법 글(대체/환불), 없으면 null */
+  warrantyCoverage: string | null;
   hasTestReport: boolean;
   hasCertificate: boolean;
 }
@@ -53,6 +54,11 @@ export interface ListingOption {
   reason: string | null;
   mismatches: string[];
   traits: ListingTraits;
+  /** 이 매물의 상품(마스터) — 한 줄에 여러 상품의 매물이 합쳐질 수 있어 매물마다 붙는다 */
+  prodId: string;
+  prodName: string;
+  prodBrand: string;
+  prodClassNo: string | null;
 }
 
 export interface Alternative {
@@ -77,8 +83,9 @@ export interface CartBulkResult {
   chosen: ListingOption | null;
   options: ListingOption[];
   alternatives: Alternative[];
-  candidates: BuyCandidate[];
   notices: string[];
+  /** 찾은 서로 다른 상품 수. 0 이면 상품을 못 찾은 줄, 2 이상이면 여러 상품의 매물이 합쳐진 줄(prodId·matchedName 은 상품이 하나일 때만 있다) */
+  masterCount: number;
   /** 칸 이름(CartBulkRowApi 의 키) 또는 listing(고른 매물) → 사유 */
   fields: Record<string, string>;
   substituted: boolean;

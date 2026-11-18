@@ -25,7 +25,7 @@ const row = (rowNo: number, patch: Partial<CartBulkRowApi>): CartBulkRowApi => (
   ...patch,
 });
 
-const traits = { prodState: "신품", warrantyDays: null, hasDataSheet: false, hasPhoto: false, hasWarrantyCoverage: false, hasTestReport: false, hasCertificate: false };
+const traits = { prodState: "신품", warrantyDays: null, hasDataSheet: false, hasPhoto: false, warrantyCoverage: null, hasTestReport: false, hasCertificate: false };
 
 const option = (price: number): ListingOption => ({
   sellerId: "S",
@@ -40,6 +40,10 @@ const option = (price: number): ListingOption => ({
   reason: null,
   mismatches: [],
   traits,
+  prodId: "KP-1",
+  prodName: "스위치",
+  prodBrand: "Cisco",
+  prodClassNo: null,
 });
 
 const result = (rowNo: number, status: CartBulkResult["status"], chosen: ListingOption | null, fields: Record<string, string> = {}, matchedName: string | null = null): CartBulkResult => ({
@@ -50,10 +54,10 @@ const result = (rowNo: number, status: CartBulkResult["status"], chosen: Listing
   chosen,
   options: [],
   alternatives: [],
-  candidates: [],
   notices: [],
   fields,
   substituted: false,
+  masterCount: status === "FAILED" ? 0 : 1,
 });
 
 /** 2: 있음 가나다 Cisco 수량 5 단가 3000, 3: 없음 라우터 Juniper 수량 100, 4: 실패 허브 cisco 수량 "1,500", 5: 있음 서버 Dell 수량 글자 단가 100 */

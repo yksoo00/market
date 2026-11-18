@@ -73,8 +73,8 @@ class ListingTraitsTest {
 
 		Map<ListingId, ListingTraits> traits = listingService.traitsOfProduct(master.getProdId());
 
-		assertThat(traits.get(full)).isEqualTo(new ListingTraits("신품", 180, true, true, true, true, true));
-		assertThat(traits.get(bare)).isEqualTo(new ListingTraits("신품대비 70~79%", null, false, false, false, false, false));
+		assertThat(traits.get(full)).isEqualTo(new ListingTraits("신품", 180, true, true, "대체", true, true));
+		assertThat(traits.get(bare)).isEqualTo(new ListingTraits("신품대비 70~79%", null, false, false, null, false, false));
 	}
 
 	@Test

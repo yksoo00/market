@@ -258,6 +258,7 @@ export const listing = {
     actions: {
       selectAll: "오류 없는 줄 모두 선택",
       clearAll: "선택 해제",
+      summary: (selected: number, all: number) => `체크한 줄 ${selected}건 · 등록할 수 있는 줄 ${all}건`,
       commitSelected: (n: number) => `선택 확정 (${n}건)`,
       commitAll: (n: number) => `전체 확정 (${n}건)`,
       committing: "등록하는 중이에요",

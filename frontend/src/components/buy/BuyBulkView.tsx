@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useReducer, useRef, useState, type DragEvent } from "react";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
+import { BulkActionBar } from "@/components/common/BulkActionBar";
 import { BuyBulkRows } from "@/components/buy/BuyBulkRows";
 import { ProductSearchDialog } from "@/components/listing/ProductSearchDialog";
 import { cartBulkApi } from "@/lib/api/cartBulk";
@@ -86,6 +87,7 @@ export function BuyBulkView() {
   const visibleNos = useMemo(() => visibleLines(state.lines, view).map((l) => l.rowNo), [view, loadId, state.added]);
   const byRow = new Map(state.lines.map((l) => [l.rowNo, l]));
   const shown = visibleNos.flatMap((n) => byRow.get(n) ?? []);
+  const finderLine = finder === null ? undefined : byRow.get(finder);
   const hasOpen = state.lines.some((l) => !l.added);
   const busy = committing || step === "reading";
 
@@ -294,7 +296,7 @@ export function BuyBulkView() {
             {t.reset}
           </button>
         )}
-        {compact && <span className="num ml-auto text-[13px] text-ink-2">{t.cart(state.cartCount, state.cartMax)}</span>}
+        {compact && <span className="tabular-nums ml-auto text-[13px] text-ink-2">{t.cart(state.cartCount, state.cartMax)}</span>}
       </div>
 
       {restored && compact && (
@@ -389,7 +391,7 @@ export function BuyBulkView() {
               </button>
             </span>
           </div>
-          <p className="num text-[13px] text-ink-2">{t.summary(stat.choose, stat.available, stat.unavailable, stat.failed, stat.selected)}</p>
+          <p className="tabular-nums text-[13px] text-ink-2">{t.summary(stat.choose, stat.available, stat.unavailable, stat.failed, stat.selected)}</p>
 
           {shown.length === 0 ? (
             <p className="rounded-md border border-line bg-surface py-10 text-center text-[14px] text-ink-2">{t.emptyView}</p>
@@ -402,36 +404,26 @@ export function BuyBulkView() {
               onEdit={edit}
               onEditNow={editNow}
               onBlurLine={blurLine}
-              onPick={pick}
               onFind={setFinder}
               onUnlock={unlock}
               onChoose={choose}
+              onOpenDetail={(sellerId, regDate) => openTile(`/listings/${sellerId}/${regDate}`, false)}
             />
           )}
 
-          <div className="sticky bottom-0 flex flex-wrap gap-2 border-t border-line bg-surface py-3">
-            <button
-              type="button"
-              onClick={commitSelected}
-              disabled={busy || stat.selected === 0}
-              className="h-10 px-5 rounded-md bg-primary text-white text-[14px] font-bold hover:bg-primary-dark disabled:opacity-40"
-            >
-              {committing ? t.actions.committing : t.actions.commitSelected(stat.selected)}
-            </button>
-            <button
-              type="button"
-              onClick={commitAll}
-              disabled={busy || committable === 0}
-              className="h-10 px-5 rounded-md border border-primary text-primary text-[14px] font-bold hover:bg-primary-soft disabled:opacity-40"
-            >
-              {t.actions.commitAll(committable)}
-            </button>
-          </div>
+          <BulkActionBar
+            summary={t.actions.summary(stat.selected, committable)}
+            primary={{ label: committing ? t.actions.committing : t.actions.commitSelected(stat.selected), disabled: busy || stat.selected === 0, onClick: commitSelected }}
+            secondary={{ label: t.actions.commitAll(committable), disabled: busy || committable === 0, onClick: commitAll }}
+          />
         </fieldset>
       )}
 
       {finder !== null && (
         <ProductSearchDialog
+          // 줄에 엑셀로 올리거나 입력해 둔 상품명·제조사를 검색어에 미리 채운다(상품명이 비면 분류번호)
+          initialQuery={finderLine?.fields.prodName || finderLine?.fields.prodClassNo || ""}
+          initialBrand={finderLine?.fields.prodBrand ?? ""}
           onClose={() => setFinder(null)}
           onPick={(item: ProductSearchItem) => {
             const rowNo = finder;

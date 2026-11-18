@@ -27,7 +27,7 @@ const row = (rowNo: number, patch: Partial<CartBulkRowApi> = {}): CartBulkRowApi
   ...patch,
 });
 
-const traits = { prodState: "신품", warrantyDays: null, hasDataSheet: false, hasPhoto: false, hasWarrantyCoverage: false, hasTestReport: false, hasCertificate: false };
+const traits = { prodState: "신품", warrantyDays: null, hasDataSheet: false, hasPhoto: false, warrantyCoverage: null, hasTestReport: false, hasCertificate: false };
 
 const option = (sellerId: string, price = 1000, reason: string | null = null): ListingOption => ({
   sellerId,
@@ -42,6 +42,10 @@ const option = (sellerId: string, price = 1000, reason: string | null = null): L
   reason,
   mismatches: [],
   traits,
+  prodId: "KP-1",
+  prodName: "스위치",
+  prodBrand: "Cisco",
+  prodClassNo: null,
 });
 
 const result = (rowNo: number, status: CartBulkResult["status"], fields: Record<string, string> = {}, chosen: ListingOption | null = null): CartBulkResult => ({
@@ -52,10 +56,10 @@ const result = (rowNo: number, status: CartBulkResult["status"], fields: Record<
   chosen,
   options: chosen ? [chosen] : [],
   alternatives: [],
-  candidates: [],
   notices: [],
   fields,
   substituted: false,
+  masterCount: status === "FAILED" ? 0 : 1,
 });
 
 /** 2: 매물 있음, 3: 매물 없음, 4: 실패(수량) */
