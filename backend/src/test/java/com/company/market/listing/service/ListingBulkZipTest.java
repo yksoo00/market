@@ -242,6 +242,23 @@ class ListingBulkZipTest {
 	}
 
 	@Test
+	@DisplayName("빈 ZIP 은 조용히 넘기지 않고 attachments 오류")
+	void emptyZipRejected() throws IOException {
+		assertThatThrownBy(() -> service.parse(sellerId, excel(line("압축 스위치", "a.jpg", null, null)),
+				new MockMultipartFile("attachments", "files.zip", "application/zip", new byte[0])))
+			.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.getFields()).containsKey("attachments"));
+	}
+
+	@Test
+	@DisplayName("엑셀이 10MB 를 넘으면 file 오류 — multipart 바깥 상한이 50MB 라 서비스가 막는다")
+	void oversizedExcelRejected() {
+		MockMultipartFile big = new MockMultipartFile("file", "big.xlsx", "application/octet-stream", new byte[(int) ListingBulkParser.MAX_FILE_BYTES + 1]);
+
+		assertThatThrownBy(() -> service.parse(sellerId, big, null))
+			.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.getFields().get("file")).contains("10MB"));
+	}
+
+	@Test
 	@DisplayName("ZIP 이 아니거나 폴더가 든 ZIP 은 attachments 오류")
 	void badArchive() throws IOException {
 		assertThatThrownBy(() -> service.parse(sellerId, excel(line("압축 스위치", "a.jpg", null, null)),

@@ -7,6 +7,7 @@ import { BULK_INPUT_FIELDS, type BulkFields, type BulkInputField } from "@/lib/v
 import { PROD_STATES } from "@/lib/validation/listing";
 import { cn } from "@/lib/utils";
 import { listing } from "@/messages/listing";
+import { BULK_FILE_SLOTS, type BulkFileSlot } from "@/types/listingBulk";
 
 const t = listing.bulk;
 const p = listing.bulk.page;
@@ -68,6 +69,8 @@ interface RowsProps {
   onFind: (rowNo: number) => void;
   onUnlock: (rowNo: number) => void;
   onPickCategory: (rowNo: number) => void;
+  /** 붙은 첨부(ZIP 에서 못 찾은 이름 등)를 그 줄에서 뺀다 */
+  onClearFile: (rowNo: number, slot: BulkFileSlot) => void;
 }
 
 export function BulkRows({ lines, ...handlers }: RowsProps) {
@@ -80,7 +83,7 @@ export function BulkRows({ lines, ...handlers }: RowsProps) {
   );
 }
 
-function BulkRow({ line, onToggle, onEdit, onBlurLine, onPick, onFind, onUnlock, onPickCategory }: { line: BulkLine } & Omit<RowsProps, "lines">) {
+function BulkRow({ line, onToggle, onEdit, onBlurLine, onPick, onFind, onUnlock, onPickCategory, onClearFile }: { line: BulkLine } & Omit<RowsProps, "lines">) {
   const errors = errorsOf(line);
   const failed = Object.keys(errors).length > 0;
   const tab = tabOf(line);
@@ -179,7 +182,8 @@ function BulkRow({ line, onToggle, onEdit, onBlurLine, onPick, onFind, onUnlock,
       </div>
       {/* 서버가 칸에 못 붙인 사유(prodId 등) */}
       {Object.entries(errors)
-        .filter(([key]) => !(BULK_INPUT_FIELDS as readonly string[]).includes(key))
+        // 첨부 칸 오류는 아래 첨부 목록(ProductActions)에서 이름과 함께 보인다 — 여기서 또 보이면 같은 오류가 두 번 뜬다
+        .filter(([key]) => !(BULK_INPUT_FIELDS as readonly string[]).includes(key) && !(BULK_FILE_SLOTS as readonly string[]).includes(key))
         .map(([key, message]) => (
           <p key={key} role="alert" className="px-3 pb-2 text-[12px] text-down">
             {t.fields[key] ?? key}: {message}
@@ -193,6 +197,7 @@ function BulkRow({ line, onToggle, onEdit, onBlurLine, onPick, onFind, onUnlock,
           onPick={(pick) => onPick(line.rowNo, pick)}
           onFind={() => onFind(line.rowNo)}
           onUnlock={() => onUnlock(line.rowNo)}
+          onClearFile={(slot) => onClearFile(line.rowNo, slot)}
         />
       )}
     </li>
@@ -207,6 +212,7 @@ function ProductActions({
   onPick,
   onFind,
   onUnlock,
+  onClearFile,
 }: {
   line: BulkLine;
   tab: ReturnType<typeof tabOf>;
@@ -214,15 +220,22 @@ function ProductActions({
   onPick: (pick: BulkPick) => void;
   onFind: () => void;
   onUnlock: () => void;
+  onClearFile: (slot: BulkFileSlot) => void;
 }) {
   const buttonClass = "h-7 rounded-md border border-line px-2 text-[12px] text-ink hover:bg-bg";
   return (
     <div className="flex flex-col gap-1.5 border-t border-line-2 px-3 py-2">
       {tab === "new" && <p className="text-[12px] text-ink-2">{t.line.newMasterHint}</p>}
       {attachedFiles(line).map((f) => (
-        <p key={f.slot} className={f.error ? "text-[12px] text-down" : "text-[12px] text-ink-2"}>
+        <p key={f.slot} role={f.error ? "alert" : undefined} className={f.error ? "text-[12px] text-down" : "text-[12px] text-ink-2"}>
           {t.fields[f.slot]}: {f.name}
           {f.error ? ` — ${f.error}` : ""}
+          {/* 엑셀을 다시 올리면 고친 칸을 다 잃으므로, 안 붙는 첨부는 이 줄에서 빼고 이어 간다 */}
+          {f.error && (
+            <button type="button" onClick={() => onClearFile(f.slot)} className="ml-2 font-medium text-primary underline underline-offset-2">
+              {t.line.clearFile}
+            </button>
+          )}
         </p>
       ))}
       {line.result.notices.map((n) => (

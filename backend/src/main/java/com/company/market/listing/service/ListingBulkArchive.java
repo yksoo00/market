@@ -4,11 +4,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.util.LinkedHashSet;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipException;
 import java.util.zip.ZipInputStream;
@@ -55,7 +55,8 @@ public class ListingBulkArchive {
 
 	/** 엑셀 칸 이름과 ZIP 안 이름을 같은 방식으로 비교하기 위한 정리 */
 	public static String normalize(String name) {
-		return name.trim().toLowerCase(Locale.ROOT);
+		// 맥 Finder·zip 은 한글을 자모로 풀어(NFD) 저장하고 윈도우 엑셀은 합쳐서(NFC) 적는다 — 같아 보이는 이름이 안 맞지 않게 NFC 로 모은다
+		return Normalizer.normalize(name.trim(), Normalizer.Form.NFC).toLowerCase(Locale.ROOT);
 	}
 
 	public Index index(InputStreamSource zip) {
@@ -120,19 +121,24 @@ public class ListingBulkArchive {
 		return new Index(charset, names);
 	}
 
-	/** index 가 통과시킨 ZIP 에서 wanted 인 이름의 파일을 한 개씩 읽어 넘긴다 (한 번에 한 파일만 메모리에) */
-	public void read(InputStreamSource zip, Charset charset, Predicate<String> wanted, Handler handler) throws IOException {
+	/**
+	 * index 가 통과시킨 ZIP 에서 wanted 인 이름의 파일을 한 개씩 읽어 넘긴다 (한 번에 한 파일만 메모리에).
+	 * 필요한 파일을 다 읽으면 멈춘다 — 나머지 파일을 풀 필요가 없다
+	 */
+	public void read(InputStreamSource zip, Charset charset, Set<String> wanted, Handler handler) throws IOException {
+		int remaining = wanted.size();
 		try (ZipInputStream in = new ZipInputStream(zip.getInputStream(), charset)) {
 			ZipEntry entry;
-			while ((entry = in.getNextEntry()) != null) {
+			while (remaining > 0 && (entry = in.getNextEntry()) != null) {
 				if (isMacJunk(entry.getName())) {
 					continue;
 				}
 				String name = normalize(entry.getName());
-				if (!wanted.test(name)) {
+				if (!wanted.contains(name)) {
 					continue;
 				}
 				handler.accept(name, readLimited(in));
+				remaining--;
 			}
 		}
 	}

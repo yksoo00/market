@@ -44,6 +44,8 @@ export type BulkAction =
   | { type: "picked"; rowNo: number; candidate: BulkPick }
   /** 마스터를 고른 줄을 직접 입력으로 바꾼다 (상품 칸은 마스터 값을 그대로 둔 채 편집할 수 있게 된다) */
   | { type: "unlocked"; rowNo: number }
+  /** 안 붙는 첨부(ZIP 에 없는 이름 등)를 그 줄에서 뺀다 — 엑셀을 다시 올리면 고친 칸을 다 잃으므로 */
+  | { type: "fileCleared"; rowNo: number; slot: BulkFileSlot }
   | { type: "committed"; rowNos: number[] };
 
 /** 마스터를 고르면 잠기는 칸 — 마스터 값이 기준이라 직접 고치지 않는다 (등록 폼과 같은 방식) */
@@ -234,6 +236,13 @@ export function bulkReducer(state: BulkState, action: BulkAction): BulkState {
         dirty: true,
         fields: { ...l.fields, prodId: "" },
         result: { ...l.result, fields: withoutKeys(l.result.fields, ["prodId"]) },
+      }));
+    case "fileCleared":
+      return patch(state, action.rowNo, (l) => ({
+        ...l,
+        dirty: true,
+        files: { ...l.files, [action.slot]: null },
+        result: { ...l.result, fields: withoutKeys(l.result.fields, [action.slot]) },
       }));
     case "committed": {
       const done = new Set(action.rowNos);

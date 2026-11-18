@@ -4,8 +4,10 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.text.Normalizer;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -63,10 +65,19 @@ class ListingBulkArchiveTest {
 		Index index = archive.index(source);
 		Map<String, byte[]> got = new LinkedHashMap<>();
 
-		archive.read(source, index.charset(), "a.jpg"::equals, got::put);
+		archive.read(source, index.charset(), Set.of("a.jpg"), got::put);
 
 		assertThat(got).containsOnlyKeys("a.jpg");
 		assertThat(got.get("a.jpg")).containsExactly(1, 2);
+	}
+
+	@Test
+	@DisplayName("맥(NFD)으로 압축한 한글 이름과 윈도우(NFC)로 적은 이름이 같게 비교된다")
+	void normalizesUnicodeForm() throws IOException {
+		String nfd = Normalizer.normalize("사진.jpg", Normalizer.Form.NFD);
+		Index index = archive.index(zip(nfd, new byte[] { 1 }));
+
+		assertThat(index.names()).contains(ListingBulkArchive.normalize("사진.jpg"));
 	}
 
 	@Test
@@ -130,7 +141,7 @@ class ListingBulkArchiveTest {
 		Index index = archive.index(source);
 		Map<String, byte[]> got = new LinkedHashMap<>();
 
-		archive.read(source, index.charset(), n -> true, got::put);
+		archive.read(source, index.charset(), index.names(), got::put);
 
 		assertThat(got).containsKey("big.jpg");
 		assertThat(got.get("big.jpg")).isNull();

@@ -91,6 +91,9 @@ public class ListingBulkService {
 		if (file.isEmpty() || name == null || !name.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
 			throw new ValidationException(Map.of("file", "엑셀(.xlsx) 파일을 올려 주세요."));
 		}
+		if (file.getSize() > ListingBulkParser.MAX_FILE_BYTES) {
+			throw new ValidationException(Map.of("file", "엑셀 파일은 10MB 이하로 올려 주세요."));
+		}
 		List<BulkRowDto> rows;
 		try (InputStream in = file.getInputStream()) {
 			rows = parser.parse(in);
@@ -108,7 +111,14 @@ public class ListingBulkService {
 	 * 엑셀이 쓰지 않는 ZIP 파일은 저장하지 않는다. 같은 이름을 여러 칸이 써도 칸마다 따로 저장한다(키 하나를 두 매물이 나눠 쓰지 못함)
 	 */
 	private List<BulkRowDto> attach(UUID userId, List<BulkRowDto> rows, MultipartFile zip) {
-		if (zip == null || zip.isEmpty() || rows.isEmpty()) {
+		if (zip == null) {
+			return rows;
+		}
+		// 빈 ZIP 을 조용히 넘기면 엑셀에 적은 이름이 전부 "ZIP 이 없다"로 보여 ZIP 을 안 보낸 것처럼 읽힌다
+		if (zip.isEmpty()) {
+			throw new ValidationException(Map.of("attachments", "ZIP 파일이 비어 있습니다."));
+		}
+		if (rows.isEmpty()) {
 			return rows;
 		}
 		String zipName = zip.getOriginalFilename();
@@ -139,7 +149,7 @@ public class ListingBulkService {
 			}
 		}
 		try {
-			archive.read(zip, index.charset(), uses::containsKey, (name, content) -> {
+			archive.read(zip, index.charset(), uses.keySet(), (name, content) -> {
 				for (int[] use : uses.get(name)) {
 					BulkFile f = files[use[0]][use[1]];
 					UploadKind kind = kindOf(use[1]);

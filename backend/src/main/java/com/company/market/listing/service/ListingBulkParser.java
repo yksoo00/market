@@ -26,6 +26,9 @@ public class ListingBulkParser {
 	/** 한 번에 받는 데이터 줄 수 (계획 2026-11-05) */
 	public static final int MAX_ROWS = 200;
 
+	/** 엑셀 파일 크기 (security.md 10MB). multipart 바깥 상한이 ZIP 때문에 50MB 가 되어 엑셀은 서비스가 직접 막는다 */
+	public static final long MAX_FILE_BYTES = 10L * 1024 * 1024;
+
 	/** BulkRowDto 칸 순서와 같다. * 는 필수 표시 — 읽을 땐 * 와 공백을 뗀다 */
 	public static final List<String> HEADER_LABELS = List.of("상품명*", "제조사*", "분류번호", "상품번호", "카테고리 코드", "상품ID",
 			"상품상태*", "단가*", "수량*", "최소주문수량", "주문단위", "제공가능일*", "설명");

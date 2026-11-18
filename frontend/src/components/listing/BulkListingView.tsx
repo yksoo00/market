@@ -16,6 +16,7 @@ import { BULK_UPLOAD_MAX_BYTES, checkUpload } from "@/lib/validation/upload";
 import { cn } from "@/lib/utils";
 import { listing } from "@/messages/listing";
 import type { ProductSearchItem } from "@/types/listing";
+import type { BulkFileSlot } from "@/types/listingBulk";
 
 const t = listing.bulk;
 const p = listing.bulk.page;
@@ -144,6 +145,12 @@ export function BulkListingView() {
     if (!error) setZip(file);
   };
 
+  const clearFile = (rowNo: number, slot: BulkFileSlot) => {
+    const action: BulkAction = { type: "fileCleared", rowNo, slot };
+    dispatch(action);
+    void recheckRows(bulkReducer(state, action), [rowNo]);
+  };
+
   const upload = async (file: File | undefined, withZip: File | null = zip) => {
     if (!file || busy) return;
     setPickError(null);
@@ -164,6 +171,8 @@ export function BulkListingView() {
       setPickError(res.fields?.file ?? res.fields?.attachments ?? (listing.errors[res.code] ?? res.message ?? t.readFailed));
       return;
     }
+    // 읽은 줄이 없어도 ZIP 은 이 엑셀에 쓰인 것으로 본다 — 다음 엑셀에 따라가지 않게 비운다
+    setZip(null);
     if (res.data.rows.length === 0) {
       setPickError(t.emptyFile);
       return;
@@ -174,8 +183,6 @@ export function BulkListingView() {
     setRestored(false);
     setView(initialBulkView);
     setLoadId((n) => n + 1);
-    // ZIP 은 이 엑셀에 붙었다 — 다음 엑셀에 같은 ZIP 이 몰래 따라가지 않게 비운다
-    setZip(null);
     dispatch({ type: "loaded", rows: res.data.rows, results: res.data.results });
   };
 
@@ -183,6 +190,7 @@ export function BulkListingView() {
   const onDrop = (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setDragging(false);
+    if (busy) return; // 읽는 중에 ZIP 을 바꾸면 방금 보낸 요청과 어긋난다
     const files = Array.from(e.dataTransfer.files);
     const zips = files.filter((f) => f.name.toLowerCase().endsWith(".zip"));
     const others = files.filter((f) => !f.name.toLowerCase().endsWith(".zip"));
@@ -196,10 +204,10 @@ export function BulkListingView() {
         setPickError(zipError);
         return;
       }
-      setZip(zips[0]);
     }
-    // 엑셀 없이 ZIP 만 놓으면 ZIP 만 고른 것 — 엑셀을 올릴 때 같이 간다
+    // 엑셀과 함께 놓으면 그 ZIP 을 바로 같이 보낸다(엑셀 검사에 걸리면 둘 다 안 쓴다). 엑셀 없이 ZIP 만 놓으면 ZIP 만 고른 것 — 엑셀을 올릴 때 같이 간다
     if (others[0]) void upload(others[0], zips[0] ?? zip);
+    else if (zips[0]) setZip(zips[0]);
   };
 
   const downloadTemplate = async () => {
@@ -455,6 +463,7 @@ export function BulkListingView() {
                 onFind={setFinder}
                 onUnlock={unlock}
                 onPickCategory={setCategoryFor}
+                onClearFile={clearFile}
               />
             </div>
           )}

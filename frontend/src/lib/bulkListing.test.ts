@@ -213,6 +213,19 @@ describe("ZIP 첨부 칸", () => {
     expect(toApiRow(old)).not.toHaveProperty("photo1");
   });
 
+  it("fileCleared: 안 붙는 첨부를 빼면 그 칸의 서버 오류도 사라지고 서버로 null 을 보낸다", () => {
+    let s = bulkReducer(initialBulkState, {
+      type: "loaded",
+      rows: [row(2, { photo1: { name: "b.jpg", key: null, problem: "ZIP 안에서 찾을 수 없습니다." } })],
+      results: [result(2, "FAILED", { photo1: "ZIP 안에서 찾을 수 없습니다." })],
+    });
+    s = bulkReducer(s, { type: "fileCleared", rowNo: 2, slot: "photo1" });
+
+    expect(errorsOf(s.lines[0])).not.toHaveProperty("photo1");
+    expect(toApiRow(s.lines[0]).photo1).toBeNull();
+    expect(attachedFiles(s.lines[0])).toEqual([]);
+  });
+
   it("attachedFiles: 이름이 있는 칸만, 그 칸의 서버 오류와 함께", () => {
     const s = bulkReducer(initialBulkState, {
       type: "loaded",

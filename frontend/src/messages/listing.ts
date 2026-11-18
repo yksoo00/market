@@ -203,6 +203,7 @@ export const listing = {
       candidates: "혹시 이 상품인가요?",
       pickCandidate: (name: string, brand: string) => `${name} (${brand}) 로 바꾸기`,
       checking: "검사 중이에요",
+      clearFile: "이 파일 빼기",
       select: (n: number) => `${n}행 선택`,
       rechecked: "고친 줄은 다시 검사한 뒤 체크를 풀어 둬요. 결과를 보고 다시 체크해 주세요",
     },
