@@ -85,6 +85,7 @@ export function BulkListingView() {
   const visibleNos = useMemo(() => visibleLines(state.lines, view).map((l) => l.rowNo), [view, loadId, state.created]);
   const byRow = new Map(state.lines.map((l) => [l.rowNo, l]));
   const shown = visibleNos.flatMap((n) => byRow.get(n) ?? []);
+  const finderLine = finder === null ? undefined : byRow.get(finder);
   const hasOpen = state.lines.some((l) => !l.committed);
   const busy = committing || step === "reading";
 
@@ -411,6 +412,9 @@ export function BulkListingView() {
 
       {finder !== null && (
         <ProductSearchDialog
+          // 줄에 올리거나 입력해 둔 상품명·제조사를 검색어에 미리 채운다(상품명이 비면 분류번호)
+          initialQuery={finderLine?.fields.prodName || finderLine?.fields.prodClassNo || ""}
+          initialBrand={finderLine?.fields.prodBrand ?? ""}
           onClose={() => setFinder(null)}
           onPick={(item: ProductSearchItem) => {
             const rowNo = finder;

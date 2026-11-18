@@ -19,6 +19,9 @@ type Loaded = { key: string; page: ProductSearchPage | null };
 interface Props {
   onPick: (item: ProductSearchItem) => void;
   onClose: () => void;
+  /** 처음 채워 둘 검색어·제조사 — 줄에 입력해 둔 상품명·제조사를 다시 치지 않게 한다. 비우면 빈 조건으로 연다 */
+  initialQuery?: string;
+  initialBrand?: string;
 }
 
 const inputClass = "h-9 w-full min-w-0 rounded-md border border-line bg-surface px-2 text-[13px] text-ink outline-none focus-visible:border-primary";
@@ -27,13 +30,14 @@ const gridClass = "md:grid-cols-[minmax(0,2.2fr)_minmax(0,1.2fr)_minmax(0,1.1fr)
 /**
  * 상품마스터 큰 검색 모달 (계획 2026-11-09-product-search-modal.md). 검색어·카테고리·제조사로 좁히고 페이지 번호로 넘기며 상품 하나를 골라 [선택].
  * 등록 폼의 ProductPicker 는 react-hook-form 에 묶여 표 칸에서 쓸 수 없어 같은 검색 API 를 쓰는 독립 모달이다.
- * 판매 다량 등록·대량구매의 줄과 등록 폼의 [자세히 찾기]가 같이 쓴다 — props(onPick·onClose)는 예전 팝업과 같다
+ * 판매 다량 등록·대량구매의 줄과 등록 폼의 [자세히 찾기]가 같이 쓴다 — props(onPick·onClose)는 예전 팝업과 같고, 줄에서 열 땐 줄에
+ * 입력해 둔 상품명·제조사를 미리 채워 연다(initialQuery·initialBrand)
  */
-export function ProductSearchDialog({ onPick, onClose }: Props) {
-  const [filter, setFilter] = useState<ProductFilter>(initialProductFilter);
+export function ProductSearchDialog({ onPick, onClose, initialQuery = "", initialBrand = "" }: Props) {
+  const [filter, setFilter] = useState<ProductFilter>(() => ({ ...initialProductFilter, q: initialQuery.trim(), brand: initialBrand.trim() }));
   // 글자를 치는 칸은 입력값을 따로 두고, 멈춘 뒤에 조건으로 넘긴다 (키 입력마다 요청하지 않게)
-  const [qInput, setQInput] = useState("");
-  const [brandInput, setBrandInput] = useState("");
+  const [qInput, setQInput] = useState(initialQuery);
+  const [brandInput, setBrandInput] = useState(initialBrand);
   const [categoryName, setCategoryName] = useState("");
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [selected, setSelected] = useState<ProductPageItem | null>(null);
