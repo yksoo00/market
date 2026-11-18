@@ -8,6 +8,8 @@ import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -19,10 +21,15 @@ import java.util.UUID;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.exception.ValidationException;
+import com.company.market.common.storage.FileType;
+import com.company.market.common.storage.UploadKind;
+import com.company.market.common.storage.UploadRef;
+import com.company.market.common.storage.UploadService;
 import com.company.market.common.time.KoreanDates;
 import com.company.market.listing.domain.CategoryFragments;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.Product;
+import com.company.market.listing.dto.BulkFile;
 import com.company.market.listing.dto.BulkParseResponse;
 import com.company.market.listing.dto.BulkRowDto;
 import com.company.market.listing.dto.BulkRowResult;
@@ -72,13 +79,20 @@ public class ListingBulkService {
 
 	private final ListingBulkParser parser;
 
+	private final UploadService uploads;
+
+	private final ListingBulkArchive archive;
+
 	/**
 	 * 업로드한 엑셀을 읽고 줄마다 검사한다 (저장 없음). 데이터 줄이 하나도 없으면 빈 결과 — 화면이 "입력한 줄이 없어요"를 보이게
 	 */
-	public BulkParseResponse parse(UUID userId, MultipartFile file) {
+	public BulkParseResponse parse(UUID userId, MultipartFile file, MultipartFile zip) {
 		String name = file.getOriginalFilename();
 		if (file.isEmpty() || name == null || !name.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
 			throw new ValidationException(Map.of("file", "엑셀(.xlsx) 파일을 올려 주세요."));
+		}
+		if (file.getSize() > ListingBulkParser.MAX_FILE_BYTES) {
+			throw new ValidationException(Map.of("file", "엑셀 파일은 10MB 이하로 올려 주세요."));
 		}
 		List<BulkRowDto> rows;
 		try (InputStream in = file.getInputStream()) {
@@ -87,7 +101,101 @@ public class ListingBulkService {
 		catch (IOException e) {
 			throw new ValidationException(Map.of("file", "엑셀(.xlsx) 파일을 읽을 수 없습니다."));
 		}
+		rows = attach(userId, rows, zip);
 		return new BulkParseResponse(rows, rows.isEmpty() ? List.of() : check(userId, rows));
+	}
+
+	/**
+	 * ZIP 이 있으면 엑셀 칸의 파일명과 같은 ZIP 안 파일을 저장해 키를 줄에 붙인다. ZIP 구조·총량 검증(index)이 끝난 뒤에만 저장을
+	 * 시작한다 — 거절된 ZIP 이 파일을 남기지 않게. 칸마다 문제(ZIP 에 없음·형식·용량)는 줄 오류가 되도록 problem 에 담는다.
+	 * 엑셀이 쓰지 않는 ZIP 파일은 저장하지 않는다. 같은 이름을 여러 칸이 써도 칸마다 따로 저장한다(키 하나를 두 매물이 나눠 쓰지 못함)
+	 */
+	private List<BulkRowDto> attach(UUID userId, List<BulkRowDto> rows, MultipartFile zip) {
+		if (zip == null) {
+			return rows;
+		}
+		// 빈 ZIP 을 조용히 넘기면 엑셀에 적은 이름이 전부 "ZIP 이 없다"로 보여 ZIP 을 안 보낸 것처럼 읽힌다
+		if (zip.isEmpty()) {
+			throw new ValidationException(Map.of("attachments", "ZIP 파일이 비어 있습니다."));
+		}
+		if (rows.isEmpty()) {
+			return rows;
+		}
+		String zipName = zip.getOriginalFilename();
+		if (zipName == null || !zipName.toLowerCase(Locale.ROOT).endsWith(".zip")) {
+			throw new ValidationException(Map.of("attachments", "ZIP(.zip) 파일을 올려 주세요."));
+		}
+		ListingBulkArchive.Index index = archive.index(zip);
+
+		BulkFile[][] files = rows.stream().map(BulkRowDto::files).toArray(BulkFile[][]::new);
+		Map<String, List<int[]>> uses = new HashMap<>();
+		for (int i = 0; i < files.length; i++) {
+			for (int j = 0; j < files[i].length; j++) {
+				BulkFile f = files[i][j];
+				if (f == null || !f.hasName()) {
+					continue;
+				}
+				UploadKind kind = kindOf(j);
+				String name = ListingBulkArchive.normalize(f.name());
+				if (FileType.fromFilename(f.name()).filter(kind::allows).isEmpty()) {
+					files[i][j] = new BulkFile(f.name(), null, wrongType(kind));
+				}
+				else if (!index.names().contains(name)) {
+					files[i][j] = new BulkFile(f.name(), null, "ZIP 안에서 찾을 수 없습니다.");
+				}
+				else {
+					uses.computeIfAbsent(name, k -> new ArrayList<>()).add(new int[] { i, j });
+				}
+			}
+		}
+		try {
+			archive.read(zip, index.charset(), uses.keySet(), (name, content) -> {
+				for (int[] use : uses.get(name)) {
+					BulkFile f = files[use[0]][use[1]];
+					UploadKind kind = kindOf(use[1]);
+					if (content == null) {
+						files[use[0]][use[1]] = new BulkFile(f.name(), null, tooLarge(kind));
+						continue;
+					}
+					try {
+						files[use[0]][use[1]] = new BulkFile(f.name(), uploads.store(userId, kind, f.name(), content), null);
+					}
+					catch (ApiException e) {
+						// 디스크 부족은 줄 하나의 문제가 아니라 서버 상태 — 그대로 올려 보낸다
+						if (e.getCode() == ErrorCode.UPLOAD_INVALID_TYPE) {
+							files[use[0]][use[1]] = new BulkFile(f.name(), null, wrongType(kind));
+						}
+						else if (e.getCode() == ErrorCode.UPLOAD_TOO_LARGE) {
+							files[use[0]][use[1]] = new BulkFile(f.name(), null, tooLarge(kind));
+						}
+						else {
+							throw e;
+						}
+					}
+				}
+			});
+		}
+		catch (IOException e) {
+			throw new ValidationException(Map.of("attachments", "ZIP 파일을 읽을 수 없습니다."));
+		}
+		List<BulkRowDto> attached = new ArrayList<>();
+		for (int i = 0; i < rows.size(); i++) {
+			attached.add(rows.get(i).withFiles(files[i]));
+		}
+		return attached;
+	}
+
+	/** FILE_FIELDS 의 j 번째 칸 용도: 사진1~4 는 사진, 마지막은 데이터시트 */
+	private static UploadKind kindOf(int slot) {
+		return slot < 4 ? UploadKind.LISTING_PHOTO : UploadKind.LISTING_DATASHEET;
+	}
+
+	private static String wrongType(UploadKind kind) {
+		return kind == UploadKind.LISTING_PHOTO ? "사진은 jpg·png·webp 파일이어야 합니다." : "데이터시트는 pdf 파일이어야 합니다.";
+	}
+
+	private static String tooLarge(UploadKind kind) {
+		return "파일이 너무 큽니다 (" + kind.maxBytes() / 1024 / 1024 + "MB 이하).";
 	}
 
 	/**
@@ -119,10 +227,25 @@ public class ListingBulkService {
 				new ProductDraft(c.category(), c.request().prodName(), c.request().prodNo(), c.request().prodBrand(),
 						c.request().prodClassNo(), null, null, null, null, null, null))).toList();
 
+		// 키는 본인이 24시간 안에 그 용도로 올린 것만 받는다 (본문의 키를 그대로 믿지 않음). 실패하면 이 트랜잭션 전체가 롤백
+		List<UploadRef> refs = new ArrayList<>();
+		for (BulkRowDto row : rows) {
+			BulkFile[] files = row.files();
+			for (int j = 0; j < files.length; j++) {
+				if (files[j] != null && files[j].hasName() && !isBlank(files[j].key())) {
+					refs.add(new UploadRef(row.rowNo() + "." + BulkRowDto.FILE_FIELDS[j], files[j].key(), kindOf(j)));
+				}
+			}
+		}
+		uploads.claim(userId, refs);
+
 		listings.lockRegistration(userId);
 		LocalDateTime cursor = LocalDateTime.now(clock);
 		for (int i = 0; i < checked.size(); i++) {
 			ListingCreateRequest req = checked.get(i).request();
+			BulkRowDto row = rows.get(i);
+			List<String> zipPhotos = photoKeys(row);
+			String zipSheet = dataSheetKey(row);
 			Product product = resolved.get(i);
 			while (listings.existsByUserIdAndRegDate(userId, cursor.format(REG_DATE_FORMAT))) {
 				cursor = cursor.plusSeconds(1);
@@ -141,8 +264,12 @@ public class ListingBulkService {
 				.deliveryDate(req.deliveryDate())
 				.stockQuantity(quantity)
 				.prodDescription(req.description())
-				.prodDataSheet(product.getProdDataSheet())
-				.prodPhoto1(product.getProdPhoto1())
+				// ZIP 파일이 있으면 그것만, 없으면 마스터 값 (계획 2026-11-18 가정 4)
+				.prodDataSheet(zipSheet != null ? zipSheet : product.getProdDataSheet())
+				.prodPhoto1(zipPhotos.isEmpty() ? product.getProdPhoto1() : zipPhotos.get(0))
+				.prodPhoto2(zipPhotos.size() > 1 ? zipPhotos.get(1) : null)
+				.prodPhoto3(zipPhotos.size() > 2 ? zipPhotos.get(2) : null)
+				.prodImage4(zipPhotos.size() > 3 ? zipPhotos.get(3) : null)
 				.build());
 			cursor = cursor.plusSeconds(1);
 		}
@@ -162,10 +289,52 @@ public class ListingBulkService {
 			throw new ValidationException(Map.of("rows", "줄 번호가 겹칩니다."));
 		}
 		Set<String> seen = new HashSet<>();
-		return rows.stream().map(row -> checkOne(row, seen)).toList();
+		Set<String> usedKeys = new HashSet<>();
+		return rows.stream().map(row -> checkOne(row, seen, usedKeys)).toList();
 	}
 
-	private Checked checkOne(BulkRowDto row, Set<String> seen) {
+	/**
+	 * 첨부 칸 검사. 이름이 있는 칸만 본다 (이름 없는 칸의 키는 무시). 키가 없으면 parse 가 남긴 사유를, 그것도 없으면(ZIP 없이 올림)
+	 * 안내를 칸 오류로. 키는 그 용도의 업로드 키 모양이어야 하고, 한 번 확정에서 한 키를 두 칸이 쓰면 안 된다 (claim 은 같은 키를 한 번만 선점)
+	 */
+	private static void checkFiles(BulkRowDto row, Map<String, String> fields, Set<String> usedKeys) {
+		BulkFile[] files = row.files();
+		for (int j = 0; j < files.length; j++) {
+			BulkFile f = files[j];
+			if (f == null || !f.hasName()) {
+				continue;
+			}
+			String field = BulkRowDto.FILE_FIELDS[j];
+			if (isBlank(f.key())) {
+				fields.putIfAbsent(field, isBlank(f.problem()) ? "ZIP 파일을 함께 올려야 이 파일이 붙습니다." : f.problem());
+			}
+			else if (UploadKind.ofKey(f.key()).filter(kindOf(j)::equals).isEmpty()) {
+				fields.putIfAbsent(field, "파일을 다시 올려 주세요.");
+			}
+			else if (!usedKeys.add(f.key())) {
+				fields.putIfAbsent(field, "같은 파일을 두 칸에 쓸 수 없습니다.");
+			}
+		}
+	}
+
+	/** 키가 있는 사진 칸을 사진1~4 순서대로 (이름이 없는 칸은 건너뜀) */
+	private static List<String> photoKeys(BulkRowDto row) {
+		List<String> keys = new ArrayList<>();
+		BulkFile[] files = row.files();
+		for (int j = 0; j < 4; j++) {
+			if (files[j] != null && files[j].hasName() && !isBlank(files[j].key())) {
+				keys.add(files[j].key());
+			}
+		}
+		return keys;
+	}
+
+	private static String dataSheetKey(BulkRowDto row) {
+		BulkFile f = row.dataSheet();
+		return f != null && f.hasName() && !isBlank(f.key()) ? f.key() : null;
+	}
+
+	private Checked checkOne(BulkRowDto row, Set<String> seen, Set<String> usedKeys) {
 		Map<String, String> fields = new LinkedHashMap<>();
 		String name = norm(row.prodName());
 		String brand = norm(row.prodBrand());
@@ -183,6 +352,7 @@ public class ListingBulkService {
 		for (ConstraintViolation<ListingCreateRequest> v : validator.validate(req)) {
 			fields.putIfAbsent(v.getPropertyPath().toString(), message(v));
 		}
+		checkFiles(row, fields, usedKeys);
 		if (minOrder != null && quantity != null && minOrder > quantity) {
 			fields.putIfAbsent("minOrderQuantity", "최소주문량은 판매수량을 넘을 수 없습니다.");
 		}
@@ -236,7 +406,8 @@ public class ListingBulkService {
 		}
 
 		Status status = !fields.isEmpty() ? Status.FAILED : master != null ? Status.MATCHED : Status.NEW_MASTER;
-		List<String> notices = status != Status.FAILED && (master == null || isBlank(master.getProdPhoto1())) ? List.of(NO_PHOTO_NOTICE)
+		boolean noPhoto = photoKeys(row).isEmpty() && (master == null || isBlank(master.getProdPhoto1()));
+		List<String> notices = status != Status.FAILED && noPhoto ? List.of(NO_PHOTO_NOTICE)
 				: List.of();
 		BulkRowResult result = new BulkRowResult(row.rowNo(), status, master == null ? null : master.getProdId(),
 				master == null ? null : master.getProdName(), candidates, notices, fields);

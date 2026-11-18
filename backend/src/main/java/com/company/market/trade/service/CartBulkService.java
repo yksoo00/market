@@ -86,6 +86,10 @@ public class CartBulkService {
 		if (file.isEmpty() || fileName == null || !fileName.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
 			throw new ValidationException(Map.of("file", "엑셀(.xlsx) 파일을 올려 주세요."));
 		}
+		// multipart 바깥 상한이 다량 등록 ZIP 때문에 50MB 라 엑셀 10MB(security.md)는 여기서 막는다
+		if (file.getSize() > 10L * 1024 * 1024) {
+			throw new ValidationException(Map.of("file", "엑셀 파일은 10MB 이하로 올려 주세요."));
+		}
 		List<CartBulkRowDto> rows;
 		try (InputStream in = file.getInputStream()) {
 			rows = parser.parse(in);

@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.stream.Stream;
 
 import org.apache.poi.ss.usermodel.DataValidation;
 import org.apache.poi.ss.usermodel.DataValidationConstraint;
@@ -32,7 +33,7 @@ public final class ListingBulkTemplate {
 		try (XSSFWorkbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 			Sheet sheet = wb.createSheet("다량 등록");
 			Row header = sheet.createRow(0);
-			List<String> labels = ListingBulkParser.HEADER_LABELS;
+			List<String> labels = Stream.concat(ListingBulkParser.HEADER_LABELS.stream(), ListingBulkParser.FILE_LABELS.stream()).toList();
 			for (int c = 0; c < labels.size(); c++) {
 				header.createCell(c).setCellValue(labels.get(c));
 				sheet.setColumnWidth(c, 18 * 256);

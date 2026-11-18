@@ -48,8 +48,9 @@ public class ListingBulkController {
 	}
 
 	@PostMapping("/parse")
-	public ApiResponse<BulkParseResponse> parse(@AuthenticationPrincipal AuthenticatedUser me, @RequestParam("file") MultipartFile file) {
-		return ApiResponse.of(bulk.parse(me.id(), file));
+	public ApiResponse<BulkParseResponse> parse(@AuthenticationPrincipal AuthenticatedUser me, @RequestParam("file") MultipartFile file,
+			@RequestParam(value = "attachments", required = false) MultipartFile attachments) {
+		return ApiResponse.of(bulk.parse(me.id(), file, attachments));
 	}
 
 	@PostMapping("/check")

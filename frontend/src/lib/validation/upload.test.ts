@@ -34,6 +34,12 @@ describe("checkUpload", () => {
   it("빈 파일은 거부", () => {
     expect(checkUpload("pdf", { name: "a.pdf", size: 0 })).toBe(t.empty);
   });
+
+  it("ZIP 은 .zip 만, 50MB 까지", () => {
+    expect(checkUpload("zip", { name: "사진.ZIP", size: 50 * MB })).toBeNull();
+    expect(checkUpload("zip", { name: "사진.rar", size: MB })).toBe(t.format.zip);
+    expect(checkUpload("zip", { name: "사진.zip", size: 50 * MB + 1 })).toBe(t.size.zip);
+  });
 });
 
 describe("acceptOf", () => {
