@@ -114,3 +114,11 @@ describe("모든 화면이 표에 있다", () => {
     expect(screenOf(route).group, `${route} 를 tileScreens.ts SCREENS 에 추가하세요`).not.toBeNull();
   });
 });
+
+describe("문의 게시판 화면 (사내 테스트용)", () => {
+  it("목록과 상세는 어디서 열어도 옆 칸과 연관 있는 공통 화면이다", () => {
+    expect(screenOf("/inquiries")).toEqual({ id: "inquiries", group: "common" });
+    expect(screenOf("/inquiries/3f2a")).toEqual({ id: "inquiryDetail", group: "common" });
+    expect(screenOf("/inquiries?x=1")).toEqual({ id: "inquiries", group: "common" });
+  });
+});

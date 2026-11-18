@@ -1,6 +1,5 @@
 // 문의 게시판 문구 (스펙 2026-11-18-inquiry-board-design.md). 사내 테스트용 — 운영 공개 전 제거
 export const inquiry = {
-  headerLink: "문의",
   page: {
     title: "문의 게시판",
     subtitle: "로그인 없이 익명으로 남길 수 있어요. 작성자는 저장되지 않습니다.",

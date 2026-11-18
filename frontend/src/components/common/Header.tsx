@@ -15,7 +15,7 @@ import { screenOf } from "@/lib/tileScreens";
 import { dev } from "@/messages/dev";
 import { home as t } from "@/messages/home";
 
-const navHrefs = ["/listings", "/requests", COMPARE_HREF, "/business", "/support"];
+const navHrefs = ["/listings", "/requests", COMPARE_HREF, "/business", "/support", "/inquiries"];
 
 export function Header() {
   // 경로 전체가 아니라 "로그인 화면인가"만 본다 (아래 effect 주석)
