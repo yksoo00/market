@@ -46,4 +46,37 @@ class UploadServiceTest {
 		verify(storage, never()).save(any(), any());
 	}
 
+	@Test
+	@DisplayName("store: 사진 용도에 pdf 확장자면 UPLOAD_INVALID_TYPE 이고 저장하지 않는다")
+	void storeRejectsWrongType() throws IOException {
+		UploadService service = new UploadService(storage, redis, Clock.systemUTC(),
+				new StorageProperties("unused", DataSize.ofGigabytes(10)));
+
+		assertThatThrownBy(() -> service.store(UUID.randomUUID(), UploadKind.LISTING_PHOTO, "a.pdf", UploadApiTest.JPG))
+			.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_TYPE));
+		verify(storage, never()).save(any(), any());
+	}
+
+	@Test
+	@DisplayName("store: 확장자는 jpg 인데 내용이 jpg 가 아니면 UPLOAD_INVALID_TYPE")
+	void storeRejectsBadMagic() throws IOException {
+		UploadService service = new UploadService(storage, redis, Clock.systemUTC(),
+				new StorageProperties("unused", DataSize.ofGigabytes(10)));
+
+		assertThatThrownBy(() -> service.store(UUID.randomUUID(), UploadKind.LISTING_PHOTO, "a.jpg", new byte[] { 1, 2, 3, 4 }))
+			.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_TYPE));
+	}
+
+	@Test
+	@DisplayName("store: 용도별 크기 상한(사진 5MB)을 넘으면 UPLOAD_TOO_LARGE")
+	void storeRejectsTooLarge() {
+		UploadService service = new UploadService(storage, redis, Clock.systemUTC(),
+				new StorageProperties("unused", DataSize.ofGigabytes(10)));
+		byte[] big = new byte[(int) UploadKind.LISTING_PHOTO.maxBytes() + 1];
+		System.arraycopy(UploadApiTest.JPG, 0, big, 0, UploadApiTest.JPG.length);
+
+		assertThatThrownBy(() -> service.store(UUID.randomUUID(), UploadKind.LISTING_PHOTO, "a.jpg", big))
+			.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.UPLOAD_TOO_LARGE));
+	}
+
 }
