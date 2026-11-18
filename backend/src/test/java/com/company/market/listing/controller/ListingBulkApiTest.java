@@ -167,6 +167,70 @@ class ListingBulkApiTest {
 		assertThat(jdbc.queryForObject("select count(*) from trd_prod_reg where user_id = ?", Integer.class, userId)).isEqualTo(2);
 	}
 
+	/** 사진1 칸에 파일명을 적은 한 줄: HEADER_LABELS 13칸 + 사진1 */
+	private static byte[] workbookWithPhoto(String photoName) throws IOException {
+		try (XSSFWorkbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+			Sheet sheet = wb.createSheet("양식");
+			Row h = sheet.createRow(0);
+			List<String> labels = new java.util.ArrayList<>(ListingBulkParser.HEADER_LABELS);
+			labels.addAll(ListingBulkParser.FILE_LABELS);
+			for (int c = 0; c < labels.size(); c++) {
+				h.createCell(c).setCellValue(labels.get(c));
+			}
+			String[] values = line("API 스위치", "3");
+			Row row = sheet.createRow(1);
+			for (int c = 0; c < values.length; c++) {
+				if (values[c] != null) {
+					row.createCell(c).setCellValue(values[c]);
+				}
+			}
+			row.createCell(ListingBulkParser.HEADER_LABELS.size()).setCellValue(photoName);
+			wb.write(out);
+			return out.toByteArray();
+		}
+	}
+
+	private static MockMultipartFile zipFile(String entryName, byte[] content) throws IOException {
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		try (java.util.zip.ZipOutputStream z = new java.util.zip.ZipOutputStream(out)) {
+			z.putNextEntry(new java.util.zip.ZipEntry(entryName));
+			z.write(content);
+			z.closeEntry();
+		}
+		return new MockMultipartFile("attachments", "files.zip", "application/zip", out.toByteArray());
+	}
+
+	private static final byte[] JPG = { (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0, 0x10, 'J', 'F', 'I', 'F', 0, 1 };
+
+	@Test
+	@DisplayName("엑셀 + ZIP: parse 가 사진 키를 돌려주고, 그 줄을 그대로 commit 하면 매물에 저장된다")
+	void parseWithZipThenCommit() throws Exception {
+		String body = mvc.perform(multipart("/api/v1/listings/bulk/parse").file(file("a.xlsx", workbookWithPhoto("pic.JPG")))
+				.file(zipFile("pic.jpg", JPG)).cookie(authCookie))
+			.andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.rows[0].photo1.name").value("pic.JPG"))
+			.andExpect(jsonPath("$.data.rows[0].photo1.key").value(containsString("public/listings/photos/")))
+			.andExpect(jsonPath("$.data.results[0].fields").isEmpty())
+			.andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+		String rowJson = new tools.jackson.databind.ObjectMapper().readTree(body).get("data").get("rows").get(0).toString();
+
+		mvc.perform(post("/api/v1/listings/bulk/commit").cookie(authCookie).contentType(MediaType.APPLICATION_JSON).content(rowsJson(rowJson)))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.data.created").value(1));
+
+		assertThat(jdbc.queryForObject("select prod_photo_1 from trd_prod_reg where user_id = ?", String.class, userId))
+			.startsWith("public/listings/photos/");
+	}
+
+	@Test
+	@DisplayName("ZIP 이 폴더가 든 ZIP 이면 400 fields.attachments, 로그인 없으면 401")
+	void badZipAndUnauthenticated() throws Exception {
+		mvc.perform(multipart("/api/v1/listings/bulk/parse").file(file("a.xlsx", workbookWithPhoto("pic.jpg")))
+				.file(zipFile("dir/pic.jpg", JPG)).cookie(authCookie))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.attachments").exists());
+		mvc.perform(multipart("/api/v1/listings/bulk/parse").file(file("a.xlsx", workbookWithPhoto("pic.jpg"))).file(zipFile("pic.jpg", JPG)))
+			.andExpect(status().isUnauthorized());
+	}
+
 	@Test
 	@DisplayName("로그인 없이 parse·check·commit 은 401")
 	void unauthenticated() throws Exception {

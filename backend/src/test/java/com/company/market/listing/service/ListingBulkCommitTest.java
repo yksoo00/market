@@ -14,6 +14,7 @@ import com.company.market.TestInfraConfiguration;
 import com.company.market.common.crypto.PiiHasher;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
+import com.company.market.common.storage.UploadService;
 import com.company.market.listing.domain.CategoryFragments;
 import com.company.market.listing.dto.BulkRowDto;
 import com.company.market.listing.repository.ListingRepository;
@@ -61,6 +62,9 @@ class ListingBulkCommitTest {
 	@Autowired
 	JdbcTemplate jdbc;
 
+	@Autowired
+	UploadService uploads;
+
 	ListingBulkService service;
 
 	UUID sellerId;
@@ -73,7 +77,7 @@ class ListingBulkCommitTest {
 	void setUp() {
 		cleanUp();
 		Clock fixed = Clock.fixed(Instant.parse("2026-11-05T03:00:00Z"), ZoneId.of("Asia/Seoul"));
-		service = new ListingBulkService(products, categories, validator, fixed, listings, new ListingBulkParser());
+		service = new ListingBulkService(products, categories, validator, fixed, listings, new ListingBulkParser(), uploads, new ListingBulkArchive());
 		sellerId = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("bulkcommit")
 			.passwordHash("$2a$12$hash").nickname("bulkcommit").email("bulkcommit@example.com")
 			.name("홍길동").phone("01077770124").phoneHash(hasher.hash("01077770124")).build()).getId();
