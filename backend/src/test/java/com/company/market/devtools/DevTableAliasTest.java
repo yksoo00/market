@@ -105,6 +105,7 @@ class DevTableAliasTest {
 			expected.put(table, logical);
 			DevTableAliases.COLUMNS.get(table).forEach((column, columnLogical) -> expected.put(table + "." + column, columnLogical));
 		});
+		// 정의서 밖 문의 게시판 테이블(trd_inquiry*)은 정의서 논리명이 없고 임시 테이블 화면 대상도 아니라 뺀다 (TODO(사내 테스트용 익명 쓰기): 게시판을 지울 때 이 조건도 같이 제거)
 		Map<String, String> actual = new TreeMap<>();
 		jdbc.query("""
 				select c.relname, a.attname, case when a.attnum = 0 then obj_description(c.oid, 'pg_class') else col_description(c.oid, a.attnum) end
@@ -113,6 +114,7 @@ class DevTableAliasTest {
 				join (select attrelid, attname, attnum from pg_attribute where attnum > 0 and not attisdropped
 				      union all select oid, null, 0 from pg_class) a on a.attrelid = c.oid
 				where n.nspname = current_schema() and c.relkind = 'r' and c.relname like 'trd\\_%'
+				  and c.relname not like 'trd\\_inquiry%'
 				""", rs -> {
 			String name = rs.getString(2) == null ? rs.getString(1) : rs.getString(1) + "." + rs.getString(2);
 			actual.put(name, rs.getString(3));
