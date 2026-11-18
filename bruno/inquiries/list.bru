@@ -1,0 +1,20 @@
+meta {
+  name: 문의 목록 (익명, 로그인 없음)
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{baseUrl}}/api/v1/inquiries
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.ok: eq true
+}
+
+docs {
+  최신순 20개. 다음 페이지는 응답의 data.nextCursor 를 ?cursor= 로. 사내 테스트용 — 운영 공개 전 제거.
+}
