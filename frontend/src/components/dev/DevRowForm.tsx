@@ -30,6 +30,9 @@ export function DevRowForm({ table, row, onSubmit, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // 새로 만들 때 DB 가 만들어 주는 uuid 키(uid)는 칸을 보이지 않는다 — 비워 두면 기본값(gen_random_uuid)이 들어간다
+  const autoKey = (c: DevTable["columns"][number]) => !editing && c.type === "uuid" && c.hasDefault && table.primaryKey.includes(c.name);
+
   const missingRequired = table.columns.some(
     (c) => !c.nullable && !c.hasDefault && !(editing && table.primaryKey.includes(c.name)) && values[c.name].trim() === "",
   );
@@ -63,7 +66,7 @@ export function DevRowForm({ table, row, onSubmit, onClose }: Props) {
           </p>
         )}
         <div className="mt-3 flex flex-col gap-3">
-          {table.columns.map((c) => {
+          {table.columns.filter((c) => !autoKey(c)).map((c) => {
             const pk = table.primaryKey.includes(c.name);
             const readOnly = editing && pk;
             return (
