@@ -49,4 +49,14 @@ class InquiryMigrationTest {
 		assertThat(names).contains("ix_trd_inquiry_created", "ix_trd_inquiry_reply_inquiry");
 	}
 
+	@Test
+	@DisplayName("글·답글에 작성자 uid 컬럼이 있고 비어 있어도 된다 (익명 시절 글)")
+	void authorColumnsAreNullableUuid() {
+		for (String table : new String[] { "trd_inquiry", "trd_inquiry_reply" }) {
+			assertThat(dataType(table, "author_uid")).isEqualTo("uuid");
+			assertThat(jdbc.queryForObject("select is_nullable from information_schema.columns where table_schema = current_schema() "
+					+ "and table_name = ? and column_name = 'author_uid'", String.class, table)).isEqualTo("YES");
+		}
+	}
+
 }

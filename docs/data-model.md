@@ -236,10 +236,12 @@
 | `trd_inquiry` | id | uuid | PK |
 | | title | varchar(100) | not null |
 | | content | varchar(2000) | not null |
+| | author_uid | uuid | null. 작성자(`trd_user_info.uid`, 외래키 없음). 익명 시절 글은 없음. 응답에 내지 않는다 (`V202611191000`) |
 | | created_at, updated_at | timestamptz | not null |
 | `trd_inquiry_reply` | id | uuid | PK |
 | | inquiry_id | uuid | not null. 글의 id (외래키 없음) |
 | | content | varchar(1000) | not null |
+| | author_uid | uuid | null. 위와 같다 |
 | | created_at, updated_at | timestamptz | not null |
 
 인덱스: `ix_trd_inquiry_created (created_at desc, id desc)` 목록 커서용, `ix_trd_inquiry_reply_inquiry (inquiry_id, created_at)`. 임시 테이블 화면(`/dev/tables`) 화이트리스트에는 넣지 않았다.
