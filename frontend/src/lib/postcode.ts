@@ -1,7 +1,7 @@
 // 카카오(다음) 우편번호 서비스 (사용자 승인 2026-10-13). 키 없이 무료, 외부 스크립트 하나를 필요할 때만 불러온다.
 // https://postcode.map.daum.net/guide
 
-const SCRIPT_SRC = "https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
+const SCRIPT_SRC = "https://t1.kakaocdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
 
 export interface PostcodeResult {
   roadAddress: string;
