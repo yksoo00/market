@@ -227,4 +227,21 @@
 
 인덱스: `ix_trd_trade_history_seller` (판매 이력). 구매 이력은 PK 앞자리 `user_id`. 외래키 없음 (2026-10-27). 지금 흐름은 거래 1건 = 이력 1줄이지만 PK 는 정의서대로 둔다(나중 견적·분할 확정).
 
+## 문의 게시판: `trd_inquiry`, `trd_inquiry_reply`
+
+> 구현: `V202611181000__create_inquiry_tables.sql`. 사내 테스트용 익명 게시판 — 정의서 밖 보조 테이블이라 이름·컬럼은 사용자 승인(2026-11-18). 작성자(uid·IP)를 저장하지 않는다. 외래키 없음(2026-10-27 방침) — 글 존재는 서버가 확인한다. **운영 공개 전 제거 대상**(decisions.md 2026-11-18, 스펙 `docs/superpowers/specs/2026-11-18-inquiry-board-design.md`).
+
+| 테이블 | 컬럼 | 타입 | 제약 |
+|---|---|---|---|
+| `trd_inquiry` | id | uuid | PK |
+| | title | varchar(100) | not null |
+| | content | varchar(2000) | not null |
+| | created_at, updated_at | timestamptz | not null |
+| `trd_inquiry_reply` | id | uuid | PK |
+| | inquiry_id | uuid | not null. 글의 id (외래키 없음) |
+| | content | varchar(1000) | not null |
+| | created_at, updated_at | timestamptz | not null |
+
+인덱스: `ix_trd_inquiry_created (created_at desc, id desc)` 목록 커서용, `ix_trd_inquiry_reply_inquiry (inquiry_id, created_at)`. 임시 테이블 화면(`/dev/tables`) 화이트리스트에는 넣지 않았다.
+
 **다음에 정할 것**: PRD 작성 시 이미지 다건 구조(별도 테이블) 전환, prod_state enum화, 조직(seller_org_id) 도입 여부, quantity·가격 검증 규칙(`security.md`).
