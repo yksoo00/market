@@ -7,10 +7,12 @@ import { listing } from "@/messages/listing";
 import { my } from "@/messages/my";
 import { search } from "@/messages/search";
 import { signup } from "@/messages/signup";
+import { trade } from "@/messages/trade";
 
-// 비교 흐름 (설계 2026-10-27 PR 3, 2026-10-29): 판매자 매물 3개(인텔 CPU 2개 단가 다르게 + AMD CPU 1개)
-// → 구매자가 검색 결과에서 셋 다 체크(선택 줄 칩) → 소분류가 섞이면 [비교]가 막힘 → 칩 ✕ 로 AMD 를 빼고 [비교] → 보조 칸 비교 표(최저가·다른 항목만)
+// 비교 흐름 (설계 2026-10-27 PR 3, 2026-10-29, 누적 2026-11-03): 판매자 매물 3개(인텔 CPU 2개 단가 다르게 + AMD CPU 1개)
+// → 구매자가 검색 결과에서 셋 다 체크(선택 줄 칩) → 소분류가 섞이면 [비교에 담기]가 막힘 → 칩 ✕ 로 AMD 를 빼고 [비교에 담기] → 보조 칸 비교 표(최저가·다른 항목만)
 // → 비교 화면에서 [빼기] → "2개 이상" 안내. 비교 행은 장바구니 숫자에 안 센다
+// → 상세에서 [비교에 담기]로 쌓음 → 다른 소분류를 담으면 모달 → [비우고 새로 담기] → 비교 화면 [비교 비우기] → 빈 안내
 const password = "Test1234!@";
 
 const checkButton = (page: Page, name: string) =>
@@ -48,7 +50,7 @@ async function logOut(page: Page) {
   await expect(page.getByRole("button", { name: my.menu.label })).toBeHidden();
 }
 
-async function register(page: Page, prodName: string, category: string, price: number) {
+async function register(page: Page, prodName: string, category: string, price: number): Promise<string> {
   await page.goto("/listings/new");
   await page.locator("#productPicker").click();
   await page.getByRole("option", { name: listing.form.master.manualOption }).click();
@@ -71,9 +73,10 @@ async function register(page: Page, prodName: string, category: string, price: n
   await page.locator('input[name="deliveryDate"]').fill(new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10));
   await page.getByRole("button", { name: listing.form.submit, exact: true }).click();
   await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
+  return page.url();
 }
 
-test("검색에서 같은 소분류끼리 비교 → 섞이면 막힘 → 비교 화면에서 빼기", async ({ page }) => {
+test("검색에서 같은 소분류끼리 비교에 담기 → 섞이면 막힘 → 빼기 → 상세에서 쌓기 → 소분류 충돌 모달 → 비우기", async ({ page }) => {
   // 매물 3개 등록 + 가입 2번이라 기본 시간을 넘는다
   test.setTimeout(180_000);
   const stamp = Date.now().toString().slice(-8);
@@ -83,6 +86,8 @@ test("검색에서 같은 소분류끼리 비교 → 섞이면 막힘 → 비교
   const nameA = `${word} A`;
   const nameB = `${word} B`;
   const nameC = `${word} C`;
+  let urlB = "";
+  let urlC = "";
   page.on("dialog", (d) => void d.accept());
   const cartLink = (n: number) => page.getByRole("link", { name: cart.header.aria(n), exact: true });
   const rowOf = (name: string) => page.getByRole("table").getByRole("row").filter({ hasText: name });
@@ -92,12 +97,12 @@ test("검색에서 같은 소분류끼리 비교 → 섞이면 막힘 → 비교
     await signUp(page, seller, stamp);
     await logIn(page, seller);
     await register(page, nameA, "인텔 CPU", 10000);
-    await register(page, nameB, "인텔 CPU", 9000);
-    await register(page, nameC, "AMD CPU", 8000);
+    urlB = await register(page, nameB, "인텔 CPU", 9000);
+    urlC = await register(page, nameC, "AMD CPU", 8000);
     await logOut(page);
   });
 
-  await test.step("구매자: 검색 결과에서 셋 다 체크 → 선택 줄 칩 → 소분류가 섞이면 [비교] 막힘", async () => {
+  await test.step("구매자: 검색 결과에서 셋 다 체크 → 선택 줄 칩 → 소분류가 섞이면 [비교에 담기] 막힘", async () => {
     await signUp(page, buyer, String((Number(stamp) + 1) % 100_000_000).padStart(8, "0"));
     await logIn(page, buyer);
     await page.goto(`/search?q=${encodeURIComponent(word)}`);
@@ -117,11 +122,12 @@ test("검색에서 같은 소분류끼리 비교 → 섞이면 막힘 → 비교
 
   const frame = page.frameLocator('iframe[src^="/my/cart/compare"]');
 
-  await test.step("인텔 2개 [비교] → 보조 칸 비교 표, 최저가는 B, 다른 항목만 보기", async () => {
+  await test.step("인텔 2개 [비교에 담기] → [비교 보기] → 보조 칸 비교 표, 최저가는 B, 다른 항목만 보기", async () => {
     // 선택 줄 칩의 ✕ 로 AMD 를 뺀다
     await page.getByRole("button", { name: cart.selection.removeAria(nameC) }).click();
     await expect(page.getByRole("region", { name: cart.selection.title(2) })).toBeVisible();
     await page.getByRole("button", { name: compare.button, exact: true }).first().click();
+    await page.getByRole("dialog", { name: compare.added.title }).getByRole("button", { name: compare.added.view }).click();
     await expect(frame.getByText(compare.page.count(2))).toBeVisible();
     const priceRow = frame.getByRole("row").filter({ has: frame.getByRole("rowheader", { name: listing.detail.rows.unitPrice, exact: true }) });
     // 열 순서는 담은 순서라 값으로 찾는다
@@ -140,5 +146,45 @@ test("검색에서 같은 소분류끼리 비교 → 섞이면 막힘 → 비교
     await expect(frame.getByText(compare.page.tooFew)).toBeVisible();
     // 비교 행은 장바구니 숫자에 안 센다
     await expect(cartLink(0)).toBeVisible();
+  });
+
+  // 구매요청이 되면 그 매물은 비교에서 빠진다 (2026-11-03). 비었을 땐 문구만 있고 [상품 검색] 버튼은 없다
+  await test.step("비교 화면에서 A [구매] → A 가 비교에서 빠지고 빈 안내(검색 버튼 없음)", async () => {
+    const compareFrame = page.frameLocator('iframe[src^="/my/cart/compare"]');
+    await compareFrame.getByRole("button", { name: listing.detail.buy, exact: true }).click();
+    const dialog = compareFrame.getByRole("dialog", { name: trade.purchase.title });
+    await expect(dialog).toBeVisible();
+    await dialog.locator('input[name="orderQuantity"]').fill("1");
+    await dialog.locator('input[name="reqDeliDate"]').fill(
+      new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(Date.now() + 7 * 86_400_000)),
+    );
+    await dialog.getByRole("button", { name: trade.purchase.submit, exact: true }).click();
+    await expect(compareFrame.getByRole("dialog", { name: trade.purchase.doneTitle })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(compareFrame.getByText(compare.page.empty)).toBeVisible();
+    await expect(compareFrame.getByRole("button", { name: compare.page.toSearch })).toHaveCount(0);
+  });
+
+  await test.step("상세에서 B [비교에 담기] → 쌓여 1개, 담긴 매물은 [비교에서 빼기]로 바뀜", async () => {
+    await page.goto(urlB);
+    await page.getByRole("button", { name: compare.button, exact: true }).click();
+    await page.getByRole("dialog", { name: compare.added.title }).getByRole("button", { name: compare.added.view }).click();
+    await expect(frame.getByText(compare.page.count(1))).toBeVisible();
+    await expect(page.getByRole("button", { name: compare.detail.remove, exact: true })).toBeVisible();
+  });
+
+  await test.step("상세에서 다른 소분류 C 를 담으면 모달 → [비우고 새로 담기] → 1개", async () => {
+    await page.goto(urlC);
+    await page.getByRole("button", { name: compare.button, exact: true }).click();
+    const conflict = page.getByRole("alertdialog", { name: compare.conflict.title });
+    await expect(conflict.getByText(compare.conflict.category)).toBeVisible();
+    await conflict.getByRole("button", { name: compare.conflict.replace }).click();
+    await page.getByRole("dialog", { name: compare.added.title }).getByRole("button", { name: compare.added.view }).click();
+    await expect(frame.getByText(compare.page.count(1))).toBeVisible();
+  });
+
+  await test.step("비교 화면에서 [비교 비우기] → 빈 안내", async () => {
+    await frame.getByRole("button", { name: compare.page.clear }).click();
+    await expect(frame.getByText(compare.page.empty)).toBeVisible();
   });
 });

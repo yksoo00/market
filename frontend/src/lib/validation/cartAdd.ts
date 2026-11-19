@@ -4,13 +4,15 @@ import { MAX_REMARKS, quantityIssue, reqDeliDateField } from "@/lib/validation/t
 import { trade } from "@/messages/trade";
 
 // 장바구니 담기 모달. 규칙은 서버 CartService.add 와 같다 (docs/security.md "입력 검증 > 장바구니").
-// 구매와 같은 주문량·납품희망일·요청사항 규칙이고, 재고는 보지 않는다 — 재고가 모자라도 담아 두고 구매 때 다시 본다.
+// 구매와 같은 주문량·납품희망일·요청사항 규칙이고, 담으면 그 수량이 재고에서 묶이므로 재고도 본다 (2026-11-02 — 전엔 재고를 안 봤다).
 const v = trade.validation;
 
 export { MAX_CART_ADD } from "@/lib/validation/cart";
 
 /** 줄마다 매물 값 — 상세에서 읽는다 */
 export interface CartAddLimits {
+  /** 지금 재고 — 담는 수량이 이보다 많으면 막는다 (서버가 최종 판정) */
+  stock: number;
   minOrder: number;
   unit: number;
   /** 등록단가 — 금액 한도 확인용 (담을 때 단가는 등록단가로 고정) */
@@ -27,8 +29,7 @@ function rowSchema(l: CartAddLimits) {
       .refine((s) => isInt(s), v.quantityFormat)
       .transform(Number)
       .superRefine((n, ctx) => {
-        // 재고 대신 한 번에 담을 수 있는 최대 수량(MAX_QUANTITY)을 상한으로 쓴다
-        const message = quantityIssue({ stock: MAX_QUANTITY, minOrder: l.minOrder, unit: l.unit }, n, l.unitPrice);
+        const message = quantityIssue({ stock: Math.min(l.stock, MAX_QUANTITY), minOrder: l.minOrder, unit: l.unit }, n, l.unitPrice);
         if (message) ctx.addIssue({ code: "custom", message });
       }),
     reqDeliDate: reqDeliDateField(l.today),

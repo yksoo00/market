@@ -22,9 +22,11 @@ const t = home.quick;
 const routes = {
   sellManual: "/listings/new",
   sellExtra: "/listings/extra",
+  sellBulk: "/listings/bulk",
   sellQuote: "/my/activity?tab=requests",
   buyRequest: "/search",
   buyQuotes: "/my/activity?tab=purchases",
+  buyBulk: "/buy/bulk",
 };
 
 type Tone = "sell" | "buy";
@@ -82,14 +84,14 @@ export function QuickMenu() {
               <DropdownMenuItem onSelect={() => pickFile("image")}>{t.fileImage}</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <FileButton tone="sell" icon="sellBulk" label={t.sellBulk} onClick={() => pickFile("excel")} />
+          <LinkItem tone="sell" icon="sellBulk" label={t.sellBulk} href={routes.sellBulk} />
           <LinkItem tone="sell" icon="sellExtra" label={t.sellExtra} href={routes.sellExtra} />
           <LinkItem tone="sell" icon="sellQuote" label={t.sellQuote} href={routes.sellQuote} />
         </Group>
         <Group tone="buy" label={t.buy}>
           <LinkItem tone="buy" icon="buyRequest" label={t.buyRequest} href={routes.buyRequest} />
           <LinkItem tone="buy" icon="buyQuotes" label={t.buyQuotes} href={routes.buyQuotes} />
-          <FileButton tone="buy" icon="buyBulk" label={t.buyBulk} onClick={() => pickFile("excel")} />
+          <LinkItem tone="buy" icon="buyBulk" label={t.buyBulk} href={routes.buyBulk} />
         </Group>
       </div>
 
@@ -128,13 +130,5 @@ function LinkItem({ tone, icon, label, href }: ItemProps & { href: string }) {
     <Link href={href} aria-label={label} title={label} className={`${itemClass} ${toneClass[tone]}`}>
       <QuickIcon name={icon} />
     </Link>
-  );
-}
-
-function FileButton({ tone, icon, label, onClick }: ItemProps & { onClick: () => void }) {
-  return (
-    <button type="button" aria-label={label} title={label} onClick={onClick} className={`${itemClass} ${toneClass[tone]}`}>
-      <QuickIcon name={icon} />
-    </button>
   );
 }

@@ -3,7 +3,9 @@ package com.company.market.devtools;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -45,6 +47,9 @@ public class DevTableService {
 	static final int MAX_LIMIT = 1000;
 
 	static final int MAX_SHEET_ROWS = 50_000;
+
+	/** 한 번의 삭제로 같이 지울 수 있는 행 수 상한 — 관계를 잘못 타고 번지는 것을 막는다 */
+	static final int MAX_CASCADE_ROWS = 20_000;
 
 	/** 조회 응답에서 가리는 컬럼. 수정에서 이 값 그대로 돌아오면 안 바꾼 것으로 본다 */
 	static final String MASK_COLUMN = "password";
@@ -113,19 +118,88 @@ public class DevTableService {
 		}
 	}
 
-	public void delete(String tableName, Map<String, Object> key) {
-		TableInfo t = table(tableName);
-		Map<String, Object> keyValues = convert(t, key, "key ");
-		if (!keyValues.keySet().equals(new LinkedHashSet<>(t.primaryKey()))) {
-			throw bad("PK 컬럼 전부를 보내야 합니다: " + String.join(", ", t.primaryKey()));
+	/**
+	 * 이 행과, 이 행에 딸린 다른 테이블의 행(DevTableRelations — 외래키가 없어 남는 자식 행)을 한 번에 지운다 (사용자 지시 2026-11-03,
+	 * 하나하나 비교하며 지우기 귀찮아서). 한 트랜잭션이라 중간에 실패하면 아무것도 안 지워진다. 테이블별로 지운 행 수를 돌려준다
+	 */
+	@Transactional
+	public Map<String, Integer> delete(String tableName, Map<String, Object> key) {
+		Map<String, Map<String, Map<String, Object>>> found = collectCascade(tableName, key);
+		Map<String, Integer> deleted = new LinkedHashMap<>();
+		for (Map.Entry<String, Map<String, Map<String, Object>>> e : found.entrySet()) {
+			TableInfo t = table(e.getKey());
+			String sql = "delete from " + quote(t.name()) + " where " + t.primaryKey().stream().map(c -> quote(c) + " = ?").collect(Collectors.joining(" and "));
+			for (Map<String, Object> row : e.getValue().values()) {
+				exec(sql, t.primaryKey().stream().map(row::get).collect(Collectors.toCollection(ArrayList::new)), "");
+			}
+			deleted.put(t.name(), e.getValue().size());
 		}
-		String sql = "delete from " + quote(t.name()) + " where " + keyValues.keySet().stream().map(c -> quote(c) + " = ?").collect(Collectors.joining(" and "));
-		if (exec(sql, new ArrayList<>(keyValues.values()), "") == 0) {
-			throw new ApiException(ErrorCode.NOT_FOUND, "해당 행이 없습니다.");
-		}
+		return deleted;
 	}
 
-	/** 첫 시트 한 장을 이 테이블에. 한 행이라도 실패하면 전부 되돌린다 */
+	/** [삭제]를 누르기 전 미리보기 — 이 행과 같이 지워질 다른 행의 수 (테이블별, 0 은 뺀다) */
+	@Transactional(readOnly = true)
+	public Map<String, Integer> relatedRows(String tableName, Map<String, Object> key) {
+		Map<String, Map<String, Map<String, Object>>> found = collectCascade(tableName, key);
+		Map<String, Integer> counts = new LinkedHashMap<>();
+		found.forEach((name, rows) -> {
+			int n = name.equals(tableName) ? rows.size() - 1 : rows.size();
+			if (n > 0) {
+				counts.put(name, n);
+			}
+		});
+		return counts;
+	}
+
+	private record Node(TableInfo table, Map<String, Object> row) {
+	}
+
+	/** 지울 행 전부(이 행 + 자식, 자식의 자식까지)를 테이블 → PK 문자열 → 행 으로 모은다. 같은 행은 한 번만 */
+	private Map<String, Map<String, Map<String, Object>>> collectCascade(String tableName, Map<String, Object> key) {
+		TableInfo root = table(tableName);
+		Map<String, Object> keyValues = convert(root, key, "key ");
+		if (!keyValues.keySet().equals(new LinkedHashSet<>(root.primaryKey()))) {
+			throw bad("PK 컬럼 전부를 보내야 합니다: " + String.join(", ", root.primaryKey()));
+		}
+		List<Map<String, Object>> roots = jdbc.queryForList("select * from " + quote(root.name()) + " where "
+				+ keyValues.keySet().stream().map(c -> quote(c) + " = ?").collect(Collectors.joining(" and ")), keyValues.values().toArray());
+		if (roots.isEmpty()) {
+			throw new ApiException(ErrorCode.NOT_FOUND, "해당 행이 없습니다.");
+		}
+		Map<String, TableInfo> infos = new LinkedHashMap<>();
+		infos.put(root.name(), root);
+		Map<String, Map<String, Map<String, Object>>> found = new LinkedHashMap<>();
+		Deque<Node> queue = new ArrayDeque<>();
+		int total = 0;
+		if (remember(found, queue, root, roots.get(0))) {
+			total++;
+		}
+		while (!queue.isEmpty()) {
+			Node parent = queue.poll();
+			for (DevTableRelations.Rule rule : DevTableRelations.BY_PARENT.getOrDefault(parent.table().name(), List.of())) {
+				TableInfo child = infos.computeIfAbsent(rule.child(), this::table);
+				Object[] args = rule.parentColumns().stream().map(parent.row()::get).toArray();
+				for (Map<String, Object> row : jdbc.queryForList("select * from " + quote(rule.child()) + " where " + rule.condition(), args)) {
+					if (remember(found, queue, child, row) && ++total > MAX_CASCADE_ROWS) {
+						throw bad("함께 지울 행이 너무 많습니다(" + MAX_CASCADE_ROWS + "행 초과). 범위를 줄여 주세요.");
+					}
+				}
+			}
+		}
+		return found;
+	}
+
+	/** 처음 보는 행이면 모음에 넣고 자식을 더 찾을 대기열에 올린다 — 새 행이면 true */
+	private static boolean remember(Map<String, Map<String, Map<String, Object>>> found, Deque<Node> queue, TableInfo t, Map<String, Object> row) {
+		String pk = t.primaryKey().stream().map(c -> String.valueOf(row.get(c))).collect(Collectors.joining("\u0001"));
+		if (found.computeIfAbsent(t.name(), k -> new LinkedHashMap<>()).putIfAbsent(pk, row) != null) {
+			return false;
+		}
+		queue.add(new Node(t, row));
+		return true;
+	}
+
+	/** 첫 시트 한 장을 이 테이블에. 한 행이라도 실패하면 전부 되돌린다. 헤더는 물리명 또는 정의서 논리명(DevTableAliases) */
 	@Transactional
 	public List<ImportResult> importTable(String tableName, MultipartFile file) {
 		TableInfo t = table(tableName);
@@ -140,25 +214,27 @@ public class DevTableService {
 		}
 	}
 
-	/** 시트 이름 = 테이블 이름. 화이트리스트 밖 시트가 하나라도 있으면 아무것도 넣지 않는다 */
+	/** 시트 이름 = 테이블 이름(물리명 또는 정의서 논리명). 화이트리스트 밖 시트가 하나라도 있으면 아무것도 넣지 않는다 */
 	@Transactional
 	public List<ImportResult> importAll(MultipartFile file) {
 		Map<String, TableInfo> byName = load(TABLES).stream().collect(Collectors.toMap(TableInfo::name, x -> x));
 		try (XSSFWorkbook wb = open(file)) {
-			List<Sheet> sheets = new ArrayList<>();
+			Map<Sheet, TableInfo> sheets = new LinkedHashMap<>();
+			Set<String> seen = new LinkedHashSet<>();
 			for (Sheet sh : wb) {
-				if (!byName.containsKey(sh.getSheetName().toLowerCase(Locale.ROOT))) {
-					throw bad("시트 이름이 테이블이 아닙니다: " + sh.getSheetName());
+				String table = DevTableAliases.table(sh.getSheetName()).filter(byName::containsKey)
+					.orElseThrow(() -> bad("시트 이름이 테이블이 아닙니다: " + sh.getSheetName()));
+				// 물리명 시트와 논리명 시트가 같은 테이블이면 둘 다 넣는 게 아니라 거절 (이름은 별명이라 한 시트로 합쳐 주지 않는다)
+				if (!seen.add(table)) {
+					throw bad("같은 테이블 시트가 두 개입니다: " + sh.getSheetName());
 				}
-				sheets.add(sh);
+				sheets.put(sh, byName.get(table));
 			}
 			if (sheets.isEmpty()) {
 				throw bad("시트가 없습니다.");
 			}
 			List<ImportResult> results = new ArrayList<>();
-			for (Sheet sh : sheets) {
-				results.add(importSheet(byName.get(sh.getSheetName().toLowerCase(Locale.ROOT)), sh));
-			}
+			sheets.forEach((sh, t) -> results.add(importSheet(t, sh)));
 			return results;
 		}
 		catch (IOException e) {
@@ -182,7 +258,7 @@ public class DevTableService {
 			if (h == null) {
 				continue;
 			}
-			ColumnInfo col = known.get(h.trim().toLowerCase(Locale.ROOT));
+			ColumnInfo col = known.get(DevTableAliases.column(t.name(), h));
 			if (col == null) {
 				throw bad("시트 " + sheetName + ": 모르는 컬럼 " + h);
 			}

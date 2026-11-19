@@ -18,17 +18,17 @@ final class TradeMailComposer {
 		String item = "상품: %s\n수량: %s개\n".formatted(e.prodName(), won(e.quantity()));
 		return switch (e.kind()) {
 			case QUOTE_REQUESTED -> new Mail("[커널마켓] 견적 요청이 왔어요 — " + e.prodName(),
-					"%s 님이 견적을 요청했어요.\n\n%s등록단가: %s원\n희망단가: %s원\n\n수락하면 매물 단가가 희망단가로 바뀌어요.\n받은 구매요청에서 수락·거절: %s\n"
+					"%s 님이 견적을 요청했어요.\n\n%s등록단가: %s원\n희망단가: %s원\n\n수락하면 그 수량이 구매자 몫으로 묶여요(매물 단가는 그대로예요).\n받은 구매요청에서 수락·거절: %s\n"
 						.formatted(who, item, won(e.salesUnitPrice()), won(e.unitPrice()), link));
 			case QUOTE_ACCEPTED -> new Mail("[커널마켓] 견적이 수락됐어요 — " + e.prodName(),
-					// 매물이 이미 희망단가보다 싸면 단가는 안 바뀐다 — 금액을 단정하지 않고 "희망단가 이하"로
-					"%s 님이 견적을 수락했어요. 매물 단가가 희망단가(%s원) 이하로 맞춰졌어요.\n\n%s\n내 구매목록에서 [구매]로 살 수 있어요: %s\n"
+					// 수락 단가는 이 거래 안에서만 쓰이고 매물 단가는 그대로, 수량은 구매자 몫으로 묶인다 (2026-11-02)
+					"%s 님이 견적을 수락했어요. 희망단가(%s원)로 구매할 수 있도록 수량을 묶어 뒀어요.\n\n%s\n내 구매목록에서 [구매]하거나 [취소]할 수 있어요: %s\n"
 						.formatted(who, won(e.unitPrice()), item, link));
 			case QUOTE_REJECTED -> new Mail("[커널마켓] 견적이 거절됐어요 — " + e.prodName(),
 					"%s 님이 견적을 거절했어요. 매물 단가는 그대로예요.\n\n%s희망단가: %s원\n\n내 구매목록: %s\n"
 						.formatted(who, item, won(e.unitPrice()), link));
-			case QUOTE_CANCELED -> new Mail("[커널마켓] 견적 요청이 취소됐어요 — " + e.prodName(),
-					"%s 님이 견적 요청을 취소했어요.\n\n%s희망단가: %s원\n".formatted(who, item, won(e.unitPrice())));
+			case QUOTE_CANCELED -> new Mail("[커널마켓] 견적이 취소됐어요 — " + e.prodName(),
+					"%s 님이 견적을 취소했어요.\n\n%s희망단가: %s원\n".formatted(who, item, won(e.unitPrice())));
 			case PURCHASE_REQUESTED -> new Mail("[커널마켓] 구매요청이 왔어요 — " + e.prodName(),
 					"%s 님이 구매를 요청했어요. 재고는 이미 줄었어요.\n\n%s단가: %s원\n\n받은 구매요청: %s\n"
 						.formatted(who, item, won(e.unitPrice()), link));

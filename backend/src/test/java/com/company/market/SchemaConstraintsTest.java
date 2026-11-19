@@ -150,11 +150,10 @@ class SchemaConstraintsTest {
 		assertThat(column("trd_prod_master", "prod_data_sheet")).isEqualTo("character varying(100) YES");
 		assertThat(column("trd_prod_master", "prod_image")).isEqualTo("character varying(100) YES");
 		assertThat(column("trd_prod_master", "reg_date")).isEqualTo("character varying(14) YES");
-		assertThat(column("trd_prod_master", "prod_mufc_date")).isEqualTo("character varying(14) YES");
 		assertThat(jdbc.queryForList("""
 				select column_name from information_schema.columns
 				 where table_schema = current_schema() and table_name = 'trd_prod_master'
-				   and column_name in ('category_code', 'prod_scan_code', 'prod_mpn', 'prod_photo_1')
+				   and column_name in ('category_code', 'prod_scan_code', 'prod_mpn', 'prod_photo_1', 'prod_mufc_date')
 				""", String.class)).isEmpty();
 		assertThat(jdbc.queryForList("""
 				select indexname from pg_indexes
@@ -253,7 +252,7 @@ class SchemaConstraintsTest {
 				{ "cart_type", "character varying(10) YES" }, { "seller_id", "uuid YES" },
 				{ "prod_date", "character varying(14) NO" }, { "prod_name", "character varying(50) NO" },
 				{ "prod_no", "character varying(20) NO" }, { "manufacturer", "character varying(50) YES" },
-				{ "mufc_date", "character varying(14) YES" }, { "prod_spec_info", "character varying(100) NO" },
+				{ "prod_spec_info", "character varying(100) NO" },
 				{ "prod_state", "character varying(20) NO" }, { "prov_date", "character varying(10) NO" },
 				{ "order_unit_price", "integer NO" }, { "order_quantity", "integer NO" },
 				{ "req_deli_date", "character varying(10) NO" }, { "remarks", "character varying(100) YES" },
@@ -261,6 +260,11 @@ class SchemaConstraintsTest {
 		for (String[] c : expected) {
 			assertThat(column("trd_cart_info", c[0])).as(c[0]).isEqualTo(c[1]);
 		}
+		// 제조일시는 2026-11-04 에 지웠다 (정의서 CART_INFO 에는 있지만 원본인 상품 제조일이 없어졌다)
+		assertThat(jdbc.queryForList("""
+				select column_name from information_schema.columns
+				 where table_schema = current_schema() and table_name = 'trd_cart_info' and column_name = 'mufc_date'
+				""", String.class)).isEmpty();
 	}
 
 	@Test
@@ -294,18 +298,20 @@ class SchemaConstraintsTest {
 	}
 
 	@Test
-	@DisplayName("장바구니 행은 구매자·매물당 하나 — 같은 매물의 견적 행과는 같이 있을 수 있다 (V202610211300)")
-	void oneCartRowPerListing() {
+	@DisplayName("장바구니 행은 같은 매물도 여러 줄(V202611021000 — 전엔 구매자·매물당 하나), 비교용 행은 하나. 견적 행과는 같이 있을 수 있다")
+	void cartRowsRepeatPerListing() {
 		UUID[] ids = insertListingAndBuyer();
 		insertRow(ids[0], ids[1], "26102113001", "구매검토", "장바구니");
-		assertThatThrownBy(() -> insertRow(ids[0], ids[1], "26102113002", "구매검토", "장바구니"))
+		insertRow(ids[0], ids[1], "26102113002", "구매검토", "장바구니");
+		insertRow(ids[0], ids[1], "26102113005", "구매검토", "비교용");
+		assertThatThrownBy(() -> insertRow(ids[0], ids[1], "26102113006", "구매검토", "비교용"))
 			.isInstanceOf(DuplicateKeyException.class);
 		insertRow(ids[0], ids[1], "26102113003", "견적조정", "견적요청");
 		// 다른 구매자는 같은 매물을 따로 담는다
 		insertUser("buyer02", "buyer2@example.com", "personal", null);
 		UUID other = jdbc.queryForObject("select uid from trd_user_info where user_id = 'buyer02'", UUID.class);
 		insertRow(other, ids[1], "26102113004", "구매검토", "장바구니");
-		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class)).isEqualTo(3);
+		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class)).isEqualTo(5);
 	}
 
 }

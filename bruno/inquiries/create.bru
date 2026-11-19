@@ -1,0 +1,27 @@
+meta {
+  name: 문의 쓰기 (로그인 필요)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{baseUrl}}/api/v1/inquiries
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "title": "문의 제목",
+    "content": "문의 내용"
+  }
+}
+
+assert {
+  res.status: eq 201
+  res.body.ok: eq true
+}
+
+docs {
+  로그인 쿠키 필요(없으면 401). 제목 1~100자, 내용 1~2000자. 공백만이면 400 VALIDATION + fields.
+}

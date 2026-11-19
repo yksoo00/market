@@ -1,3 +1,4 @@
+import type { ColumnSortValues } from "@/lib/columnSort";
 import type { ListingSearchItem, TradeStatus } from "@/types/listing";
 
 // 검색 결과 화면의 상태는 URL 파라미터가 원본 (뒤로가기·새로고침·공유 시 유지).
@@ -45,6 +46,57 @@ export interface SearchQuery {
   has: HasItem[];
   /** 최소주문수량이 이 값 이하 */
   maxMinOrder?: number;
+  /** 정렬 (2026-10-30). 칩 줄의 [정렬] 칩 — 다시 검색하면 남고, 필터 초기화는 같이 되돌린다(걸린 개수엔 안 센다). 주소에서 기본(latest)은 생략 */
+  sort: ListingSort;
+}
+
+/** 정렬 칩 선택지 순서 그대로 — 실제로 쓰는 것만 (사용자 지시 "진짜 필요한 것만") */
+export const LISTING_CHIP_SORTS = ["latest", "priceAsc", "priceDesc", "deliveryAsc"] as const;
+/** 열 머리 정렬(2026-11-03)까지 포함한 주소의 sort 값 전부 — 칩에 없는 값은 칩 글자만 바뀐다. 서버 SORT_PATTERN 과 같다 */
+export const LISTING_SORTS = [
+  ...LISTING_CHIP_SORTS,
+  "regDateAsc",
+  "nameAsc",
+  "nameDesc",
+  "brandAsc",
+  "brandDesc",
+  "stockAsc",
+  "stockDesc",
+  "stateAsc",
+  "stateDesc",
+  "categoryAsc",
+  "categoryDesc",
+  "minOrderAsc",
+  "minOrderDesc",
+  "orderUnitAsc",
+  "orderUnitDesc",
+  "deliveryDesc",
+] as const;
+export type ListingSort = (typeof LISTING_SORTS)[number];
+
+/** 표의 열 → 그 열의 오름·내림 sort 값. 등록일의 내림은 기본(최신순)이다 */
+export const LISTING_SORT_COLUMNS = {
+  name: { asc: "nameAsc", desc: "nameDesc" },
+  brand: { asc: "brandAsc", desc: "brandDesc" },
+  price: { asc: "priceAsc", desc: "priceDesc" },
+  stock: { asc: "stockAsc", desc: "stockDesc" },
+  state: { asc: "stateAsc", desc: "stateDesc" },
+  category: { asc: "categoryAsc", desc: "categoryDesc" },
+  minOrder: { asc: "minOrderAsc", desc: "minOrderDesc" },
+  orderUnit: { asc: "orderUnitAsc", desc: "orderUnitDesc" },
+  delivery: { asc: "deliveryAsc", desc: "deliveryDesc" },
+  regDate: { asc: "regDateAsc", desc: "latest" },
+} as const satisfies Record<string, ColumnSortValues<ListingSort>>;
+export type ListingSortColumn = keyof typeof LISTING_SORT_COLUMNS;
+
+/** sort 값이 어느 열의 오름·내림인가 (정렬 칩 글자용). 열 정렬이 아니면 null */
+export function listingSortColumn(sort: string): { column: ListingSortColumn; dir: "asc" | "desc" } | null {
+  for (const column of Object.keys(LISTING_SORT_COLUMNS) as ListingSortColumn[]) {
+    const v = LISTING_SORT_COLUMNS[column];
+    if (sort === v.asc) return { column, dir: "asc" };
+    if (sort === v.desc) return { column, dir: "desc" };
+  }
+  return null;
 }
 
 /**
@@ -70,7 +122,7 @@ export const MAX_PAGE = 1_000_000;
 const CATEGORY_PATTERN = /^[A-Z0-9]{1,4}(-[A-Z0-9]{1,4}){0,2}$/;
 const WARRANTY_DAYS: readonly number[] = WARRANTY_FILTER_MONTHS.map((m) => m * 30);
 
-const FIELDS: readonly SearchField[] = ["all", "name", "brand"];
+export const SEARCH_FIELDS: readonly SearchField[] = ["all", "name", "brand"];
 const STATUSES: readonly StatusFilter[] = ["available", "completed", "all"];
 
 /** 실제 존재하는 YYYY-MM-DD인지 */
@@ -99,7 +151,7 @@ export function parseSearchParams(raw: RawSearchParams, scope: SearchScope = "se
   const query: SearchQuery = {
     // 넘치는 검색어를 그대로 보내면 서버 400 이 [다시 시도]로도 안 풀린다 → 잘라서 쓴다
     q: first(raw.q).trim().slice(0, MAX_QUERY).trim(),
-    field: FIELDS.includes(field) ? field : "all",
+    field: SEARCH_FIELDS.includes(field) ? field : "all",
     // 형식이 틀린 코드를 보내면 서버 400 이 [다시 시도]로도 안 풀린다 → 버린다
     category: CATEGORY_PATTERN.test(first(raw.category)) ? first(raw.category) : "",
     status: STATUSES.includes(status) ? status : defaultStatus(scope, purchased),
@@ -107,6 +159,7 @@ export function parseSearchParams(raw: RawSearchParams, scope: SearchScope = "se
     purchased,
     page: intInRange(first(raw.page), MAX_PAGE) || 1,
     has: HAS_ITEMS.filter((h) => first(raw.has).split(",").includes(h)),
+    sort: LISTING_SORTS.find((s) => s === first(raw.sort)) ?? "latest",
   };
   const minStock = intInRange(first(raw.minStock), MAX_STOCK);
   const minPrice = intInRange(first(raw.minPrice), MAX_PRICE);
@@ -142,6 +195,7 @@ export function buildSearchHref(query: SearchQuery, scope: SearchScope = "search
   setFilterParams(p, query);
   if (scope === "search" && query.mine) p.set("mine", "1");
   if (scope === "search" && query.purchased) p.set("purchased", "1");
+  if (query.sort !== "latest") p.set("sort", query.sort);
   if (query.page > 1) p.set("page", String(query.page));
   // 내 판매글은 내 활동내역의 판매 탭 (설계 2026-10-27 PR 4) — tab 이 맨 앞
   if (scope === "mine") return `/my/activity?${new URLSearchParams({ tab: "sales" })}${p.size > 0 ? `&${p}` : ""}`;
@@ -173,6 +227,8 @@ export function searchApiParams(query: SearchQuery, scope: SearchScope = "search
   if (query.field !== "all") p.set("field", query.field);
   p.set("status", query.status);
   setFilterParams(p, query);
+  // 최신순이 아닌 정렬은 page 가 있어야 한다 (늘 보낸다)
+  if (query.sort !== "latest") p.set("sort", query.sort);
   p.set("page", String(query.page));
   return p.toString();
 }
@@ -198,12 +254,13 @@ export function activeFilterCount(query: SearchQuery, scope: SearchScope = "sear
       query.minStock !== undefined,
       query.minPrice !== undefined,
       query.maxPrice !== undefined,
+      // 정렬은 세지 않는다 — 결과를 거르지 않으므로 빈 결과 화면이 "필터 때문"으로 보이면 안 된다 (코드리뷰)
     ].filter(Boolean).length + detailFilterCount(query)
   );
 }
 
 export function clearFilters(query: SearchQuery, scope: SearchScope = "search"): SearchQuery {
-  return { q: query.q, field: query.field, category: "", status: defaultStatus(scope, query.purchased), mine: query.mine, purchased: query.purchased, page: 1, has: [] };
+  return { q: query.q, field: query.field, category: "", status: defaultStatus(scope, query.purchased), mine: query.mine, purchased: query.purchased, page: 1, has: [], sort: "latest" };
 }
 
 export function listingHref(item: Pick<ListingSearchItem, "userId" | "regDate">): string {

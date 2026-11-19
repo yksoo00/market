@@ -24,7 +24,6 @@ public record ListingCreateRequest(
 		@Size(max = 20) String prodNo,
 		@Size(max = 40) String prodBrand,
 		@Size(max = 20) String prodClassNo,
-		@Pattern(regexp = "^\\d{8}$", message = "제조일은 yyyyMMdd 형식이어야 합니다.") String prodMufcDate,
 		@Size(max = 100) String prodSpecInfo,
 		// 보증년수 — 개월 수. 목록(ListingService.USEFUL_LIFE_MONTHS) 검사는 서비스 (보증기간 WARRANTY_DAYS 와 같은 방식)
 		Integer prodUsefulLife,

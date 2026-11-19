@@ -34,7 +34,6 @@ const detail: ListingDetail = {
   dtExpire: null,
   category: "임시",
   categoryPath: null,
-  mufcDate: null,
   tradeStatus: "available",
   warrantyUntil: null,
 };
@@ -66,6 +65,9 @@ describe("prodStateFromStored", () => {
 describe("editInitialValues", () => {
   it("숫자는 문자열로, null 은 빈 문자열로, 상태는 구간으로", () => {
     expect(editInitialValues(detail)).toEqual({
+      prodName: "R740",
+      prodBrand: "Dell",
+      prodNo: "",
       prodState: "신품대비 70~79%",
       salesUnitPrice: "1000",
       salesQuantity: "12",
@@ -82,6 +84,12 @@ describe("editInitialValues", () => {
 
 describe("diffToUpdateRequest", () => {
   const initial: ListingEditValues = editInitialValues(detail);
+
+  it("상품 칸: 공백만 바꾼 건 안 보내고, 바뀐 건 자른 값으로, 지우면 \"\"", () => {
+    expect(diffToUpdateRequest(initial, { ...initial, prodName: " R740 ", prodBrand: "Dell " })).toEqual({});
+    expect(diffToUpdateRequest(initial, { ...initial, prodName: " R750 ", prodBrand: "HP" })).toEqual({ prodName: "R750", prodBrand: "HP" });
+    expect(diffToUpdateRequest({ ...initial, prodNo: "A1" }, { ...initial, prodNo: "" })).toEqual({ prodNo: "" });
+  });
 
   it("아무것도 안 바꾸면 빈 객체", () => {
     expect(diffToUpdateRequest(initial, { ...initial })).toEqual({});

@@ -37,6 +37,7 @@ import com.company.market.listing.dto.ListingResponse;
 import com.company.market.listing.dto.ListingSearchCondition;
 import com.company.market.listing.dto.ListingSearchItemResponse;
 import com.company.market.listing.dto.ListingTradeSnapshot;
+import com.company.market.listing.dto.ListingTraits;
 import com.company.market.listing.dto.ListingUpdateRequest;
 import com.company.market.listing.repository.ListingRepository;
 import com.company.market.listing.repository.ListingSearchRepository;
@@ -54,6 +55,9 @@ public class ListingService {
 	private static final DateTimeFormatter REG_DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
 	private static final int PAGE_SIZE = 20;
+
+	/** 상품ID 후보를 한 쿼리에 묶는 수 (IN 바인딩이 Postgres 파라미터 상한 32767 을 넘지 않게) */
+	private static final int PRODUCT_ID_CHUNK = 10_000;
 
 	/** 판매정보 추가등록 보증기간 드롭다운(없음·1·3·6·12·24·36개월 × 30일). 자유 숫자를 받으면 365·360 처럼 같은 뜻의 값이 흩어진다 (decisions.md 2026-10-06) */
 	static final Set<Integer> WARRANTY_DAYS = Set.of(0, 30, 90, 180, 360, 720, 1080);
@@ -96,7 +100,7 @@ public class ListingService {
 		if (photos.isEmpty() && (master == null || !hasText(master.getProdPhoto1()))) {
 			throw new ValidationException(Map.of("photos", "대표 사진을 올려 주세요."));
 		}
-		validateDates(master == null ? req.prodMufcDate() : null, req.deliveryDate());
+		validateDates(req.deliveryDate());
 		if (master == null && req.prodUsefulLife() != null && !USEFUL_LIFE_MONTHS.contains(req.prodUsefulLife())) {
 			throw new ValidationException(Map.of("prodUsefulLife", "보증년수는 목록에서 고른 값이어야 합니다."));
 		}
@@ -112,7 +116,7 @@ public class ListingService {
 		uploads.claim(userId, files);
 
 		Product product = master != null ? master : products.findOrCreate(new ProductDraft(category, req.prodName().trim(),
-				req.prodNo(), req.prodBrand().trim(), req.prodClassNo(), req.prodMufcDate(), req.prodSpecInfo(), req.prodUsefulLife(),
+				req.prodNo(), req.prodBrand().trim(), req.prodClassNo(), req.prodSpecInfo(), req.prodUsefulLife(),
 				req.warrantyMethod(), req.alterProdName(),
 				// 새 마스터의 데이터시트는 이 판매자가 올린 것 (productDataSheet 칸은 폼이 안 보낸다)
 				hasText(req.productDataSheet()) ? req.productDataSheet() : req.listingDataSheet(), firstPhoto));
@@ -166,15 +170,11 @@ public class ListingService {
 			throw new ApiException(ErrorCode.LISTING_COMPLETED);
 		}
 		// 이미 저장된 납기일을 그대로 다시 보내면(수정 화면이 모든 칸을 보낼 때) 지난 날짜여도 통과
-		Product currentProduct = products.get(listing.getProdId());
-		// 제조일도 저장된 값 그대로면 건너뛴다 (납기일과 같은 이유). 새로 보낸 값만 오늘까지인지 본다
-		String newMufcDate = req.prodMufcDate() == null || req.prodMufcDate().isEmpty()
-				|| req.prodMufcDate().equals(currentProduct.getProdMufcDate()) ? null : req.prodMufcDate();
 		// 제공가능일은 정의서 NOT NULL — 수정에서 비울 수 없다 (null = 안 바꿈)
 		if (req.deliveryDate() != null && req.deliveryDate().isBlank()) {
 			throw new ValidationException(Map.of("deliveryDate", ListingCreateRequest.DELIVERY_DATE_REQUIRED));
 		}
-		validateDates(newMufcDate, Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
+		validateDates(Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
 		// 대표 사진 필수(등록 규칙)를 수정에서도 지킨다 — 사진이 있는 매물은 전부 뺄 수 없다.
 		// 사진 없는 옛 매물은 [] 를 보내도 바뀌는 게 없어 막지 않는다
 		if (req.photos() != null && req.photos().isEmpty() && firstPhoto(listing) != null) {
@@ -196,6 +196,7 @@ public class ListingService {
 		}
 
 		// 상품 칸은 매물 칸보다 먼저 — 422 면 아무것도 바뀌지 않고, 업로드 키도 건드리지 않는다
+		Product currentProduct = products.get(listing.getProdId());
 		Product product = applyProductFields(listing, currentProduct, req);
 
 		List<UploadRef> files = new ArrayList<>();
@@ -247,8 +248,8 @@ public class ListingService {
 	}
 
 	/**
-	 * 상품 칸 규칙 (스펙 2026-10-06-my-listings). 상품마스터는 이름·제조사·분류번호·제조일이 같으면 같은 상품이고 다른 판매자 매물과 공유한다.
-	 * 이름·제조사·제조일이 바뀌면 등록과 같은 findOrCreate 로 네 값이 맞는 상품을 찾아 이 매물만 옮긴다 (있으면 그 상품 값, 없으면 새로 만든다).
+	 * 상품 칸 규칙 (스펙 2026-10-06-my-listings). 상품마스터는 이름·제조사·분류번호가 같으면 같은 상품이고 다른 판매자 매물과 공유한다.
+	 * 이름·제조사가 바뀌면 등록과 같은 findOrCreate 로 세 값이 맞는 상품을 찾아 이 매물만 옮긴다 (있으면 그 상품 값, 없으면 새로 만든다).
 	 * 분류번호는 수정 화면에 없어 지금 상품 값을 이어받는다 (2026-10-27 설계 PR 2).
 	 * 그대로이고 번호·사양·카테고리만 바뀌면 이 매물만 쓰는 상품일 때만 고친다 — 공유 중이면 남의 매물까지 바뀌므로 422.
 	 */
@@ -258,14 +259,12 @@ public class ListingService {
 		}
 		String name = req.prodName() == null ? current.getProdName() : req.prodName().trim();
 		String brand = req.prodBrand() == null ? current.getProdBrand() : req.prodBrand().trim();
-		String mufcDate = textOrCurrent(req.prodMufcDate(), current.getProdMufcDate());
-		if (!name.equals(current.getProdName()) || !brand.equals(current.getProdBrand())
-				|| !Objects.equals(mufcDate, current.getProdMufcDate())) {
+		if (!name.equals(current.getProdName()) || !brand.equals(current.getProdBrand())) {
 			// 카테고리는 update() 가 이미 확인했다
 			CategoryFragments category = req.categoryCode() == null ? current.category() : CategoryFragments.parse(req.categoryCode());
-			// 안 보낸 칸은 옛 상품 값을 이어받는다 (이름만 바꿔도 번호·제조일이 사라지지 않게)
+			// 안 보낸 칸은 옛 상품 값을 이어받는다 (이름만 바꿔도 번호가 사라지지 않게)
 			Product target = products.findOrCreate(new ProductDraft(category, name,
-					textOrCurrent(req.prodNo(), current.getProdNo()), brand, current.getProdClassNo(), mufcDate,
+					textOrCurrent(req.prodNo(), current.getProdNo()), brand, current.getProdClassNo(),
 					textOrCurrent(req.prodSpecInfo(), current.getProdSpecInfo()), current.getProdUsefulLife(),
 					current.getWarrantyMethod(), current.getAlterProdName(),
 					// 옛 상품의 데이터시트·사진은 처음 등록한 다른 판매자의 파일일 수 있어 물려주지 않는다. 사진은 이 매물의 첫 사진
@@ -286,7 +285,7 @@ public class ListingService {
 			changed.keySet().forEach(f -> fields.put(f, ErrorCode.PRODUCT_SHARED.message()));
 			throw new ApiException(ErrorCode.PRODUCT_SHARED, ErrorCode.PRODUCT_SHARED.message(), fields);
 		}
-		current.applyEdit(req.categoryCode() == null ? null : CategoryFragments.parse(req.categoryCode()), req.prodNo(), req.prodMufcDate(), req.prodSpecInfo());
+		current.applyEdit(req.categoryCode() == null ? null : CategoryFragments.parse(req.categoryCode()), req.prodNo(), req.prodSpecInfo());
 		return current;
 	}
 
@@ -371,7 +370,7 @@ public class ListingService {
 				product.getProdName(), listing.getProdState(), listing.getSalesUnitPrice(), listing.getStockQuantity(),
 				listing.getMinOrderQuantity(), listing.getOrderUnit(), listing.getDeliveryDate(),
 				listing.getDtExpire() != null, photo != null && photo.startsWith("public/") ? photo : null,
-				product.getProdBrand(), product.getProdMufcDate(), product.getProdSpecInfo(), product.getCategoryCode());
+				product.getProdBrand(), product.getProdSpecInfo(), product.getCategoryCode());
 	}
 
 	/** 거래 목록용 — 여러 매물의 스냅샷을 매물·상품 각 한 쿼리로. 없는 키는 빠진다 */
@@ -379,6 +378,37 @@ public class ListingService {
 		List<Listing> found = listings.findAllById(ids);
 		Map<String, Product> productsById = products.getAll(found.stream().map(Listing::getProdId).collect(Collectors.toSet()));
 		return found.stream().collect(Collectors.toMap(Listing::getId, l -> toSnapshot(l, productsById.get(l.getProdId()))));
+	}
+
+	/**
+	 * 엑셀 대량구매의 매물 후보 — 이 상품마스터의 모든 매물(거래완료 포함: 왜 못 사는지 사유를 보이려고). 잠금 없는 읽기라 담기에서 다시 잠그고 판정한다.
+	 * 없는 마스터·매물 없는 마스터는 빈 목록
+	 */
+	@Transactional(readOnly = true)
+	public List<ListingTradeSnapshot> snapshotsOfProduct(String prodId) {
+		List<Listing> found = listings.findAllByProdIdOrderByRegDate(prodId);
+		if (found.isEmpty()) {
+			return List.of();
+		}
+		Product product = products.get(prodId);
+		return found.stream().map(l -> toSnapshot(l, product)).toList();
+	}
+
+	/** 이 마스터 매물에 적힌 대체품 글(자유 글). 비어 있는 매물은 빠진다 — 대량구매 후보 줄의 힌트로만 쓴다. 복합키 findAllById 는 키마다 쿼리가 나가 마스터로 한 번에 읽는다 */
+	@Transactional(readOnly = true)
+	public Map<ListingId, String> replaceHintsOfProduct(String prodId) {
+		return listings.findAllByProdIdOrderByRegDate(prodId).stream()
+			.filter(l -> hasText(l.getReplaceProd()))
+			.collect(Collectors.toMap(Listing::getId, Listing::getReplaceProd));
+	}
+
+	/** 이 마스터 매물들의 조건 판정용 특성(상태·보증·증빙 유무). 복합키 findAllById 는 키마다 쿼리가 나가 마스터로 한 번에 읽는다 */
+	@Transactional(readOnly = true)
+	public Map<ListingId, ListingTraits> traitsOfProduct(String prodId) {
+		return listings.findAllByProdIdOrderByRegDate(prodId).stream().collect(Collectors.toMap(Listing::getId,
+				l -> new ListingTraits(l.getProdState(), l.getWarrantyPeriod(), hasText(l.getProdDataSheet()),
+						hasText(l.getProdPhoto1()) || hasText(l.getProdPhoto2()) || hasText(l.getProdPhoto3()) || hasText(l.getProdImage4()),
+						hasText(l.getWarrantyCoverage()) ? l.getWarrantyCoverage() : null, hasText(l.getTestReport()), hasText(l.getCertificateOfAuthen()))));
 	}
 
 	/** 장바구니 목록용 — 검색 결과와 같은 칸(지금 매물 값)을 매물·상품 각 한 쿼리로. 없는 키는 빠진다 */
@@ -397,30 +427,39 @@ public class ListingService {
 		return products.getAll(prodIds).values().stream().collect(Collectors.toMap(Product::getProdId, Product::getProdName));
 	}
 
-	/** 상품명에 word 가 들어 있는 상품ID, 최대 limit 개 (거래이력 상품명 검색 — 이력 줄은 prod_id 만 갖고 있다) */
-	public List<String> productIdsByName(String word, int limit) {
-		return products.idsByName(word, limit);
+	/**
+	 * candidates(호출자가 고른 상품 — 내 거래에 나온 것) 중 검색어가 field 범위(all·name·brand)에 맞는 상품ID (거래 검색 — 매물 검색과 같은 규칙).
+	 * 바인딩 파라미터 수 상한(Postgres 32767)을 넘지 않게 나눠 묻는다
+	 */
+	public List<String> productIdsMatching(String field, String q, List<String> candidates) {
+		List<String> out = new ArrayList<>();
+		for (int i = 0; i < candidates.size(); i += PRODUCT_ID_CHUNK) {
+			out.addAll(searchRepository.findProductIds(field, q, candidates.subList(i, Math.min(i + PRODUCT_ID_CHUNK, candidates.size()))));
+		}
+		return out;
 	}
 
-	/** 구매요청의 재고 차감. 재고 부족·거래완료면 TRADE_OUT_OF_STOCK (호출자 트랜잭션에 합류해 같이 롤백) */
+	/** 재고 묶기(구매요청·견적 수락). 재고 부족·거래완료면 TRADE_OUT_OF_STOCK (호출자 트랜잭션에 합류해 같이 롤백) */
 	@Transactional
 	public void reserveStock(ListingId id, int quantity) {
-		if (listings.reserveStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity, LocalDateTime.now(clock).format(REG_DATE_FORMAT)) == 0) {
+		if (listings.reserveStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity) == 0) {
 			throw new ApiException(ErrorCode.TRADE_OUT_OF_STOCK);
 		}
 	}
 
+	/** 재고 묶기를 시도한다 — 부족·거래완료면 false (장바구니 담기가 줄마다 오류를 모아 알리려고). 호출자 트랜잭션에 합류 */
+	@Transactional
+	public boolean tryReserveStock(ListingId id, int quantity) {
+		return listings.reserveStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity) > 0;
+	}
+
 	/**
-	 * 견적 수락 — 매물 단가를 희망단가로 내린다(더 싸면 그대로). 행을 잠그고 읽어 구매요청·수정과 차례를 맞춘다.
-	 * 거래완료 매물은 409 (단가를 바꿔도 살 수 없다). 호출자 트랜잭션에 합류해 같이 롤백
+	 * 구매 확정 뒤 판매완료 판정 — 재고가 0 이면 판매완료로 표시한다. "더 묶인 건이 없을 때만"은 호출하는 거래 쪽이 확인한다
+	 * (묶인 건은 거래 행이라). 재고가 남았거나 이미 거래완료면 아무 일도 안 한다
 	 */
 	@Transactional
-	public void applyQuotePrice(ListingId id, int price) {
-		Listing listing = listings.findForUpdate(id.getUserId(), id.getRegDate(), id.getProdId()).orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
-		if (listing.getDtExpire() != null) {
-			throw new ApiException(ErrorCode.LISTING_COMPLETED);
-		}
-		listing.lowerPriceTo(price, LocalDateTime.now(clock).format(REG_DATE_FORMAT));
+	public void markSoldOutIfEmpty(ListingId id) {
+		listings.markSoldOut(id.getUserId(), id.getRegDate(), id.getProdId(), LocalDateTime.now(clock).format(REG_DATE_FORMAT));
 	}
 
 	/** 거래 취소로 재고 복원 + 거래완료일시 지움 */
@@ -430,6 +469,15 @@ public class ListingService {
 		if (listings.releaseStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity) == 0) {
 			throw new ApiException(ErrorCode.LISTING_NOT_FOUND);
 		}
+	}
+
+	/**
+	 * 재고 복원을 시도한다 — 매물이 이미 없으면 false (던지지 않는다). 장바구니 자동 삭제처럼 매물이 없어도 줄은 지워야 하는 곳용:
+	 * 던지면 이 메서드의 @Transactional 이 호출자 트랜잭션을 롤백 전용으로 만들어 줄이 영영 안 지워진다
+	 */
+	@Transactional
+	public boolean releaseStockIfPresent(ListingId id, int quantity) {
+		return listings.releaseStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity) > 0;
 	}
 
 	public ListingResponse get(UUID userId, String regDate) {
@@ -453,6 +501,9 @@ public class ListingService {
 		if (condition.minPrice() != null && condition.maxPrice() != null && condition.minPrice() > condition.maxPrice()) {
 			throw new ValidationException(Map.of("maxPrice", "최대 가격은 최소 가격보다 크거나 같아야 합니다."));
 		}
+		if (!"latest".equals(condition.sort())) {
+			return searchSorted(condition, ownerId, keys);
+		}
 		// 페이지 번호 방식: 같은 조건의 정렬 키로 경계를 구해, 그 페이지의 앞 줄 키 다음부터 키셋으로 읽는다
 		PageKeys<Object[]> pageKeys = condition.page() == null ? null
 				: PageKeys.of(searchRepository.findKeys(condition, ownerId, keys), condition.page(), PAGE_SIZE);
@@ -472,6 +523,28 @@ public class ListingService {
 			return new ListingPageResponse(items, nextCursor, pageKeys.total(), pageKeys.page(), pageKeys.totalPages());
 		}
 		return new ListingPageResponse(items, nextCursor, searchRepository.count(condition, ownerId, keys), null, null);
+	}
+
+	/**
+	 * 최신순이 아닌 정렬 (2026-10-30). 커서는 최신순 전용이라 page 가 있어야 한다. 정렬 키를 전부 읽어 그 페이지 키만 자르고
+	 * 그 매물만 읽어 키 순서로 맞춘다 (offset 아님 — 거래 목록 정렬과 같은 방식)
+	 */
+	private ListingPageResponse searchSorted(ListingSearchCondition condition, UUID ownerId, Collection<ListingId> keys) {
+		if (condition.page() == null) {
+			throw new ValidationException(Map.of("sort", "최신순 말고 다른 정렬은 page 와 함께 써야 합니다."));
+		}
+		List<Object[]> all = searchRepository.findKeys(condition, ownerId, keys);
+		PageKeys<Object[]> pageKeys = PageKeys.of(all, condition.page(), PAGE_SIZE);
+		int from = (pageKeys.page() - 1) * PAGE_SIZE;
+		List<Object[]> slice = all.subList(from, Math.min(from + PAGE_SIZE, all.size()));
+		Map<String, Object[]> byKey = searchRepository.findByKeys(condition, ownerId, keys, slice).stream()
+			.collect(Collectors.toMap(r -> ((Listing) r[0]).getRegDate() + "|" + ((Listing) r[0]).getUserId(), r -> r));
+		List<Object[]> page = slice.stream().map(k -> byKey.get(k[0] + "|" + k[1])).filter(Objects::nonNull).toList();
+
+		Map<String, String> paths = categories.namePaths(page.stream().map(r -> (Product) r[1]).toList());
+		List<ListingSearchItemResponse> items = page.stream()
+			.map(r -> toSearchItem((Listing) r[0], (Product) r[1], paths.get(((Product) r[1]).getProdId()))).toList();
+		return new ListingPageResponse(items, null, pageKeys.total(), pageKeys.page(), pageKeys.totalPages());
 	}
 
 	/**
@@ -519,13 +592,12 @@ public class ListingService {
 
 	private static ListingSearchItemResponse toSearchItem(Listing listing, Product product, String categoryPath) {
 		// 상세 화면과 같게 매물 값만 본다. 상품마스터 파일은 처음 등록한 다른 판매자의 것 (decisions.md 2026-10-02 매물 상세)
-		boolean hasPhoto = Stream
-			.of(listing.getProdPhoto1(), listing.getProdPhoto2(), listing.getProdPhoto3(), listing.getProdImage4())
-			.anyMatch(Objects::nonNull);
+		String mainPhoto = firstPhoto(listing);
+		boolean hasPhoto = mainPhoto != null;
 		boolean hasDataSheet = listing.getProdDataSheet() != null;
 		return new ListingSearchItemResponse(listing.getUserId(), listing.getRegDate(), product.getProdNo(),
 				product.getProdName(), product.getProdBrand(), product.getCategoryCode(),
-				product.mufcDateIso(), listing.getProdDescription(), hasDataSheet, hasPhoto,
+				listing.getProdDescription(), hasDataSheet, hasPhoto, mainPhoto,
 				listing.warrantyUntil(), listing.getWarrantyCoverage(),
 				listing.getReplaceProd() != null, listing.getTestReport() != null, listing.getCertificateOfAuthen() != null,
 				listing.getProdState(), listing.getStockQuantity(), listing.getSalesUnitPrice(), listing.getDeliveryDate(),
@@ -533,20 +605,11 @@ public class ListingService {
 	}
 
 	/**
-	 * 형식(@Pattern)은 DTO가 보고, 여기서는 실제 날짜인지와 범위를 본다: 제조일은 오늘까지, 납기일은 오늘부터 (한국 날짜).
+	 * 형식(@Pattern)은 DTO가 보고, 여기서는 실제 날짜인지와 범위를 본다: 납기일은 오늘부터 (한국 날짜).
 	 */
-	private void validateDates(String prodMufcDate, String deliveryDate) {
+	private void validateDates(String deliveryDate) {
 		LocalDate today = KoreanDates.today(clock);
 		Map<String, String> failures = new LinkedHashMap<>();
-		if (prodMufcDate != null) {
-			LocalDate date = KoreanDates.parseCompact(prodMufcDate);
-			if (date == null) {
-				failures.put("prodMufcDate", "제조일이 올바른 날짜가 아닙니다.");
-			}
-			else if (date.isAfter(today)) {
-				failures.put("prodMufcDate", "제조일은 오늘 이전 날짜로 입력하세요.");
-			}
-		}
 		if (deliveryDate != null && !deliveryDate.isEmpty()) {
 			LocalDate date = KoreanDates.parseIso(deliveryDate);
 			if (date == null) {
@@ -601,7 +664,6 @@ public class ListingService {
 				listing.getWarrantyPeriod(), listing.getWarrantyCoverage(), listing.getReplaceProd(), listing.getTestReport(),
 				listing.getCertificateOfAuthen(), listing.getDtUpdate(), listing.getDtExpire(), product.getCategoryCode(),
 				categories.namePath(product),
-				product.mufcDateIso(),
 				listing.tradeStatus(),
 				listing.warrantyUntil());
 	}

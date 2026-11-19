@@ -3,6 +3,8 @@
 > 현재 계정 데이터는 `trd_user_info` 한 테이블에 둔다. 다른 계정 테이블은 사용하지 않는다.
 > 매물 스키마(`trd_prod_master`, `trd_prod_reg`)는 사용자가 제공한 레거시 스펙을 그대로 옮긴 초안이다. PRD 확정 전이라 카테고리 마스터·이미지 구조·상태값 체계는 다시 바뀔 수 있다. 거래 스키마(`trd_trade_info`, `trd_trade_history`)는 직접 구매·견적·장바구니가 쓴다 — 비교는 화면만이라 행이 없다(2026-10-22) (채팅은 기능에서 제외, decisions.md 2026-10-01).
 
+> 모든 테이블·컬럼에 정의서 논리명(한글)을 DB 코멘트로 달았다(`V202611051100__comment_korean_names.sql`, 2026-11-05). DBeaver·pgAdmin·ERD 도구에서 한글로 보이는 표시용이고 이름·타입·제약은 그대로다. 값은 `DevTableAliases`(임시 테이블 별명)와 같고 `DevTableAliasTest` 가 둘이 같은지 확인한다 — 새 컬럼을 만들면 코멘트와 별명을 같이 단다.
+
 ## 계정: `trd_user_info`
 
 단일 계정 테이블은 `V202609281200__replace_user_account_model.sql`에서 생성한다. 마이그레이션은 기존 계정 테이블과 데이터를 제거하므로 개발 DB를 초기화한 뒤 적용한다.
@@ -93,13 +95,12 @@
 | prod_useful_life | integer | | 보증년수 — 값은 개월 수, 목록 3·6·…·60 (사용자 결정 2026-10-28) |
 | warranty_method | varchar(20) | | 정품보증방법 |
 | alter_prod_name | varchar(40) | | 대체상품명 |
-| prod_mufc_date | varchar(14) | | 제조일시. 정의서에 없지만 유지 (재사용 키, 사용자 결정) |
 | prod_data_sheet | varchar(100) | | 경로정보 (정의서 40, 저장 키 길이로 100) |
 | prod_image | varchar(100) | | 경로정보 (2026-10-28 `prod_photo_1` 에서 이름 변경, 정의서 40 → 100). 상품 처음 등록 시 그 매물의 첫 사진 키를 그대로 씀 (파일 공유). API 이름은 `prodPhoto1` |
 | reg_date | varchar(14) | null | 등록일시 (정의서 nullable, 서버는 항상 채움) |
 | spare_col | varchar(100) | | 예비 컬럼 |
 
-같은 상품 = 이름·제조사·분류번호·제조일이 모두 같음(사양은 안 봄). 직접 입력 등록은 같은 상품이 있으면 재사용, 없으면 새로 만든다. 동시 생성은 `pg_advisory_xact_lock(hashtext('prod-master'))` 로 줄 세운다(unique 대신, 2026-10-28).
+같은 상품 = 이름·제조사·분류번호가 모두 같음(사양은 안 봄. 제조일은 2026-11-04 에 기준에서 뺐다 — 제조일이 달라 따로 있던 옛 마스터가 여럿이면 prod_id 가 작은 것을 쓴다). 직접 입력 등록은 같은 상품이 있으면 재사용, 없으면 새로 만든다. 동시 생성은 `pg_advisory_xact_lock(hashtext('prod-master'))` 로 줄 세운다(unique 대신, 2026-10-28).
 
 ### trd_prod_reg (TRD_PROD_REG — 상품등록 정보)
 
@@ -149,7 +150,7 @@
 
 | trade_type | trade_stats 흐름 |
 |---|---|
-| `구매검토` | `장바구니`/`비교용` — 구매자·매물·거래상태당 하나(`ux_trd_trade_info_one_cart`, V202610291000). `trd_cart_info` 행과 짝(위). 빼기·매물 삭제는 두 행 삭제, 구매·견적은 장바구니 행을 같은 거래ID 로 바꿔 쓴다(2026-10-29). 내 구매목록·판매자 화면에 안 나온다. 단가는 담을 때 등록단가, 수량·납품희망일·요청사항은 담을 때 입력(장바구니) 또는 최소주문량·제공가능일(비교)이고, 화면엔 지금 매물 값을 보인다. |
+| `구매검토` | `장바구니`/`비교용` — **비교용만** 구매자·매물당 하나(`ux_trd_trade_info_one_compare`, V202611021000). 장바구니는 같은 매물도 담을 때마다 새 줄(새 거래, 2026-11-02 — 전엔 `ux_trd_trade_info_one_cart` 가 장바구니도 매물당 하나로 막았다). `trd_cart_info` 행과 짝(위). 빼기·매물 삭제는 두 행 삭제, 구매·견적은 장바구니 행을 같은 거래ID 로 바꿔 쓴다(2026-10-29). 내 구매목록·판매자 화면에 안 나온다. 단가는 담을 때 등록단가, 수량·납품희망일·요청사항은 담을 때 입력(장바구니) 또는 최소주문량·제공가능일(비교)이고, 화면엔 지금 매물 값을 보인다. |
 | `견적조정` | `견적요청` → `견적수락` 또는 `견적거절` (판매자 수락·거절. 거절 뒤 구매자 재요청은 같은 행이 `견적요청`으로 돌아간다). 수락된 견적에서 [구매]하면 같은 행이 `구매요청` → `구매확정`으로 이어진다(TYPE 은 그대로, 사용자 결정 2026-10-21). 구매자·매물당 견적 단계(`견적요청`·`견적수락`·`견적거절`) 행은 하나(`ux_trd_trade_info_one_quote`, V202610211200) |
 | `거래` | `구매요청` → `구매확정` |
 
@@ -177,9 +178,11 @@
 | trade_stats | varchar(10) | not null | 거래상태: 위 표 |
 | spare_col | varchar(100) | | |
 
-인덱스: `ix_trd_trade_info_listing (seller_id, prod_reg_date, prod_id)` (판매자 목록·매물별 요청 건수). `ix_trd_trade_info_trade_id (trade_id)` — 거래ID 로만 찾는 조회용 일반 인덱스(중복 금지 아님, 정의서 밖, 2026-10-27 사용자 승인). 부분 unique `ux_trd_trade_info_one_quote`·`ux_trd_trade_info_one_cart` 도 `(user_id, seller_id, prod_reg_date, prod_id)`. 외래키 없음 — 매물 삭제 때 남은 거래 행이 있으면 서버가 409 `LISTING_HAS_TRADES`. 구매자 목록은 PK 앞부분 `user_id`.
+인덱스: `ix_trd_trade_info_listing (seller_id, prod_reg_date, prod_id)` (판매자 목록·매물별 요청 건수). `ix_trd_trade_info_trade_id (trade_id)` — 거래ID 로만 찾는 조회용 일반 인덱스(중복 금지 아님, 정의서 밖, 2026-10-27 사용자 승인). 부분 unique `ux_trd_trade_info_one_quote`(견적)·`ux_trd_trade_info_one_compare`(비교용) 도 `(user_id, seller_id, prod_reg_date, prod_id)`. 외래키 없음 — 매물 삭제 때 남은 거래 행이 있으면 서버가 409 `LISTING_HAS_TRADES`. 구매자 목록은 PK 앞부분 `user_id`.
 
 ### trd_cart_info (TRD_CART_INFO — 장바구니 정보)
+
+> **정의서와 다른 점 (사용자 결정 2026-11-04)**: 정의서 CART_INFO 의 `MUFC_DATE`(제조일시)가 없다. 원본인 상품 제조일(`trd_prod_master.prod_mufc_date`)을 지우면서 같이 지웠다(`V202611050900`, decisions.md "제조일 삭제"). 정의서 파일은 사용자 쪽에서 고친다 — 정의서 헤더 그대로의 엑셀을 임시 테이블에 불러오면 "제조일시"가 모르는 컬럼으로 거절된다.
 
 > 구현: `V202610291000__create_cart_info.sql`. 장바구니·비교 한 건 = `trd_trade_info` 1행(`구매검토`, 거래상태 `장바구니`|`비교용`) + 이 테이블 1행(같은 거래ID). 외래키 없음. 결정: decisions.md 2026-10-29.
 
@@ -194,7 +197,6 @@
 | prod_name | varchar(50) | not null | 담을 때 상품마스터에서 복사 |
 | prod_no | varchar(20) | not null | 상품고유ID(`prod_id`). 매물은 `seller_id` + `prod_date` + `prod_no` 로 찾는다. 매물 상품이 바뀌면 따라간다 |
 | manufacturer | varchar(50) | | 제조사(`prod_brand`) |
-| mufc_date | varchar(14) | | 제조일시 |
 | prod_spec_info | varchar(100) | not null | 사양. 비면 `''` |
 | prod_state | varchar(20) | not null | |
 | prov_date | varchar(10) | not null | 제공가능일 |
@@ -224,5 +226,24 @@
 | spare_col | varchar(100) | | |
 
 인덱스: `ix_trd_trade_history_seller` (판매 이력). 구매 이력은 PK 앞자리 `user_id`. 외래키 없음 (2026-10-27). 지금 흐름은 거래 1건 = 이력 1줄이지만 PK 는 정의서대로 둔다(나중 견적·분할 확정).
+
+## 문의 게시판: `trd_inquiry`, `trd_inquiry_reply`
+
+> 구현: `V202611181000__create_inquiry_tables.sql`. 사내 테스트용 익명 게시판 — 정의서 밖 보조 테이블이라 이름·컬럼은 사용자 승인(2026-11-18). 작성자(uid·IP)를 저장하지 않는다. 외래키 없음(2026-10-27 방침) — 글 존재는 서버가 확인한다. **운영 공개 전 제거 대상**(decisions.md 2026-11-18, 스펙 `docs/superpowers/specs/2026-11-18-inquiry-board-design.md`).
+
+| 테이블 | 컬럼 | 타입 | 제약 |
+|---|---|---|---|
+| `trd_inquiry` | id | uuid | PK |
+| | title | varchar(100) | not null |
+| | content | varchar(2000) | not null |
+| | author_uid | uuid | null. 작성자(`trd_user_info.uid`, 외래키 없음). 익명 시절 글은 없음. 응답에 내지 않는다 (`V202611191000`) |
+| | created_at, updated_at | timestamptz | not null |
+| `trd_inquiry_reply` | id | uuid | PK |
+| | inquiry_id | uuid | not null. 글의 id (외래키 없음) |
+| | content | varchar(1000) | not null |
+| | author_uid | uuid | null. 위와 같다 |
+| | created_at, updated_at | timestamptz | not null |
+
+인덱스: `ix_trd_inquiry_created (created_at desc, id desc)` 목록 커서용, `ix_trd_inquiry_reply_inquiry (inquiry_id, created_at)`. 임시 테이블 화면(`/dev/tables`) 화이트리스트에는 넣지 않았다.
 
 **다음에 정할 것**: PRD 작성 시 이미지 다건 구조(별도 테이블) 전환, prod_state enum화, 조직(seller_org_id) 도입 여부, quantity·가격 검증 규칙(`security.md`).

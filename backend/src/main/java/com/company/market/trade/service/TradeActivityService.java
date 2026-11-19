@@ -1,6 +1,10 @@
 package com.company.market.trade.service;
 
+import java.text.Collator;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -25,7 +29,6 @@ import com.company.market.trade.repository.TradeInfoRepository;
 import com.company.market.user.service.UserDirectory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -67,7 +70,8 @@ public class TradeActivityService {
 		boolean buy = !"sell".equals(side);
 		boolean sell = !"buy".equals(side);
 		boolean useProds = f.q() != null;
-		List<String> prodIds = useProds ? listings.productIdsByName(f.q(), TradeFilterRules.NAME_MATCH_MAX) : List.of("");
+		// 검색어는 내 이력에 나온 상품 안에서만 맞춰 본다 — 전체 상품에서 찾으면 상한이 필요해 결과가 빠진다 (decisions.md 2026-11-02)
+		List<String> prodIds = useProds ? listings.productIdsMatching(f.field(), f.q(), histories.findProdIds(me, buy, sell)) : List.of("");
 		if (useProds && prodIds.isEmpty()) {
 			// 맞는 상품이 없으면 쿼리 없이 빈 결과. 페이지 번호면 1페이지만 있다
 			PageKeys<Object[]> empty = pageNo == null ? null : PageKeys.of(List.of(), pageNo, PAGE_SIZE);
@@ -86,7 +90,8 @@ public class TradeActivityService {
 			page = hasMore ? rows.subList(0, PAGE_SIZE) : rows;
 		} else {
 			// 페이지 번호: 같은 조건의 키를 정렬 순서대로 전부 읽어 그 페이지의 키 20개를 잘라 읽는다 (offset 아님 — 키는 이미 다 읽었다)
-			List<Object[]> keys = histories.findKeys(me, buy, sell, f.from(), f.to(), f.min(), f.max(), useProds, prodIds, sortOf(f.sort()));
+			List<Object[]> keys = new ArrayList<>(histories.findKeys(me, buy, sell, f.from(), f.to(), f.min(), f.max(), useProds, prodIds));
+			keys.sort(keyOrder(f.sort(), me, keys));
 			pageKeys = PageKeys.of(keys, pageNo, PAGE_SIZE);
 			List<Object[]> slice = keys.subList((pageNo - 1) * PAGE_SIZE, Math.min(pageNo * PAGE_SIZE, keys.size()));
 			Map<TradeHistoryId, TradeHistory> byId = histories
@@ -113,14 +118,43 @@ public class TradeActivityService {
 				: new TradeHistoryPageResponse(items, nextCursor, pageKeys.page(), pageKeys.totalPages(), pageKeys.total());
 	}
 
-	/** 같은 값이 여럿이면 확정일시·거래ID 로 끝을 맞춘다 (오래된 순은 그 정확한 반대). 금액이 없는 줄은 맨 뒤 */
-	private static Sort sortOf(String sort) {
-		return switch (sort) {
-			case "oldest" -> Sort.by(Sort.Order.asc("tradeDate"), Sort.Order.asc("tradeId"));
-			case "amountDesc" -> Sort.by(Sort.Order.desc("tradeAmount").nullsLast(), Sort.Order.desc("tradeDate"), Sort.Order.desc("tradeId"));
-			case "amountAsc" -> Sort.by(Sort.Order.asc("tradeAmount").nullsLast(), Sort.Order.desc("tradeDate"), Sort.Order.desc("tradeId"));
-			default -> Sort.by(Sort.Order.desc("tradeDate"), Sort.Order.desc("tradeId"));
+	/**
+	 * 거래이력 키의 정렬 (열 머리 정렬 2026-11-03). 키 = [확정일시, 거래ID, 구매자ID, 판매자ID, 상품ID, 수량, 단가, 금액].
+	 * sort = latest | oldest | 열이름Asc|Desc(name·party·side·unitPrice·quantity·amount). 같은 값끼리는 최신(확정일시·거래ID 내림차순)으로 끝을 맞추고
+	 * (오래된 순은 그 정확한 반대), 값이 비어 있는 줄(이름 모름·금액 없음)은 오름·내림 모두 맨 뒤. 상품명은 상품마스터에서, 상대는 화면에 보이는 별명으로
+	 * 정렬한다 — 목록에 보이는 값과 같아야 해서 키를 전부 모은 뒤 한 번에 조회한다
+	 */
+	private Comparator<Object[]> keyOrder(String sort, UUID me, List<Object[]> keys) {
+		Comparator<Object[]> oldest = Comparator.comparing((Object[] k) -> (String) k[0]).thenComparing(k -> (String) k[1]);
+		Comparator<Object[]> latest = oldest.reversed();
+		if ("oldest".equals(sort)) {
+			return oldest;
+		}
+		boolean desc = sort.endsWith("Desc");
+		String column = sort.replaceFirst("(Asc|Desc)$", "");
+		Collator collator = Collator.getInstance(Locale.KOREAN);
+		Comparator<Object[]> by = switch (column) {
+			case "name" -> {
+				Map<String, String> names = listings.productNames(keys.stream().map(k -> (String) k[4]).collect(Collectors.toSet()));
+				yield TradeKeySorting.columnOrder(k -> names.get((String) k[4]), (a, b) -> collator.compare(a, b), desc);
+			}
+			case "party" -> {
+				Map<UUID, String> nicknames = userDirectory.nicknamesOf(keys.stream().map(k -> counterpartOf(me, k)).collect(Collectors.toSet()));
+				yield TradeKeySorting.columnOrder(k -> nicknames.get(counterpartOf(me, k)), (a, b) -> collator.compare(a, b), desc);
+			}
+			// 구분: 내가 구매자면 구매, 아니면 판매. 오름 = 구매 먼저
+			case "side" -> TradeKeySorting.columnOrder(k -> me.equals(k[2]) ? 0 : 1, Integer::compare, desc);
+			case "quantity" -> TradeKeySorting.columnOrder(k -> (Number) k[5], (a, b) -> Long.compare(a.longValue(), b.longValue()), desc);
+			case "unitPrice" -> TradeKeySorting.columnOrder(k -> (Number) k[6], (a, b) -> Long.compare(a.longValue(), b.longValue()), desc);
+			case "amount" -> TradeKeySorting.columnOrder(k -> (Number) k[7], (a, b) -> Long.compare(a.longValue(), b.longValue()), desc);
+			default -> null;
 		};
+		return by == null ? latest : by.thenComparing(latest);
+	}
+
+	/** 구매자면 판매자가, 판매자면 구매자가 상대 */
+	private static UUID counterpartOf(UUID me, Object[] key) {
+		return me.equals(key[2]) ? (UUID) key[3] : (UUID) key[2];
 	}
 
 	/** 검색 범위 탭 판정: 내 매물이 있나 / 구매 거래(구매검토 아님)나 거래이력이 있나 */

@@ -8,7 +8,8 @@ export const trade = {
     TRADE_NOT_PENDING: "이미 처리된 요청이에요. 목록을 새로 불러왔어요.",
     QUOTE_ALREADY_REQUESTED: "같은 매물의 견적 요청이 겹쳤어요. 다시 한 번 보내 주세요.",
     CART_FULL: "장바구니는 100개까지 담을 수 있어요. 안 쓰는 상품을 빼 주세요.",
-    COMPARE_COUNT: "비교는 2~4개를 골라야 해요.",
+    COMPARE_COUNT: "비교는 1~4개를 골라야 해요.",
+    COMPARE_FULL: "비교는 4개까지 담을 수 있어요.",
     COMPARE_CATEGORY_MISMATCH: "같은 카테고리(소분류) 상품끼리만 비교할 수 있어요.",
     TRADE_ID_EXHAUSTED: "주문이 몰려 있어요. 잠시 후 다시 시도해 주세요.",
     LISTING_COMPLETED: "거래가 끝난 매물이에요.",
@@ -73,7 +74,7 @@ export const trade = {
   // 견적 모달 (검색 결과·상세의 [견적 요청], 스펙 2026-10-20)
   quote: {
     title: "견적 요청",
-    desc: "희망단가를 보내면 판매자가 수락하거나 거절해요. 수락하면 매물 단가가 바뀌고, 그 뒤 [구매]로 사면 돼요.",
+    desc: "희망단가를 보내면 판매자가 수락하거나 거절해요. 수락하면 그 수량이 내 몫으로 묶이고, 그 뒤 [구매]로 사면 돼요. 매물 단가는 그대로예요.",
     loading: "매물 정보를 불러오는 중…",
     loadFailed: "매물 정보를 불러오지 못했어요.",
     retry: "다시 시도",
@@ -86,6 +87,8 @@ export const trade = {
     remarks: "비고",
     remarksPlaceholder: "판매자에게 전할 말 (선택, 100자)",
     skipped: "보내지 않는 매물",
+    // 장바구니에 같은 매물이 여러 줄이어도 견적은 매물당 한 건이다
+    sameListing: "같은 상품은 견적을 한 번만 보낼 수 있어요. 한 줄만 골라 주세요.",
     blocked: {
       completed: "거래가 끝난 매물",
       own: "내 매물",
@@ -108,6 +111,10 @@ export const trade = {
   },
   // 내 구매목록·받은 구매요청 (TradeList)
   list: {
+    // 요청사항은 표에선 한 줄로 자르고 누르면 전체 글 팝업 (사용자 결정 2026-11-02)
+    remarksLabel: "요청사항",
+    remarksView: (name: string) => `${name} 요청사항 전체 보기`,
+    remarksClose: "닫기",
     loading: "불러오는 중…",
     loadFailed: "목록을 불러오지 못했어요.",
     retry: "다시 시도",
@@ -147,14 +154,52 @@ export const trade = {
     acceptAria: (name: string) => `${name} 견적 수락`,
     rejectAria: (name: string) => `${name} 견적 거절`,
     buyAria: (name: string) => `${name} 구매`,
+    // 수락된 견적 줄의 [구매] 모달 — 수량·단가는 수락된 값 그대로
+    quoteFixedHint: "수락된 수량·단가 그대로 구매해요. 바꾸려면 취소하고 다시 견적하세요.",
     requoteAria: (name: string) => `${name} 견적 재요청`,
     confirmComplete: "물건을 받으셨나요?\n거래완료하면 구매가 확정되고 더는 취소할 수 없어요.",
     confirmCancel: "이 구매요청을 취소할까요?\n주문한 수량은 판매자 재고로 돌아가요.",
     confirmCancelQuote: "이 견적 요청을 취소할까요?",
-    confirmAccept: "견적을 수락할까요?\n매물 단가가 희망단가로 바뀌고, 다른 구매자에게도 그 가격으로 보여요.",
+    confirmCancelAccepted: "수락된 견적을 취소할까요?\n묶여 있던 수량은 판매자 재고로 돌아가요.",
+    confirmAccept: "견적을 수락할까요?\n그 수량이 구매자 몫으로 묶이고, 구매자가 구매하거나 취소할 때까지 묶여 있어요. 매물 단가는 그대로예요.",
     confirmReject: "견적을 거절할까요?\n매물 단가는 그대로예요.",
     reloaded: "목록을 새로 불러왔어요.",
     confirmDone: "확인",
+  },
+  // 받은 견적요청 한꺼번에 처리 모달 (2026-11-03)
+  bulk: {
+    open: "모든 견적요청 보기",
+    title: "받은 견적요청",
+    desc: "같은 상품끼리 묶어 보여요. 위에서 한꺼번에 처리하거나, 각 줄에서 따로 처리할 수 있어요.",
+    loading: "불러오는 중…",
+    loadFailed: "견적요청을 불러오지 못했어요.",
+    retry: "다시 시도",
+    empty: "받은 견적요청이 없어요.",
+    allDone: "모두 처리했어요.",
+    more: (total: number, shown: number) => `견적요청 ${total}건 중 오래된 ${shown}건을 보여 줘요. 처리하고 다시 열면 나머지가 나와요.`,
+    acceptAll: (n: number) => `모두 수락 (${n})`,
+    rejectAll: (n: number) => `모두 거절 (${n})`,
+    close: "닫기",
+    group: (prodName: string) => prodName,
+    stock: (n: number | null) => `재고 ${n ?? 0}개`,
+    sum: (n: number) => `요청 합계 ${n}개`,
+    overStock: "재고를 넘어요 — 모두 수락하면 이 묶음은 실패해요. 건별로 골라 수락하세요.",
+    buyer: "구매자",
+    quantity: (n: number) => `${n}개`,
+    wanted: "희망",
+    listed: "등록",
+    reqDeliDate: "납품희망일",
+    accepted: "수락됨",
+    rejected: "거절됨",
+    accept: "수락",
+    reject: "거절",
+    acceptAria: (name: string, buyer: string) => `${name} ${buyer} 견적 수락`,
+    rejectAria: (name: string, buyer: string) => `${name} ${buyer} 견적 거절`,
+    handledRemoved: (n: number) => `이미 처리됐거나 취소된 견적 ${n}건은 목록에서 뺐어요.`,
+    confirmAcceptAll: (n: number, groups: number) =>
+      `견적요청 ${n}건(${groups}개 상품)을 모두 수락할까요?\n각 수량이 구매자 몫으로 묶여요. 재고가 모자란 상품은 수락되지 않고 사유가 표시돼요.`,
+    confirmRejectAll: (n: number, groups: number) => `견적요청 ${n}건(${groups}개 상품)을 모두 거절할까요?`,
+    failed: "처리하지 못했어요. 잠시 후 다시 시도해 주세요.",
   },
   // 내 판매글 표의 구매요청 건수 열
   // 판매자가 처리할 견적요청 + 구매요청 건수

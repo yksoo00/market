@@ -7,6 +7,7 @@ import { TradeList } from "@/components/trade/TradeList";
 import { filterParams } from "@/lib/detailFilter";
 import { ACTIVITY_TABS, parseActivityTab, parsePage, parseReg, tabPageHref } from "@/lib/myTabs";
 import { buildSearchHref, parseSearchParams, type RawSearchParams } from "@/lib/search";
+import { tradeSearchField } from "@/lib/historyFilter";
 import { parseTradeFilter, tradeFields } from "@/lib/tradeFilter";
 import { my } from "@/messages/my";
 
@@ -25,8 +26,8 @@ export default async function MyActivityPage({ searchParams }: { searchParams: P
   // 요청·구매 탭: 검색어·상태·기간·금액·정렬(?q=&status=&from=&to=&min=&max=&sort=)도 주소가 원본. 바뀌면 key 로 다시 마운트
   const sellerFilter = parseTradeFilter(raw, "seller");
   const buyerFilter = parseTradeFilter(raw, "buyer");
-  const sellerKey = tabPageHref("/my/activity", { tab: "requests", reg, ...filterParams(tradeFields("seller"), sellerFilter, "q") }, 1);
-  const buyerKey = tabPageHref("/my/activity", { tab: "purchases", ...filterParams(tradeFields("buyer"), buyerFilter, "q") }, 1);
+  const sellerKey = tabPageHref("/my/activity", { tab: "requests", reg, ...filterParams(tradeFields("seller"), sellerFilter, "q", tradeSearchField) }, 1);
+  const buyerKey = tabPageHref("/my/activity", { tab: "purchases", ...filterParams(tradeFields("buyer"), buyerFilter, "q", tradeSearchField) }, 1);
 
   return (
     <>

@@ -1,0 +1,21 @@
+meta {
+  name: 답글 쓰기 (로그인 필요)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{baseUrl}}/api/v1/inquiries/00000000-0000-0000-0000-000000000000/replies
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "content": "답글 내용"
+  }
+}
+
+docs {
+  로그인 쿠키 필요(없으면 401). 주소의 UUID 를 문의 id 로 바꿔 쓴다. 답글 1~1000자. 없는 문의면 404 NOT_FOUND.
+}

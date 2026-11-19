@@ -249,12 +249,12 @@ class QuoteApiTest {
 		assertThat(statsOf(rejected)).isEqualTo("견적요청");
 
 		action(seller, rejected, "accept").andExpect(status().isOk());
-		assertThat(priceOf(REG_A)).isEqualTo(850);
+		assertThat(priceOf(REG_A)).isEqualTo(1000);
 		quotes(buyer, item(sellerId, REG_A, 800, 1)).andExpect(status().isCreated());
 		assertThat(tradeCount()).isEqualTo(1);
 		var row = jdbc.queryForMap("select * from trd_trade_info where trade_id = ?", rejected);
 		assertThat(row.get("trade_stats")).isEqualTo("견적요청");
-		assertThat(row.get("sales_unit_price")).isEqualTo(850);
+		assertThat(row.get("sales_unit_price")).isEqualTo(1000);
 		assertThat(row.get("order_unit_price")).isEqualTo(800);
 	}
 
@@ -310,12 +310,15 @@ class QuoteApiTest {
 	}
 
 	@Test
-	@DisplayName("판매자 수락: 매물 단가 = 희망단가, 견적수락. 두 번째 수락·거절은 409")
+	@DisplayName("판매자 수락: 견적수락, 매물 단가는 그대로(수락 단가는 이 거래에서만), 견적 수량만큼 재고를 묶는다. 두 번째 수락·거절은 409")
 	void sellerAccepts() throws Exception {
 		String tradeId = quoted(REG_A, 900);
+		assertThat(stockOf(REG_A)).isEqualTo(10);
 		action(seller, tradeId, "accept").andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.tradeStats").value("quoteAccepted"));
-		assertThat(priceOf(REG_A)).isEqualTo(900);
+		assertThat(priceOf(REG_A)).isEqualTo(1000);
+		assertThat(jdbc.queryForObject("select order_unit_price from trd_trade_info where trade_id = ?", Integer.class, tradeId)).isEqualTo(900);
+		assertThat(stockOf(REG_A)).isEqualTo(9);
 		assertThat(statsOf(tradeId)).isEqualTo("견적수락");
 		action(seller, tradeId, "accept").andExpect(status().isConflict())
 			.andExpect(jsonPath("$.code").value("TRADE_NOT_PENDING"));
@@ -323,21 +326,29 @@ class QuoteApiTest {
 	}
 
 	@Test
-	@DisplayName("수락 때 매물이 이미 희망단가보다 싸면 단가를 올리지 않는다")
-	void acceptDoesNotRaisePrice() throws Exception {
-		String tradeId = quoted(REG_A, 900);
-		jdbc.update("update trd_prod_reg set sales_unit_price = 800 where reg_date = ?", REG_A);
+	@DisplayName("수락하면 그 수량이 묶인다 — 재고가 모자라면 수락 409 TRADE_OUT_OF_STOCK, 견적은 그대로 (견적을 보내는 동안엔 안 묶인다)")
+	void acceptHoldsStock() throws Exception {
+		quotes(buyer, item(sellerId, REG_A, 900, 6)).andExpect(status().isCreated());
+		String tradeId = jdbc.queryForObject("select trade_id from trd_trade_info where trade_stats = '견적요청'", String.class);
+		assertThat(stockOf(REG_A)).isEqualTo(10);
+		// 그 사이 다른 구매자가 사 가서 재고가 3개가 됐다
+		jdbc.update("update trd_prod_reg set stock_quantity = 3 where reg_date = ?", REG_A);
+		action(seller, tradeId, "accept").andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRADE_OUT_OF_STOCK"));
+		assertThat(statsOf(tradeId)).isEqualTo("견적요청");
+		assertThat(stockOf(REG_A)).isEqualTo(3);
+
+		jdbc.update("update trd_prod_reg set stock_quantity = 10 where reg_date = ?", REG_A);
 		action(seller, tradeId, "accept").andExpect(status().isOk());
-		assertThat(priceOf(REG_A)).isEqualTo(800);
+		assertThat(stockOf(REG_A)).isEqualTo(4);
 	}
 
 	@Test
-	@DisplayName("거래완료 매물은 수락 409 LISTING_COMPLETED, 견적은 그대로")
+	@DisplayName("거래완료 매물은 수락 409 TRADE_OUT_OF_STOCK(묶을 재고가 없다), 견적은 그대로")
 	void acceptCompletedListing() throws Exception {
 		String tradeId = quoted(REG_A, 900);
 		jdbc.update("update trd_prod_reg set stock_quantity = 0, dt_expire = '20261020100000' where reg_date = ?", REG_A);
 		action(seller, tradeId, "accept").andExpect(status().isConflict())
-			.andExpect(jsonPath("$.code").value("LISTING_COMPLETED"));
+			.andExpect(jsonPath("$.code").value("TRADE_OUT_OF_STOCK"));
 		assertThat(statsOf(tradeId)).isEqualTo("견적요청");
 	}
 
@@ -356,7 +367,7 @@ class QuoteApiTest {
 	}
 
 	@Test
-	@DisplayName("구매자 견적 취소: 행 삭제(204). 판매자는 견적을 취소 못 함 403. 거절된 견적도 취소(204), 수락된 견적은 취소 409")
+	@DisplayName("구매자 견적 취소: 행 삭제(204). 판매자는 견적요청을 취소 못 함 403. 거절된 견적도 취소(204). 수락된 견적은 구매자·판매자 누구나 취소하고 묶인 수량이 돌아온다")
 	void buyerCancelsQuote() throws Exception {
 		String tradeId = quoted(REG_A, 900);
 		action(seller, tradeId, "cancel").andExpect(status().isForbidden());
@@ -370,8 +381,33 @@ class QuoteApiTest {
 
 		String accepted = quoted(REG_A, 900);
 		action(seller, accepted, "accept").andExpect(status().isOk());
-		action(buyer, accepted, "cancel").andExpect(status().isConflict());
+		assertThat(stockOf(REG_A)).isEqualTo(9);
+		Cookie stranger = cookieOf(newUser("quotestranger3", "01022220007"));
+		action(stranger, accepted, "cancel").andExpect(status().isForbidden());
+		action(buyer, accepted, "cancel").andExpect(status().isNoContent());
+		assertThat(tradeCount()).isZero();
+		assertThat(stockOf(REG_A)).isEqualTo(10);
+
+		String acceptedAgain = quoted(REG_A, 900);
+		action(seller, acceptedAgain, "accept").andExpect(status().isOk());
+		action(seller, acceptedAgain, "cancel").andExpect(status().isNoContent());
+		assertThat(stockOf(REG_A)).isEqualTo(10);
+	}
+
+	@Test
+	@DisplayName("수락된 견적이 있는 매물은 삭제할 수 없다 409 LISTING_HAS_TRADES(구매자 몫으로 수량이 묶여 있다). 요청·거절 견적만 있으면 지워진다")
+	void listingWithAcceptedQuoteCannotBeDeleted() throws Exception {
+		String accepted = acceptedQuote(REG_A, 900);
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/listings/" + sellerId + "/" + REG_A).cookie(seller))
+			.andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("LISTING_HAS_TRADES"));
 		assertThat(statsOf(accepted)).isEqualTo("견적수락");
+		assertThat(stockOf(REG_A)).isEqualTo(9);
+
+		action(buyer, accepted, "cancel").andExpect(status().isNoContent());
+		quoted(REG_A, 900);
+		mvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete("/api/v1/listings/" + sellerId + "/" + REG_A).cookie(seller))
+			.andExpect(status().isNoContent());
+		assertThat(tradeCount()).isZero();
 	}
 
 	// ---- 수락된 견적에서 [구매] — 같은 행이 구매요청 → 구매확정으로 이어진다 (사용자 결정 2026-10-21) ----
@@ -392,9 +428,12 @@ class QuoteApiTest {
 	}
 
 	@Test
-	@DisplayName("수락된 견적에서 [구매]: 새 행 없이 같은 행이 구매요청이 된다 — TYPE 견적조정 그대로, 재고 예약, 단가는 지금 매물 단가")
+	@DisplayName("수락된 견적에서 [구매]: 새 행 없이 같은 행이 구매요청이 된다 — TYPE 견적조정 그대로, 수락 단가·수락 수량 그대로, 재고는 수락 때 이미 묶여 더 안 깎인다")
 	void purchaseContinuesTheSameRow() throws Exception {
-		String tradeId = acceptedQuote(REG_A, 900);
+		quotes(buyer, item(sellerId, REG_A, 900, 2)).andExpect(status().isCreated());
+		String tradeId = jdbc.queryForObject("select trade_id from trd_trade_info where trade_stats = '견적요청'", String.class);
+		action(seller, tradeId, "accept").andExpect(status().isOk());
+		assertThat(stockOf(REG_A)).isEqualTo(8);
 		buyFromQuote(buyer, tradeId, 2).andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.tradeId").value(tradeId))
 			.andExpect(jsonPath("$.data.tradeType").value("quote"))
@@ -411,7 +450,7 @@ class QuoteApiTest {
 	}
 
 	@Test
-	@DisplayName("견적 [구매]는 수락된 견적만, 보낸 구매자만 — 요청·거절 상태 409, 판매자·남 403, 입력 오류 400, 재고 초과 409(행·재고 그대로)")
+	@DisplayName("견적 [구매]는 수락된 견적만, 보낸 구매자만 — 요청·거절 상태 409, 판매자·남 403, 입력 오류 400, 수량이 수락된 것과 다르면 400(행·재고 그대로)")
 	void purchaseFromQuoteGuards() throws Exception {
 		String pending = quoted(REG_A, 900);
 		buyFromQuote(buyer, pending, 1).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRADE_NOT_PENDING"));
@@ -430,9 +469,11 @@ class QuoteApiTest {
 				.content("{\"orderQuantity\":1}"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.reqDeliDate").value("납품희망일을 입력해 주세요."));
-		buyFromQuote(buyer, pending, 11).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("TRADE_OUT_OF_STOCK"));
+		// 수량은 수락된 그대로 — 다르면 400 fields.orderQuantity (행·재고 그대로)
+		buyFromQuote(buyer, pending, 11).andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.orderQuantity").exists());
+		buyFromQuote(buyer, pending, 2).andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.orderQuantity").exists());
 		assertThat(statsOf(pending)).isEqualTo("견적수락");
-		assertThat(stockOf(REG_A)).isEqualTo(10);
+		assertThat(stockOf(REG_A)).isEqualTo(9);
 		buyFromQuote(buyer, "26102199999", 1).andExpect(status().isNotFound());
 	}
 
@@ -440,7 +481,7 @@ class QuoteApiTest {
 	@DisplayName("[구매] 뒤 거래완료는 같은 행이 구매확정 + 거래이력 1줄. 그 매물에 새 견적을 보낼 수 있다")
 	void completeThenQuoteAgain() throws Exception {
 		String tradeId = acceptedQuote(REG_A, 900);
-		buyFromQuote(buyer, tradeId, 2).andExpect(status().isOk());
+		buyFromQuote(buyer, tradeId, 1).andExpect(status().isOk());
 		action(buyer, tradeId, "complete").andExpect(status().isOk()).andExpect(jsonPath("$.data.tradeStats").value("confirmed"));
 		assertThat(jdbc.queryForObject("select count(*) from trd_trade_history where trade_id = ?", Integer.class, tradeId)).isEqualTo(1);
 		assertThat(jdbc.queryForObject("select trade_type from trd_trade_history where trade_id = ?", String.class, tradeId))
@@ -455,7 +496,7 @@ class QuoteApiTest {
 	@DisplayName("구매요청이 된 견적 행은 재요청이 덮어쓰지 않고, 취소하면 행이 지워지고 재고가 돌아온다 (판매자도 취소 가능)")
 	void purchaseStageRowIsNotOverwrittenAndCanBeCanceled() throws Exception {
 		String tradeId = acceptedQuote(REG_A, 900);
-		buyFromQuote(buyer, tradeId, 3).andExpect(status().isOk());
+		buyFromQuote(buyer, tradeId, 1).andExpect(status().isOk());
 		quotes(buyer, item(sellerId, REG_A, 700, 1)).andExpect(status().isCreated());
 		assertThat(tradeCount()).isEqualTo(2);
 		assertThat(statsOf(tradeId)).isEqualTo("구매요청");
@@ -493,7 +534,7 @@ class QuoteApiTest {
 	}
 
 	@Test
-	@DisplayName("수락과 구매자 취소가 동시에 오면 하나만 성공 — 단가는 수락이 이긴 경우에만 바뀐다")
+	@DisplayName("수락과 구매자 취소가 동시에 오면 교착·500 없이 정리된다 — 수량은 수락이 이긴 경우에만 묶인다(취소가 수락 뒤에 오면 둘 다 성공하고 풀린다)")
 	void concurrentAcceptAndCancel() throws Exception {
 		String tradeId = quoted(REG_A, 900);
 		java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
@@ -511,10 +552,17 @@ class QuoteApiTest {
 		int canceled = cancel.get();
 		pool.shutdown();
 
+		// 수락된 견적은 구매자도 취소할 수 있어(2026-11-02) 수락이 먼저 끝나고 취소가 그 뒤에 실행되면 둘 다 성공한다 — 수량은 도로 풀린다.
+		// 그 밖에는 하나만 성공하고, 진 쪽은 교착·500 이 아니라 409(이미 처리됨) 또는 404(취소로 행이 지워짐)
+		if (accepted == 200 && canceled == 204) {
+			assertThat(tradeCount()).isZero();
+			assertThat(stockOf(REG_A)).isEqualTo(10);
+			return;
+		}
 		assertThat((accepted == 200) ^ (canceled == 204)).isTrue();
-		// 진 쪽은 교착·500 이 아니라 409(이미 처리됨) 또는 404(취소로 행이 지워짐)
 		assertThat(accepted == 200 ? canceled : accepted).isIn(404, 409);
-		assertThat(priceOf(REG_A)).isEqualTo(accepted == 200 ? 900 : 1000);
+		// 수락이 이겼으면 수량이 묶이고(9), 취소가 이겼으면 그대로(10)
+		assertThat(stockOf(REG_A)).isEqualTo(accepted == 200 ? 9 : 10);
 	}
 
 	@Test

@@ -45,6 +45,7 @@ public enum ErrorCode {
 	PRODUCT_SHARED(HttpStatus.UNPROCESSABLE_ENTITY, "다른 매물과 같이 쓰는 상품 정보라 고칠 수 없습니다."),
 	LISTING_COMPLETED(HttpStatus.CONFLICT, "거래가 끝난 매물입니다."),
 	LISTING_HAS_TRADES(HttpStatus.CONFLICT, "거래 내역이 있는 매물은 삭제할 수 없습니다."),
+	LISTING_BULK_INVALID(HttpStatus.CONFLICT, "등록할 수 없는 줄이 있어요. 줄마다 사유를 확인해 주세요."),
 
 	// 거래
 	TRADE_NOT_FOUND(HttpStatus.NOT_FOUND, "거래를 찾을 수 없습니다."),
@@ -54,7 +55,8 @@ public enum ErrorCode {
 	TRADE_ID_EXHAUSTED(HttpStatus.CONFLICT, "주문이 몰려 있습니다. 잠시 후 다시 시도해 주세요."),
 	QUOTE_ALREADY_REQUESTED(HttpStatus.CONFLICT, "같은 매물의 견적 요청이 겹쳤습니다. 다시 시도해 주세요."),
 	CART_FULL(HttpStatus.CONFLICT, "장바구니는 100개까지 담을 수 있습니다."),
-	COMPARE_COUNT(HttpStatus.BAD_REQUEST, "2~4개를 골라 비교할 수 있어요."),
+	COMPARE_COUNT(HttpStatus.BAD_REQUEST, "1~4개를 골라 비교할 수 있어요."),
+	COMPARE_FULL(HttpStatus.BAD_REQUEST, "비교는 4개까지 담을 수 있어요."),
 	COMPARE_CATEGORY_MISMATCH(HttpStatus.BAD_REQUEST, "같은 카테고리(소분류) 상품끼리만 비교할 수 있어요."),
 
 	// 업로드

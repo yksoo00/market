@@ -5,6 +5,7 @@ import {
   clearFilters,
   detailFilterCount,
   listingHref,
+  listingSortColumn,
   parseSearchParams,
   searchApiParams,
   type SearchQuery,
@@ -14,7 +15,7 @@ const q = (over: Partial<SearchQuery> = {}): SearchQuery => ({ ...parseSearchPar
 
 describe("parseSearchParams", () => {
   it("빈 파라미터면 기본값", () => {
-    expect(parseSearchParams({})).toEqual({ q: "", field: "all", category: "", status: "available", mine: false, purchased: false, page: 1, has: [] });
+    expect(parseSearchParams({})).toEqual({ q: "", field: "all", category: "", status: "available", mine: false, purchased: false, page: 1, has: [], sort: "latest" });
   });
 
   it("검색어 앞뒤 공백을 지우고, 공백뿐이면 빈 검색어", () => {
@@ -296,6 +297,26 @@ describe("내 구매의 거래상태 기본값", () => {
   });
 });
 
+describe("정렬 (sort, 2026-10-30)", () => {
+  it("아는 값만, 나머지(옛 값·손으로 고친 값)는 최신순", () => {
+    expect(parseSearchParams({ sort: "priceAsc" }).sort).toBe("priceAsc");
+    expect(parseSearchParams({ sort: "deliveryAsc" }).sort).toBe("deliveryAsc");
+    expect(parseSearchParams({ sort: "unknownDesc" }).sort).toBe("latest");
+  });
+
+  it("주소엔 기본(최신순)이면 안 싣고, API 엔 page 와 함께 보낸다", () => {
+    expect(buildSearchHref(q())).toBe("/search");
+    expect(buildSearchHref(q({ sort: "priceDesc", page: 2 }))).toBe("/search?sort=priceDesc&page=2");
+    expect(searchApiParams(q({ sort: "priceDesc" }))).toContain("sort=priceDesc&page=1");
+    expect(searchApiParams(q())).not.toContain("sort=");
+  });
+
+  it("필터 초기화가 최신순으로 되돌리지만, 결과를 거르지 않으므로 걸린 개수엔 안 센다", () => {
+    expect(clearFilters(q({ sort: "priceAsc", minPrice: 10 })).sort).toBe("latest");
+    expect(activeFilterCount(q({ sort: "priceAsc" }))).toBe(0);
+  });
+});
+
 describe("페이지 번호 (page)", () => {
   it("주소의 page 는 1 이상 정수만, 틀리면 1페이지", () => {
     expect(parseSearchParams({}).page).toBe(1);
@@ -320,5 +341,22 @@ describe("페이지 번호 (page)", () => {
 
   it("필터 초기화는 1페이지로 돌아간다", () => {
     expect(clearFilters(parseSearchParams({ page: "5", minStock: "3" })).page).toBe(1);
+  });
+});
+
+describe("열 머리 정렬 sort 값 (2026-11-03)", () => {
+  it("열마다 오름·내림 값이 주소에서 그대로 읽힌다", () => {
+    expect(parseSearchParams({ sort: "nameAsc" }).sort).toBe("nameAsc");
+    expect(parseSearchParams({ sort: "categoryDesc" }).sort).toBe("categoryDesc");
+    expect(parseSearchParams({ sort: "regDateAsc" }).sort).toBe("regDateAsc");
+    expect(parseSearchParams({ sort: "stockDesc" }).sort).toBe("stockDesc");
+    expect(parseSearchParams({ sort: "bogusDesc" }).sort).toBe("latest");
+  });
+
+  it("listingSortColumn: sort 값 → 열·방향 (칩 글자용), 열 정렬이 아니면 null", () => {
+    expect(listingSortColumn("nameAsc")).toEqual({ column: "name", dir: "asc" });
+    expect(listingSortColumn("deliveryDesc")).toEqual({ column: "delivery", dir: "desc" });
+    expect(listingSortColumn("latest")).toEqual({ column: "regDate", dir: "desc" });
+    expect(listingSortColumn("bogus")).toBeNull();
   });
 });

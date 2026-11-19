@@ -11,6 +11,9 @@ import com.company.market.common.idempotency.IdempotencyGuard;
 import com.company.market.listing.dto.ListingPageResponse;
 import com.company.market.listing.dto.ListingSearchCondition;
 import com.company.market.trade.dto.QuoteCreateRequest;
+import com.company.market.trade.dto.QuoteReplyRequest;
+import com.company.market.trade.dto.QuoteReplyResponse;
+import com.company.market.trade.dto.QuoteRequestListResponse;
 import com.company.market.trade.dto.QuotePurchaseRequest;
 import com.company.market.trade.dto.TradeCreateRequest;
 import com.company.market.trade.dto.TradeFilter;
@@ -18,6 +21,7 @@ import com.company.market.trade.dto.TradeHistoryPageResponse;
 import com.company.market.trade.dto.TradePageResponse;
 import com.company.market.trade.dto.TradeResponse;
 import com.company.market.trade.dto.TradeScopesResponse;
+import com.company.market.trade.service.QuoteBulkService;
 import com.company.market.trade.service.TradeActivityService;
 import com.company.market.trade.service.TradeService;
 import jakarta.validation.Valid;
@@ -43,6 +47,8 @@ public class TradeController {
 	private final TradeService trades;
 
 	private final TradeActivityService activity;
+
+	private final QuoteBulkService quoteBulk;
 
 	private final IdempotencyGuard idempotency;
 
@@ -83,6 +89,18 @@ public class TradeController {
 		return ApiResponse.of(trades.complete(me.id(), tradeId));
 	}
 
+	/** 내가 받은 견적요청 전부(오래된 순 30건) — 한꺼번에 처리 모달 */
+	@GetMapping("/quote-requests")
+	public ApiResponse<QuoteRequestListResponse> quoteRequests(@AuthenticationPrincipal AuthenticatedUser me) {
+		return ApiResponse.of(quoteBulk.list(me.id()));
+	}
+
+	/** 받은 견적요청 한꺼번에 수락·거절 — 건별 결과. 같은 매물 묶음은 합계가 재고를 넘으면 통째로 실패 */
+	@PostMapping("/quote-requests/reply")
+	public ApiResponse<QuoteReplyResponse> replyQuoteRequests(@AuthenticationPrincipal AuthenticatedUser me, @Valid @RequestBody QuoteReplyRequest req) {
+		return ApiResponse.of(quoteBulk.reply(me.id(), req.tradeIds(), req.accept()));
+	}
+
 	/** 판매자 견적 수락 → 매물 단가를 희망단가로, 견적수락 */
 	@PostMapping("/{tradeId}/accept")
 	public ApiResponse<TradeResponse> accept(@AuthenticationPrincipal AuthenticatedUser me, @PathVariable String tradeId) {
@@ -108,22 +126,27 @@ public class TradeController {
 			@RequestParam(required = false) String role, @RequestParam(required = false) String reg,
 			@RequestParam(required = false) String cursor, @RequestParam(defaultValue = "false") boolean active,
 			@RequestParam(required = false) Integer page, @RequestParam(required = false) String status,
-			@RequestParam(required = false) String q, @RequestParam(required = false) String from,
-			@RequestParam(required = false) String to, @RequestParam(required = false) Long minAmount,
-			@RequestParam(required = false) Long maxAmount, @RequestParam(required = false) String sort) {
+			@RequestParam(required = false) String q, @RequestParam(required = false) String field,
+			@RequestParam(required = false) String from, @RequestParam(required = false) String to,
+			@RequestParam(required = false) Long minAmount, @RequestParam(required = false) Long maxAmount,
+			@RequestParam(required = false) String sort) {
 		return ApiResponse.of(trades.list(me.id(), role, reg, cursor, active, page, status,
-				new TradeFilter(q, from, to, minAmount, maxAmount, sort)));
+				new TradeFilter(q, field, from, to, minAmount, maxAmount, sort)));
 	}
 
-	/** 내 거래이력(구매확정만). side = all(기본) | buy | sell. q·from·to·minAmount·maxAmount·sort 는 선택 필터. 본인 id 는 인증 정보에서만 */
+	/**
+	 * 내 거래이력(구매확정만). side = all(기본) | buy | sell. q·field(all|name|brand)·from·to·minAmount·maxAmount·sort 는 선택 필터.
+	 * 본인 id 는 인증 정보에서만
+	 */
 	@GetMapping("/history")
 	public ApiResponse<TradeHistoryPageResponse> history(@AuthenticationPrincipal AuthenticatedUser me,
 			@RequestParam(required = false) String side, @RequestParam(required = false) String cursor,
 			@RequestParam(required = false) Integer page, @RequestParam(required = false) String q,
-			@RequestParam(required = false) String from, @RequestParam(required = false) String to,
-			@RequestParam(required = false) Long minAmount, @RequestParam(required = false) Long maxAmount,
-			@RequestParam(required = false) String sort) {
-		return ApiResponse.of(activity.history(me.id(), side, cursor, page, new TradeFilter(q, from, to, minAmount, maxAmount, sort)));
+			@RequestParam(required = false) String field, @RequestParam(required = false) String from,
+			@RequestParam(required = false) String to, @RequestParam(required = false) Long minAmount,
+			@RequestParam(required = false) Long maxAmount, @RequestParam(required = false) String sort) {
+		return ApiResponse.of(activity.history(me.id(), side, cursor, page,
+				new TradeFilter(q, field, from, to, minAmount, maxAmount, sort)));
 	}
 
 	/** 검색 범위 탭 판정 { sales, purchases } */

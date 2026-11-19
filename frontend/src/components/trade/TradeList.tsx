@@ -2,23 +2,29 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { cn } from "cn";
 import { DetailFilter } from "@/components/common/DetailFilter";
 import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Pager } from "@/components/common/Pager";
 import { ResultDialog } from "@/components/common/ResultDialog";
+import { SortableTh } from "@/components/common/SortableTh";
+import { rememberXScroll, StickyXScroll } from "@/components/common/StickyXScroll";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog } from "@/components/trade/QuoteDialog";
+import { QuoteRequestsDialog } from "@/components/trade/QuoteRequestsDialog";
+import { nextSort, sortStateOf, type ColumnSortValues } from "@/lib/columnSort";
 import { tradesApi } from "@/lib/api/trades";
 import { notifyCartChanged } from "@/lib/cart";
 import { filterParams, type FilterValues } from "@/lib/detailFilter";
-import { historyFieldFromApi } from "@/lib/historyFilter";
+import { historyFieldFromApi, tradeSearchField } from "@/lib/historyFilter";
 import { formatPrice } from "@/lib/format";
 import { tabPageHref } from "@/lib/myTabs";
 import { listingHref } from "@/lib/search";
 import { rowActions, type RowAction } from "@/lib/tradeActions";
-import { emptyTradeFilter, TRADE_STATUS_VALUES, tradeFields } from "@/lib/tradeFilter";
+import { emptyTradeFilter, TRADE_SORT_COLUMNS, TRADE_SORTS, TRADE_STATUS_VALUES, tradeFields, type TradeSortColumn } from "@/lib/tradeFilter";
 import { listFilterSchema } from "@/lib/validation/historyFilter";
 import { common } from "@/messages/common";
 import { my } from "@/messages/my";
@@ -54,12 +60,26 @@ interface Props {
 export function TradeList({ role, reg, active, page, pagePath, pageParams, filter }: Props) {
   const router = useRouter();
   const fields = useMemo(() => tradeFields(role), [role]);
-  const schema = useMemo(() => listFilterSchema(TRADE_STATUS_VALUES[role]), [role]);
-  const fparams = filterParams(fields, filter, "q");
+  const schema = useMemo(() => listFilterSchema(TRADE_STATUS_VALUES[role], TRADE_SORTS), [role]);
+  const fparams = filterParams(fields, filter, "q", tradeSearchField);
   const filtered = Object.keys(fparams).length > 0;
   const hrefFor = (n: number) => tabPageHref(pagePath, { ...pageParams, ...fparams }, n);
+  // scroll: false — 정렬·필터를 바꿔도 세로 스크롤이 맨 위로 튀지 않게 (가로 위치는 StickyXScroll 이 이어 간다, 사용자 지시 2026-11-03)
   const applyFilter = (values: FilterValues) =>
-    router.push(tabPageHref(pagePath, { ...pageParams, ...filterParams(fields, values, "q") }, 1));
+    router.push(tabPageHref(pagePath, { ...pageParams, ...filterParams(fields, values, "q", tradeSearchField) }, 1), { scroll: false });
+  // 열 머리를 누르면 오름 → 내림 → 기본(최신순). 다른 열을 누르면 그 열의 오름부터
+  const sortBy = (values: ColumnSortValues) => {
+    rememberXScroll("trade-table");
+    applyFilter({ ...filter, sort: nextSort(filter.sort ?? "latest", values, "latest") });
+  };
+  const th = (column: TradeSortColumn, label: string, className: string) => (
+    <SortableTh
+      label={label}
+      state={sortStateOf(filter.sort ?? "latest", TRADE_SORT_COLUMNS[column])}
+      onSort={() => sortBy(TRADE_SORT_COLUMNS[column])}
+      className={className}
+    />
+  );
   const [load, setLoad] = useState<Load>({ kind: "loading" });
   // 올리면 지금 페이지를 다시 읽는다
   const [attempt, setAttempt] = useState(0);
@@ -72,6 +92,16 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
   // 거절된 견적 줄의 [재요청] — 같은 매물에 견적 요청 모달을 다시 연다 (서버가 기존 견적 행을 덮어쓴다)
   const [requoting, setRequoting] = useState<Trade | null>(null);
   const [requoted, setRequoted] = useState(false);
+  // 요청사항 전체 보기 팝업 (표에선 한 줄로 잘려 있다)
+  // 열림은 따로 둔다 — 닫힐 때 내용이 먼저 비면 닫히는 애니메이션 동안 빈 팝업이 보인다
+  const [remarksOf, setRemarksOf] = useState<Trade | null>(null);
+  const [remarksOpen, setRemarksOpen] = useState(false);
+  const showRemarks = (item: Trade) => {
+    setRemarksOf(item);
+    setRemarksOpen(true);
+  };
+  // 판매자의 요청 탭: [모든 견적요청 보기] — 받은 견적요청을 한 모달에서 한꺼번에 처리 (2026-11-03)
+  const [bulkOpen, setBulkOpen] = useState(false);
   const asBuyer = role === "buyer";
 
   useEffect(() => {
@@ -100,7 +130,8 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
 
   const confirmText: Record<Exclude<RowAction, "buy" | "requote">, (item: Trade) => string> = {
     complete: () => t.confirmComplete,
-    cancel: (item) => (item.tradeStats.startsWith("quote") ? t.confirmCancelQuote : t.confirmCancel),
+    cancel: (item) =>
+      item.tradeStats === "quoteAccepted" ? t.confirmCancelAccepted : item.tradeStats.startsWith("quote") ? t.confirmCancelQuote : t.confirmCancel,
     accept: () => t.confirmAccept,
     reject: () => t.confirmReject,
   };
@@ -146,6 +177,7 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
           clear: my.history.filter.clear,
         }}
         searchKey="q"
+        searchField={tradeSearchField}
         fields={fields}
         schema={schema}
         values={filter}
@@ -163,7 +195,31 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
         </div>
       )}
       <NoticeDialog notice={notice} onClose={closeNotice} />
-      <Body load={load} asBuyer={asBuyer} busy={busy} onAct={act} onRetry={reload} firstPageHref={page > 1 ? hrefFor(1) : null} filtered={filtered} />
+      <Dialog open={remarksOpen} onOpenChange={setRemarksOpen}>
+        <DialogContent className="max-w-md flex flex-col gap-4">
+          <div className="flex flex-col gap-1">
+            <DialogTitle>{t.remarksLabel}</DialogTitle>
+            <DialogDescription className="text-[13px]">{remarksOf?.prodName}</DialogDescription>
+          </div>
+          <p className="text-sm text-ink whitespace-pre-wrap wrap-break-word">{remarksOf?.remarks}</p>
+          <Button type="button" variant="outline" onClick={() => setRemarksOpen(false)} className="h-11">
+            {t.remarksClose}
+          </Button>
+        </DialogContent>
+      </Dialog>
+      {role === "seller" && active && (
+        <div className="flex">
+          <button
+            type="button"
+            onClick={() => setBulkOpen(true)}
+            className="h-9 px-4 rounded-md border border-primary text-primary text-[13px] font-medium hover:bg-primary-soft"
+          >
+            {trade.bulk.open}
+          </button>
+        </div>
+      )}
+      {bulkOpen && <QuoteRequestsDialog open onOpenChange={(next) => !next && setBulkOpen(false)} onChanged={reload} />}
+      <Body load={load} asBuyer={asBuyer} sortTh={th} busy={busy} onAct={act} onRetry={reload} onShowRemarks={showRemarks} firstPageHref={page > 1 ? hrefFor(1) : null} filtered={filtered} />
       {buying && (
         <PurchaseDialog
           sellerId={buying.sellerId}
@@ -171,6 +227,8 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
           // 수락된 견적이면 그 행이 구매요청이 된다 — 새 줄이 생기지 않는다
           quoteTradeId={buying.tradeId}
           defaultQuantity={buying.orderQuantity}
+          // 수락된 견적은 수락 단가·수량 그대로 (매물 단가가 아니다)
+          quoteUnitPrice={buying.orderUnitPrice}
           open
           onOpenChange={(open) => !open && setBuying(null)}
           // 그 줄이 구매요청으로 바뀌었으니 목록을 다시 읽고, 구매 모달을 연 다른 곳과 같은 완료 안내를 띄운다
@@ -221,16 +279,20 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
 interface BodyProps {
   load: Load;
   asBuyer: boolean;
+  /** 눌러서 정렬하는 열 머리 (정렬 상태·이동은 TradeList 가 쥔다) */
+  sortTh: (column: TradeSortColumn, label: string, className: string) => ReactNode;
   busy: string | null;
   onAct: (item: Trade, what: RowAction) => void;
   onRetry: () => void;
+  /** 요청사항 줄을 눌렀을 때 — 전체 글 팝업을 연다 */
+  onShowRemarks: (item: Trade) => void;
   /** 2페이지 이후를 못 읽었을 때(건수가 줄어 범위 밖이 된 경우 등) 1페이지로 가는 주소 */
   firstPageHref: string | null;
   /** 검색어·필터가 걸려 있나 — 빈 결과를 "아직 없어요"가 아니라 "조건에 맞는 게 없어요"로 */
   filtered: boolean;
 }
 
-function Body({ load, asBuyer, busy, onAct, onRetry, firstPageHref, filtered }: BodyProps) {
+function Body({ load, asBuyer, sortTh, busy, onAct, onRetry, onShowRemarks, firstPageHref, filtered }: BodyProps) {
   if (load.kind === "loading") {
     return (
       <div className="py-16 text-center text-[13px] text-ink-2" aria-busy="true">
@@ -320,17 +382,18 @@ function Body({ load, asBuyer, busy, onAct, onRetry, firstPageHref, filtered }: 
   return (
     <>
       {/* 넓은 칸: 표. 좁은 칸(휴대폰·1/4 타일): 카드 — 기준은 검색 결과와 같은 칸 폭 576 */}
-      <div className="hidden @min-[36rem]:block overflow-x-auto bg-surface border border-line rounded-md">
-        <table className="w-full min-w-4xl text-sm">
+      <StickyXScroll memoryKey="trade-table" className="hidden @min-[36rem]:block bg-surface border border-line rounded-md">
+        {/* 칸 안 글자는 줄바꿈하지 않는다 (사용자 지시 2026-10-30) — 넘치면 표가 가로 스크롤. 요청사항은 한 줄로 자르고 전체는 툴팁 */}
+        <table className="w-full min-w-4xl text-sm whitespace-nowrap">
           <thead className="bg-bg text-[12px] text-ink-2">
             <tr>
-              <th className="px-3 py-2.5 text-left font-medium">{c.product}</th>
-              <th className="px-3 py-2.5 text-left font-medium w-28">{counterpart}</th>
-              <th className="px-3 py-2.5 text-right font-medium w-20">{c.quantity}</th>
-              <th className="px-3 py-2.5 text-right font-medium w-28">{c.unitPrice}</th>
-              <th className="px-3 py-2.5 text-right font-medium w-32">{c.amount}</th>
-              <th className="px-3 py-2.5 text-left font-medium w-28">{c.reqDeliDate}</th>
-              <th className="px-3 py-2.5 text-left font-medium w-20">{c.status}</th>
+              {sortTh("name", c.product, "px-3 py-2.5 text-left font-medium")}
+              {sortTh("party", counterpart, "px-3 py-2.5 text-left font-medium w-28")}
+              {sortTh("quantity", c.quantity, "px-3 py-2.5 text-right font-medium w-20")}
+              {sortTh("unitPrice", c.unitPrice, "px-3 py-2.5 text-right font-medium w-28")}
+              {sortTh("amount", c.amount, "px-3 py-2.5 text-right font-medium w-32")}
+              {sortTh("reqDeli", c.reqDeliDate, "px-3 py-2.5 text-left font-medium w-28")}
+              {sortTh("status", c.status, "px-3 py-2.5 text-left font-medium w-20")}
               <th className="px-3 py-2.5 text-right font-medium w-40">{c.actions}</th>
             </tr>
           </thead>
@@ -341,7 +404,16 @@ function Body({ load, asBuyer, busy, onAct, onRetry, firstPageHref, filtered }: 
                   <Link href={listingHref({ userId: item.sellerId, regDate: item.regDate })} className="font-medium hover:text-primary">
                     {item.prodName}
                   </Link>
-                  {item.remarks && <p className="mt-0.5 text-[12px] text-ink-2 wrap-break-word">{item.remarks}</p>}
+                  {item.remarks && (
+                    <button
+                      type="button"
+                      onClick={() => onShowRemarks(item)}
+                      aria-label={t.remarksView(item.prodName)}
+                      className="mt-0.5 block max-w-80 truncate text-left text-[12px] text-ink-2 hover:text-primary hover:underline"
+                    >
+                      {t.remarksLabel}: {item.remarks}
+                    </button>
+                  )}
                 </td>
                 <td className="px-3 py-2.5 truncate">{item.counterpartNickname ?? "-"}</td>
                 <td className="px-3 py-2.5 text-right font-mono tabular-nums">{qty.format(item.orderQuantity)}</td>
@@ -356,12 +428,12 @@ function Body({ load, asBuyer, busy, onAct, onRetry, firstPageHref, filtered }: 
             ))}
           </tbody>
         </table>
-      </div>
+      </StickyXScroll>
       <ul className="@min-[36rem]:hidden flex flex-col gap-2">
         {load.items.map((item) => (
           <li key={item.tradeId} className="bg-surface border border-line rounded-md p-3.5 flex flex-col gap-1.5">
             <div className="flex items-start gap-2">
-              <Link href={listingHref({ userId: item.sellerId, regDate: item.regDate })} className="grow min-w-0 truncate text-sm font-medium">
+              <Link href={listingHref({ userId: item.sellerId, regDate: item.regDate })} className="grow min-w-0 line-clamp-2 break-words text-sm font-medium">
                 {item.prodName}
               </Link>
               <StatsBadge stats={item.tradeStats} />
@@ -389,7 +461,11 @@ function Body({ load, asBuyer, busy, onAct, onRetry, firstPageHref, filtered }: 
                 {qty.format(item.orderQuantity)} × {unitPrice(item)} = <span className="font-bold">{formatPrice(item.amount)}</span>
               </p>
             )}
-            {item.remarks && <p className="text-[12px] text-ink-2 wrap-break-word">{item.remarks}</p>}
+            {item.remarks && (
+              <p className="text-[12px] text-ink-2 wrap-break-word">
+                {t.remarksLabel}: {item.remarks}
+              </p>
+            )}
             {actions(item)}
           </li>
         ))}

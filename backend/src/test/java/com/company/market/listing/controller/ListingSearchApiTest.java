@@ -391,6 +391,108 @@ class ListingSearchApiTest {
 	}
 
 	@Test
+	@DisplayName("정렬: 단가 낮은/높은 순·납기 빠른 순, 같은 값이면 최신 등록 먼저")
+	void sortOrders() throws Exception {
+		save("ELEC00030001", "20261001090001", "서버 1", null, "Dell", 3000, 5, "2099-03-01");
+		save("ELEC00030002", "20261001090002", "서버 2", null, "Dell", 1000, 1, "2099-01-01");
+		save("ELEC00030003", "20261001090003", "서버 3", null, "Dell", 3000, 9, "2099-02-01");
+		save("ELEC00030004", "20261001090004", "서버 4", null, "Dell", 2000, 3, "2099-01-01");
+		assertThat(sorted("latest")).containsExactly("20261001090004", "20261001090003", "20261001090002", "20261001090001");
+		assertThat(sorted("priceAsc")).containsExactly("20261001090002", "20261001090004", "20261001090003", "20261001090001");
+		assertThat(sorted("priceDesc")).containsExactly("20261001090003", "20261001090001", "20261001090004", "20261001090002");
+		assertThat(sorted("deliveryAsc")).containsExactly("20261001090004", "20261001090002", "20261001090003", "20261001090001");
+	}
+
+	@Test
+	@DisplayName("열 머리 정렬: 열마다 오름·내림, 같은 값이면 최신 등록 먼저, 비어 있는 값은 오름·내림 모두 맨 뒤 (2026-11-03)")
+	void columnSortOrders() throws Exception {
+		String r1 = "20261001090001", r2 = "20261001090002", r3 = "20261001090003", r4 = "20261001090004";
+		save("ELEC00070001", r1, "다", null, "B", 1000, 5, "2099-03-01");
+		save("ELEC00070002", r2, "가", null, "D", 1000, 1, "2099-01-01");
+		save("ELEC00070003", r3, "라", null, "A", 1000, 9, "2099-02-01");
+		save("ELEC00070004", r4, "나", null, "C", 1000, 3, "2099-01-15");
+		// 상태·최소 주문 수량·주문단위는 매물 값, 카테고리는 상품 값
+		String[] states = { "b", "d", "a", "c" };
+		int[] minOrders = { 3, 1, 4, 2 };
+		int[] units = { 10, 5, 20, 1 };
+		String[] minors = { "R004", "R001", "R003", "R002" };
+		String[] regs = { r1, r2, r3, r4 };
+		for (int i = 0; i < 4; i++) {
+			jdbc.update("update trd_prod_reg set prod_state = ?, min_order_quantity = ?, order_unit = ? where reg_date = ?", states[i], minOrders[i], units[i], regs[i]);
+			jdbc.update("update trd_prod_master set minor_category = ? where prod_id = ?", minors[i], "ELEC0007000" + (i + 1));
+		}
+		assertThat(sorted("regDateAsc")).containsExactly(r1, r2, r3, r4);
+		assertThat(sorted("nameAsc")).containsExactly(r2, r4, r1, r3);
+		assertThat(sorted("nameDesc")).containsExactly(r3, r1, r4, r2);
+		assertThat(sorted("brandAsc")).containsExactly(r3, r1, r4, r2);
+		assertThat(sorted("brandDesc")).containsExactly(r2, r4, r1, r3);
+		assertThat(sorted("stockAsc")).containsExactly(r2, r4, r1, r3);
+		assertThat(sorted("stockDesc")).containsExactly(r3, r1, r4, r2);
+		assertThat(sorted("stateAsc")).containsExactly(r3, r1, r4, r2);
+		assertThat(sorted("stateDesc")).containsExactly(r2, r4, r1, r3);
+		assertThat(sorted("categoryAsc")).containsExactly(r2, r4, r3, r1);
+		assertThat(sorted("categoryDesc")).containsExactly(r1, r3, r4, r2);
+		assertThat(sorted("minOrderAsc")).containsExactly(r2, r4, r1, r3);
+		assertThat(sorted("minOrderDesc")).containsExactly(r3, r1, r4, r2);
+		assertThat(sorted("orderUnitAsc")).containsExactly(r4, r2, r1, r3);
+		assertThat(sorted("orderUnitDesc")).containsExactly(r3, r1, r2, r4);
+		assertThat(sorted("deliveryAsc")).containsExactly(r2, r4, r3, r1);
+		assertThat(sorted("deliveryDesc")).containsExactly(r1, r3, r4, r2);
+		// 단가가 모두 같으면 최신 등록 먼저 (같은 값끼리의 끝맞춤)
+		assertThat(sorted("priceAsc")).containsExactly(r4, r3, r2, r1);
+		assertThat(sorted("priceDesc")).containsExactly(r4, r3, r2, r1);
+		// 비어 있는 값은 오름·내림 모두 맨 뒤
+		// (납기일은 필수라 비울 수 없다 — 비울 수 있는 최소 주문 수량·주문단위로)
+		jdbc.update("update trd_prod_reg set min_order_quantity = null, order_unit = null where reg_date = ?", r2);
+		assertThat(sorted("minOrderAsc")).last().isEqualTo(r2);
+		assertThat(sorted("minOrderDesc")).last().isEqualTo(r2);
+		assertThat(sorted("orderUnitAsc")).last().isEqualTo(r2);
+		assertThat(sorted("orderUnitDesc")).last().isEqualTo(r2);
+	}
+
+	private List<String> sorted(String sort) throws Exception {
+		String body = mvc.perform(get("/api/v1/listings").param("sort", sort).param("page", "1")).andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+		return JsonPath.read(body, "$.data.items[*].regDate");
+	}
+
+	@Test
+	@DisplayName("정렬: 페이지를 넘겨도 순서가 이어지고(단가 낮은 순 25건, 2페이지) 건수는 같다")
+	void sortAcrossPages() throws Exception {
+		for (int i = 1; i <= 25; i++) {
+			save(String.format("ELEC0004%04d", i), String.format("202610011000%02d", i), "서버 " + i, null, "Dell", 100 * (26 - i), 1, null);
+		}
+		String body = mvc.perform(get("/api/v1/listings").param("sort", "priceAsc").param("page", "2")).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.total").value(25))
+			.andExpect(jsonPath("$.data.totalPages").value(2))
+			.andExpect(jsonPath("$.data.items.length()").value(5))
+			.andReturn().getResponse().getContentAsString();
+		// 단가 = 100 × (26 - i) → 낮은 순 21~25번째는 2100~2500원
+		assertThat(JsonPath.<List<Integer>>read(body, "$.data.items[*].salesUnitPrice")).containsExactly(2100, 2200, 2300, 2400, 2500);
+	}
+
+	@Test
+	@DisplayName("정렬: 내 판매(mine)에서도 내 글만 정렬되고, 남의 싼 글은 끼지 않는다")
+	void sortWithMine() throws Exception {
+		save("ELEC00050001", "20261001110001", "서버 1", null, "Dell", 3000, 1, null);
+		save("ELEC00050002", "20261001110002", "서버 2", null, "Dell", 2000, 1, null);
+		saveOtherUsersListing("ELEC00050009", "20261001110009", "서버 남의 것");
+		String body = mvc.perform(get("/api/v1/listings").param("mine", "true").param("status", "all").param("sort", "priceAsc").param("page", "1")
+				.cookie(mine()))
+			.andExpect(status().isOk()).andExpect(jsonPath("$.data.total").value(2)).andReturn().getResponse().getContentAsString();
+		assertThat(JsonPath.<List<String>>read(body, "$.data.items[*].regDate")).containsExactly("20261001110002", "20261001110001");
+	}
+
+	@Test
+	@DisplayName("정렬: 모르는 값은 400, 최신순이 아닌데 page 가 없으면 400 (커서는 최신순 전용)")
+	void sortValidation() throws Exception {
+		expectInvalid("sort", "sort", "bogusDesc");
+		expectInvalid("sort", "sort", "nameAsc");
+		expectInvalid("sort", "sort", "priceAsc");
+		mvc.perform(get("/api/v1/listings").param("sort", "latest")).andExpect(status().isOk());
+	}
+
+	@Test
 	@DisplayName("페이지 번호: 결과가 없어도 1페이지는 있고, 범위 밖·0·숫자 아님은 400")
 	void pageNumberRange() throws Exception {
 		mvc.perform(get("/api/v1/listings").param("q", "없는이름").param("page", "1"))
@@ -537,7 +639,20 @@ class ListingSearchApiTest {
 		jdbc.update("update trd_prod_master set prod_image = 'p.jpg', prod_data_sheet = 'p.pdf' where prod_id = 'ELEC00010001'");
 		mvc.perform(get("/api/v1/listings").param("q", "LM324AD"))
 			.andExpect(jsonPath("$.data.items[0].hasDataSheet").value(false))
-			.andExpect(jsonPath("$.data.items[0].hasPhoto").value(false));
+			.andExpect(jsonPath("$.data.items[0].hasPhoto").value(false))
+			.andExpect(jsonPath("$.data.items[0].mainPhoto").doesNotExist());
+	}
+
+	@Test
+	@DisplayName("매물에 사진이 있으면 mainPhoto 는 첫 번째 사진 키, 없으면 null")
+	void mainPhotoIsFirstPhoto() throws Exception {
+		saveFour();
+		jdbc.update("update trd_prod_reg set prod_photo_1 = 'listings/photos/a.jpg', prod_photo_2 = 'listings/photos/b.jpg' where reg_date = ?", A);
+		jdbc.update("update trd_prod_reg set prod_photo_2 = 'listings/photos/c.jpg' where reg_date = ?", B);
+		mvc.perform(get("/api/v1/listings"))
+			.andExpect(jsonPath("$.data.items[?(@.regDate=='" + A + "')].mainPhoto").value("listings/photos/a.jpg"))
+			.andExpect(jsonPath("$.data.items[?(@.regDate=='" + B + "')].mainPhoto").value("listings/photos/c.jpg"))
+			.andExpect(jsonPath("$.data.items[?(@.regDate=='" + A + "')].hasPhoto").value(true));
 	}
 
 }

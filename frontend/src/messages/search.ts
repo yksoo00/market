@@ -3,7 +3,7 @@ export const search = {
     label: "장비 검색",
     fieldLabel: "검색 구분",
     fields: { all: "전체", name: "상품명", brand: "제조사" },
-    placeholder: "모델명 · 상품번호 · 제조사",
+    placeholder: "모델명·상품번호·제조사",
     button: "검색",
   },
   // 검색 화면 맨 위 범위 전환 (SearchScopeTabs)
@@ -72,6 +72,26 @@ export const search = {
     brand: "제조사는 50자 이하로 입력하세요",
     minOrder: "최소주문은 1개 이상 100,000개 이하의 정수로 입력하세요",
   },
+  // 칩 줄의 [정렬] 칩 (2026-10-30)
+  sort: {
+    label: "정렬",
+    options: { latest: "최신순", priceAsc: "낮은가격순", priceDesc: "높은가격순", deliveryAsc: "납기빠른순" },
+    // 열 머리를 눌러 정한 정렬의 칩 글자: "상품명 ▲" (2026-11-03)
+    columns: {
+      name: "상품명",
+      brand: "제조사",
+      price: "단가",
+      stock: "수량",
+      state: "상품상태",
+      category: "카테고리",
+      // 칩 글자라 표 열 이름보다 짧게 (칩이 길어져 줄이 넘치지 않게)
+      minOrder: "최소주문",
+      orderUnit: "주문단위",
+      delivery: "납기일",
+      regDate: "등록일",
+    },
+    columnText: (column: string, dir: "asc" | "desc") => `${column} ${dir === "asc" ? "▲" : "▼"}`,
+  },
   result: {
     count: (n: number) => `검색결과 ${n}건`,
     loadFailed: "불러오지 못했어요.",
@@ -94,7 +114,6 @@ export const search = {
     prodNo: "상품번호",
     prodName: "상품명",
     brand: "제조사",
-    mufcDate: "제조일",
     prodDescription: "상품설명",
     dataSheet: "데이터시트",
     photo: "사진",

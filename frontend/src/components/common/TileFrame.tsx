@@ -30,6 +30,9 @@ export function TileFrame({ pane, closable = true }: { pane: Pane; closable?: bo
   const [src] = useState(pane.path);
   const [loadError, setLoadError] = useState(false);
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const boxRef = useRef<HTMLDivElement>(null);
+  // iframe 안에서 모달이 열려 있는 동안 이 칸을 창 전체로 키운다 — 모달이 그 칸 안에 갇히지 않고 창 가운데 뜨게 (2026-11-02)
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     const handler = (event: MessageEvent) => {
@@ -41,7 +44,18 @@ export function TileFrame({ pane, closable = true }: { pane: Pane; closable?: bo
         return;
       }
       // iframe 안에서 다른 화면을 열면 부모 큐가 판단 (같은 화면 이동은 iframe이 스스로 하고 경로만 보고)
-      if (event.data.type === "open") open(pane.key, event.data.path, event.data.reset === true);
+      if (event.data.type === "modal") {
+        // 키우기 전에 칸 위치를 재서 iframe 에 알린다 — 그 자리에 칸 내용을 그대로 두고 막·모달만 창 전체에 뜬다
+        const rect = boxRef.current?.getBoundingClientRect();
+        if (event.data.open === true && rect) {
+          iframeRef.current?.contentWindow?.postMessage(
+            { source: "market-tile", type: "modal-rect", rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } },
+            window.location.origin,
+          );
+        }
+        setModalOpen(event.data.open === true);
+      }
+      else if (event.data.type === "open") open(pane.key, event.data.path, event.data.reset === true);
       else updatePath(pane.key, event.data.pathname);
     };
     window.addEventListener("message", handler);
@@ -62,15 +76,24 @@ export function TileFrame({ pane, closable = true }: { pane: Pane; closable?: bo
   }
 
   return (
-    <div className="relative h-full w-full min-h-0">
-      <iframe
-        ref={iframeRef}
-        src={src}
-        title={t.tileFrameTitle}
-        onError={() => setLoadError(true)}
-        className="h-full w-full border-0"
-      />
-      {closable && <TileCloseButton onClick={() => close(pane.key)} />}
+    // 바깥 칸은 늘 제자리를 지킨다 — 칸 위치는 이 요소로 잰다. 안쪽이 창 전체로 커진 뒤(담기 모달 → 완료 모달처럼 이어질 때)에 재면
+    // 창 전체 크기가 나와 상세가 창 크기로 펴졌다 (2026-11-04)
+    <div ref={boxRef} className="relative h-full w-full min-h-0">
+      <div className={modalOpen ? "fixed inset-0 z-60" : "relative h-full w-full min-h-0"}>
+        <iframe
+          ref={iframeRef}
+          src={src}
+          title={t.tileFrameTitle}
+          // 새로 불러온 문서에는 열린 모달이 없다 — F5·뒤로 가기·재시도로 "닫힘" 메시지 없이 문서가 사라져도 칸이 커진 채 남지 않게
+          onLoad={() => setModalOpen(false)}
+          onError={() => {
+            setModalOpen(false);
+            setLoadError(true);
+          }}
+          className="h-full w-full border-0"
+        />
+        {closable && !modalOpen && <TileCloseButton onClick={() => close(pane.key)} />}
+      </div>
     </div>
   );
 }

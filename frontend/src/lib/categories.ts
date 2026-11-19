@@ -28,6 +28,12 @@ export function buildCategoryTree(items: CategoryItem[]): CategoryNode[] {
   return roots;
 }
 
+/** 서버가 준 "대 > 중 > 소" 경로 글자의 마지막 이름 (표에는 소분류만, 전체 경로는 마우스를 올리면 — 2026-11-02 사용자 지시) */
+export function leafCategoryName(path: string): string {
+  const parts = path.split(" > ");
+  return parts[parts.length - 1].trim() || path;
+}
+
 /** 소분류 코드의 "대 > 중 > 소" 경로. 트리에 없으면 null */
 export function categoryPath(tree: CategoryNode[], code: string): CategoryNode[] | null {
   const parts = code.split("-");

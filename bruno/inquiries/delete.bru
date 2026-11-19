@@ -1,0 +1,15 @@
+meta {
+  name: 문의 삭제 (본인 또는 관리자)
+  type: http
+  seq: 6
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/inquiries/00000000-0000-0000-0000-000000000000
+  body: none
+  auth: none
+}
+
+docs {
+  로그인 쿠키 필요. 본인 글 또는 로그인 아이디 yksoo00 → 204 (답글도 같이 삭제). 그 외 403.
+}

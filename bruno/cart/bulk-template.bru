@@ -1,0 +1,16 @@
+meta {
+  name: 대량구매 양식 내려받기
+  type: http
+  seq: 10
+}
+
+get {
+  url: {{baseUrl}}/api/v1/cart/bulk/template
+  body: none
+  auth: none
+}
+
+docs {
+  로그인(auth/login.bru) 먼저. 200 .xlsx 첨부 파일(헤더만, 예시 줄 없음). * 가 붙은 칸이 필수 (상품명·제조사·수량·납품희망일).
+  로그인 없이 받으면 401.
+}

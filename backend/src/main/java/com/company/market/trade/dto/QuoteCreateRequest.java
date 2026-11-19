@@ -29,7 +29,13 @@ public record QuoteCreateRequest(@NotNull @Size(min = 1, max = MAX_ITEMS) List<@
 			@NotBlank(message = TradeCreateRequest.REQ_DELI_DATE_REQUIRED)
 			@Pattern(regexp = ListingCreateRequest.DELIVERY_DATE_PATTERN, message = TradeCreateRequest.REQ_DELI_DATE_MESSAGE)
 			String reqDeliDate,
-			@Size(max = 100) String remarks) {
+			@Size(max = 100) String remarks,
+			// 장바구니에서 누른 견적이면 그 줄의 거래ID — 있으면 그 줄이 견적요청이 된다 (2026-11-02)
+			@Size(max = 20) String cartTradeId) {
+
+		public Item(UUID sellerId, String regDate, Integer orderUnitPrice, Integer orderQuantity, String reqDeliDate, String remarks) {
+			this(sellerId, regDate, orderUnitPrice, orderQuantity, reqDeliDate, remarks, null);
+		}
 	}
 
 }

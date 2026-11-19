@@ -98,7 +98,7 @@ class ListingConcurrencyTest {
 		// 판매자 수정: 단가만. 잠금이 없으면 커밋 전 값(재고 10)을 읽어 두었다가 그대로 다시 쓴다
 		CompletableFuture<Void> patch = CompletableFuture.runAsync(() -> service.update(sellerId, REG_DATE, sellerId,
 				new ListingUpdateRequest(null, null, 1200, null, null, null, null, null, null, null, null, null, null,
-						null, null, null, null, null, null, null, null, null)));
+						null, null, null, null, null, null, null, null)));
 		Thread.sleep(300);
 		release.countDown();
 		purchase.get(10, TimeUnit.SECONDS);
@@ -125,7 +125,7 @@ class ListingConcurrencyTest {
 		CompletableFuture<Throwable> attempt = CompletableFuture.supplyAsync(() -> {
 			try {
 				service.update(sellerId, REG_DATE, stranger, new ListingUpdateRequest(null, null, 1, null, null, null, null,
-						null, null, null, null, null, null, null, null, null, null, null, null, null, null, null));
+						null, null, null, null, null, null, null, null, null, null, null, null, null, null));
 				return null;
 			}
 			catch (RuntimeException e) {

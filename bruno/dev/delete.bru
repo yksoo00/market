@@ -15,3 +15,8 @@ body:json {
     "category_code": "ZZ1"
   }
 }
+
+docs {
+  APP_ENV=local 에서만. 이 행과 딸린 다른 테이블의 행(DevTableRelations — 사용자·상품마스터·매물·거래·카테고리의 자식, 자식의 자식까지)을 한 트랜잭션으로 같이 지운다 (2026-11-03).
+  200 { ok, data: { deleted: 합계, tables: { "테이블": 지운 행 수 } } }. 미리 보려면 related.bru. 404 없는 행, 400 PK 컬럼 전부가 아님·한 번에 2만 행 초과.
+}

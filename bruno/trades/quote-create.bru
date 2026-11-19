@@ -30,6 +30,7 @@ vars:pre-request {
 }
 
 docs {
+  items[].cartTradeId(선택): 장바구니에서 누른 견적이면 그 줄의 거래ID — 있으면 그 줄이 견적요청이 되고 묶었던 수량이 풀린다(견적은 안 묶음). 이미 견적이 있는 매물이면 그 견적을 덮어쓰고 그 장바구니 줄만 지운다. (2026-11-02)
   로그인(login.bru) 먼저. 구매자는 인증 정보에서만. sellerId·regDate 는 매물 키(자리표시).
   items 1~20개. 매물마다 희망단가(1 ~ 등록단가)·수량(최소주문량 이상·주문단위 배수·재고 이하)·납품희망일(필수, YYYY-MM-DD 오늘 이후 — 2026-10-27)·비고(100자).
   201 { ok, data: TradeResponse[] } — tradeType "quote", tradeStats "quoteRequested". 재고는 그대로. 판매자에게 메일.

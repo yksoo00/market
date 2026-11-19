@@ -24,9 +24,11 @@ const t = home.quick;
 const routes = {
   sellManual: "/listings/new",
   sellExtra: "/listings/extra",
+  sellBulk: "/listings/bulk",
   sellQuote: "/my/activity?tab=requests",
   buyRequest: "/search",
   buyQuotes: "/my/activity?tab=purchases",
+  buyBulk: "/buy/bulk",
 };
 
 type Tone = "sell" | "buy";
@@ -126,18 +128,14 @@ export function AppLauncher() {
             >
               <Cell icon="sellNew" label={t.sellNew} />
             </DropdownMenuItem>
-            <DropdownMenuItem className={`${cellClass} ${toneClass.sell}`} onSelect={(e) => onPick(e, "excel")}>
-              <Cell icon="sellBulk" label={t.sellBulk} />
-            </DropdownMenuItem>
+            <LinkCell tone="sell" icon="sellBulk" label={t.sellBulk} href={routes.sellBulk} onClick={close} />
             <LinkCell tone="sell" icon="sellExtra" label={t.sellExtra} href={routes.sellExtra} onClick={close} />
             <LinkCell tone="sell" icon="sellQuote" label={t.sellQuote} href={routes.sellQuote} onClick={close} />
           </Section>
           <Section tone="buy" label={t.buy}>
             <LinkCell tone="buy" icon="buyRequest" label={t.buyRequest} href={routes.buyRequest} onClick={close} />
             <LinkCell tone="buy" icon="buyQuotes" label={t.buyQuotes} href={routes.buyQuotes} onClick={close} />
-            <DropdownMenuItem className={`${cellClass} ${toneClass.buy}`} onSelect={(e) => onPick(e, "excel")}>
-              <Cell icon="buyBulk" label={t.buyBulk} />
-            </DropdownMenuItem>
+            <LinkCell tone="buy" icon="buyBulk" label={t.buyBulk} href={routes.buyBulk} onClick={close} />
           </Section>
         </DropdownMenuContent>
       </DropdownMenu>

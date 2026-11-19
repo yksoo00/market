@@ -24,6 +24,10 @@ export function prodStateFromStored(stored: string): ProdState | "" {
 
 /** 수정 폼의 입력 상태. 숫자 칸은 문자열(빈 칸 = 미입력), 파일 칸은 업로드 키("" = 없음) */
 export interface ListingEditValues {
+  // 상품 칸 (2026-11-02 행 안 수정 폐지로 수정 화면이 맡는다).
+  prodName: string;
+  prodBrand: string;
+  prodNo: string;
   prodState: string;
   salesUnitPrice: string;
   salesQuantity: string;
@@ -40,6 +44,9 @@ const str = (n: number | null) => (n === null ? "" : String(n));
 
 export function editInitialValues(d: ListingDetail): ListingEditValues {
   return {
+    prodName: d.prodName,
+    prodBrand: d.prodBrand,
+    prodNo: d.prodNo ?? "",
     prodState: prodStateFromStored(d.prodState),
     salesUnitPrice: str(d.salesUnitPrice),
     salesQuantity: str(d.salesQuantity),
@@ -55,6 +62,8 @@ export function editInitialValues(d: ListingDetail): ListingEditValues {
 
 const numberFields = ["salesUnitPrice", "salesQuantity", "stockQuantity", "minOrderQuantity", "orderUnit"] as const;
 const textFields = ["prodState", "deliveryDate", "description", "listingDataSheet"] as const;
+// 앞뒤 공백은 잘라 비교·전송한다 (폼이 잘라 보내므로 공백만 바꾼 걸 바뀜으로 보면 [저장]이 켜지는데 보낼 게 없다). 지운 칸은 ""
+const productFields = ["prodName", "prodBrand", "prodNo"] as const;
 
 /**
  * 처음 값과 달라진 칸만 PATCH 요청으로. 안 바뀐 칸은 키를 생략한다(서버는 null·생략 = 안 바꿈).
@@ -71,6 +80,10 @@ export function diffToUpdateRequest(initial: ListingEditValues, current: Listing
   for (const key of textFields) {
     const before = key === "description" ? initial.description.trim() : initial[key];
     if (before !== trimmed[key]) req[key] = trimmed[key];
+  }
+  for (const key of productFields) {
+    const now = current[key].trim();
+    if (initial[key].trim() !== now) req[key] = now;
   }
   // 배열은 순서도 비교 — 첫 장이 대표 사진이다
   if (initial.photos.join("|") !== current.photos.join("|")) req.photos = [...current.photos];

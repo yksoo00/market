@@ -1,5 +1,6 @@
 package com.company.market.listing.repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -20,6 +21,9 @@ public interface ListingRepository extends JpaRepository<Listing, ListingId> {
 
 	boolean existsByUserIdAndRegDate(UUID userId, String regDate);
 
+	/** 이 상품마스터의 모든 매물 (엑셀 대량구매의 매물 후보). 등록일시 순 */
+	List<Listing> findAllByProdIdOrderByRegDate(String prodId);
+
 	/** 내 매물이 하나라도 있나 (검색 "내 판매" 탭 판정) */
 	boolean existsByUserId(UUID userId);
 
@@ -35,19 +39,30 @@ public interface ListingRepository extends JpaRepository<Listing, ListingId> {
 	long countByProdId(String prodId);
 
 	/**
-	 * 구매요청의 재고 차감. 읽고-빼고-쓰기를 한 문장으로 해서 락 없이도 동시 요청이 재고를 음수로 만들지 못한다.
-	 * 0이 되면 거래완료일시를 넣는다. 바뀐 행 수 0 = 재고 부족이거나 이미 거래완료.
+	 * 재고 묶기(구매요청·견적 수락). 읽고-빼고-쓰기를 한 문장으로 해서 락 없이도 동시 요청이 재고를 음수로 만들지 못한다.
+	 * 재고가 0이 돼도 거래완료일시는 넣지 않는다 — 판매완료는 구매 확정 때 markSoldOut 이 정한다 (2026-11-02).
+	 * 바뀐 행 수 0 = 재고 부족이거나 이미 거래완료.
 	 */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query(value = """
 			update trd_prod_reg
-			   set stock_quantity = stock_quantity - :quantity,
-			       dt_expire = case when stock_quantity - :quantity = 0 then :now else dt_expire end
+			   set stock_quantity = stock_quantity - :quantity
 			 where user_id = :sellerId and reg_date = :regDate and prod_id = :prodId
 			   and dt_expire is null and stock_quantity >= :quantity
 			""", nativeQuery = true)
 	int reserveStock(@Param("sellerId") UUID sellerId, @Param("regDate") String regDate, @Param("prodId") String prodId,
-			@Param("quantity") int quantity, @Param("now") String now);
+			@Param("quantity") int quantity);
+
+	/** 판매완료 표시 — 재고가 0 이고 아직 거래 중일 때만. 바뀐 행 수 0 = 재고가 남았거나 이미 거래완료 */
+	@Modifying(flushAutomatically = true, clearAutomatically = true)
+	@Query(value = """
+			update trd_prod_reg
+			   set dt_expire = :now
+			 where user_id = :sellerId and reg_date = :regDate and prod_id = :prodId
+			   and dt_expire is null and stock_quantity = 0
+			""", nativeQuery = true)
+	int markSoldOut(@Param("sellerId") UUID sellerId, @Param("regDate") String regDate, @Param("prodId") String prodId,
+			@Param("now") String now);
 
 	/** 거래 취소로 재고를 돌려준다. 재고가 생기니 거래완료일시도 지운다 (다시 판매 중·수정 가능) */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)

@@ -2,12 +2,14 @@ package com.company.market.trade.controller;
 
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.List;
 import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.auth.AuthCookies;
 import com.company.market.common.auth.JwtProvider;
 import com.company.market.common.crypto.PiiHasher;
+import com.jayway.jsonpath.JsonPath;
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.Product;
 import com.company.market.listing.repository.ListingRepository;
@@ -31,6 +33,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -336,6 +339,34 @@ class TradeActivityApiTest {
 	}
 
 	@Test
+	@DisplayName("이력 검색 구분: all(기본)은 제조사도, name 은 상품명만, brand 는 제조사만. 낱말은 순서 상관없이 전부 맞아야 한다")
+	void historySearchField() throws Exception {
+		filterFixture();
+		mvc.perform(get("/api/v1/trades/history?page=1&q=dell").cookie(buyer)).andExpect(jsonPath("$.data.total").value(2));
+		mvc.perform(get("/api/v1/trades/history?page=1&field=all&q=dell").cookie(buyer)).andExpect(jsonPath("$.data.total").value(2));
+		mvc.perform(get("/api/v1/trades/history?page=1&field=name&q=dell").cookie(buyer)).andExpect(jsonPath("$.data.total").value(0));
+		mvc.perform(get("/api/v1/trades/history?page=1&field=brand&q=cisco").cookie(buyer)).andExpect(jsonPath("$.data.total").value(2));
+		mvc.perform(get("/api/v1/trades/history?page=1&field=brand&q=C9300").cookie(buyer)).andExpect(jsonPath("$.data.total").value(0));
+		mvc.perform(get("/api/v1/trades/history?page=1").param("q", "R740 서버").cookie(buyer)).andExpect(jsonPath("$.data.total").value(2));
+		mvc.perform(get("/api/v1/trades/history?page=1").param("q", "R740 cisco").cookie(buyer)).andExpect(jsonPath("$.data.total").value(0));
+	}
+
+	@Test
+	@DisplayName("검색어에 맞는 상품이 아주 많아도(600개) 내 거래 상품은 빠지지 않는다 — 내 거래 상품 안에서만 찾는다 (2026-11-02)")
+	void searchDoesNotDropMyProductsWhenManyMatch() throws Exception {
+		filterFixture();
+		// 내 거래 상품(ACTAPI01, Dell)보다 상품ID 가 앞서는 남의 Dell 상품 600개 — 예전엔 앞 500개만 걸어 내 거래가 빠졌다
+		jdbc.batchUpdate("""
+				insert into trd_prod_master (prod_id, major_category, middle_category, minor_category, prod_name, prod_brand, reg_date)
+				values (?, 'P01', 'Q01', 'R001', ?, 'Dell', '20261001000000')
+				""", java.util.stream.IntStream.range(0, 600).mapToObj(i -> new Object[] { "AAAA%04d".formatted(i), "다른 상품 " + i }).toList());
+		mvc.perform(get("/api/v1/trades/history?page=1&field=brand&q=dell").cookie(buyer)).andExpect(jsonPath("$.data.total").value(2));
+		buy(buyerId, REG_A, 1); // 서버 R740 (Dell)
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1&field=brand&q=dell").cookie(buyer)).andExpect(jsonPath("$.data.total").value(1));
+		mvc.perform(get("/api/v1/trades?role=seller&active=true&page=1&q=dell").cookie(seller)).andExpect(jsonPath("$.data.total").value(1));
+	}
+
+	@Test
 	@DisplayName("이력 필터: 기간은 양끝 날짜를 포함한다 (to 날짜 23:59:59 까지)")
 	void historyFilterByPeriod() throws Exception {
 		filterFixture();
@@ -383,6 +414,53 @@ class TradeActivityApiTest {
 			.andExpect(jsonPath("$.data.items[3].tradeId").value("20261005001"));
 	}
 
+	/** 구매자·판매자·단가·수량을 고른 이력 한 줄 (금액 = 단가 × 수량) */
+	private void historyRow(String tradeId, String date, String prodId, UUID buyerOfRow, UUID sellerOfRow, int unitPrice, int quantity) {
+		jdbc.update("""
+				insert into trd_trade_history (user_id, trade_id, trade_date, prod_id, trade_type, seller_id, trade_unit_price, trade_quantity, trade_amount)
+				values (?, ?, ?, ?, '거래', ?, ?, ?, ?)
+				""", buyerOfRow, tradeId, date, prodId, sellerOfRow, unitPrice, quantity, unitPrice * quantity);
+	}
+
+	private List<String> historyOrder(String sort) throws Exception {
+		String body = mvc.perform(get("/api/v1/trades/history?page=1&sort=" + sort).cookie(buyer)).andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+		return JsonPath.read(body, "$.data.items[*].tradeId");
+	}
+
+	@Test
+	@DisplayName("이력 열 머리 정렬: 상품명·상대·구분·단가·수량·금액 오름·내림, 같은 값이면 최신 먼저, 값이 비면 오름·내림 모두 맨 뒤 (2026-11-03)")
+	void historyColumnSort() throws Exception {
+		// T1: 내가 구매(서버 R740, 상대 actseller), T2: 내가 구매(스위치 C9300, 상대 actstranger), T3: 내가 판매(서버 R740, 상대 actstranger)
+		historyRow("20261001001", "20261001090000", "ACTAPI01", buyerId, sellerId, 300, 5);
+		historyRow("20261002001", "20261002090000", "ACTAPI02", buyerId, strangerId, 100, 9);
+		historyRow("20261003001", "20261003090000", "ACTAPI01", strangerId, buyerId, 200, 1);
+		String t1 = "20261001001", t2 = "20261002001", t3 = "20261003001";
+		assertThat(historyOrder("latest")).containsExactly(t3, t2, t1);
+		assertThat(historyOrder("oldest")).containsExactly(t1, t2, t3);
+		// 상품명: 서버 R740 < 스위치 C9300 (가나다순), 같으면 최신 먼저
+		assertThat(historyOrder("nameAsc")).containsExactly(t3, t1, t2);
+		assertThat(historyOrder("nameDesc")).containsExactly(t2, t3, t1);
+		// 상대(별명): actseller < actstranger
+		assertThat(historyOrder("partyAsc")).containsExactly(t1, t3, t2);
+		assertThat(historyOrder("partyDesc")).containsExactly(t3, t2, t1);
+		// 구분: 오름 = 구매 먼저
+		assertThat(historyOrder("sideAsc")).containsExactly(t2, t1, t3);
+		assertThat(historyOrder("sideDesc")).containsExactly(t3, t2, t1);
+		assertThat(historyOrder("unitPriceAsc")).containsExactly(t2, t3, t1);
+		assertThat(historyOrder("unitPriceDesc")).containsExactly(t1, t3, t2);
+		assertThat(historyOrder("quantityAsc")).containsExactly(t3, t1, t2);
+		assertThat(historyOrder("quantityDesc")).containsExactly(t2, t1, t3);
+		assertThat(historyOrder("amountAsc")).containsExactly(t3, t2, t1);
+		assertThat(historyOrder("amountDesc")).containsExactly(t1, t2, t3);
+		// 값이 비어 있는 줄은 오름·내림 모두 맨 뒤
+		jdbc.update("update trd_trade_history set trade_amount = null, trade_unit_price = null where trade_id = ?", t2);
+		assertThat(historyOrder("amountAsc")).last().isEqualTo(t2);
+		assertThat(historyOrder("amountDesc")).last().isEqualTo(t2);
+		assertThat(historyOrder("unitPriceAsc")).last().isEqualTo(t2);
+		assertThat(historyOrder("unitPriceDesc")).last().isEqualTo(t2);
+	}
+
 	@Test
 	@DisplayName("이력 정렬: 페이지를 넘겨도 정렬 순서가 이어진다 (금액 낮은 순 25건, 2페이지)")
 	void historySortAcrossPages() throws Exception {
@@ -414,6 +492,8 @@ class TradeActivityApiTest {
 			.andExpect(jsonPath("$.fields.q").exists());
 		mvc.perform(get("/api/v1/trades/history?page=1&sort=x").cookie(buyer)).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.sort").exists());
+		mvc.perform(get("/api/v1/trades/history?page=1&field=prodNo&q=a").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.field").exists());
 		mvc.perform(get("/api/v1/trades/history?sort=oldest").cookie(buyer)).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.sort").exists());
 		mvc.perform(get("/api/v1/trades/history?q=R740").cookie(buyer)).andExpect(status().isOk());
@@ -461,6 +541,14 @@ class TradeActivityApiTest {
 			.andExpect(jsonPath("$.data.total").value(0));
 		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1").param("q", "r740").cookie(stranger))
 			.andExpect(jsonPath("$.data.total").value(0));
+		// 검색 구분 — 이력과 같은 규칙
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1&q=cisco").cookie(buyer)).andExpect(jsonPath("$.data.total").value(1));
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1&field=name&q=cisco").cookie(buyer))
+			.andExpect(jsonPath("$.data.total").value(0));
+		mvc.perform(get("/api/v1/trades?role=seller&active=true&page=1&field=brand&q=dell").cookie(seller))
+			.andExpect(jsonPath("$.data.total").value(1));
+		mvc.perform(get("/api/v1/trades?role=buyer&active=true&page=1&field=x&q=a").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.field").exists());
 	}
 
 	@Test
@@ -514,6 +602,45 @@ class TradeActivityApiTest {
 			.andExpect(jsonPath("$.data.items[3].tradeId").value(big));
 	}
 
+	private List<String> tradeOrder(String role, Cookie who, String sort) throws Exception {
+		String body = mvc.perform(get("/api/v1/trades?role=" + role + "&active=true&page=1&sort=" + sort).cookie(who)).andExpect(status().isOk())
+			.andReturn().getResponse().getContentAsString();
+		return JsonPath.read(body, "$.data.items[*].tradeId");
+	}
+
+	@Test
+	@DisplayName("목록 열 머리 정렬: 상품명·상대·수량·단가·금액·납품희망일·상태 오름·내림, 같은 값이면 최신 먼저, 값이 같으면 최신 먼저 (2026-11-03)")
+	void tradeListColumnSort() throws Exception {
+		// 판매자 입장(받은 요청): a = 서버·구매자 actbuyer, b = 스위치·구매자 actstranger, c = 스위치·구매자 actbuyer
+		String a = buy(buyerId, REG_A, 1);
+		String b = buy(strangerId, REG_B, 3);
+		String c = buy(buyerId, REG_B, 2);
+		jdbc.update("update trd_trade_info set order_unit_price = 900, req_deli_date = '2099-12-03' where trade_id = ?", a); // 900원
+		jdbc.update("update trd_trade_info set order_unit_price = 1000, req_deli_date = '2099-12-01' where trade_id = ?", b); // 3,000원
+		jdbc.update("update trd_trade_info set order_unit_price = 600, req_deli_date = '2099-12-02', trade_stats = '견적요청' where trade_id = ?", c); // 1,200원
+		assertThat(tradeOrder("seller", seller, "latest")).containsExactly(c, b, a);
+		// 상품명: 서버 R740 < 스위치 C9300 (가나다순), 같으면 최신 먼저
+		assertThat(tradeOrder("seller", seller, "nameAsc")).containsExactly(a, c, b);
+		assertThat(tradeOrder("seller", seller, "nameDesc")).containsExactly(c, b, a);
+		// 상대(받은 요청은 구매자 별명): actbuyer < actstranger
+		assertThat(tradeOrder("seller", seller, "partyAsc")).containsExactly(c, a, b);
+		assertThat(tradeOrder("seller", seller, "partyDesc")).containsExactly(b, c, a);
+		assertThat(tradeOrder("seller", seller, "quantityAsc")).containsExactly(a, c, b);
+		assertThat(tradeOrder("seller", seller, "quantityDesc")).containsExactly(b, c, a);
+		assertThat(tradeOrder("seller", seller, "unitPriceAsc")).containsExactly(c, a, b);
+		assertThat(tradeOrder("seller", seller, "unitPriceDesc")).containsExactly(b, a, c);
+		assertThat(tradeOrder("seller", seller, "amountAsc")).containsExactly(a, c, b);
+		assertThat(tradeOrder("seller", seller, "amountDesc")).containsExactly(b, c, a);
+		assertThat(tradeOrder("seller", seller, "reqDeliAsc")).containsExactly(b, c, a);
+		assertThat(tradeOrder("seller", seller, "reqDeliDesc")).containsExactly(a, c, b);
+		// 상태는 진행 순서: 견적요청(c) → 구매요청(a, b — 같으면 최신 먼저)
+		assertThat(tradeOrder("seller", seller, "statusAsc")).containsExactly(c, b, a);
+		assertThat(tradeOrder("seller", seller, "statusDesc")).containsExactly(b, a, c);
+		// 내 구매(구매자 입장)의 상대는 판매자 — 판매자는 한 명이라 같은 값끼리 최신 먼저
+		assertThat(tradeOrder("buyer", buyer, "partyAsc")).containsExactly(c, a);
+		// (납품희망일·수량·단가는 필수 컬럼이라 비어 있는 줄은 없다 — 이름·별명이 비는 경우만 맨 뒤 규칙이 쓰인다)
+	}
+
 	@Test
 	@DisplayName("목록 필터: 잘못된 값은 400 (날짜·기간 뒤집힘·금액·q 101자·sort), 커서 방식에서 최신순 아닌 정렬도 400")
 	void tradeListFilterValidation() throws Exception {
@@ -527,6 +654,9 @@ class TradeActivityApiTest {
 		mvc.perform(get(base).param("q", "가".repeat(101)).cookie(buyer)).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.q").exists());
 		mvc.perform(get(base + "&sort=x").cookie(buyer)).andExpect(status().isBadRequest())
+			.andExpect(jsonPath("$.fields.sort").exists());
+		// 거래이력 전용 값(side)은 이 목록이 못 받는다 — 조용히 최신순으로 받지 않고 400
+		mvc.perform(get(base + "&sort=sideAsc").cookie(buyer)).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.sort").exists());
 		mvc.perform(get("/api/v1/trades?role=buyer&active=true&sort=oldest").cookie(buyer)).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields.sort").exists());

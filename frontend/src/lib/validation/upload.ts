@@ -4,13 +4,18 @@ import { upload as t } from "@/messages/upload";
 // 매직 바이트 검사는 백엔드 몫 (브라우저가 주는 Content-Type 은 믿지 않는다).
 const MB = 1024 * 1024;
 
-export type UploadKind = "excel" | "pdf" | "image";
+export type UploadKind = "excel" | "pdf" | "image" | "zip";
 
 const rules: Record<UploadKind, { exts: string[]; maxBytes: number }> = {
   excel: { exts: [".xlsx", ".xls"], maxBytes: 10 * MB },
   pdf: { exts: [".pdf"], maxBytes: 10 * MB },
   image: { exts: [".jpg", ".jpeg", ".png", ".webp"], maxBytes: 5 * MB },
+  // 다량 등록의 사진·데이터시트 묶음. 엑셀과 합쳐 요청 총량이 50MB 이하여야 한다 (BULK_UPLOAD_MAX_BYTES)
+  zip: { exts: [".zip"], maxBytes: 50 * MB },
 };
+
+/** 다량 등록 요청(엑셀 + ZIP) 총량 한도 — 서버 multipart 바깥 상한과 같다 (security.md "파일 업로드") */
+export const BULK_UPLOAD_MAX_BYTES = 50 * MB;
 
 export function acceptOf(kind: UploadKind): string {
   return rules[kind].exts.join(",");

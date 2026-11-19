@@ -1,10 +1,12 @@
 package com.company.market.common.storage;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -92,15 +94,39 @@ public class UploadService {
 				throw new ApiException(ErrorCode.UPLOAD_INVALID_TYPE);
 			}
 		}
+		try (InputStream in = file.getInputStream()) {
+			return save(userId, kind, type, in, file.getSize());
+		}
+	}
+
+	/**
+	 * 이미 메모리에 있는 파일(다량 등록 ZIP 안의 파일)을 단건 업로드와 같은 검사로 저장하고 키를 돌려준다.
+	 * 호출자가 크기를 미리 한도 안으로 읽어 와야 한다 (바이트가 이미 메모리에 있으므로 여기선 용도별 상한만 다시 본다)
+	 */
+	public String store(UUID userId, UploadKind kind, String filename, byte[] content) throws IOException {
+		FileType type = FileType.fromFilename(filename)
+			.filter(kind::allows)
+			.orElseThrow(() -> new ApiException(ErrorCode.UPLOAD_INVALID_TYPE));
+		if (content.length == 0) {
+			throw new ApiException(ErrorCode.UPLOAD_INVALID_TYPE);
+		}
+		if (content.length > kind.maxBytes()) {
+			throw new ApiException(ErrorCode.UPLOAD_TOO_LARGE);
+		}
+		if (!type.matches(Arrays.copyOf(content, Math.min(content.length, FileType.HEAD_LENGTH)))) {
+			throw new ApiException(ErrorCode.UPLOAD_INVALID_TYPE);
+		}
+		return save(userId, kind, type, new ByteArrayInputStream(content), content.length);
+	}
+
+	/** 검사를 마친 파일을 저장하고 소유 기록을 남긴다 */
+	private String save(UUID userId, UploadKind kind, FileType type, InputStream in, long size) throws IOException {
 		// 디스크 하한 — 같은 디스크의 Postgres 보호 (security.md "파일 업로드")
-		if (storage.usableSpace() - file.getSize() < props.minFree().toBytes()) {
+		if (storage.usableSpace() - size < props.minFree().toBytes()) {
 			throw new ApiException(ErrorCode.STORAGE_FULL);
 		}
-
 		String key = kind.newKey(type, clock);
-		try (InputStream in = file.getInputStream()) {
-			storage.save(key, in);
-		}
+		storage.save(key, in);
 		redis.opsForValue().set(RECORD_PREFIX + key, userId + "|" + kind.value(), RECORD_TTL);
 		return key;
 	}

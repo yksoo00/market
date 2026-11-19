@@ -5,6 +5,7 @@ import { useFormContext, useWatch } from "react-hook-form";
 import { cn } from "cn";
 import { Input } from "@/components/ui/input";
 import { FieldShell } from "@/components/auth/FormField";
+import { ProductSearchDialog } from "@/components/listing/ProductSearchDialog";
 import { catalogApi } from "@/lib/api/catalog";
 import type { ListingFormInput } from "@/lib/validation/listing";
 import { listing } from "@/messages/listing";
@@ -12,14 +13,9 @@ import type { ProductSearchItem } from "@/types/listing";
 
 const t = listing.form.master;
 
-/** 마스터의 yyyyMMdd → 날짜 칸의 YYYY-MM-DD. 형식이 다르면 비운다 */
-function toDateInput(s: string | null): string {
-  return s && /^\d{8}$/.test(s) ? `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}` : "";
-}
-
 // 마스터가 채우는(직접 입력으로 바꾸면 비우는) 폼 칸
 const productFields = [
-  "prodId", "masterPhoto", "masterDataSheet", "categoryCode", "prodName", "prodBrand", "prodNo", "prodMufcDate", "prodSpecInfo",
+  "prodId", "masterPhoto", "masterDataSheet", "categoryCode", "prodName", "prodBrand", "prodNo", "prodSpecInfo",
   "prodClassNo", "prodUsefulLife", "warrantyMethod", "alterProdName",
 ] as const;
 type ProductField = (typeof productFields)[number] | "manual";
@@ -29,7 +25,7 @@ type Search = { q: string; items: ProductSearchItem[] | null };
 /**
  * 상품마스터 드롭다운 (카테고리 칸과 같은 모양). 처음엔 아무것도 고르지 않은 상태라 아래 상품 칸이 잠겨 있다.
  * 누르면 맨 위 "직접 입력" + 마스터 목록(이름순 앞 10건, 이름·제조사·번호를 치면 걸러짐)이 열린다.
- * - 마스터를 고르면 상품 칸(카테고리·상품명·제조사·번호·제조일·사양·분류번호·보증년수·정품보증방법·대체상품명)이 마스터 값으로 채워진 채 잠기고, 마스터의 데이터시트·사진 키는 폼에 따로 담긴다.
+ * - 마스터를 고르면 상품 칸(카테고리·상품명·제조사·번호·사양·분류번호·보증년수·정품보증방법·대체상품명)이 마스터 값으로 채워진 채 잠기고, 마스터의 데이터시트·사진 키는 폼에 따로 담긴다.
  * - "직접 입력"을 고르면 상품 칸이 비워져 열린다. 입력한 상품은 서버가 새 마스터로 저장한다.
  */
 export function ProductPicker() {
@@ -40,6 +36,8 @@ export function ProductPicker() {
   const brand = useWatch({ control, name: "prodBrand" });
   const prodNo = useWatch({ control, name: "prodNo" });
   const [open, setOpen] = useState(false);
+  // 드롭다운은 앞 10건뿐이라 많을 땐 [자세히 찾기]의 큰 검색 모달(필터·페이지 번호)로 고른다 (계획 2026-11-09-product-search-modal.md)
+  const [detailOpen, setDetailOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [active, setActive] = useState(0);
   // items null = 불러오지 못함. q 가 지금 검색어와 같을 때만 보여 준다 (늦게 온 이전 검색어 결과 무시)
@@ -74,7 +72,6 @@ export function ProductPicker() {
     set("prodName", p.prodName);
     set("prodBrand", p.prodBrand);
     set("prodNo", p.prodNo ?? "");
-    set("prodMufcDate", toDateInput(p.prodMufcDate));
     set("prodSpecInfo", p.prodSpecInfo ?? "");
     set("prodClassNo", p.prodClassNo ?? "");
     set("prodUsefulLife", p.prodUsefulLife === null ? "" : String(p.prodUsefulLife));
@@ -199,6 +196,24 @@ export function ProductPicker() {
           </ul>
         )}
       </div>
+      <div className="mt-1.5 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setDetailOpen(true)}
+          className="h-8 rounded-md border border-line px-3 text-[13px] font-medium text-ink-2 hover:bg-bg"
+        >
+          {t.detail}
+        </button>
+      </div>
+      {detailOpen && (
+        <ProductSearchDialog
+          onClose={() => setDetailOpen(false)}
+          onPick={(item) => {
+            setDetailOpen(false);
+            pickMaster(item);
+          }}
+        />
+      )}
     </FieldShell>
   );
 }

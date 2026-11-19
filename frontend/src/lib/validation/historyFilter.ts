@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { HISTORY_SORTS, isRealDate, MAX_AMOUNT, MAX_Q } from "@/lib/historyFilter";
+import { SEARCH_FIELDS } from "@/lib/search";
 import { my } from "@/messages/my";
 
 const t = my.history.filter.validation;
@@ -12,15 +13,16 @@ const date = z.string().refine((s) => s === "" || isRealDate(s), t.date);
  * 칸은 문자열 그대로(빈 칸 = 조건 없음) — 폼 값이 곧 주소 값. 수치는 docs/security.md "입력 검증" 거래이력·활동내역.
  * zod 4는 칸 검사가 실패해도 뒤 refine 을 돌리므로 형식이 맞을 때만 앞뒤를 비교한다
  */
-export function listFilterSchema(statuses: readonly string[] | null) {
+export function listFilterSchema(statuses: readonly string[] | null, sorts: readonly string[] = HISTORY_SORTS) {
   return z
     .object({
       q: z.string().refine((s) => s.trim().length <= MAX_Q, t.q),
+      field: z.string().refine((s) => (SEARCH_FIELDS as readonly string[]).includes(s)),
       from: date,
       to: date,
       min: amount,
       max: amount,
-      sort: z.enum(HISTORY_SORTS),
+      sort: z.string().refine((s) => sorts.includes(s)),
       ...(statuses ? { status: z.string().refine((s) => s === "" || statuses.includes(s)) } : {}),
     })
     .refine((v) => !(isRealDate(v.from) && isRealDate(v.to)) || v.from <= v.to, { message: t.dateOrder, path: ["to"] })

@@ -14,6 +14,7 @@ import {
   type FilterField,
   type FilterValues,
   type GroupItem,
+  type SearchScopeSelect,
 } from "@/lib/detailFilter";
 import { formatPrice } from "@/lib/format";
 
@@ -35,6 +36,8 @@ interface Props {
   labels: DetailFilterLabels;
   /** 검색창이 쓰는 값 키. 없으면 검색창 없이 칩 줄만 (검색 결과 화면은 자기 검색창이 따로 있다) */
   searchKey?: string;
+  /** 검색창 왼쪽 구분 select. 고른 값은 [검색]을 누를 때 검색어와 함께 반영된다 */
+  searchField?: SearchScopeSelect;
   fields: FilterField[];
   /** 폼 검증. 칸은 문자열 그대로(빈 칸 = 조건 없음). 통과한 값은 쓰지 않고 입력한 문자열 그대로 onApply 로 넘긴다 */
   schema: z.ZodType;
@@ -53,7 +56,7 @@ interface Props {
  * 팝업을 열 때 칸을 주소 값으로 되돌려, 적용 안 하고 닫은 입력이 다른 팝업의 [적용]에 섞여 들어가지 않게 한다.
  * 주소가 바뀌면 부모가 key 로 다시 마운트해 칩·칸이 주소와 맞는다. 화면마다 다른 건 칸 정의(fields)뿐이다.
  */
-export function DetailFilter({ labels, searchKey, fields, schema, values, empty, onApply, serverErrors }: Props) {
+export function DetailFilter({ labels, searchKey, searchField, fields, schema, values, empty, onApply, serverErrors }: Props) {
   const [openId, setOpenId] = useState<string | null>(null);
   const {
     register,
@@ -73,9 +76,17 @@ export function DetailFilter({ labels, searchKey, fields, schema, values, empty,
   const count = filterCount(fields, values);
   const applied = count > 0 || (searchKey !== undefined && values[searchKey] !== "");
   const errorOf = (key: string) => errors[key]?.message ?? serverErrors?.[key];
+  // 검색창 아래 한 줄: 검색어 오류, 없으면 구분 오류 (서버가 돌려준 fields.field 도 삼키지 않게)
+  const searchError = searchKey === undefined ? undefined : (errorOf(searchKey) ?? (searchField ? errorOf(searchField.key) : undefined));
 
-  // 검색은 지금 걸린 칩 조건에 검색어만 바꿔서
-  const search = handleSubmit(() => onApply({ ...values, [searchKey ?? ""]: getValues(searchKey ?? "") ?? "" }));
+  // 검색은 지금 걸린 칩 조건에 검색어(와 구분)만 바꿔서
+  const search = handleSubmit(() =>
+    onApply({
+      ...values,
+      [searchKey ?? ""]: getValues(searchKey ?? "") ?? "",
+      ...(searchField ? { [searchField.key]: getValues(searchField.key) ?? "" } : {}),
+    }),
+  );
   // 칩 팝업의 [적용] — 그 칸의 값만 바꾼다
   const applyField = (field: FilterField) =>
     handleSubmit(() => {
@@ -107,10 +118,25 @@ export function DetailFilter({ labels, searchKey, fields, schema, values, empty,
           }}
           className="flex flex-col gap-1"
         >
-          {/* 모양은 SearchForm(홈·검색 화면)과 같다. 구분 select 만 없다 — 상품명 하나만 찾는다 */}
+          {/* 모양은 SearchForm(홈·검색 화면)과 같다 */}
           <div
-            className={`h-11 @md:h-12 flex items-stretch rounded-md @md:rounded-lg border-2 bg-surface overflow-hidden ${errorOf(searchKey) ? "border-down" : "border-primary"}`}
+            className={`h-11 @md:h-12 flex items-stretch rounded-md @md:rounded-lg border-2 bg-surface overflow-hidden ${searchError ? "border-down" : "border-primary"}`}
           >
+            {searchField && (
+              <select
+                aria-label={searchField.label}
+                {...register(searchField.key)}
+                aria-invalid={!!errorOf(searchField.key)}
+                aria-describedby={errorOf(searchField.key) ? `df-${searchKey}-err` : undefined}
+                className="w-18 @md:w-28 px-2 @md:px-3 border-r border-line bg-primary-soft text-primary-dark text-sm font-medium outline-none"
+              >
+                {searchField.options.map((o) => (
+                  <option key={o.value} value={o.value}>
+                    {o.label}
+                  </option>
+                ))}
+              </select>
+            )}
             <div className="grow min-w-0 flex items-center gap-2.5 px-3 @md:px-3.5 text-ink-2">
               <Icon name="search" strokeWidth={2} />
               <input
@@ -131,16 +157,17 @@ export function DetailFilter({ labels, searchKey, fields, schema, values, empty,
               {labels.search}
             </button>
           </div>
-          {errorOf(searchKey) && (
+          {searchError && (
             <p id={`df-${searchKey}-err`} className="text-xs text-down">
-              {errorOf(searchKey)}
+              {searchError}
             </p>
           )}
         </form>
       )}
 
-      {/* 좁은 칸·모바일은 한 줄 가로 스크롤 (칩이 줄바꿈되면 결과가 밀린다) */}
-      <div role="toolbar" aria-label={labels.filters} className="flex items-center gap-2 overflow-x-auto @md:flex-wrap @md:overflow-visible pb-0.5">
+      {/* 칩은 칸이 좁으면 줄을 바꾼다 — 한 줄 가로 스크롤은 스크롤바가 칩을 가리고 오른쪽 칩을 찾으러 밀어야 해 불편했다 (사용자 지시 2026-11-03).
+          좁은 칸은 간격을 줄여 한 줄에 더 들어가게 한다 */}
+      <div role="toolbar" aria-label={labels.filters} className="flex flex-wrap items-center gap-1.5 @md:gap-2">
         {fields.map((field) => {
           const id = fieldKeys(field)[0];
           const active = !fieldIsEmpty(field, values);
@@ -156,7 +183,7 @@ export function DetailFilter({ labels, searchKey, fields, schema, values, empty,
 
           if (field.kind === "select") {
             const current = values[field.key] ?? field.defaultValue;
-            const currentLabel = field.options.find((o) => o.value === current)?.label ?? current;
+            const currentLabel = field.options.find((o) => o.value === current)?.label ?? field.labelOf?.(current) ?? current;
             return (
               <Chip key={id} label={text(active ? `${field.label}: ${currentLabel}` : field.label)} {...chip}>
                 <div role="group" aria-label={field.label} className="flex flex-col min-w-36">

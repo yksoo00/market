@@ -41,6 +41,17 @@ describe("decideOpen — 홈 칸·헤더에서 열기 (새 주기능)", () => {
   });
 });
 
+describe("decideOpen — 혼자 뜨는 화면 (임시 테이블)", () => {
+  it("주기능 칸에서 열어도 보조가 아니라 새 주기능", () => {
+    expect(decideOpen([P("a", "/search")], "a", "/dev/tables", wide)).toEqual({ kind: "main", path: "/dev/tables" });
+  });
+
+  it("그 화면에서 다른 화면(홈 포함)을 열면 새 주기능 — 홈 칸이 안 보이므로 홈도 연다", () => {
+    expect(decideOpen([P("a", "/dev/tables")], "a", "/search", wide)).toEqual({ kind: "main", path: "/search" });
+    expect(decideOpen([P("a", "/dev/tables")], HOME_KEY, "/", wide)).toEqual({ kind: "main", path: "/" });
+  });
+});
+
 describe("decideOpen — 주기능·보조 칸에서 열기", () => {
   it("연관 화면은 보조 자리 → 홈 | 주기능 | X", () => {
     expect(decideOpen([P("a", "/search")], "a", DETAIL, wide)).toEqual({ kind: "sub", path: DETAIL });
@@ -111,6 +122,49 @@ describe("decideOpen — 주기능·보조 칸에서 열기", () => {
 
   it("로고(reset)는 항상 새 주기능 — 홈이면 홈 한 칸", () => {
     expect(decideOpen([P("a", "/search"), P("b", "/login")], "b", "/", { reset: true, wide: true })).toEqual({ kind: "main", path: "/" });
+  });
+});
+
+describe("decideOpen — 검색은 주기능, 장바구니·비교는 보조 (2026-11-03)", () => {
+  it("비교가 주기능일 때 검색을 열면 검색이 주기능, 비교가 보조 자리로 내려간다", () => {
+    const compare = P("a", "/my/cart/compare");
+    expect(decideOpen([compare], "a", "/search", wide)).toEqual({ kind: "swapMain", path: "/search", aux: compare });
+  });
+
+  it("장바구니도 같다 — 장바구니 칸(주기능)에서 검색을 열면 [검색 | 장바구니]", () => {
+    const cart = P("a", "/my/cart");
+    expect(decideOpen([cart], "a", "/search?q=1", wide)).toEqual({ kind: "swapMain", path: "/search?q=1", aux: cart });
+  });
+
+  it("보조 칸(비교)에서 검색을 열어도 검색이 주기능이 되고 연 비교 칸이 보조로 남는다 (key 유지)", () => {
+    const sub = P("b", "/my/cart/compare");
+    expect(decideOpen([P("a", "/my/cart"), sub], "b", "/search", wide)).toEqual({ kind: "swapMain", path: "/search", aux: sub });
+  });
+
+  it("주기능이 이미 검색이면 자리를 안 바꾸고 그 칸에서 이동 (비교 칸의 검색 링크도)", () => {
+    expect(decideOpen([P("a", "/search?q=a"), P("b", "/my/cart/compare")], "b", "/search?q=b", wide)).toEqual({
+      kind: "inPlace",
+      paneKey: "a",
+      path: "/search?q=b",
+    });
+  });
+
+  it("홈 칸·헤더에서 검색을 열면 전과 같이 새 주기능 (보조는 닫힘)", () => {
+    expect(decideOpen([P("a", "/my/cart/compare")], HOME_KEY, "/search", wide)).toEqual({ kind: "main", path: "/search" });
+  });
+
+  it("검색이 주기능이면 장바구니·비교는 전과 같이 보조 자리", () => {
+    expect(decideOpen([P("a", "/search")], "a", "/my/cart/compare", wide)).toEqual({ kind: "sub", path: "/my/cart/compare" });
+    expect(decideOpen([P("a", "/search")], "a", "/my/cart", wide)).toEqual({ kind: "sub", path: "/my/cart" });
+  });
+
+  it("보조형 칸이 아닌 곳에서 여는 검색은 전과 같다 (상세 → 검색은 보조)", () => {
+    expect(decideOpen([P("a", DETAIL)], "a", "/search", wide)).toEqual({ kind: "sub", path: "/search" });
+  });
+
+  it("applyOpen: [새 검색(새 key), 보조형 칸 그대로]", () => {
+    const aux = P("b", "/my/cart/compare");
+    expect(applyOpen([P("a", "/my/cart"), aux], { kind: "swapMain", path: "/search", aux }, "n")).toEqual([P("n", "/search"), aux]);
   });
 });
 

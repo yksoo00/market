@@ -1,7 +1,27 @@
 import { describe, expect, it } from "vitest";
 import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { isRelated, screenOf } from "./tileScreens";
+import { isAux, isRelated, isSolo, screenOf } from "./tileScreens";
+
+describe("isAux", () => {
+  it("장바구니·비교만 보조형이다 (쿼리가 붙어도)", () => {
+    expect(isAux("/my/cart")).toBe(true);
+    expect(isAux("/my/cart/compare")).toBe(true);
+    expect(isAux("/my/cart?x=1")).toBe(true);
+    expect(isAux("/search")).toBe(false);
+    expect(isAux("/my")).toBe(false);
+    expect(isAux("/")).toBe(false);
+  });
+});
+
+describe("isSolo", () => {
+  it("임시 테이블만 혼자 뜬다 (쿼리가 붙어도)", () => {
+    expect(isSolo("/dev/tables")).toBe(true);
+    expect(isSolo("/dev/tables?tab=users")).toBe(true);
+    expect(isSolo("/search")).toBe(false);
+    expect(isSolo("/")).toBe(false);
+  });
+});
 
 describe("screenOf", () => {
   it("공통 화면", () => {
@@ -21,6 +41,8 @@ describe("screenOf", () => {
     expect(screenOf("/quotes/adjust")).toEqual({ id: "sellQuote", group: "sell" });
     expect(screenOf("/listings/new")).toEqual({ id: "sellNew", group: "sell" });
     expect(screenOf("/listings/extra")).toEqual({ id: "sellExtra", group: "sell" });
+    expect(screenOf("/listings/bulk")).toEqual({ id: "sellBulk", group: "sell" });
+    expect(screenOf("/buy/bulk")).toEqual({ id: "buyBulk", group: "buy" });
     expect(screenOf("/my/activity?tab=sales&q=R740")).toEqual({ id: "myActivity", group: "common" });
   });
 
@@ -90,5 +112,13 @@ describe("모든 화면이 표에 있다", () => {
 
   it.each(routes)("%s", (route) => {
     expect(screenOf(route).group, `${route} 를 tileScreens.ts SCREENS 에 추가하세요`).not.toBeNull();
+  });
+});
+
+describe("문의 게시판 화면 (사내 테스트용)", () => {
+  it("목록과 상세는 어디서 열어도 옆 칸과 연관 있는 공통 화면이다", () => {
+    expect(screenOf("/inquiries")).toEqual({ id: "inquiries", group: "common" });
+    expect(screenOf("/inquiries/3f2a")).toEqual({ id: "inquiryDetail", group: "common" });
+    expect(screenOf("/inquiries?x=1")).toEqual({ id: "inquiries", group: "common" });
   });
 });

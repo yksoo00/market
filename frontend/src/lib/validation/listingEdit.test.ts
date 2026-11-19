@@ -4,6 +4,9 @@ import type { ListingEditValues } from "@/lib/listingEdit";
 
 const today = "2026-10-02";
 const base: ListingEditValues = {
+  prodName: "R740",
+  prodBrand: "Dell",
+  prodNo: "",
   prodState: "신품",
   salesUnitPrice: "1000",
   salesQuantity: "10",
@@ -22,6 +25,24 @@ const errorPaths = (over: Partial<ListingEditValues>, initialDelivery = "") => {
   const r = parse(over, initialDelivery);
   return r.success ? [] : [...new Set(r.error.issues.map((i) => i.path.join(".")))];
 };
+
+describe("listingEditSchema 상품 칸 (2026-11-02)", () => {
+  const bad = (over: Partial<ListingEditValues>) => {
+    const r = listingEditSchema(today, "", false).safeParse({ ...base, ...over });
+    return r.success ? [] : [...new Set(r.error.issues.map((i) => i.path.join(".")))];
+  };
+
+  it("상품명 1~50자·제조사 1~40자 필수, 상품번호 20자까지(비워도 됨)", () => {
+    expect(bad({})).toEqual([]);
+    expect(bad({ prodName: "  " })).toEqual(["prodName"]);
+    expect(bad({ prodName: "가".repeat(51) })).toEqual(["prodName"]);
+    expect(bad({ prodBrand: "" })).toEqual(["prodBrand"]);
+    expect(bad({ prodBrand: "a".repeat(41) })).toEqual(["prodBrand"]);
+    expect(bad({ prodNo: "a".repeat(21) })).toEqual(["prodNo"]);
+    expect(bad({ prodNo: "" })).toEqual([]);
+  });
+
+});
 
 describe("listingEditSchema", () => {
   it("사진이 있던 매물(hadPhotos)은 사진 0장이면 photos 오류, 사진 없던 매물은 0장 통과", () => {

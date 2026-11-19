@@ -49,7 +49,6 @@ describe("toCreateRequest", () => {
         prodId: "KP-2026-000001",
         masterPhoto: "public/listings/photos/2026/10/m.jpg",
         prodNo: "MASTER-1",
-        prodMufcDate: "2020-01-31",
         prodSpecInfo: "마스터 사양",
         photos: [],
       }),
@@ -84,10 +83,10 @@ describe("toCreateRequest", () => {
     expect(toCreateRequest(output({ prodState: "신품대비 80~89%" })).prodState).toBe("신품대비 80~89%");
   });
 
-  it("제조일은 yyyyMMdd, 납기일은 그대로", () => {
-    const req = toCreateRequest(output({ prodMufcDate: "2020-01-31", deliveryDate: "2026-10-10" }));
-    expect(req.prodMufcDate).toBe("20200131");
+  it("납기일은 그대로, 제조일(2026-11-04 삭제)은 요청에 없다", () => {
+    const req = toCreateRequest(output({ deliveryDate: "2026-10-10" }));
     expect(req.deliveryDate).toBe("2026-10-10");
+    expect("prodMufcDate" in req).toBe(false);
   });
 
   it("선택 칸을 채우면 함께 보내고 사진 순서를 지킨다", () => {

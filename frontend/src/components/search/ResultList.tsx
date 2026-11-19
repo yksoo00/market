@@ -1,26 +1,40 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState, type MouseEvent, type ReactNode } from "react";
+import { useCompareAdd } from "@/components/cart/useCompareAdd";
 import { Icon } from "@/components/common/Icon";
 import { NoticeDialog, useNotice } from "@/components/common/NoticeDialog";
 import { ResultDialog } from "@/components/common/ResultDialog";
+import { SortableTh } from "@/components/common/SortableTh";
+import { rememberXScroll, StickyXScroll } from "@/components/common/StickyXScroll";
 import { useTileOpen } from "@/components/common/TileWorkspaceContext";
 import { SelectionBar } from "@/components/search/SelectionBar";
 import { CartDialog, type CartTarget } from "@/components/trade/CartDialog";
 import { PurchaseDialog } from "@/components/trade/PurchaseDialog";
 import { QuoteDialog, type QuoteTarget } from "@/components/trade/QuoteDialog";
 import { Checkbox } from "@/components/ui/checkbox";
-import { cartApi } from "@/lib/api/cart";
-import { cartActionable, notifyCartChanged } from "@/lib/cart";
-import { COMPARE_HREF, compareBlock, MAX_COMPARE, MIN_COMPARE } from "@/lib/compare";
+import { notifyCartChanged } from "@/lib/cart";
+import { leafCategoryName } from "@/lib/categories";
+import { nextSort, sortStateOf, type ColumnSortValues } from "@/lib/columnSort";
+import { compareBlock, MAX_COMPARE } from "@/lib/compare";
 import { formatPrice } from "@/lib/format";
-import { formatRegDate, isOwner } from "@/lib/listingDetail";
+import { formatRegDate } from "@/lib/listingDetail";
 import { selection, selectionKey, useSelection } from "@/lib/selection";
 import { pendingLabel, salesHref } from "@/lib/tradeCounts";
 import { MAX_CART_ADD } from "@/lib/validation/cart";
 import { MAX_QUOTE_ITEMS } from "@/lib/validation/quote";
-import { activeFilterCount, buildSearchHref, clearFilters, listingHref, type SearchQuery, type SearchScope } from "@/lib/search";
+import {
+  activeFilterCount,
+  buildSearchHref,
+  clearFilters,
+  LISTING_SORT_COLUMNS,
+  listingHref,
+  type ListingSort,
+  type SearchQuery,
+  type SearchScope,
+} from "@/lib/search";
 import { cart } from "@/messages/cart";
 import { common } from "@/messages/common";
 import { compare } from "@/messages/compare";
@@ -29,12 +43,13 @@ import { search as t } from "@/messages/search";
 import { trade } from "@/messages/trade";
 import type { CartAddResult } from "@/types/cart";
 import type { ListingSearchItem } from "@/types/listing";
-import type { CartDefaults } from "@/components/trade/QuoteDialog";
 import type { PendingCounts } from "@/types/trade";
 
 const r = t.result;
 const p = trade.purchase;
-const keyOf = selectionKey;
+const keyOf = (i: ListingSearchItem) => selectionKey(i);
+const uniqueByListing = (items: ListingSearchItem[]) => [...new Map(items.map((i) => [selectionKey(i), i])).values()];
+
 const qty = new Intl.NumberFormat("ko-KR");
 // 체크박스·링크 클릭이 행 클릭(상세 이동)으로 번지지 않게
 const stop = (e: MouseEvent) => e.stopPropagation();
@@ -51,41 +66,28 @@ interface Column {
   muted?: boolean;
   /** 말줄임되는 칸의 전체 값 (마우스 올리면) */
   title?: (item: ListingSearchItem) => string | undefined;
+  /** 칸 안의 버튼이 줄 이동(go)을 일으키지 않게 클릭을 막는다 */
+  interactive?: boolean;
+  /** 열 머리를 눌러 정렬할 때의 오름·내림 값 (2026-11-03) */
+  sort?: ColumnSortValues<ListingSort>;
   cell: (item: ListingSearchItem, done: boolean) => ReactNode;
 }
 
-const alignClass = { left: "text-left", right: "text-right", center: "text-center" } as const;
+const alignClass = { left: "text-left", right: "text-right pr-4", center: "text-center" } as const;
 const c = t.columns;
 
 // 검색·내 판매의 열 (체크·상품명은 왼쪽 고정). 사용자 지시 2026-10-30: 상품명·제조사·단가·수량·상품상태·카테고리·
 // 최소 주문 수량·주문단위·납기일·등록일. 거래상태 칸은 두지 않는다(기본 검색이 거래 가능만 보여 준다)
 const listColumns: Column[] = [
-  { label: c.brand, width: "w-32", title: (i) => i.prodBrand, cell: (i) => i.prodBrand },
-  { label: c.price, width: "w-28", align: "right", mono: true, strong: true, cell: (i) => formatPrice(i.salesUnitPrice) },
-  { label: c.quantity, width: "w-20", align: "right", mono: true, cell: (i) => (i.stockQuantity === null ? DASH : qty.format(i.stockQuantity)) },
-  { label: c.state, width: "w-26", cell: (i, done) => (done ? <CompletedBadge /> : i.prodState) },
-  { label: c.category, width: "w-56", title: (i) => i.categoryPath ?? i.category, cell: (i) => i.categoryPath ?? i.category },
-  { label: c.minOrder, width: "w-28", align: "right", mono: true, cell: (i) => (i.minOrderQuantity === null ? DASH : qty.format(i.minOrderQuantity)) },
-  { label: c.orderUnit, width: "w-22", align: "right", mono: true, cell: (i) => (i.orderUnit === null ? DASH : qty.format(i.orderUnit)) },
-  { label: c.deliveryDate, width: "w-26", mono: true, muted: true, cell: (i) => i.deliveryDate ?? DASH },
-  { label: c.regDate, width: "w-26", mono: true, muted: true, cell: (i) => formatRegDate(i.regDate).slice(0, 10) },
-];
-
-// 장바구니의 열. 순서·항목은 사용자가 정한 그대로(상품명·상품번호·제조사·제조일·상품상태·
-// 상품설명·데이터시트·사진·보증기한·불량지원·대체품·테스트리포트·정품인증서). 상품설명은 유무(O/X)만, 내용은 마우스를 올리면
-const cartColumns: Column[] = [
-  { label: c.prodNo, width: "w-36", mono: true, title: (i) => i.prodNo ?? undefined, cell: (i) => i.prodNo ?? DASH },
-  { label: c.brand, width: "w-32", title: (i) => i.prodBrand, cell: (i) => i.prodBrand },
-  { label: c.mufcDate, width: "w-26", mono: true, muted: true, cell: (i) => i.mufcDate ?? DASH },
-  { label: c.state, width: "w-26", cell: (i, done) => (done ? <CompletedBadge /> : i.prodState) },
-  { label: c.prodDescription, width: "w-18", align: "center", title: (i) => i.prodDescription ?? undefined, cell: (i) => <Mark on={i.prodDescription !== null} label={c.prodDescription} /> },
-  { label: c.dataSheet, width: "w-20", align: "center", cell: (i) => <Has on={i.hasDataSheet} icon="file" label={c.dataSheet} /> },
-  { label: c.photo, width: "w-12", align: "center", cell: (i) => <Has on={i.hasPhoto} icon="image" label={c.photo} /> },
-  { label: c.warranty, width: "w-26", mono: true, muted: true, cell: (i) => i.warrantyUntil ?? DASH },
-  { label: c.coverage, width: "w-18", align: "center", cell: (i) => i.warrantyCoverage ?? DASH },
-  { label: c.replaceProd, width: "w-16", align: "center", cell: (i) => <Mark on={i.hasReplaceProd} label={c.replaceProd} /> },
-  { label: c.testReport, width: "w-24", align: "center", cell: (i) => <Mark on={i.hasTestReport} label={c.testReport} /> },
-  { label: c.certificate, width: "w-22", align: "center", cell: (i) => <Mark on={i.hasCertificate} label={c.certificate} /> },
+  { label: c.brand, sort: LISTING_SORT_COLUMNS.brand, width: "w-24", title: (i) => i.prodBrand, cell: (i) => i.prodBrand },
+  { label: c.price, sort: LISTING_SORT_COLUMNS.price, width: "w-28", align: "right", mono: true, strong: true, cell: (i) => formatPrice(i.salesUnitPrice) },
+  { label: c.quantity, sort: LISTING_SORT_COLUMNS.stock, width: "w-20", align: "right", mono: true, cell: (i) => (i.stockQuantity === null ? DASH : qty.format(i.stockQuantity)) },
+  { label: c.state, sort: LISTING_SORT_COLUMNS.state, width: "w-22", cell: (i, done) => (done ? <CompletedBadge /> : i.prodState) },
+  { label: c.category, sort: LISTING_SORT_COLUMNS.category, width: "w-32", title: (i) => i.categoryPath ?? i.category, cell: (i) => (i.categoryPath ? leafCategoryName(i.categoryPath) : i.category) },
+  { label: c.minOrder, sort: LISTING_SORT_COLUMNS.minOrder, width: "w-32", align: "right", mono: true, cell: (i) => (i.minOrderQuantity === null ? DASH : qty.format(i.minOrderQuantity)) },
+  { label: c.orderUnit, sort: LISTING_SORT_COLUMNS.orderUnit, width: "w-24", align: "right", mono: true, cell: (i) => (i.orderUnit === null ? DASH : qty.format(i.orderUnit)) },
+  { label: c.deliveryDate, sort: LISTING_SORT_COLUMNS.delivery, width: "w-26", mono: true, muted: true, cell: (i) => i.deliveryDate ?? DASH },
+  { label: c.regDate, sort: LISTING_SORT_COLUMNS.regDate, width: "w-26", mono: true, muted: true, cell: (i) => formatRegDate(i.regDate).slice(0, 10) },
 ];
 
 interface Props {
@@ -93,32 +95,26 @@ interface Props {
   query: SearchQuery;
   /** 같은 조건의 전체 개수. items 는 [더 보기]로 받은 만큼만 */
   total: number;
-  /** mine = 내 판매글 모드: 선택·견적·구매 없이 행마다 [수정]. cart = 장바구니: [빼기]·[비교]·[견적 요청]·[구매] */
-  scope?: SearchScope | "cart";
-  /** cart: [빼기] — 고른 매물 (부모가 tradeId 로 바꿔 지운다) */
-  onRemove?: (items: ListingSearchItem[]) => void;
-  /** cart: 빼는 중 — [빼기]를 막아 두 번 보내지 않게 */
-  removing?: boolean;
-  /** mine 모드에서 표의 [수정] 을 눌렀을 때 (행 안 수정). 없으면 [수정] 은 수정 화면 링크 */
-  onEdit?: (item: ListingSearchItem) => void;
-  /** mine 모드: 로그인한 사용자 id. 내 글에만 [수정]을 그린다 (서버가 mine=true 로 거르지 못해도 남의 글에 수정 버튼이 뜨지 않게) */
-  ownerId?: string | null;
+  /** mine = 내 판매글 모드: 선택·견적·구매 없이 행마다 [수정] */
+  scope?: SearchScope;
   /** mine 모드: 매물별 구매요청 건수 (GET /api/v1/trades/pending-counts). 아직 모르면 null */
   pendingCounts?: PendingCounts | null;
   /** 구매요청 성공 — 목록이 그 매물 행을 다시 읽게 */
   onPurchased?: (key: { userId: string; regDate: string }) => void;
-  /** cart: 담을 때 입력한 값 (키 = userId/regDate) — 구매·견적 모달의 기본값 */
-  cartDefaults?: ReadonlyMap<string, CartDefaults>;
 }
 
 // 선택 상태는 결과 집합마다 새로 시작한다 — 페이지에서 key={buildSearchHref(query)}로 다시 마운트
-export function ResultList({ items, query, total, scope = "search", onEdit, ownerId = null, pendingCounts = null, onPurchased, onRemove, removing = false, cartDefaults }: Props) {
+export function ResultList({ items, query, total, scope = "search", pendingCounts = null, onPurchased }: Props) {
   const openTile = useTileOpen();
+  const router = useRouter();
   const mine = scope === "mine";
-  const inCart = scope === "cart";
-  const columns = inCart ? cartColumns : listColumns;
-  // 거래완료(재고 소진)된 매물은 서버가 수정을 막는다 (409 LISTING_COMPLETED) — 버튼도 그리지 않는다
-  const canEdit = (item: ListingSearchItem) => mine && isOwner(ownerId, item.userId) && item.tradeStatus !== "completed";
+  const columns: Column[] = listColumns;
+  // 열 머리를 누르면 오름 → 내림 → 기본(최신순). 정렬이 바뀌면 1페이지로 — 정렬 칩과 같은 주소 규칙 (사용자 지시 2026-11-03)
+  // scroll: false — 정렬해도 세로 스크롤이 맨 위로 튀지 않게, 가로 위치는 StickyXScroll 이 이어 간다 (사용자 지시 2026-11-03)
+  const sortBy = (values: ColumnSortValues<ListingSort>) => {
+    rememberXScroll(scope === "mine" ? "mine-result-table" : "search-result-table");
+    router.push(buildSearchHref({ ...query, sort: nextSort(query.sort, values, "latest"), page: 1 }, scope), { scroll: false });
+  };
   // "구매요청 N건" → 받은 구매요청을 그 매물로 걸러 연다. 같은 판매 그룹이라 옆 칸에 반반으로
   const pendingLink = (item: ListingSearchItem) => {
     const label = pendingLabel(pendingCounts, item.regDate);
@@ -155,8 +151,8 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   // [장바구니] 담기 모달 대상(체크한 매물 1~20개)과 성공 안내
   const [cartTargets, setCartTargets] = useState<CartTarget[] | null>(null);
   const [added, setAdded] = useState<CartAddResult | null>(null);
-  // [비교] 저장 중 — 두 번 보내지 않게 버튼을 막는다
-  const [comparing, setComparing] = useState(false);
+  // [비교에 담기] — 4개 초과·소분류 섞임 모달과 성공 안내까지 공용 훅이 그린다 (2026-11-03)
+  const compareAdd = useCompareAdd();
 
   const toggle = (item: ListingSearchItem) => {
     if (shared) {
@@ -184,25 +180,15 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   // 체크한 매물. 검색은 목록에 안 보이는 것까지(저장소), 장바구니는 지금 줄 중에서
   const chosenItems = (): ListingSearchItem[] => (shared ? [...stored.values()] : items.filter((i) => picked.has(keyOf(i))));
   const showNotice = (title: string, message: string) => show({ tone: "error", title, message });
-  // 장바구니엔 거래완료 매물이 남아 있을 수 있다 — 견적·구매 대상에서 빼고 알린 뒤(확인을 누르면) 이어서 진행한다 (빼기만 된다)
-  const withTradeTargets = (proceed: (chosen: ListingSearchItem[]) => void) => {
-    const chosen = chosenItems();
-    const actionable = inCart ? chosen.filter(cartActionable) : chosen;
-    if (actionable.length < chosen.length) {
-      show({ tone: "error", title: common.notice.someSkipped, message: cart.page.completedSkipped, then: () => proceed(actionable) });
-    } else {
-      proceed(actionable);
-    }
-  };
-  // 장바구니에서 열면 담을 때 입력한 값이 기본값 (설계 2026-10-27 PR 3 판정 5)
-  const cartDefaultsOf = (i: ListingSearchItem) => (inCart ? cartDefaults?.get(keyOf(i)) : undefined);
   // 견적은 여러 매물을 한 번에 (서버 한도 20개)
-  const quoteSelected = () =>
-    withTradeTargets((chosen) => {
-      if (chosen.length === 0) return;
-      if (chosen.length > MAX_QUOTE_ITEMS) showNotice(common.notice.quoteBlocked, trade.quote.tooMany(MAX_QUOTE_ITEMS));
-      else setQuoting(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate, defaults: cartDefaultsOf(i) })));
-    });
+  const quoteSelected = () => {
+    const chosen = chosenItems();
+    if (chosen.length === 0) return;
+    // 같은 상품이 여러 줄이어도 견적은 매물당 한 건이다
+    if (uniqueByListing(chosen).length < chosen.length) showNotice(common.notice.quoteBlocked, trade.quote.sameListing);
+    else if (chosen.length > MAX_QUOTE_ITEMS) showNotice(common.notice.quoteBlocked, trade.quote.tooMany(MAX_QUOTE_ITEMS));
+    else setQuoting(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
+  };
   // 장바구니는 수량·납품희망일·요청사항을 받는 모달로 담는다 (서버 한도 20개). 하나라도 틀리면 서버가 아무것도 안 담고 이유를 돌려준다
   const addSelected = () => {
     const chosen = chosenItems();
@@ -213,25 +199,20 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
     setCartTargets(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
   };
   // 구매 모달은 매물 1개용 — 여러 개를 체크했으면 하나만 고르라고 알린다 (계획 2026-10-15 "스펙과 달라진 점")
-  const buySelected = () =>
-    withTradeTargets((chosen) => {
-      if (chosen.length === 1) setBuying(chosen[0]);
-      else if (chosen.length > 1) showNotice(common.notice.buyBlocked, p.oneAtATime);
-    });
-  // 비교는 같은 소분류 2~4개. 거래완료도 볼 수 있어 거르지 않는다 (비교 화면이 버튼만 숨김).
-  // 누르면 서버의 내 비교 목록이 이 선택으로 바뀌고, 비교 화면을 옆 보조 칸에 연다 (사용자 결정 2026-10-29)
-  const compareSelected = async () => {
+  const buySelected = () => {
     const chosen = chosenItems();
+    if (chosen.length === 1) setBuying(chosen[0]);
+    else if (chosen.length > 1) showNotice(common.notice.buyBlocked, p.oneAtATime);
+  };
+  // 비교는 쌓인다 (사용자 결정 2026-11-03). 이번에 고른 것만 4개·같은 소분류를 미리 보고, 이미 담긴 것과 합친 검사는 서버가 한다 —
+  // 막히면 [비우고 새로 담기] 모달. 거래완료도 볼 수 있어 거르지 않는다 (비교 화면이 버튼만 숨김)
+  const compareSelected = () => {
+    // 같은 상품이 여러 줄이어도 비교는 상품 단위다
+    const chosen = uniqueByListing(chosenItems());
     const block = compareBlock(chosen);
     if (block === "tooMany") showNotice(common.notice.compareBlocked, compare.tooMany(MAX_COMPARE));
     else if (block === "category") showNotice(common.notice.compareBlocked, compare.otherCategory);
-    else if (block === null) {
-      setComparing(true);
-      const res = await cartApi.replaceCompare(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
-      setComparing(false);
-      if (res.ok) openTile(COMPARE_HREF, false);
-      else showNotice(common.notice.compareBlocked, trade.errors[res.code] ?? compare.failed);
-    }
+    else void compareAdd.add(chosen.map((i) => ({ sellerId: i.userId, regDate: i.regDate })));
   };
   const selectionBar = shared ? (
     <SelectionBar items={[...stored.values()]} onRemove={(key) => selection.remove(key)} onClear={() => selection.clear()} />
@@ -240,9 +221,8 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
   // 내 판매글도 검색처럼 상세를 보조 칸에 연다 — 전체 화면(reset)으로 열던 예외는 이 화면만 2분할이 돼 뺐다 (decisions.md 2026-10-19)
   const go = (item: ListingSearchItem) => openTile(listingHref(item), false);
 
-  // 장바구니의 빈 화면은 CartView 가 그린다
   if (items.length === 0) {
-    return inCart ? null : (
+    return (
       <div className="flex flex-col gap-2.5">
         {selectionBar}
         <Empty query={query} scope={scope} />
@@ -252,21 +232,11 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
 
   const actions = (size: string) => (
     <>
-      {inCart && (
-        <button
-          type="button"
-          disabled={picked.size === 0 || removing}
-          onClick={() => onRemove?.(chosenItems())}
-          className={`${size} px-3 rounded-md border border-line text-ink-2 text-sm font-medium hover:bg-bg disabled:opacity-40 disabled:pointer-events-none`}
-        >
-          {cart.page.remove}
-        </button>
-      )}
       {scope === "search" && (
         <button
           type="button"
-          disabled={picked.size < MIN_COMPARE || comparing}
-          onClick={() => void compareSelected()}
+          disabled={picked.size === 0 || compareAdd.busy}
+          onClick={compareSelected}
           className={`${size} px-3 rounded-md border border-primary text-primary text-sm font-medium hover:bg-primary-soft disabled:opacity-40 disabled:pointer-events-none`}
         >
           {compare.button}
@@ -313,7 +283,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
           />
         )}
         <p className="grow text-sm text-ink-2" aria-live="polite">
-          <span className="font-bold text-ink">{inCart ? cart.page.count(total) : r.count(total)}</span>
+          <span className="font-bold text-ink">{r.count(total)}</span>
           {picked.size > 0 && r.selected(picked.size)}
         </p>
         {!mine && <div className="hidden @min-[36rem]:flex gap-2">{actions("h-8.5")}</div>}
@@ -326,9 +296,6 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
           sellerId={buying.userId}
           regDate={buying.regDate}
           open
-          defaultQuantity={cartDefaultsOf(buying)?.orderQuantity}
-          defaultReqDeliDate={cartDefaultsOf(buying)?.reqDeliDate}
-          defaultRemarks={cartDefaultsOf(buying)?.remarks ?? undefined}
           onOpenChange={(open) => !open && setBuying(null)}
           onPurchased={() => {
             // 서버가 그 매물을 장바구니에서 지웠다 (어디서 샀든) — 헤더 숫자를 맞춘다
@@ -346,6 +313,8 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
           onAdded={(result) => {
             notifyCartChanged();
             setAdded(result);
+            // 담았으면 체크는 풀어 준다 — 담은 상품이 "선택한 상품"으로 남아 같은 걸 또 담거나 구매하는 일을 막는다 (사용자 지시 2026-11-03)
+            if (shared) selection.clear();
           }}
         />
       )}
@@ -388,8 +357,7 @@ export function ResultList({ items, query, total, scope = "search", onEdit, owne
         open={added !== null}
         tone="success"
         title={cart.add.doneTitle}
-        message={added && added.skipped > 0 ? `${cart.add.doneMessage}
-${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
+        message={cart.add.doneMessage}
         actionLabel={cart.add.toCart}
         onAction={() => {
           setAdded(null);
@@ -399,21 +367,21 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
       />
 
       {!mine && <NoticeDialog notice={notice} onClose={closeNotice} />}
+      {compareAdd.dialogs}
 
       {/* 데스크톱: 표. 열이 많아(16) 칸에 다 안 들어가므로 가로 스크롤하고, 체크·상품명은 왼쪽에 고정해
           어느 열을 보든 어떤 매물인지 보이게 한다.
           표↔카드 기준은 @md(768)가 아니라 칸 폭 576 — 타일 반반 분할이면 칸이 768 미만(1440 창이면 720)이라
           카드로 줄어들었다. 분할에서도 표가 옆으로 펼쳐져야 한다 (사용자 지시). 폰(390)은 그대로 카드 */}
-      <div className="hidden @min-[36rem]:block rounded-md border border-line bg-surface overflow-x-auto">
-        <table className={`w-full ${inCart ? "min-w-334" : mine ? "min-w-354" : "min-w-322"} table-fixed text-[13px]`}>
+      <StickyXScroll memoryKey={mine ? "mine-result-table" : "search-result-table"} className="hidden @min-[36rem]:block rounded-md border border-line bg-surface">
+        <table className={`w-full ${mine ? "min-w-300" : "min-w-288"} table-fixed text-[13px]`}>
           <colgroup>
             {!mine && <col className="w-10" />}
-            <col className="w-48" />
+            <col className="w-44" />
             {columns.map((c) => (
               <col key={c.label} className={c.width} />
             ))}
             {mine && <col className="w-22" />}
-            {mine && <col className="w-20" />}
           </colgroup>
           <thead className="bg-bg text-xs text-ink-2">
             <tr className="h-10 text-left">
@@ -422,22 +390,25 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
                   <Checkbox checked={headerChecked} onCheckedChange={toggleAll} aria-label={r.selectAll} />
                 </th>
               )}
-              <th scope="col" className={`sticky ${mine ? "left-0 pl-3" : "left-10"} z-10 bg-bg px-2 font-medium border-r border-line-2`}>
-                {t.columns.prodName}
-              </th>
-              {columns.map((c, i) => (
-                <th key={c.label} scope="col" className={`px-2 font-medium ${alignClass[c.align ?? "left"]} ${i === columns.length - 1 ? "pr-3" : ""}`}>
-                  {c.label}
-                </th>
-              ))}
+              <SortableTh
+                label={t.columns.prodName}
+                state={sortStateOf(query.sort, LISTING_SORT_COLUMNS.name)}
+                onSort={() => sortBy(LISTING_SORT_COLUMNS.name)}
+                className={`sticky ${mine ? "left-0 pl-3" : "left-10"} z-10 bg-bg px-2 font-medium border-r border-line-2`}
+              />
+              {columns.map((c, i) => {
+                const cls = `px-2 font-medium whitespace-nowrap ${alignClass[c.align ?? "left"]} ${i === columns.length - 1 ? "pr-3" : ""}`;
+                return c.sort ? (
+                  <SortableTh key={c.label} label={c.label} state={sortStateOf(query.sort, c.sort)} onSort={() => sortBy(c.sort!)} className={cls} />
+                ) : (
+                  <th key={c.label} scope="col" className={cls}>
+                    {c.label}
+                  </th>
+                );
+              })}
               {mine && (
                 <th scope="col" className="px-2 font-medium text-center">
                   {trade.pending.column}
-                </th>
-              )}
-              {mine && (
-                <th scope="col" className="sticky right-0 z-10 bg-bg px-2 font-medium text-center border-l border-line-2">
-                  {my.mine.editColumn}
                 </th>
               )}
             </tr>
@@ -466,6 +437,7 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
                     <td
                       key={c.label}
                       title={c.title?.(item)}
+                      onClick={c.interactive ? stop : undefined}
                       className={`px-2 truncate ${alignClass[c.align ?? "left"]} ${c.mono ? "num" : ""} ${c.strong ? "font-semibold" : ""} ${c.muted && !done ? "text-ink-2" : ""} ${i === columns.length - 1 ? "pr-3" : ""}`}
                     >
                       {c.cell(item, done)}
@@ -476,17 +448,12 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
                       {pendingLink(item) ?? DASH}
                     </td>
                   )}
-                  {mine && (
-                    <td className="sticky right-0 z-10 bg-surface group-hover:bg-bg px-2 text-center border-l border-line-2" onClick={stop}>
-                      {canEdit(item) && <EditButton item={item} onEdit={onEdit} />}
-                    </td>
-                  )}
                 </tr>
               );
             })}
           </tbody>
         </table>
-      </div>
+      </StickyXScroll>
 
       {/* 모바일: 행 카드 */}
       <ul className="@min-[36rem]:hidden rounded-md border border-line bg-surface">
@@ -505,7 +472,7 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
                 </div>
               )}
               <div className="min-w-0 grow flex flex-col gap-1">
-                <Link href={listingHref(item)} onClick={stop} className="truncate text-sm font-medium">
+                <Link href={listingHref(item)} onClick={stop} className="block line-clamp-2 break-words text-sm font-medium">
                   {item.prodName}
                 </Link>
                 <p className="truncate text-xs text-ink-2">
@@ -514,7 +481,7 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
                 </p>
                 <div className="flex items-center gap-2 text-xs">
                   {done ? <CompletedBadge /> : <span className="text-ink-2">{item.prodState}</span>}
-                  <span className="num text-ink-2">{item.stockQuantity === null ? DASH : `${qty.format(item.stockQuantity)}${r.qtyUnit}`}</span>
+                  <span className="tabular-nums text-ink-2">{item.stockQuantity === null ? DASH : `${qty.format(item.stockQuantity)}${r.qtyUnit}`}</span>
                   <span className="num font-semibold">{formatPrice(item.salesUnitPrice)}</span>
                   <span className="ml-auto flex gap-1.5">
                     <Has on={item.hasDataSheet} icon="file" label={r.dataSheet} />
@@ -523,18 +490,6 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
                 </div>
                 <ExtraChips item={item} />
                 {mine && pendingLink(item)}
-                {/* 좁은 카드는 칸 단위 편집이 어려워 행 안 수정 대신 수정 화면으로 간다 */}
-                {canEdit(item) && (
-                  <div onClick={stop}>
-                    <Link
-                      href={`${listingHref(item)}/edit`}
-                      aria-label={my.mine.editAria(item.prodName)}
-                      className="inline-flex h-8 px-3 items-center rounded-md border border-primary text-primary text-[13px] font-medium hover:bg-primary-soft"
-                    >
-                      {my.mine.edit}
-                    </Link>
-                  </div>
-                )}
               </div>
             </li>
           );
@@ -548,23 +503,6 @@ ${cart.add.skipped(added.skipped)}` : cart.add.doneMessage}
         </div>
       )}
     </section>
-  );
-}
-
-/** 표의 [수정]. 행 안 수정(onEdit)이 연결되면 그걸 부르고, 아니면 수정 화면으로 가는 링크 */
-function EditButton({ item, onEdit }: { item: ListingSearchItem; onEdit?: (item: ListingSearchItem) => void }) {
-  const cls = "inline-flex h-7 px-2.5 items-center rounded-md border border-primary text-primary text-[13px] font-medium hover:bg-primary-soft";
-  if (onEdit) {
-    return (
-      <button type="button" onClick={() => onEdit(item)} aria-label={my.mine.editAria(item.prodName)} className={cls}>
-        {my.mine.edit}
-      </button>
-    );
-  }
-  return (
-    <Link href={`${listingHref(item)}/edit`} aria-label={my.mine.editAria(item.prodName)} className={cls}>
-      {my.mine.edit}
-    </Link>
   );
 }
 
@@ -600,20 +538,7 @@ function ExtraChips({ item }: { item: ListingSearchItem }) {
   );
 }
 
-// 유무만 보이는 열(제조일·상품설명·대체품·테스트리포트·정품인증서). 요구 화면대로 O / X
-function Mark({ on, label }: { on: boolean; label: string }) {
-  return on ? (
-    <span role="img" aria-label={label} className="text-primary font-semibold">
-      ○
-    </span>
-  ) : (
-    <span className="text-ink-3">
-      <span aria-hidden="true">✕</span>
-      <span className="sr-only">{`${label} ${r.none}`}</span>
-    </span>
-  );
-}
-
+// 유무만 보이는 열(상품설명·대체품·테스트리포트·정품인증서). 요구 화면대로 O / X
 function CompletedBadge() {
   return (
     <span className="inline-flex items-center h-5 px-1.5 rounded-[5px] bg-line-2 text-ink-2 text-[11px] font-semibold">

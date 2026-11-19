@@ -40,7 +40,6 @@ const detail = (over: Partial<ListingDetail> = {}): ListingDetail => ({
   dtExpire: null,
   category: "P01-Q01-R001",
   categoryPath: "PC주요부품 > CPU/프로세서 > 인텔 CPU",
-  mufcDate: null,
   tradeStatus: "available",
   warrantyUntil: null,
   ...over,
@@ -53,8 +52,8 @@ const row = (rows: ReturnType<typeof compareRows>, key: string) => {
 };
 
 describe("compareBlock", () => {
-  it("2~4개, 같은 소분류만", () => {
-    expect(compareBlock([searchItem(REG(1))])).toBe("tooFew");
+  it("1~4개, 같은 소분류만 (하나만 담는 것도 된다 — 상세에서 하나씩 쌓는다)", () => {
+    expect(compareBlock([searchItem(REG(1))])).toBeNull();
     expect(compareBlock([searchItem(REG(1)), searchItem(REG(2))])).toBeNull();
     expect(compareBlock([1, 2, 3, 4].map((n) => searchItem(REG(n))))).toBeNull();
     expect(compareBlock([1, 2, 3, 4, 5].map((n) => searchItem(REG(n))))).toBe("tooMany");

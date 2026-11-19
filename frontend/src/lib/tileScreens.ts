@@ -11,17 +11,20 @@ export interface Screen {
 }
 
 // 배열 순서대로 매칭하므로 더 구체적인 경로를 위에 둔다 (/listings/new 가 상세보다, /quotes/adjust 가 /quotes 보다 먼저)
-const SCREENS: { id: string; group: TileGroup; pattern: RegExp }[] = [
+// aux: 보조형 화면(장바구니·비교) — 검색에서 담은 것을 확인하는 참고 칸이라 검색이 주기능 자리, 이 화면은 보조 자리 (decisions.md 2026-11-03)
+const SCREENS: { id: string; group: TileGroup; pattern: RegExp; solo?: true; aux?: true }[] = [
   { id: "home", group: "common", pattern: /^\/$/ },
   // 로그인·가입은 같은 화면(auth): 로그인 칸에서 [회원가입]을 누르면 칸을 더 쌓지 않고 그 칸이 가입으로 바뀐다 (decisions.md 2026-10-13)
   { id: "auth", group: "common", pattern: /^\/(login|signup)(\/.*)?$/ },
   { id: "sellNew", group: "sell", pattern: /^\/listings\/new$/ },
   { id: "sellExtra", group: "sell", pattern: /^\/listings\/extra$/ },
+  { id: "sellBulk", group: "sell", pattern: /^\/listings\/bulk$/ },
+  { id: "buyBulk", group: "buy", pattern: /^\/buy\/bulk$/ },
   // 내 활동내역은 탭(요청·판매·구매)을 옮겨도 같은 화면 — 칸을 더 쌓지 않고 그 칸에서 바뀐다. 판매·구매 양쪽 일이라 공통. 옛 주소(listings·sales·purchases)는 새 주소로 넘어가는 화면이라 같이 센다
   { id: "myActivity", group: "common", pattern: /^\/my\/(activity|listings|sales|purchases)$/ },
   { id: "myHistory", group: "common", pattern: /^\/my\/history$/ },
-  { id: "myCart", group: "buy", pattern: /^\/my\/cart$/ },
-  { id: "cartCompare", group: "buy", pattern: /^\/my\/cart\/compare$/ },
+  { id: "myCart", group: "buy", pattern: /^\/my\/cart$/, aux: true },
+  { id: "cartCompare", group: "buy", pattern: /^\/my\/cart\/compare$/, aux: true },
   { id: "my", group: "common", pattern: /^\/my$/ },
   { id: "listingDetail", group: "common", pattern: /^\/listings\/[^/]+\/[^/]+$/ },
   { id: "listingEdit", group: "sell", pattern: /^\/listings\/[^/]+\/[^/]+\/edit$/ },
@@ -30,9 +33,24 @@ const SCREENS: { id: string; group: TileGroup; pattern: RegExp }[] = [
   { id: "buyQuotes", group: "buy", pattern: /^\/quotes$/ },
   { id: "search", group: "buy", pattern: /^\/search$/ },
   { id: "buyRequest", group: "buy", pattern: /^\/requests(\/.*)?$/ },
-  // 로컬 전용 임시 테이블 관리. 어느 칸 옆에서 열어도 되는 도구 화면이라 공통 (2026-10-30)
-  { id: "devTables", group: "common", pattern: /^\/dev\/tables$/ },
+  // 사내 테스트용 익명 문의 게시판 — 어느 칸 옆에서 열어도 보조로 뜰 수 있게 공통 (운영 공개 전 제거, decisions.md 2026-11-18)
+  { id: "inquiryDetail", group: "common", pattern: /^\/inquiries\/[^/]+$/ },
+  { id: "inquiries", group: "common", pattern: /^\/inquiries$/ },
+  // 로컬 전용 임시 테이블 관리. 표가 넓어 홈·보조 칸 없이 혼자 전체화면 (사용자 지시 2026-10-30)
+  { id: "devTables", group: "common", pattern: /^\/dev\/tables$/, solo: true },
 ];
+
+/** 혼자 전체화면으로 뜨는 화면인가 — 홈 칸·보조 칸을 붙이지 않는다 (path 는 쿼리·해시가 붙어도 된다) */
+export function isSolo(path: string): boolean {
+  const pathname = path.split(/[?#]/)[0] || "/";
+  return SCREENS.find((s) => s.pattern.test(pathname))?.solo === true;
+}
+
+/** 보조형 화면(장바구니·비교)인가 — 검색을 열면 검색이 주기능, 이 화면이 보조 자리로 간다 (path 는 쿼리·해시가 붙어도 된다) */
+export function isAux(path: string): boolean {
+  const pathname = path.split(/[?#]/)[0] || "/";
+  return SCREENS.find((s) => s.pattern.test(pathname))?.aux === true;
+}
 
 /** path는 쿼리·해시가 붙어 있어도 된다 */
 export function screenOf(path: string): Screen {

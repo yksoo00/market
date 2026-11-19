@@ -20,6 +20,9 @@ const requiredInt = (min: number, max: number, message: string) =>
 export function listingEditSchema(today: string, initialDeliveryDate: string, hadPhotos = false) {
   return z
     .object({
+      prodName: z.string().trim().min(1, v.required).max(50, v.prodName),
+      prodBrand: z.string().trim().min(1, v.required).max(40, v.prodBrand),
+      prodNo: z.string().trim().max(20, v.prodNo),
       prodState: z.string().refine((s) => (PROD_STATES as readonly string[]).includes(s), v.prodState),
       salesUnitPrice: requiredInt(0, MAX_PRICE, v.salesUnitPrice),
       salesQuantity: requiredInt(1, MAX_QUANTITY, v.salesQuantity),

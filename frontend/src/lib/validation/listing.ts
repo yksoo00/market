@@ -57,15 +57,10 @@ const optionalUsefulLife = z
   .refine((s) => s === "" || (isInt(s) && USEFUL_LIFE_MONTHS.includes(Number(s))), v.prodUsefulLife)
   .transform((s) => (s === "" ? undefined : Number(s)));
 
-const optionalDate = z
-  .string()
-  .refine((s) => s === "" || isValidDate(s), v.date)
-  .transform((s) => (s === "" ? undefined : s));
-
 // 제공가능일은 정의서 NOT NULL — 등록·수정 모두 필수 (2026-10-27). 서버도 같은 400
 export const requiredDate = z.string().min(1, v.required).refine((s) => s === "" || isValidDate(s), v.date);
 
-/** today = 한국 날짜 YYYY-MM-DD (lib/listingForm todayInSeoul). 제조일·납기일 범위의 기준 */
+/** today = 한국 날짜 YYYY-MM-DD (lib/listingForm todayInSeoul). 납기일 범위의 기준 */
 export function listingFormSchema(today: string) {
   return z
     .object({
@@ -80,7 +75,6 @@ export function listingFormSchema(today: string) {
       prodName: requiredText(50, v.prodName),
       prodBrand: requiredText(40, v.prodBrand),
       prodNo: optionalText(20, v.prodNo),
-      prodMufcDate: optionalDate,
       prodSpecInfo: optionalText(100, v.prodSpecInfo),
       prodClassNo: optionalText(20, v.prodClassNo),
       prodUsefulLife: optionalUsefulLife,
@@ -106,10 +100,6 @@ export function listingFormSchema(today: string) {
         ctx.addIssue({ code: "custom", path: ["minOrderQuantity"], message: v.minOrderOverSales });
       }
       // YYYY-MM-DD 문자열은 사전순 = 날짜순
-      // 마스터를 골랐으면 제조일은 마스터 값(잠긴 칸)이고 서버도 요청의 제조일을 안 본다 — 오늘 이후여도 막지 않는다
-      if (d.prodId === "" && typeof d.prodMufcDate === "string" && d.prodMufcDate > today) {
-        ctx.addIssue({ code: "custom", path: ["prodMufcDate"], message: v.prodMufcDate });
-      }
       if (typeof d.deliveryDate === "string" && d.deliveryDate !== "" && d.deliveryDate < today) {
         ctx.addIssue({ code: "custom", path: ["deliveryDate"], message: v.deliveryDate });
       }
@@ -128,7 +118,6 @@ export const emptyListingForm: ListingFormInput = {
   prodName: "",
   prodBrand: "",
   prodNo: "",
-  prodMufcDate: "",
   prodSpecInfo: "",
   prodClassNo: "",
   prodUsefulLife: "",

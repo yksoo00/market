@@ -55,6 +55,8 @@ public class SecurityConfig {
 				.requestMatchers(HttpMethod.HEAD, "/api/v1/files/**").permitAll()
 				// 로컬 전용 임시 테이블 관리. 컨트롤러 빈이 APP_ENV=local 일 때만 있어 그 밖에서는 404 (2026-10-30)
 				.requestMatchers("/api/v1/dev/**").permitAll()
+				// TODO(사내 테스트용 게시판): 문의 게시판은 로그인 없이 읽는다(GET). 쓰기·수정·삭제는 아래 anyRequest 로 로그인 필요. 운영 공개 전 제거 (decisions.md 2026-11-18)
+				.requestMatchers(HttpMethod.GET, "/api/v1/inquiries", "/api/v1/inquiries/*").permitAll()
 				.anyRequest().authenticated())
 			.exceptionHandling(e -> e
 				.authenticationEntryPoint((req, res, ex) -> write(res, json, ErrorCode.UNAUTHENTICATED))

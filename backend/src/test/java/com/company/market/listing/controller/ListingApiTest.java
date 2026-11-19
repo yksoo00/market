@@ -512,14 +512,15 @@ class ListingApiTest {
 	}
 
 	@Test
-	@DisplayName("제조일은 yyyyMMdd 실제 날짜만, 미래면 400")
-	void prodMufcDateRules() throws Exception {
-		String tomorrow = LocalDate.now(SEOUL).plusDays(1).format(DateTimeFormatter.BASIC_ISO_DATE);
-		for (String bad : new String[] { "2020-01-01", "20261340", tomorrow }) {
-			createWithFields("노트북 M-" + bad, "\"prodMufcDate\":\"%s\"".formatted(bad)).andExpect(status().isBadRequest())
-				.andExpect(jsonPath("$.fields.prodMufcDate").isString());
-		}
-		createWithFields("노트북 M-ok", "\"prodMufcDate\":\"20200101\"").andExpect(status().isCreated());
+	@DisplayName("제조일(2026-11-04 삭제): 옛 프론트가 prodMufcDate 를 보내도 400 이 아니라 무시하고, 같은 이름·제조사·분류번호면 다른 판매자와 같은 상품을 쓴다")
+	void oldClientProdMufcDateIsIgnored() throws Exception {
+		createWithFields("노트북 M", "\"prodMufcDate\":\"2099-99-99\"").andExpect(status().isCreated())
+			.andExpect(jsonPath("$.data.mufcDate").doesNotExist());
+		Cookie other = otherUserCookie();
+		String otherReg = createProduct(other, "노트북 M", "삼성", null);
+
+		assertThat(prodIdOf(userIdOf(other), otherReg))
+			.isEqualTo(jdbc.queryForObject("select prod_id from trd_prod_reg where user_id = ?", String.class, userId));
 	}
 
 	@Test
@@ -690,9 +691,9 @@ class ListingApiTest {
 
 	// 상세 화면용 파생 필드 테스트는 등록 API 대신 repository 로 직접 만든다 — 등록 API 의 입력 규칙(파일 키 검사 등)이
 	// 바뀌어도 응답 변환만 검증하게
-	private void saveListing(String prodId, String regDate, String mufcDate, Integer warrantyPeriod) {
+	private void saveListing(String prodId, String regDate, Integer warrantyPeriod) {
 		productRepository.saveAndFlush(Product.builder().prodId(prodId).majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("상세 " + prodId)
-			.prodBrand("삼성").prodMufcDate(mufcDate).prodDataSheet("p-sheet.pdf").prodPhoto1("p-photo.jpg")
+			.prodBrand("삼성").prodDataSheet("p-sheet.pdf").prodPhoto1("p-photo.jpg")
 			.regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(userId).regDate(regDate).prodId(prodId).tradeType("등록")
 			.prodState("양호").salesUnitPrice(1000).salesQuantity(1).minOrderQuantity(1).orderUnit(1).stockQuantity(1)
@@ -700,14 +701,14 @@ class ListingApiTest {
 	}
 
 	@Test
-	@DisplayName("상세 응답에 카테고리·제조일·거래상태·보증기한이 담기고, 상품마스터의 사진·데이터시트는 담지 않는다")
+	@DisplayName("상세 응답에 카테고리·거래상태·보증기한이 담기고, 상품마스터의 사진·데이터시트는 담지 않는다")
 	void detailIncludesDerivedFields() throws Exception {
-		saveListing("ELEC00010101", "20261001091500", "20240122", 30);
+		saveListing("ELEC00010101", "20261001091500", 30);
 
 		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091500"))
 			.andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.category").value("P01-Q01-R001"))
-			.andExpect(jsonPath("$.data.mufcDate").value("2024-01-22"))
+			.andExpect(jsonPath("$.data.mufcDate").doesNotExist())
 			// 상품마스터 파일은 처음 등록한 다른 판매자의 것이라 이 매물에 보이면 안 된다 (decisions.md 2026-10-02 매물 상세)
 			.andExpect(jsonPath("$.data.productDataSheet").doesNotExist())
 			.andExpect(jsonPath("$.data.productPhoto").doesNotExist())
@@ -718,7 +719,7 @@ class ListingApiTest {
 	@Test
 	@DisplayName("거래완료일시가 있으면 tradeStatus 는 completed")
 	void tradeStatusCompletedWhenExpired() throws Exception {
-		saveListing("ELEC00010102", "20261001091500", null, null);
+		saveListing("ELEC00010102", "20261001091500", null);
 		jdbc.update("update trd_prod_reg set dt_expire = '20261002100000' where user_id = ? and reg_date = '20261001091500'", userId);
 
 		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091500"))
@@ -727,35 +728,10 @@ class ListingApiTest {
 	}
 
 	@Test
-	@DisplayName("제조일은 14자리도 날짜로, 그 외 형식은 원문 그대로, 없으면 null")
-	void mufcDateFormats() throws Exception {
-		saveListing("ELEC00010103", "20261001091501", "20240122093000", null);
-		saveListing("ELEC00010104", "20261001091502", "2024년 1월", null);
-		saveListing("ELEC00010105", "20261001091503", null, null);
-
-		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091501"))
-			.andExpect(jsonPath("$.data.mufcDate").value("2024-01-22"));
-		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091502"))
-			.andExpect(jsonPath("$.data.mufcDate").value("2024년 1월"));
-		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091503"))
-			.andExpect(jsonPath("$.data.mufcDate").value(nullValue()));
-	}
-
-	@Test
-	@DisplayName("숫자 8자리지만 없는 날짜인 제조일은 500 이 아니라 원문 그대로")
-	void mufcDateInvalidCalendarDateKeepsRaw() throws Exception {
-		saveListing("ELEC00010108", "20261001091506", "20241399", null);
-
-		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091506"))
-			.andExpect(status().isOk())
-			.andExpect(jsonPath("$.data.mufcDate").value("20241399"));
-	}
-
-	@Test
 	@DisplayName("보증기간이 없으면 warrantyUntil 은 null, 0일이면 등록일")
 	void warrantyUntilEdges() throws Exception {
-		saveListing("ELEC00010106", "20261001091504", null, null);
-		saveListing("ELEC00010107", "20261001091505", null, 0);
+		saveListing("ELEC00010106", "20261001091504", null);
+		saveListing("ELEC00010107", "20261001091505", 0);
 
 		mvc.perform(get("/api/v1/listings/" + userId + "/20261001091504"))
 			.andExpect(jsonPath("$.data.warrantyUntil").value(nullValue()));
@@ -975,14 +951,14 @@ class ListingApiTest {
 	}
 
 	@Test
-	@DisplayName("견적 행만 있는 매물은 삭제되고 견적 행도 같이 지워진다 (회신 뒤에도)")
+	@DisplayName("견적요청·견적거절 행만 있는 매물은 삭제되고 견적 행도 같이 지워진다 (수락된 견적은 수량이 묶여 있어 삭제를 막는다 — QuoteApiTest)")
 	void listingWithOnlyQuotesIsDeletedWithThem() throws Exception {
 		String regDate = createListing(authCookie);
 		UUID buyer = userIdOf(otherUserCookie());
 		jdbc.update("""
 				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id, order_unit_price,
 					order_quantity, prov_date, req_deli_date, trade_stats)
-				values (?, '26101510001', '견적조정', ?, ?, ?, 500000, 1, '2099-12-31', '2099-12-31', '견적수락')
+				values (?, '26101510001', '견적조정', ?, ?, ?, 500000, 1, '2099-12-31', '2099-12-31', '견적거절')
 				""", buyer, userId, regDate, prodIdOf(regDate));
 
 		mvc.perform(delete("/api/v1/listings/" + userId + "/" + regDate).cookie(authCookie))
@@ -1211,20 +1187,14 @@ class ListingApiTest {
 	}
 
 	@Test
-	@DisplayName("공유 마스터의 제조일을 바꾸면 네 값이 맞는 마스터로 이 매물만 옮긴다 — 남의 매물·옛 마스터는 그대로 (제조일은 재사용 키)")
-	void mufcDateEditMovesOnlyThisListing() throws Exception {
-		Cookie other = otherUserCookie();
-		String otherReg = createProduct(other, "노트북 U", "삼성", null);
+	@DisplayName("제조일(2026-11-04 삭제): prodMufcDate 만 보내는 옛 수정 요청은 200 이고 아무것도 안 옮긴다")
+	void patchWithOnlyMufcDateChangesNothing() throws Exception {
 		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
-		String shared = prodIdOf(userId, mine);
+		String before = prodIdOf(userId, mine);
 
 		patchListing(mine, "{\"prodMufcDate\":\"20200101\"}").andExpect(status().isOk());
 
-		assertThat(prodIdOf(userId, mine)).isNotEqualTo(shared);
-		assertThat(prodIdOf(userIdOf(other), otherReg)).isEqualTo(shared);
-		assertThat(jdbc.queryForObject("select prod_mufc_date from trd_prod_master where prod_id = ?", String.class, shared)).isNull();
-		assertThat(jdbc.queryForObject("select prod_mufc_date from trd_prod_master where prod_id = ?", String.class,
-				prodIdOf(userId, mine))).isEqualTo("20200101");
+		assertThat(prodIdOf(userId, mine)).isEqualTo(before);
 	}
 
 	@Test
@@ -1240,7 +1210,7 @@ class ListingApiTest {
 	}
 
 	@Test
-	@DisplayName("상품 칸 검증: 상품명 공백·51자, 제조일 미래, 카테고리 공백은 400 VALIDATION")
+	@DisplayName("상품 칸 검증: 상품명 공백·51자, 카테고리 공백은 400 VALIDATION")
 	void productFieldValidation() throws Exception {
 		String mine = createProduct(authCookie, "노트북 U", "삼성", null);
 
@@ -1248,7 +1218,6 @@ class ListingApiTest {
 		patchListing(mine, "{\"prodName\":\"%s\"}".formatted("가".repeat(51))).andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.prodName").isString());
 		patchListing(mine, "{\"prodBrand\":\"\"}").andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.prodBrand").isString());
 		patchListing(mine, "{\"categoryCode\":\" \"}").andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.categoryCode").isString());
-		patchListing(mine, "{\"prodMufcDate\":\"20991231\"}").andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.prodMufcDate").isString());
 	}
 
 	@Test

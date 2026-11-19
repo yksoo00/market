@@ -10,10 +10,11 @@ public record ListingSearchItemResponse(
 		String prodName,
 		String prodBrand,
 		String category,
-		String mufcDate,
 		String prodDescription,
 		boolean hasDataSheet,
 		boolean hasPhoto,
+		/** 대표 사진 저장소 키(첫 번째로 있는 사진). 없으면 null. 장바구니 카드가 보인다 (2026-11-03) */
+		String mainPhoto,
 		String warrantyUntil,
 		String warrantyCoverage,
 		boolean hasReplaceProd,

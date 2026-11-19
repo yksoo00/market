@@ -29,6 +29,41 @@ export function onCartChanged(listener: () => void): () => void {
   return () => channel.close();
 }
 
+/** 서버가 한 줄에 받는 수량 상한 (CartAddRequest·CartQuantityRequest) */
+const MAX_QUANTITY = 100_000;
+
+/**
+ * 장바구니 줄의 +/- 가 바꿀 다음 수량 (주문단위만큼). 못 바꾸면 null — 버튼을 비활성으로 둔다.
+ * 내릴 때는 최소주문량 아래로 못 가고(없애려면 [빼기]), 올릴 때는 지금 묶이지 않은 재고(item.stockQuantity)가 주문단위 이상이어야 한다.
+ * 서버가 최종 판정한다(동시에 누가 가져갔으면 400)
+ */
+export function nextCartQuantity(item: ListingSearchItem, current: number, direction: "down" | "up"): number | null {
+  if (!cartActionable(item)) return null;
+  const unit = item.orderUnit ?? 1;
+  const min = item.minOrderQuantity ?? 1;
+  if (direction === "down") return current - unit >= min ? current - unit : null;
+  // 담기와 같은 한 줄 상한(서버 100000)을 넘기는 + 도 막는다
+  return unit <= (item.stockQuantity ?? 0) && current + unit <= MAX_QUANTITY ? current + unit : null;
+}
+
+/** 한 줄 금액 = 단가 × 담은 수량 */
+export function cartLineAmount(unitPrice: number, quantity: number): number {
+  return unitPrice * quantity;
+}
+
+/** 선택한 줄들의 합계 금액 */
+export function cartTotal(lines: readonly { unitPrice: number; quantity: number }[]): number {
+  return lines.reduce((sum, l) => sum + cartLineAmount(l.unitPrice, l.quantity), 0);
+}
+
+/** 담은 시각(yyyyMMddHHmmss, UTC)으로부터 자동 삭제(1시간)까지 남은 분. 시각을 모르면 null */
+export function remainingMinutes(addedAt: string | undefined, now: number = Date.now()): number | null {
+  const m = addedAt ? /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})$/.exec(addedAt) : null;
+  if (!m) return null;
+  const added = Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +m[6]);
+  return 60 - Math.floor((now - added) / 60_000);
+}
+
 /** 거래완료 매물은 장바구니에 남지만 견적·구매 대상이 아니다 (빼기만) */
 export function cartActionable(item: ListingSearchItem): boolean {
   return item.tradeStatus !== "completed";

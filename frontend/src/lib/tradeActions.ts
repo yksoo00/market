@@ -4,7 +4,8 @@ export type RowAction = "complete" | "cancel" | "accept" | "reject" | "buy" | "r
 
 /**
  * 목록 한 줄에서 지금 누를 수 있는 버튼 (스펙 2026-10-20 "화면"). 표시용 — 서버가 상태 조건으로 다시 막는다.
- * 견적: 구매자는 답 전 [취소]·수락 뒤 [구매]·거절 뒤 [재요청]·[취소], 판매자는 답 전 [수락]·[거절].
+ * 견적: 구매자는 답 전 [취소]·수락 뒤 [구매]·[취소]·거절 뒤 [재요청]·[취소], 판매자는 답 전 [수락]·[거절]·수락 뒤 [취소]
+ * (수락하면 수량이 묶이므로 수락된 견적도 양쪽이 취소할 수 있다, 2026-11-02).
  * 구매요청(직접 구매든 수락된 견적에서 이어진 행이든 같다): 구매자 [거래완료]·[취소], 판매자 [취소].
  */
 export function rowActions(item: Pick<Trade, "tradeStats">, asBuyer: boolean): RowAction[] {
@@ -13,7 +14,7 @@ export function rowActions(item: Pick<Trade, "tradeStats">, asBuyer: boolean): R
     case "quoteRequested":
       return asBuyer ? ["cancel"] : ["accept", "reject"];
     case "quoteAccepted":
-      return asBuyer ? ["buy"] : [];
+      return asBuyer ? ["buy", "cancel"] : ["cancel"];
     case "quoteRejected":
       return asBuyer ? ["requote", "cancel"] : [];
     case "requested":

@@ -5,6 +5,15 @@ import type { ReactNode } from "react";
 
 export type FilterValues = Record<string, string>;
 
+/** 검색창 왼쪽 구분 select (전체·상품명·제조사 같은 찾는 범위) */
+export interface SearchScopeSelect {
+  key: string;
+  label: string;
+  /** 이 값이면 주소에 싣지 않는다 */
+  defaultValue: string;
+  options: { value: string; label: string }[];
+}
+
 /** 칩 하나가 모든 종류에서 같이 갖는 것 */
 interface FieldBase {
   /** 칩 이름 (걸리지 않았을 때 칩에 보이는 글자이자 × 의 접근 가능한 이름) */
@@ -40,7 +49,14 @@ export type FilterField =
   /** 숫자 하나 ("재고 N개 이상") */
   | (FieldBase & { kind: "numberMin"; key: string; suffix: string })
   /** 고르면 바로 적용되는 선택 */
-  | (FieldBase & { kind: "select"; key: string; defaultValue: string; options: { value: string; label: string }[] })
+  | (FieldBase & {
+      kind: "select";
+      key: string;
+      defaultValue: string;
+      options: { value: string; label: string }[];
+      /** 선택지에 없는 값(예: 열 머리 정렬로 정해진 sort)의 칩 글자 — 모르면 undefined */
+      labelOf?: (value: string) => string | undefined;
+    })
   /** 여러 칸을 한 팝업에 모아 [적용] 한 번 (검색의 [상세 필터]) */
   | (FieldBase & { kind: "group"; items: GroupItem[] })
   /** 화면 전용 팝업 (검색의 카테고리 패널). 쓰는 값 키를 알려 주고 팝업 안은 그쪽이 그린다 */
@@ -79,11 +95,21 @@ export function filterCount(fields: FilterField[], values: FilterValues): number
   return fields.filter((f) => !fieldIsEmpty(f, values)).length;
 }
 
-/** 값 → 주소 파라미터. 빈 값과 select 기본값은 뺀다 (같은 조건이 다른 주소가 되지 않게) */
-export function filterParams(fields: FilterField[], values: FilterValues, searchKey: string): Record<string, string | undefined> {
+/**
+ * 값 → 주소 파라미터. 빈 값과 select 기본값은 뺀다 (같은 조건이 다른 주소가 되지 않게).
+ * 검색 구분(searchField)은 검색어가 있고 기본값이 아닐 때만
+ */
+export function filterParams(
+  fields: FilterField[],
+  values: FilterValues,
+  searchKey: string,
+  searchField?: SearchScopeSelect,
+): Record<string, string | undefined> {
   const out: Record<string, string | undefined> = {};
   const q = (values[searchKey] ?? "").trim();
   if (q) out[searchKey] = q;
+  const scope = searchField ? values[searchField.key] : undefined;
+  if (q && searchField && scope && scope !== searchField.defaultValue) out[searchField.key] = scope;
   for (const f of fields) {
     if (fieldIsEmpty(f, values)) continue;
     for (const k of fieldKeys(f)) if (values[k]) out[k] = values[k];

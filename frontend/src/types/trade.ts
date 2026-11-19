@@ -17,6 +17,8 @@ export interface TradeCreateRequest {
   /** YYYY-MM-DD */
   reqDeliDate: string;
   remarks?: string;
+  /** 장바구니에서 누른 구매면 그 줄의 거래ID — 있으면 그 줄이 구매요청이 된다 */
+  cartTradeId?: string;
 }
 
 /** POST /api/v1/trades/quotes 한 줄. 납품희망일 필수 (2026-10-27) */
@@ -28,6 +30,8 @@ export interface QuoteItem {
   /** YYYY-MM-DD */
   reqDeliDate: string;
   remarks?: string;
+  /** 장바구니에서 누른 견적이면 그 줄의 거래ID — 있으면 그 줄이 견적요청이 된다 */
+  cartTradeId?: string;
 }
 
 /** 백엔드 TradeResponse. counterpartNickname = 보는 사람의 상대방(구매자에겐 판매자) */
@@ -50,6 +54,36 @@ export interface Trade {
   counterpartNickname: string | null;
   /** 대표 사진 공개 키 */
   photo: string | null;
+}
+
+/** 받은 견적요청 한 줄 (백엔드 QuoteRequestListResponse.Item) — 한꺼번에 처리 모달용. stockQuantity = 그 매물의 지금 재고 */
+export interface QuoteRequestItem {
+  tradeId: string;
+  regDate: string;
+  prodName: string;
+  buyerNickname: string | null;
+  orderQuantity: number;
+  salesUnitPrice: number | null;
+  orderUnitPrice: number;
+  amount: number;
+  reqDeliDate: string | null;
+  remarks: string | null;
+  stockQuantity: number | null;
+}
+
+/** GET /api/v1/trades/quote-requests — 오래된 순 최대 30건, total = 전체 건수 */
+export interface QuoteRequestList {
+  items: QuoteRequestItem[];
+  total: number;
+}
+
+/** 건별 결과 (백엔드 QuoteReplyResponse.Result). 성공이면 tradeStats, 실패면 code·message */
+export interface QuoteReplyResult {
+  tradeId: string;
+  ok: boolean;
+  tradeStats: "quoteAccepted" | "quoteRejected" | null;
+  code: string | null;
+  message: string | null;
 }
 
 export interface TradePage {

@@ -10,6 +10,8 @@ import { trade } from "@/messages/trade";
 // 가입이 2번(판매자·구매자)
 const password = "Test1234!@";
 const t = trade.list;
+// 한 줄에 다 안 들어가는 길이의 요청사항 (표에선 잘린다)
+const LONG_REMARKS = "납품 전에 설치 일정과 담당자 연락처를 먼저 알려 주세요. 가능하면 오전 중에 받고 싶습니다. 포장은 파손 방지로 꼼꼼히 부탁드립니다.".slice(0, 100);
 
 const checkButton = (page: Page, name: string) =>
   page.locator(`input[name="${name}"]`).locator("xpath=ancestor::div[.//button][1]").getByRole("button", { name: signup.form.check });
@@ -50,7 +52,7 @@ async function logOut(page: Page) {
 const daysLater = (n: number) =>
   new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(Date.now() + n * 86_400_000));
 
-async function requestPurchase(page: Page, listingPath: string, quantity: string) {
+async function requestPurchase(page: Page, listingPath: string, quantity: string, remarks?: string) {
   await page.goto(listingPath);
   await page.getByRole("button", { name: listing.detail.buy, exact: true }).click();
   const dialog = page.getByRole("dialog", { name: trade.purchase.title });
@@ -59,6 +61,7 @@ async function requestPurchase(page: Page, listingPath: string, quantity: string
   await dialog.locator('input[name="orderQuantity"]').fill(quantity);
   // 납품희망일은 제공가능일이 기본값으로 채워진다 — 다른 날짜로 바꿔 본다
   await dialog.locator('input[name="reqDeliDate"]').fill(daysLater(7));
+  if (remarks) await dialog.locator('input[name="remarks"]').fill(remarks);
   await expect(submit).toBeEnabled();
   await submit.click();
   await expect(page.getByRole("dialog", { name: trade.purchase.doneTitle })).toBeVisible();
@@ -116,13 +119,19 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     // 휴대폰 번호가 판매자와 겹치지 않게 뒤 8자리를 바꾼다
     await signUp(page, buyer, String((Number(stamp) + 1) % 100_000_000).padStart(8, "0"));
     await logIn(page, buyer);
-    await requestPurchase(page, listingPath, "2");
+    await requestPurchase(page, listingPath, "2", LONG_REMARKS);
   });
 
   await test.step("내 구매목록 — 구매요청 → [거래완료] → 구매확정", async () => {
     await page.goto("/my/activity?tab=purchases");
     const row = page.getByRole("table").getByRole("row").filter({ hasText: prodName });
     await expect(row.getByText(t.stats.requested)).toBeVisible();
+    // 요청사항은 표에서 한 줄로 잘려 있고, 누르면 전체 글이 팝업으로 보인다
+    await row.getByRole("button", { name: t.remarksView(prodName) }).click();
+    const remarksDialog = page.getByRole("dialog", { name: t.remarksLabel });
+    await expect(remarksDialog.getByText(LONG_REMARKS)).toBeVisible();
+    await remarksDialog.getByRole("button", { name: t.remarksClose }).click();
+    await expect(remarksDialog).toBeHidden();
     // 검색·상세 필터: 없는 이름은 빈 결과 → [필터 초기화], 상태·상품명 조건은 그대로 보인다
     const af = my.activityFilter;
     const hf = my.history.filter;
@@ -201,8 +210,8 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     await expect(page.getByText(my.sales.emptyTitle)).toBeVisible();
   });
 
-  // 넓은 화면 표에는 재고 열이 없다 — 재고가 0이 되는 구매로 행이 바로 "거래완료"가 되는지 본다
-  await test.step("검색 결과에서 남은 재고(3)를 다 사면 그 행이 바로 거래완료로 바뀐다", async () => {
+  // 판매완료는 재고가 0 이 된 때가 아니라 구매 확정 때 (2026-11-02) — 남은 재고를 다 사도 확정 전엔 거래 중
+  await test.step("남은 재고(3)를 다 사도 확정 전엔 거래 중, 거래완료(확정)하면 그 행이 판매완료로 바뀐다", async () => {
     await logOut(page);
     await logIn(page, buyer);
     await page.goto(`/search?q=${encodeURIComponent(prodName)}`);
@@ -216,6 +225,16 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     await dialog.getByRole("button", { name: trade.purchase.submit, exact: true }).click();
     await expect(page.getByRole("dialog", { name: trade.purchase.doneTitle })).toBeVisible();
     await page.keyboard.press("Escape");
+    // 재고는 0 이어도 구매 확정 전이라 판매완료 배지가 없다
+    await page.goto(`/search?q=${encodeURIComponent(prodName)}`);
+    await expect(row.getByText(search.result.completedBadge)).toHaveCount(0);
+
+    await page.goto("/my/activity?tab=purchases");
+    await page.getByRole("button", { name: t.completeAria(prodName) }).click();
+    await expect(page.getByRole("table").getByRole("row").filter({ hasText: prodName }).getByText(t.stats.confirmed)).toBeVisible();
+
+    // 확정하면 재고 0 + 묶인 건 없음 → 판매완료. 검색은 기본이 거래 중만 보이므로 거래완료 필터로 본다
+    await page.goto(`/search?q=${encodeURIComponent(prodName)}&status=completed`);
     await expect(row.getByText(search.result.completedBadge)).toBeVisible();
   });
 });

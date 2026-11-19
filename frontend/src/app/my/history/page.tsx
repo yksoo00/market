@@ -4,7 +4,7 @@ import { MobileTabBar } from "@/components/common/MobileTabBar";
 import { HistoryList } from "@/components/my/HistoryList";
 import { MyTabs } from "@/components/my/MyTabs";
 import { filterParams } from "@/lib/detailFilter";
-import { historyFields, parseHistoryFilter } from "@/lib/historyFilter";
+import { historyFields, parseHistoryFilter, tradeSearchField } from "@/lib/historyFilter";
 import { HISTORY_TABS, parseHistoryTab, parsePage, tabPageHref } from "@/lib/myTabs";
 import type { RawSearchParams } from "@/lib/search";
 import { my } from "@/messages/my";
@@ -18,7 +18,7 @@ export default async function MyHistoryPage({ searchParams }: { searchParams: Pr
   const tab = parseHistoryTab(raw.tab);
   const page = parsePage(raw.page);
   const filter = parseHistoryFilter(raw);
-  const params = filterParams(historyFields, filter, "q");
+  const params = filterParams(historyFields, filter, "q", tradeSearchField);
 
   return (
     <>

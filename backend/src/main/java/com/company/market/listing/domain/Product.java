@@ -1,9 +1,5 @@
 package com.company.market.listing.domain;
 
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
-import java.time.format.DateTimeParseException;
-
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -55,8 +51,6 @@ public class Product implements Persistable<String> {
 
 	private String alterProdName;
 
-	private String prodMufcDate;
-
 	private String prodSpecInfo;
 
 	private String prodDataSheet;
@@ -74,7 +68,7 @@ public class Product implements Persistable<String> {
 	@Builder
 	private Product(String prodId, String majorCategory, String middleCategory, String minorCategory,
 			String prodName, String prodNo, String prodBrand, String prodClassNo, Integer prodUsefulLife,
-			String warrantyMethod, String alterProdName, String prodMufcDate, String prodSpecInfo, String prodDataSheet,
+			String warrantyMethod, String alterProdName, String prodSpecInfo, String prodDataSheet,
 			String prodPhoto1, String regDate, String spareCol) {
 		this.prodId = prodId;
 		this.majorCategory = majorCategory;
@@ -87,7 +81,6 @@ public class Product implements Persistable<String> {
 		this.prodUsefulLife = prodUsefulLife;
 		this.warrantyMethod = warrantyMethod;
 		this.alterProdName = alterProdName;
-		this.prodMufcDate = prodMufcDate;
 		this.prodSpecInfo = prodSpecInfo;
 		this.prodDataSheet = prodDataSheet;
 		this.prodPhoto1 = prodPhoto1;
@@ -95,8 +88,8 @@ public class Product implements Persistable<String> {
 		this.spareCol = spareCol;
 	}
 
-	/** null 이 아닌 칸만 반영. 카테고리는 확인된 조각(CategoryService). 번호·제조일·사양은 "" = 비우기. 이 상품을 쓰는 매물이 하나뿐일 때만 서비스가 부른다 */
-	public void applyEdit(CategoryFragments category, String prodNo, String prodMufcDate, String prodSpecInfo) {
+	/** null 이 아닌 칸만 반영. 카테고리는 확인된 조각(CategoryService). 번호·사양은 "" = 비우기. 이 상품을 쓰는 매물이 하나뿐일 때만 서비스가 부른다 */
+	public void applyEdit(CategoryFragments category, String prodNo, String prodSpecInfo) {
 		if (category != null) {
 			this.majorCategory = category.major();
 			this.middleCategory = category.middle();
@@ -104,9 +97,6 @@ public class Product implements Persistable<String> {
 		}
 		if (prodNo != null) {
 			this.prodNo = prodNo.isEmpty() ? null : prodNo;
-		}
-		if (prodMufcDate != null) {
-			this.prodMufcDate = prodMufcDate.isEmpty() ? null : prodMufcDate;
 		}
 		if (prodSpecInfo != null) {
 			this.prodSpecInfo = prodSpecInfo.isEmpty() ? null : prodSpecInfo;
@@ -120,19 +110,6 @@ public class Product implements Persistable<String> {
 	/** 화면·API 의 카테고리 코드 = 조각을 '-' 로 이은 경로 (P01-Q01-R001) */
 	public String getCategoryCode() {
 		return category().code();
-	}
-
-	/** 제조일을 YYYY-MM-DD 로. 등록 API 가 형식을 검사하지 않아, 날짜로 읽히지 않는 값은 버리지 않고 원문 그대로 둔다 */
-	public String mufcDateIso() {
-		if (prodMufcDate == null || !prodMufcDate.matches("\\d{8}|\\d{14}")) {
-			return prodMufcDate;
-		}
-		try {
-			return LocalDate.parse(prodMufcDate.substring(0, 8), DateTimeFormatter.BASIC_ISO_DATE).toString();
-		}
-		catch (DateTimeParseException e) {
-			return prodMufcDate;
-		}
 	}
 
 	@Override

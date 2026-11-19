@@ -1,0 +1,25 @@
+meta {
+  name: 다량 등록 엑셀 읽기·검사
+  type: http
+  seq: 11
+}
+
+post {
+  url: {{baseUrl}}/api/v1/listings/bulk/parse
+  body: multipartForm
+  auth: none
+}
+
+body:multipart-form {
+  file: @file(bulk.xlsx)
+  attachments: @file(files.zip)
+}
+
+docs {
+  로그인(auth/login.bru) 먼저. file 은 bulk-template.bru 로 받은 양식을 채워 실제 파일로 바꿔 고른다.
+  200 { ok, data: { rows: BulkRowDto[], results: BulkRowResult[] } } — rows[i] 와 results[i] 가 같은 줄. 저장은 하지 않는다.
+  results[].status: MATCHED(마스터 찾음) · NEW_MASTER(새 마스터로 만들어짐) · FAILED(fields 에 칸별 사유). candidates = 이름이 겹치는 기존 상품(최대 5).
+  attachments(선택): ZIP — 폴더 없이 사진(jpg·png·webp 5MB 이하)·데이터시트(pdf 10MB 이하)를 바로 넣는다. 엑셀 사진1~4·데이터시트 칸에 적은 이름과 ZIP 안 이름이 같으면 rows[].photo1~4·dataSheet 에 { name, key, problem } 이 붙는다. 엑셀+ZIP 합쳐 50MB 이하.
+  ZIP 이 .zip 아님·폴더/중첩 ZIP 포함·파일 1000개 초과·풀면 100MB 초과면 400 VALIDATION fields.attachments. key 는 본인이 24시간 안에 올린 것만 commit 이 받는다.
+  400 VALIDATION fields.file: .xlsx 아님·읽을 수 없음·양식 헤더 없음·데이터 201줄 이상. 데이터 줄이 없으면 rows·results 가 빈 배열.
+}

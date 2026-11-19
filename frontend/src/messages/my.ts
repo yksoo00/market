@@ -42,7 +42,8 @@ export const my = {
     // 검색 + 상세 필터 (계획 2026-10-30)
     filter: {
       label: "거래이력 검색",
-      searchPlaceholder: "상품명으로 검색",
+      // 매물 검색창과 같은 범위·문구 (2026-10-30)
+      searchPlaceholder: "모델명·상품번호·제조사",
       search: "검색",
       chips: "필터",
       clear: (what: string) => `${what} 조건 지우기`,
@@ -54,7 +55,9 @@ export const my = {
       maxAmount: "최대 금액",
       won: "원",
       sort: "정렬",
-      sorts: { latest: "최신순", oldest: "오래된 순", amountDesc: "금액 높은 순", amountAsc: "금액 낮은 순" },
+      sorts: { latest: "최신순", amountDesc: "금액높은순", amountAsc: "금액낮은순" },
+      // 열 머리를 눌러 정한 정렬의 칩 글자 ("상대 ▲", 2026-11-03)
+      sortColumns: { date: "확정일시", side: "구분", name: "상품명", party: "상대", unitPrice: "단가", quantity: "수량", amount: "금액" },
       apply: "적용",
       reset: "필터 초기화",
       resultCount: (n: number) => `조건에 맞는 거래 ${n.toLocaleString("ko-KR")}건`,
@@ -75,23 +78,6 @@ export const my = {
     subtitle: "내가 등록한 판매글을 검색하고 고쳐요",
     emptyTitle: "등록한 판매글이 없어요",
     emptyAction: "판매상품 등록하기",
-    editColumn: "수정",
-    edit: "수정",
-    editAria: (name: string) => `${name} 수정`,
-    // 행 안 수정 (RowEditor)
-    row: {
-      loading: "수정할 내용을 불러오는 중…",
-      loadFailed: "수정할 내용을 불러오지 못했어요.",
-      retry: "다시 시도",
-      editing: (name: string) => `${name} 수정 중`,
-      save: "저장",
-      saving: "저장 중…",
-      cancel: "취소",
-      noChange: "바꾼 내용이 없어요",
-      warranty: "보증기간",
-      panelHas: "입력됨",
-      panelNone: "없음",
-    },
   },
   // 내 활동내역 구매 탭 — 내가 구매자인 진행 중 거래 (TradeList role=buyer)
   purchases: {
@@ -101,6 +87,8 @@ export const my = {
   },
   // 내 활동내역 요청·구매 탭 검색 + 상세 필터 (계획 2026-10-30 후속). 기간·금액·정렬 문구는 history.filter 와 같다
   activityFilter: {
+    // 열 머리를 눌러 정한 정렬의 칩 글자 ("상대 ▲", 2026-11-03)
+    sortColumns: { name: "상품명", party: "상대", quantity: "수량", unitPrice: "단가", amount: "금액", reqDeli: "납품희망일", status: "상태" },
     label: "거래 검색",
     status: "거래상태",
     statusAll: "전체",

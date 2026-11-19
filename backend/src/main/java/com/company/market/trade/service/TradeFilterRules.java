@@ -22,12 +22,20 @@ final class TradeFilterRules {
 
 	static final String DATE_MAX = "99999999999999";
 
-	/** 상품명 검색으로 한 번에 거는 상품 수 상한. IN 조건이 끝없이 길어지지 않게 (PURCHASED_KEYS_MAX 와 같은 이유) */
-	static final int NAME_MATCH_MAX = 500;
-
 	static final int Q_MAX = 100;
 
-	static final List<String> SORTS = List.of("latest", "oldest", "amountDesc", "amountAsc");
+	static final List<String> FIELDS = List.of("all", "name", "brand");
+
+	/**
+	 * 거래이력이 받는 정렬 값: latest(기본)·oldest(오래된 순) + 열마다 열이름Asc|Desc (열 머리 정렬 2026-11-03). 열: name·party(상대)·side(구분)·
+	 * unitPrice·quantity·amount
+	 */
+	static final List<String> SORTS = List.of("latest", "oldest", "amountDesc", "amountAsc", "nameAsc", "nameDesc", "partyAsc", "partyDesc",
+			"sideAsc", "sideDesc", "unitPriceAsc", "unitPriceDesc", "quantityAsc", "quantityDesc");
+
+	/** 활동내역 요청·구매 목록이 받는 정렬 — 열: name·party(상대)·quantity·unitPrice·amount·reqDeli(납품희망일)·status. 거래이력 전용 값(side)을 조용히 최신순으로 받지 않게 따로 둔다 */
+	static final List<String> ACTIVITY_SORTS = List.of("latest", "oldest", "amountDesc", "amountAsc", "nameAsc", "nameDesc", "partyAsc", "partyDesc",
+			"quantityAsc", "quantityDesc", "unitPriceAsc", "unitPriceDesc", "reqDeliAsc", "reqDeliDesc", "statusAsc", "statusDesc");
 
 	private static final Pattern ISO_DATE = Pattern.compile("\\d{4}-\\d{2}-\\d{2}");
 
@@ -37,25 +45,30 @@ final class TradeFilterRules {
 	}
 
 	/** 검증을 통과한 필터. from·to 는 14자리(yyyyMMddHHmmss) 경계, q 가 없으면 상품 조건은 안 건다 */
-	record Parsed(String q, String from, String to, int min, int max, String sort) {
+	record Parsed(String q, String field, String from, String to, int min, int max, String sort) {
 	}
 
-	/** 필터 검증 — 틀린 칸을 한 번에 모아 400. paged = page 파라미터가 있나 (최신순 아닌 정렬은 page 가 있어야 한다) */
+	/** 거래이력 필터 검증 — 틀린 칸을 한 번에 모아 400. paged = page 파라미터가 있나 (최신순 아닌 정렬은 page 가 있어야 한다) */
 	static Parsed parse(TradeFilter filter, boolean paged) {
 		TradeFilter in = filter == null ? TradeFilter.none() : filter;
 		Map<String, String> errors = new LinkedHashMap<>();
-		Parsed parsed = parse(in, paged, errors);
+		Parsed parsed = parse(in, paged, errors, SORTS);
 		if (!errors.isEmpty()) {
 			throw new ValidationException(errors);
 		}
 		return parsed;
 	}
 
-	/** 다른 칸(상태 등)의 오류와 같이 모으려고 errors 를 받는 형태. 오류가 있으면 반환값은 쓰지 않는다 */
-	static Parsed parse(TradeFilter in, boolean paged, Map<String, String> errors) {
+	/** 다른 칸(상태 등)의 오류와 같이 모으려고 errors 를 받는 형태. sorts = 이 목록이 받는 정렬 값. 오류가 있으면 반환값은 쓰지 않는다 */
+	static Parsed parse(TradeFilter in, boolean paged, Map<String, String> errors, List<String> sorts) {
 		String q = in.q() == null || in.q().isBlank() ? null : in.q().trim();
 		if (q != null && q.length() > Q_MAX) {
 			errors.put("q", "검색어는 " + Q_MAX + "자 이하로 입력하세요.");
+		}
+		// 검색 구분 — 매물 검색과 같은 범위 (2026-10-30)
+		String field = in.field() == null || in.field().isBlank() ? "all" : in.field();
+		if (!FIELDS.contains(field)) {
+			errors.put("field", "field 는 all, name, brand 중 하나여야 합니다.");
 		}
 
 		LocalDate from = parseDate(in.from(), "from", errors);
@@ -77,13 +90,13 @@ final class TradeFilterRules {
 		}
 
 		String sort = in.sort() == null || in.sort().isBlank() ? "latest" : in.sort();
-		if (!SORTS.contains(sort)) {
-			errors.put("sort", "sort 는 latest, oldest, amountDesc, amountAsc 중 하나여야 합니다.");
+		if (!sorts.contains(sort)) {
+			errors.put("sort", "sort 는 " + String.join(", ", sorts) + " 중 하나여야 합니다.");
 		} else if (!paged && !"latest".equals(sort)) {
 			errors.put("sort", "최신순 말고 다른 정렬은 page 와 함께 써야 합니다.");
 		}
 
-		return new Parsed(q, from == null ? DATE_MIN : from.format(DAY) + "000000", to == null ? DATE_MAX : to.format(DAY) + "235959",
+		return new Parsed(q, field, from == null ? DATE_MIN : from.format(DAY) + "000000", to == null ? DATE_MAX : to.format(DAY) + "235959",
 				min == null ? 0 : min.intValue(), max == null ? Integer.MAX_VALUE : max.intValue(), sort);
 	}
 

@@ -25,7 +25,7 @@ const e = listing.edit;
 
 // 서버 fields 를 붙일 수 있는 칸. 서버 필드명 = 요청 필드명 = 폼 칸 이름
 const fields = [
-  "prodState", "salesUnitPrice", "salesQuantity", "stockQuantity", "minOrderQuantity", "orderUnit", "deliveryDate",
+  "prodName", "prodBrand", "prodNo", "prodState", "salesUnitPrice", "salesQuantity", "stockQuantity", "minOrderQuantity", "orderUnit", "deliveryDate",
   "description", "photos", "listingDataSheet",
 ] as const;
 
@@ -91,6 +91,15 @@ export function ListingEditForm({ detail }: { detail: ListingDetail }) {
 
         <ReadonlyProduct detail={detail} />
 
+        <Section title={e.sectionProduct}>
+          <Wide>
+            <p className="text-xs text-ink-3">{e.productSharedHint}</p>
+          </Wide>
+          <FormField<ListingEditValues> inline name="prodName" label={t.prodName} maxLength={50} />
+          <FormField<ListingEditValues> inline name="prodBrand" label={t.prodBrand} maxLength={40} />
+          <FormField<ListingEditValues> inline name="prodNo" label={t.prodNo} maxLength={20} />
+        </Section>
+
         <Section title={e.sectionSale}>
           <ProdStateField />
           <FormField<ListingEditValues>
@@ -147,15 +156,11 @@ export function ListingEditForm({ detail }: { detail: ListingDetail }) {
   );
 }
 
-/** 상품마스터 칸은 서버가 수정을 받지 않는다 (다른 판매자 매물과 공유) — 읽기 전용으로 보여 준다 */
+/** 카테고리·사양 요약은 여기서 못 고친다 — 읽기 전용으로 보여 준다 (상품명·제조사·번호는 아래 입력칸) */
 function ReadonlyProduct({ detail }: { detail: ListingDetail }) {
   const r = e.rows;
   const rows: [string, string | null][] = [
     [r.category, detail.categoryPath ?? detail.category],
-    [r.name, detail.prodName],
-    [r.brand, detail.prodBrand],
-    [r.prodNo, detail.prodNo],
-    [r.mufcDate, detail.mufcDate],
     [r.spec, detail.prodSpecInfo],
   ];
   return (

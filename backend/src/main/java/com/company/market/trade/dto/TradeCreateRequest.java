@@ -20,7 +20,13 @@ public record TradeCreateRequest(
 		@NotNull @Min(1) @Max(100_000) Integer orderQuantity,
 		@NotBlank(message = REQ_DELI_DATE_REQUIRED)
 		@Pattern(regexp = ListingCreateRequest.DELIVERY_DATE_PATTERN, message = REQ_DELI_DATE_MESSAGE) String reqDeliDate,
-		@Size(max = 100) String remarks) {
+		@Size(max = 100) String remarks,
+		// 장바구니에서 누른 구매면 그 줄의 거래ID — 있으면 그 줄이 구매요청이 된다 (같은 매물이 여러 줄이라 매물로는 못 찾는다, 2026-11-02). 없으면 새 거래
+		@Size(max = 20) String cartTradeId) {
+
+	public TradeCreateRequest(UUID sellerId, String regDate, Integer orderQuantity, String reqDeliDate, String remarks) {
+		this(sellerId, regDate, orderQuantity, reqDeliDate, remarks, null);
+	}
 
 	public static final String REQ_DELI_DATE_MESSAGE = "납품희망일은 YYYY-MM-DD 형식이어야 합니다.";
 

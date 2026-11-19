@@ -50,16 +50,17 @@ export function ownerActions(d: Pick<ListingDetail, "tradeStatus">): { edit: boo
 /** [구매]를 못 누르는 이유. login 만 버튼을 켜 두고 누르면 로그인으로 보낸다. 표시용 — 서버가 403·409 로 다시 막는다 */
 export type PurchaseBlock = "completed" | "own" | "lowStock" | "login";
 
-export function purchaseBlockReason(d: ListingDetail, meId: string | null): PurchaseBlock | null {
+/** heldQuantity = 장바구니 줄에서 열었다면 그 줄이 이미 묶은 수량 — 쓸 수 있는 재고에 더한다 (서버도 줄 수량을 재고에 더해 본다, 2026-11-02) */
+export function purchaseBlockReason(d: ListingDetail, meId: string | null, heldQuantity = 0): PurchaseBlock | null {
   if (d.tradeStatus === "completed") return "completed";
   if (isOwner(meId, d.userId)) return "own";
   // 최소주문량만큼도 남지 않으면 어떤 주문량도 규칙을 못 맞춘다
-  if (d.stockQuantity === null || d.stockQuantity < d.minOrderQuantity) return "lowStock";
+  if (d.stockQuantity === null || d.stockQuantity + heldQuantity < d.minOrderQuantity) return "lowStock";
   if (meId === null) return "login";
   return null;
 }
 
-/** [장바구니]는 서버(CartService)처럼 거래완료·내 매물만 막는다 — 재고가 모자라도 나중에 살 수 있어 담아 둔다 */
+/** [장바구니]는 거래완료·내 매물을 막는다. 재고가 모자란 건 담기 창이 수량 칸에서 알린다(담으면 그 수량이 묶이므로 재고 안에서만 담긴다) */
 export function cartBlocked(d: ListingDetail, meId: string | null): boolean {
   return d.tradeStatus === "completed" || isOwner(meId, d.userId);
 }
@@ -87,7 +88,6 @@ export function infoRows(d: ListingDetail): InfoRow[] {
     { key: "stock", label: r.stock, value: count(d.stockQuantity) },
     { key: "category", label: r.category, value: d.categoryPath ?? d.category },
     { key: "tradeType", label: r.tradeType, value: d.tradeType },
-    { key: "mufcDate", label: r.mufcDate, value: orEmpty(d.mufcDate) },
     { key: "classNo", label: r.classNo, value: orEmpty(d.prodClassNo) },
     { key: "usefulLife", label: r.usefulLife, value: d.prodUsefulLife === null ? t.empty : t.months(d.prodUsefulLife) },
     { key: "warrantyMethod", label: r.warrantyMethod, value: orEmpty(d.warrantyMethod) },
