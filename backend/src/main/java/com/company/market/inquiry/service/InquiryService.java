@@ -79,7 +79,10 @@ public class InquiryService {
 
 	@Transactional
 	public InquiryReplyResponse reply(UUID inquiryId, InquiryReplyRequest req) {
-		find(inquiryId);
+		// 존재만 확인하면 되니 내용(2000자)까지 읽는 findById 대신 existsById
+		if (!inquiries.existsById(inquiryId)) {
+			throw new ApiException(ErrorCode.NOT_FOUND, "문의를 찾을 수 없습니다.");
+		}
 		return InquiryReplyResponse.of(replies.save(InquiryReply.create(inquiryId, req.content().strip())));
 	}
 

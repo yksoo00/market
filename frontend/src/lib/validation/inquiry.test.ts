@@ -36,6 +36,17 @@ describe("문의 입력 검증 (백엔드와 같은 수치)", () => {
     expect(ok("😀".repeat(51), "내용")).toBe(false);
   });
 
+  it("NUL 문자가 들어 있으면 실패 — 서버가 400 으로 거절하는 값", () => {
+    expect(ok("a\u0000b", "내용")).toBe(false);
+    expect(ok("제목", "x\u0000")).toBe(false);
+    expect(replyOk("\u0000")).toBe(false);
+  });
+
+  it("NBSP·BOM 만 있으면 실패 — 서버도 같은 값을 거절한다", () => {
+    expect(ok(" ", "내용")).toBe(false);
+    expect(ok("제목", "﻿  ")).toBe(false);
+  });
+
   it("실패 문구는 messages 에서 온다", () => {
     const r = inquirySchema.safeParse({ title: "", content: "내용" });
     expect(r.success).toBe(false);

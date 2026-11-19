@@ -80,7 +80,7 @@ export function InquiryBoard() {
 
       {status === "ready" && items.length === 0 && <p className="px-1 py-6 text-center text-[13px] text-ink-3">{t.list.empty}</p>}
 
-      {status === "ready" && items.length > 0 && (
+      {items.length > 0 && (
         <ul className="flex flex-col divide-y divide-line rounded-lg border border-line bg-surface">
           {items.map((item) => (
             <li key={item.id}>

@@ -10,7 +10,8 @@ export default async function InquiryDetailPage({ params }: { params: Promise<{ 
   return (
     <main className="flex-1 min-h-0 overflow-y-auto px-4 @md:px-6 py-4 @md:py-6">
       <div className="w-full max-w-[720px] mx-auto flex flex-col gap-4">
-        <InquiryDetailView id={id} />
+        {/* key: 같은 칸에서 다른 글로 바뀔 때 이전 글의 화면·답글 입력 초안이 남지 않게 새로 만든다 */}
+        <InquiryDetailView key={id} id={id} />
       </div>
     </main>
   );

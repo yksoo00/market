@@ -42,5 +42,6 @@ export const inquiry = {
     contentMax: "내용은 2000자 이하로 입력하세요",
     replyRequired: "답글을 입력하세요",
     replyMax: "답글은 1000자 이하로 입력하세요",
+    forbiddenChar: "사용할 수 없는 문자가 들어 있어요",
   },
 } as const;

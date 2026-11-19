@@ -190,6 +190,27 @@ class InquiryApiTest {
 	}
 
 	@Test
+	@DisplayName("NUL 문자가 든 제목·내용·답글은 500 이 아니라 400 (Postgres 가 저장 못 하는 문자)")
+	void nulCharacterRejected() throws Exception {
+		mvc.perform(post("/api/v1/inquiries").contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"a\u0000b\",\"content\":\"x\"}"))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.title").exists());
+		mvc.perform(post("/api/v1/inquiries").contentType(MediaType.APPLICATION_JSON).content("{\"title\":\"t\",\"content\":\"x\u0000\"}"))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.content").exists());
+		String id = createInquiry("제목", "내용");
+		mvc.perform(post("/api/v1/inquiries/" + id + "/replies").contentType(MediaType.APPLICATION_JSON).content("{\"content\":\"\u0000\"}"))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.content").exists());
+	}
+
+	@Test
+	@DisplayName("NBSP·BOM 만 있는 값도 빈 값으로 400 (프론트 trim 과 같은 규칙)")
+	void invisibleOnlyRejected() throws Exception {
+		mvc.perform(post("/api/v1/inquiries").contentType(MediaType.APPLICATION_JSON).content(json(" ", "내용")))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.title").exists());
+		mvc.perform(post("/api/v1/inquiries").contentType(MediaType.APPLICATION_JSON).content(json("제목", "﻿  ")))
+			.andExpect(status().isBadRequest()).andExpect(jsonPath("$.fields.content").exists());
+	}
+
+	@Test
 	@DisplayName("잘못된 커서는 400")
 	void badCursor() throws Exception {
 		mvc.perform(get("/api/v1/inquiries").param("cursor", "abc")).andExpect(status().isBadRequest())

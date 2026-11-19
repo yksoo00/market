@@ -10,11 +10,13 @@ export const INQUIRY_TITLE_MAX = 100;
 export const INQUIRY_CONTENT_MAX = 2000;
 export const INQUIRY_REPLY_MAX = 1000;
 
+// NUL(U+0000)은 서버가 거절한다(Postgres 가 저장 못 함) — 같은 규칙을 즉시 알려 준다
 const text = (required: string, max: number, tooLong: string) =>
   z
     .string()
     .refine((s) => s.trim().length > 0, required)
-    .refine((s) => s.length <= max, tooLong);
+    .refine((s) => s.length <= max, tooLong)
+    .refine((s) => !s.includes("\u0000"), v.forbiddenChar);
 
 export const inquirySchema = z.object({
   title: text(v.titleRequired, INQUIRY_TITLE_MAX, v.titleMax),
