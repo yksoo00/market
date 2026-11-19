@@ -14,10 +14,13 @@ export interface InquiryPage {
   nextCursor: string | null;
 }
 
+/** canEdit: 본인 것. canDelete: 본인 것 또는 관리자 — 보는 사람 기준으로 서버가 정한다 */
 export interface InquiryReply {
   id: string;
   content: string;
   createdAt: string;
+  canEdit: boolean;
+  canDelete: boolean;
 }
 
 export interface InquiryDetail {
@@ -25,6 +28,8 @@ export interface InquiryDetail {
   title: string;
   content: string;
   createdAt: string;
+  canEdit: boolean;
+  canDelete: boolean;
   /** 오래된 순 */
   replies: InquiryReply[];
 }

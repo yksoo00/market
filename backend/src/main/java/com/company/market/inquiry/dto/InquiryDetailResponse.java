@@ -6,10 +6,13 @@ import java.util.UUID;
 
 import com.company.market.inquiry.domain.Inquiry;
 
-public record InquiryDetailResponse(UUID id, String title, String content, Instant createdAt, List<InquiryReplyResponse> replies) {
+/** canEdit: 본인 글. canDelete: 본인 글 또는 관리자. 보는 사람 기준이다 */
+public record InquiryDetailResponse(UUID id, String title, String content, Instant createdAt, boolean canEdit, boolean canDelete,
+		List<InquiryReplyResponse> replies) {
 
-	public static InquiryDetailResponse of(Inquiry inquiry, List<InquiryReplyResponse> replies) {
-		return new InquiryDetailResponse(inquiry.getId(), inquiry.getTitle(), inquiry.getContent(), inquiry.getCreatedAt(), replies);
+	public static InquiryDetailResponse of(Inquiry inquiry, boolean canEdit, boolean canDelete, List<InquiryReplyResponse> replies) {
+		return new InquiryDetailResponse(inquiry.getId(), inquiry.getTitle(), inquiry.getContent(), inquiry.getCreatedAt(), canEdit, canDelete,
+				replies);
 	}
 
 }

@@ -9,7 +9,7 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
-/** 문의 답글. 외래키가 없어(2026-10-27 방침) 글이 있는지는 서비스가 확인한다. 작성자를 저장하지 않는다 */
+/** 문의 답글. 외래키가 없어(2026-10-27 방침) 글이 있는지는 서비스가 확인한다. 작성자 uid 는 권한 검사에만 쓰고 응답에 내지 않는다 */
 @Entity
 @Table(name = "trd_inquiry_reply")
 @Getter
@@ -20,11 +20,22 @@ public class InquiryReply extends BaseEntity {
 
 	private String content;
 
-	public static InquiryReply create(UUID inquiryId, String content) {
+	private UUID authorUid;
+
+	public static InquiryReply create(UUID authorUid, UUID inquiryId, String content) {
 		InquiryReply reply = new InquiryReply();
+		reply.authorUid = authorUid;
 		reply.inquiryId = inquiryId;
 		reply.content = content;
 		return reply;
+	}
+
+	public void edit(String content) {
+		this.content = content;
+	}
+
+	public boolean isAuthor(UUID uid) {
+		return authorUid != null && authorUid.equals(uid);
 	}
 
 }

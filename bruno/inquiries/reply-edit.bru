@@ -1,0 +1,21 @@
+meta {
+  name: 답글 수정 (본인만)
+  type: http
+  seq: 7
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/inquiries/00000000-0000-0000-0000-000000000000/replies/00000000-0000-0000-0000-000000000001
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "content": "고친 답글"
+  }
+}
+
+docs {
+  로그인 쿠키 필요. 본인 답글만 200, 그 외 403. 다른 글의 답글 주소면 404.
+}

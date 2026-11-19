@@ -1,0 +1,22 @@
+meta {
+  name: 문의 수정 (본인만)
+  type: http
+  seq: 5
+}
+
+patch {
+  url: {{baseUrl}}/api/v1/inquiries/00000000-0000-0000-0000-000000000000
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "title": "고친 제목",
+    "content": "고친 내용"
+  }
+}
+
+docs {
+  로그인 쿠키 필요. 본인 글만 200, 남의 글(관리자 포함)은 403 FORBIDDEN. 주소의 UUID 를 문의 id 로 바꿔 쓴다.
+}

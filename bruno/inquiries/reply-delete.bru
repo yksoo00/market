@@ -1,0 +1,15 @@
+meta {
+  name: 답글 삭제 (본인 또는 관리자)
+  type: http
+  seq: 8
+}
+
+delete {
+  url: {{baseUrl}}/api/v1/inquiries/00000000-0000-0000-0000-000000000000/replies/00000000-0000-0000-0000-000000000001
+  body: none
+  auth: none
+}
+
+docs {
+  로그인 쿠키 필요. 본인 답글 또는 로그인 아이디 yksoo00 → 204. 그 외 403.
+}

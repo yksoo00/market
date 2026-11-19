@@ -65,7 +65,7 @@ export function InquiryBoard() {
 
   return (
     <div className="flex flex-col gap-4">
-      <InquiryForm onCreated={onCreated} />
+      <InquiryForm onSaved={onCreated} />
 
       {status === "loading" && <p className="px-1 text-[13px] text-ink-3">{t.list.loading}</p>}
 
