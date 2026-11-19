@@ -18,15 +18,16 @@ import com.company.market.inquiry.dto.InquiryReplyRequest;
 import com.company.market.inquiry.dto.InquiryReplyResponse;
 import com.company.market.inquiry.repository.InquiryReplyRepository;
 import com.company.market.inquiry.repository.InquiryRepository;
+import com.company.market.user.service.UserDirectory;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * 사내 테스트용 익명 문의 게시판 (스펙 2026-11-18-inquiry-board-design.md). 작성자를 받지도 저장하지도 않는다.
- * 글 내용은 로그에 남기지 않는다.
- * TODO(사내 테스트용 익명 쓰기): 인증·rate limit 없음 — 운영 공개 전 제거 (decisions.md 2026-11-18)
+ * 사내 테스트용 문의 게시판. 읽기는 로그인 없이, 쓰기는 로그인. 수정은 본인만, 삭제는 본인 + 관리자.
+ * 작성자 uid 는 권한 검사에만 쓰고 응답에 내지 않는다. 글 내용은 로그에 남기지 않는다.
+ * TODO(사내 테스트용 게시판): 운영 공개 전 제거 (decisions.md 2026-11-18). ADMIN_LOGIN_ID 도 같이
  */
 @Service
 @RequiredArgsConstructor
@@ -34,9 +35,14 @@ public class InquiryService {
 
 	static final int PAGE_SIZE = 20;
 
+	/** 임시 관리자 — 이 로그인 아이디의 사용자만 남의 글·답글을 지울 수 있다 (사용자 지시 2026-11-19, 역할 체계가 생기면 대체) */
+	static final String ADMIN_LOGIN_ID = "yksoo00";
+
 	private final InquiryRepository inquiries;
 
 	private final InquiryReplyRepository replies;
+
+	private final UserDirectory userDirectory;
 
 	/** 최신순 한 페이지. 커서 = `createdAt_id` (같은 시각 글이 페이지 경계에서 빠지지 않게 id 를 같이 쓴다) */
 	@Transactional(readOnly = true)
@@ -65,29 +71,93 @@ public class InquiryService {
 		return new InquiryPageResponse(items, next);
 	}
 
+	/** viewer: 보는 사람(로그인 안 했으면 null). 수정·삭제 버튼을 보일지(canEdit·canDelete)를 보는 사람 기준으로 채운다 */
 	@Transactional(readOnly = true)
-	public InquiryDetailResponse get(UUID id) {
+	public InquiryDetailResponse get(UUID viewer, UUID id) {
 		Inquiry inquiry = find(id);
-		return InquiryDetailResponse.of(inquiry, replies.findByInquiryIdOrderByCreatedAtAscIdAsc(id).stream().map(InquiryReplyResponse::of).toList());
+		boolean admin = isAdmin(viewer);
+		List<InquiryReplyResponse> replyViews = replies.findByInquiryIdOrderByCreatedAtAscIdAsc(id).stream()
+			.map(r -> replyView(r, viewer, admin)).toList();
+		boolean mine = inquiry.isAuthor(viewer);
+		return InquiryDetailResponse.of(inquiry, mine, mine || admin, replyViews);
 	}
 
 	@Transactional
-	public InquiryDetailResponse create(InquiryCreateRequest req) {
-		Inquiry saved = inquiries.save(Inquiry.create(req.title().strip(), req.content().strip()));
-		return InquiryDetailResponse.of(saved, List.of());
+	public InquiryDetailResponse create(UUID me, InquiryCreateRequest req) {
+		Inquiry saved = inquiries.save(Inquiry.create(me, req.title().strip(), req.content().strip()));
+		return InquiryDetailResponse.of(saved, true, true, List.of());
+	}
+
+	/** 본인 글만 고친다. 관리자도 못 고친다(삭제만) */
+	@Transactional
+	public InquiryDetailResponse edit(UUID me, UUID id, InquiryCreateRequest req) {
+		Inquiry inquiry = find(id);
+		requireAuthor(inquiry.isAuthor(me));
+		inquiry.edit(req.title().strip(), req.content().strip());
+		boolean admin = isAdmin(me);
+		List<InquiryReplyResponse> replyViews = replies.findByInquiryIdOrderByCreatedAtAscIdAsc(id).stream()
+			.map(r -> replyView(r, me, admin)).toList();
+		return InquiryDetailResponse.of(inquiry, true, true, replyViews);
+	}
+
+	/** 본인 글 또는 관리자. 외래키가 없어 답글도 같이 지운다 */
+	@Transactional
+	public void delete(UUID me, UUID id) {
+		Inquiry inquiry = find(id);
+		requireAuthor(inquiry.isAuthor(me) || isAdmin(me));
+		replies.deleteByInquiryId(id);
+		inquiries.delete(inquiry);
 	}
 
 	@Transactional
-	public InquiryReplyResponse reply(UUID inquiryId, InquiryReplyRequest req) {
+	public InquiryReplyResponse reply(UUID me, UUID inquiryId, InquiryReplyRequest req) {
 		// 존재만 확인하면 되니 내용(2000자)까지 읽는 findById 대신 existsById
 		if (!inquiries.existsById(inquiryId)) {
-			throw new ApiException(ErrorCode.NOT_FOUND, "문의를 찾을 수 없습니다.");
+			throw notFound();
 		}
-		return InquiryReplyResponse.of(replies.save(InquiryReply.create(inquiryId, req.content().strip())));
+		return InquiryReplyResponse.of(replies.save(InquiryReply.create(me, inquiryId, req.content().strip())), true, true);
+	}
+
+	@Transactional
+	public InquiryReplyResponse editReply(UUID me, UUID inquiryId, UUID replyId, InquiryReplyRequest req) {
+		InquiryReply reply = findReply(inquiryId, replyId);
+		requireAuthor(reply.isAuthor(me));
+		reply.edit(req.content().strip());
+		return InquiryReplyResponse.of(reply, true, true);
+	}
+
+	@Transactional
+	public void deleteReply(UUID me, UUID inquiryId, UUID replyId) {
+		InquiryReply reply = findReply(inquiryId, replyId);
+		requireAuthor(reply.isAuthor(me) || isAdmin(me));
+		replies.delete(reply);
+	}
+
+	private InquiryReplyResponse replyView(InquiryReply reply, UUID viewer, boolean admin) {
+		boolean mine = reply.isAuthor(viewer);
+		return InquiryReplyResponse.of(reply, mine, mine || admin);
+	}
+
+	private boolean isAdmin(UUID viewer) {
+		return viewer != null && userDirectory.hasLoginId(viewer, ADMIN_LOGIN_ID);
+	}
+
+	private static void requireAuthor(boolean allowed) {
+		if (!allowed) {
+			throw new ApiException(ErrorCode.FORBIDDEN);
+		}
 	}
 
 	private Inquiry find(UUID id) {
-		return inquiries.findById(id).orElseThrow(() -> new ApiException(ErrorCode.NOT_FOUND, "문의를 찾을 수 없습니다."));
+		return inquiries.findById(id).orElseThrow(InquiryService::notFound);
+	}
+
+	private InquiryReply findReply(UUID inquiryId, UUID replyId) {
+		return replies.findByIdAndInquiryId(replyId, inquiryId).orElseThrow(InquiryService::notFound);
+	}
+
+	private static ApiException notFound() {
+		return new ApiException(ErrorCode.NOT_FOUND, "문의를 찾을 수 없습니다.");
 	}
 
 	private record Cursor(Instant at, UUID id) {

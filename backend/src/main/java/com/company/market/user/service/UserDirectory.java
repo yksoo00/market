@@ -47,6 +47,14 @@ public class UserDirectory {
 		return emails;
 	}
 
+	/**
+	 * 이 사용자의 로그인 아이디가 loginId 인가 — 아이디 값을 밖으로 내보내지 않고 비교 결과만 준다.
+	 * 문의 게시판의 임시 관리자 판정에 쓴다 (decisions.md 2026-11-19)
+	 */
+	public boolean hasLoginId(UUID id, String loginId) {
+		return users.findById(id).map(u -> loginId.equals(u.getLoginId())).orElse(false);
+	}
+
 	private static String publicName(User user) {
 		if (user.getKind() == UserKind.BUSINESS) {
 			return user.getCompanyName() == null || user.getCompanyName().isBlank() ? null : user.getCompanyName();
