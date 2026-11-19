@@ -1,5 +1,6 @@
 "use client";
 
+import { useId } from "react";
 import { useFormContext, type FieldValues, type Path } from "react-hook-form";
 import { cn } from "cn";
 import { FieldShell, useFieldStatus } from "@/components/auth/FormField";
@@ -15,14 +16,16 @@ interface Props<T extends FieldValues> {
 export function InquiryTextArea<T extends FieldValues>({ name, label, placeholder, rows }: Props<T>) {
   const { register } = useFormContext<T>();
   const { error, valid, touched } = useFieldStatus<T>(name);
+  // 한 화면에 이 입력이 여러 개(글 수정·답글 수정·새 답글)일 수 있어 id 를 겹치지 않게 만든다
+  const id = useId();
   return (
-    <FieldShell label={label} htmlFor={name} error={error}>
+    <FieldShell label={label} htmlFor={id} error={error}>
       <textarea
-        id={name}
+        id={id}
         rows={rows}
         placeholder={placeholder}
         aria-invalid={touched && Boolean(error)}
-        aria-describedby={error ? `${name}-error` : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
         className={cn(
           "w-full min-w-0 resize-y rounded-lg border border-input bg-surface px-3 py-2 text-[15px] outline-none placeholder:text-muted-foreground",
           "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50",

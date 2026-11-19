@@ -2,7 +2,7 @@
 export const inquiry = {
   page: {
     title: "문의 게시판",
-    subtitle: "로그인 없이 익명으로 남길 수 있어요. 작성자는 저장되지 않습니다.",
+    subtitle: "누구나 읽을 수 있고, 글과 답글은 로그인한 뒤 남길 수 있어요. 작성자 이름은 보이지 않습니다.",
   },
   list: {
     loading: "불러오는 중…",
@@ -14,11 +14,16 @@ export const inquiry = {
   },
   form: {
     heading: "문의 남기기",
+    editHeading: "문의 수정",
     title: "제목",
     titlePlaceholder: "제목을 입력하세요",
     content: "내용",
     contentPlaceholder: "문의 내용을 입력하세요",
     submit: "등록",
+    save: "저장",
+    cancel: "취소",
+    loginRequired: "로그인한 뒤 문의를 남길 수 있어요.",
+    forbidden: "이 문의를 고칠 수 없습니다.",
     failed: "문의를 등록할 수 없습니다. 잠시 후 다시 시도해 주세요.",
   },
   detail: {
@@ -28,11 +33,21 @@ export const inquiry = {
     back: "목록으로",
     repliesHeading: (n: number) => `답글 ${n}개`,
     noReplies: "아직 답글이 없습니다.",
+    edit: "수정",
+    delete: "삭제",
+    deleted: "문의를 삭제했습니다.",
+    deleteFailed: "삭제할 수 없습니다.",
+    confirmDelete: "이 문의와 답글을 모두 지울까요?",
+    confirmDeleteReply: "이 답글을 지울까요?",
   },
   reply: {
     content: "답글",
     placeholder: "답글을 입력하세요",
     submit: "답글 등록",
+    save: "저장",
+    cancel: "취소",
+    loginRequired: "로그인한 뒤 답글을 남길 수 있어요.",
+    forbidden: "이 답글을 고칠 수 없습니다.",
     failed: "답글을 등록할 수 없습니다. 잠시 후 다시 시도해 주세요.",
   },
   validation: {

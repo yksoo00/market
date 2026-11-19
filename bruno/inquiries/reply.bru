@@ -1,5 +1,5 @@
 meta {
-  name: 답글 쓰기 (익명)
+  name: 답글 쓰기 (로그인 필요)
   type: http
   seq: 4
 }
@@ -17,5 +17,5 @@ body:json {
 }
 
 docs {
-  주소의 UUID 를 문의 id 로 바꿔 쓴다. 답글 1~1000자. 없는 문의면 404 NOT_FOUND.
+  로그인 쿠키 필요(없으면 401). 주소의 UUID 를 문의 id 로 바꿔 쓴다. 답글 1~1000자. 없는 문의면 404 NOT_FOUND.
 }

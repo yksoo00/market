@@ -5,7 +5,7 @@ import { FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormError, SubmitButton } from "@/components/auth/FormStatus";
 import { InquiryTextArea } from "@/components/inquiry/InquiryTextArea";
-import { createInquiryReply } from "@/lib/api/inquiries";
+import { createInquiryReply, updateInquiryReply } from "@/lib/api/inquiries";
 import { applyServerError } from "@/lib/form";
 import { inquiryReplySchema, type InquiryReplyFormValues } from "@/lib/validation/inquiry";
 import { inquiry as t } from "@/messages/inquiry";
@@ -14,13 +14,21 @@ import type { InquiryReply } from "@/types/inquiry";
 
 const fields = ["content"] as const;
 
-/** 답글 폼. 로그인 없이 쓴다 */
-export function InquiryReplyForm({ inquiryId, onCreated }: { inquiryId: string; onCreated: (created: InquiryReply) => void }) {
+interface Props {
+  inquiryId: string;
+  /** 저장(등록·수정)된 답글을 넘긴다 */
+  onSaved: (saved: InquiryReply) => void;
+  /** 있으면 그 답글을 고치는 폼 */
+  editing?: { replyId: string; content: string; onCancel: () => void };
+}
+
+/** 답글 등록·수정 폼. 쓰기는 로그인이 필요하다 */
+export function InquiryReplyForm({ inquiryId, onSaved, editing }: Props) {
   const form = useForm<InquiryReplyFormValues>({
     resolver: zodResolver(inquiryReplySchema),
     mode: "onTouched",
     reValidateMode: "onChange",
-    defaultValues: { content: "" },
+    defaultValues: { content: editing?.content ?? "" },
   });
   const {
     handleSubmit,
@@ -34,27 +42,33 @@ export function InquiryReplyForm({ inquiryId, onCreated }: { inquiryId: string; 
   const onSubmit = handleSubmit(async (values) => {
     setFormError(null);
     setUnreachable(false);
-    const result = await createInquiryReply(inquiryId, values);
+    const result = editing ? await updateInquiryReply(inquiryId, editing.replyId, values) : await createInquiryReply(inquiryId, values);
     if (result.ok) {
-      reset();
-      onCreated(result.data);
+      if (!editing) reset();
+      onSaved(result.data);
       return;
     }
     setUnreachable(result.code === UNREACHABLE);
-    setFormError(applyServerError(result, setError, fields, { INTERNAL: t.reply.failed }));
+    setFormError(
+      applyServerError(result, setError, fields, {
+        INTERNAL: t.reply.failed,
+        UNAUTHENTICATED: t.reply.loginRequired,
+        FORBIDDEN: t.reply.forbidden,
+      }),
+    );
   });
 
   return (
     <FormProvider {...form}>
       <form onSubmit={onSubmit} noValidate aria-label={t.reply.content} className="flex flex-col gap-3">
         <FormError message={formError} onRetry={unreachable ? () => void onSubmit() : undefined} />
-        <InquiryTextArea<InquiryReplyFormValues>
-          name="content"
-          label={t.reply.content}
-          placeholder={t.reply.placeholder}
-          rows={3}
-        />
-        <SubmitButton label={t.reply.submit} disabled={!isValid} submitting={isSubmitting} />
+        <InquiryTextArea<InquiryReplyFormValues> name="content" label={t.reply.content} placeholder={t.reply.placeholder} rows={3} />
+        <SubmitButton label={editing ? t.reply.save : t.reply.submit} disabled={!isValid} submitting={isSubmitting} />
+        {editing && (
+          <button type="button" onClick={editing.onCancel} className="h-10 rounded-lg border border-line bg-surface text-sm font-medium hover:bg-bg">
+            {t.reply.cancel}
+          </button>
+        )}
       </form>
     </FormProvider>
   );
