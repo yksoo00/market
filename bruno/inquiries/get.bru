@@ -1,0 +1,15 @@
+meta {
+  name: 문의 상세 + 답글
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{baseUrl}}/api/v1/inquiries/00000000-0000-0000-0000-000000000000
+  body: none
+  auth: none
+}
+
+docs {
+  주소의 UUID 를 문의 목록에서 받은 id 로 바꿔 쓴다. 없는 id 는 404 NOT_FOUND.
+}

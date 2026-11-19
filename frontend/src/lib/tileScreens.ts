@@ -33,6 +33,9 @@ const SCREENS: { id: string; group: TileGroup; pattern: RegExp; solo?: true; aux
   { id: "buyQuotes", group: "buy", pattern: /^\/quotes$/ },
   { id: "search", group: "buy", pattern: /^\/search$/ },
   { id: "buyRequest", group: "buy", pattern: /^\/requests(\/.*)?$/ },
+  // 사내 테스트용 익명 문의 게시판 — 어느 칸 옆에서 열어도 보조로 뜰 수 있게 공통 (운영 공개 전 제거, decisions.md 2026-11-18)
+  { id: "inquiryDetail", group: "common", pattern: /^\/inquiries\/[^/]+$/ },
+  { id: "inquiries", group: "common", pattern: /^\/inquiries$/ },
   // 로컬 전용 임시 테이블 관리. 표가 넓어 홈·보조 칸 없이 혼자 전체화면 (사용자 지시 2026-10-30)
   { id: "devTables", group: "common", pattern: /^\/dev\/tables$/, solo: true },
 ];
