@@ -155,7 +155,11 @@ class DevTableApiTest {
 	@DisplayName("등록일시는 어떤 구분 문자로 와도 14자리로 저장하고, 조회는 2026-10-14 13:44 (초가 있으면 :ss) 로 보인다")
 	void normalizesAndDisplaysDateTime() throws Exception {
 		String[][] cases = { { "ZZD1", " 2026-10-14 13:44 ", "20261014134400", "2026-10-14 13:44" },
-				{ "ZZD2", "2026/03/03 11:11:11", "20260303111111", "2026-03-03 11:11:11" }, { "ZZD3", "2026-03-03", "20260303000000", "2026-03-03 00:00" } };
+				{ "ZZD2", "2026/03/03 11:11:11", "20260303111111", "2026-03-03 11:11:11" }, { "ZZD3", "2026-03-03", "20260303000000", "2026-03-03 00:00" },
+				{ "ZZD4", "26-11-12 1:12:12 PM", "20261112131212", "2026-11-12 13:12:12" },
+				{ "ZZD5", "26-11-12 12:05 AM", "20261112000500", "2026-11-12 00:05" },
+				{ "ZZD6", "2026-3-3 9:05 am", "20260303090500", "2026-03-03 09:05" },
+				{ "ZZD7", "26/11/12 12:30 pm", "20261112123000", "2026-11-12 12:30" } };
 		for (String[] c : cases) {
 			String body = "{\"category_code\":\"%s\",\"category_name\":\"n\",\"category_depth\":\"일반\",\"category_class\":\"소\",\"reg_date\":\"%s\"}"
 				.formatted(c[0], c[1]);
@@ -169,7 +173,7 @@ class DevTableApiTest {
 	@Test
 	@DisplayName("등록일시에 글자가 섞이거나 없는 날짜면 400 — 조용히 고치지 않는다")
 	void rejectsBadDateTime() throws Exception {
-		for (String bad : new String[] { "2026-10-1a 13:44", "2026-13-45", "2026-10" }) {
+		for (String bad : new String[] { "2026-10-1a 13:44", "2026-13-45", "2026-10", "26-11-12 13:00 PM", "26-11-12 0:30 AM", "26-13-12 1:00 PM" }) {
 			String body = "{\"category_code\":\"ZZD9\",\"category_name\":\"n\",\"category_depth\":\"일반\",\"category_class\":\"소\",\"reg_date\":\"%s\"}".formatted(bad);
 			mvc.perform(post("/api/v1/dev/tables/{t}/rows", TABLE).contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isBadRequest());
 		}

@@ -3,6 +3,9 @@ package com.company.market.devtools;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.time.DateTimeException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -13,6 +16,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -385,12 +389,50 @@ public class DevTableService {
 		if (!dateTime && !DATE_COLUMNS.contains(col.name())) {
 			return text;
 		}
-		String normalized = dateTime ? KoreanDates.normalizeDateTime(text) : KoreanDates.normalizeDate(text);
+		String normalized = dateTime ? normalizeLooseDateTime(text) : KoreanDates.normalizeDate(text);
 		if (normalized == null) {
 			throw bad(where + col.name() + " 날짜 형식이 맞지 않습니다: " + text + (dateTime ? " (예: 2026-10-14 13:44)" : " (예: 2026-10-14)"));
 		}
 		return normalized;
 	}
+
+	/**
+	 * 임시 테이블 일시 입력 전용 느슨한 형식: 연 2자리(26 → 2026, 2000년대로 가정)·4자리, 월·일·시 1자리, 오전/오후(AM/PM).
+	 * 예) 26-11-12 1:12:12 PM, 2026-3-3 9:05 am. 연-월-일 순서(yy-MM-dd)로 읽는다. 일반 화면 입력(KoreanDates)에는 쓰지 않는다 —
+	 * 엑셀·정의서에서 가져온 값을 편하게 넣으려는 개발 도구 전용이라서 (사용자 지시 2026-11-20)
+	 */
+	private static final Pattern LOOSE_DATETIME = Pattern
+		.compile("^\\s*(\\d{2}|\\d{4})[-./](\\d{1,2})[-./](\\d{1,2})[\\sT]+(\\d{1,2}):(\\d{2})(?::(\\d{2}))?\\s*([AaPp][Mm])?\\s*$");
+
+	private static String normalizeLooseDateTime(String text) {
+		String strict = KoreanDates.normalizeDateTime(text);
+		if (strict != null) {
+			return strict;
+		}
+		Matcher m = LOOSE_DATETIME.matcher(text);
+		if (!m.matches()) {
+			return null;
+		}
+		int year = Integer.parseInt(m.group(1));
+		int hour = Integer.parseInt(m.group(4));
+		if (m.group(1).length() == 2) {
+			year += 2000;
+		}
+		if (m.group(7) != null) {
+			if (hour < 1 || hour > 12) {
+				return null;
+			}
+			hour = hour % 12 + (m.group(7).equalsIgnoreCase("PM") ? 12 : 0);
+		}
+		try {
+			return LocalDateTime.of(year, Integer.parseInt(m.group(2)), Integer.parseInt(m.group(3)), hour, Integer.parseInt(m.group(5)),
+					m.group(6) == null ? 0 : Integer.parseInt(m.group(6))).format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+		}
+		catch (DateTimeException e) {
+			return null;
+		}
+	}
+
 
 	/**
 	 * 조회 화면용 표시. 일시는 2026-10-14 13:44(초가 00 이 아니면 :ss 까지), 날짜는 2026-10-14. 이 표시를 그대로 다시 보내도
