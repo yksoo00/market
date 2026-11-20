@@ -85,7 +85,7 @@ export function DevTablePanel({ table, notify }: { table: DevTable; notify: (n: 
     notify({
       tone: "success",
       title: dev.result.importDone,
-      message: res.data.results.map((r) => dev.result.importLine(r.table, r.inserted)).join("\n"),
+      message: res.data.results.map((r) => dev.result.importLine(r.table, r.inserted, r.keys)).join("\n"),
     });
     await query();
   }

@@ -151,34 +151,43 @@ class DevTableApiTest {
 	@Autowired
 	PasswordEncoder passwordEncoder;
 
+	/** 사용자 행 하나를 dt_expire(사용자가 직접 넣는 일시 칸)와 함께 넣는다 — reg_date·dt_reg 는 이제 서버가 채워서 입력 형식 시험에 쓸 수 없다 */
+	private org.springframework.test.web.servlet.ResultActions createUserWithExpire(String loginId, String expire) throws Exception {
+		return mvc.perform(post("/api/v1/dev/tables/{t}/rows", "trd_user_info").contentType(MediaType.APPLICATION_JSON)
+			.content("{\"user_id\":\"%s\",\"password\":\"x\",\"user_class\":\"personal\",\"user_name\":\"홍\",\"dt_expire\":\"%s\"}".formatted(loginId, expire)));
+	}
+
 	@Test
-	@DisplayName("등록일시는 어떤 구분 문자로 와도 14자리로 저장하고, 조회는 2026-10-14 13:44 (초가 있으면 :ss) 로 보인다")
+	@DisplayName("일시 입력(dt_expire)은 어떤 구분 문자로 와도 14자리로 저장하고, 조회는 2026-10-14 13:44 (초가 있으면 :ss) 로 보인다")
 	void normalizesAndDisplaysDateTime() throws Exception {
-		String[][] cases = { { "ZZD1", " 2026-10-14 13:44 ", "20261014134400", "2026-10-14 13:44" },
-				{ "ZZD2", "2026/03/03 11:11:11", "20260303111111", "2026-03-03 11:11:11" }, { "ZZD3", "2026-03-03", "20260303000000", "2026-03-03 00:00" },
-				{ "ZZD4", "26-11-12 1:12:12 PM", "20261112131212", "2026-11-12 13:12:12" },
-				{ "ZZD5", "26-11-12 12:05 AM", "20261112000500", "2026-11-12 00:05" },
-				{ "ZZD6", "2026-3-3 9:05 am", "20260303090500", "2026-03-03 09:05" },
-				{ "ZZD7", "26/11/12 12:30 pm", "20261112123000", "2026-11-12 12:30" } };
-		for (String[] c : cases) {
-			String body = "{\"category_code\":\"%s\",\"category_name\":\"n\",\"category_depth\":\"일반\",\"category_class\":\"소\",\"reg_date\":\"%s\"}"
-				.formatted(c[0], c[1]);
-			mvc.perform(post("/api/v1/dev/tables/{t}/rows", TABLE).contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isOk());
-			assertThat(jdbc.queryForObject("select reg_date from trd_ctgr_code where category_code = ?", String.class, c[0])).isEqualTo(c[2]);
-			mvc.perform(get("/api/v1/dev/tables/{t}/rows", TABLE).param("limit", "1000")).andExpect(status().isOk())
-				.andExpect(jsonPath("$.data.rows[?(@.category_code=='%s')].reg_date".formatted(c[0])).value(c[3]));
+		String[][] cases = { { "devdt1", " 2026-10-14 13:44 ", "20261014134400", "2026-10-14 13:44" },
+				{ "devdt2", "2026/03/03 11:11:11", "20260303111111", "2026-03-03 11:11:11" }, { "devdt3", "2026-03-03", "20260303000000", "2026-03-03 00:00" },
+				{ "devdt4", "26-11-12 1:12:12 PM", "20261112131212", "2026-11-12 13:12:12" },
+				{ "devdt5", "26-11-12 12:05 AM", "20261112000500", "2026-11-12 00:05" },
+				{ "devdt6", "2026-3-3 9:05 am", "20260303090500", "2026-03-03 09:05" },
+				{ "devdt7", "26/11/12 12:30 pm", "20261112123000", "2026-11-12 12:30" } };
+		try {
+			for (String[] c : cases) {
+				createUserWithExpire(c[0], c[1]).andExpect(status().isOk());
+				assertThat(jdbc.queryForObject("select dt_expire from trd_user_info where user_id = ?", String.class, c[0])).isEqualTo(c[2]);
+				mvc.perform(get("/api/v1/dev/tables/{t}/rows", "trd_user_info").param("limit", "1000")).andExpect(status().isOk())
+					.andExpect(jsonPath("$.data.rows[?(@.user_id=='%s')].dt_expire".formatted(c[0])).value(c[3]));
+			}
+		}
+		finally {
+			jdbc.update("delete from trd_user_info where user_id like 'devdt%'");
 		}
 	}
 
 	@Test
-	@DisplayName("등록일시에 글자가 섞이거나 없는 날짜면 400 — 조용히 고치지 않는다")
+	@DisplayName("일시 입력에 글자가 섞이거나 없는 날짜면 400 — 조용히 고치지 않는다")
 	void rejectsBadDateTime() throws Exception {
 		for (String bad : new String[] { "2026-10-1a 13:44", "2026-13-45", "2026-10", "26-11-12 13:00 PM", "26-11-12 0:30 AM", "26-13-12 1:00 PM" }) {
-			String body = "{\"category_code\":\"ZZD9\",\"category_name\":\"n\",\"category_depth\":\"일반\",\"category_class\":\"소\",\"reg_date\":\"%s\"}".formatted(bad);
-			mvc.perform(post("/api/v1/dev/tables/{t}/rows", TABLE).contentType(MediaType.APPLICATION_JSON).content(body)).andExpect(status().isBadRequest());
+			createUserWithExpire("devdt9", bad).andExpect(status().isBadRequest());
 		}
-		assertThat(count("ZZD9")).isZero();
+		assertThat(jdbc.queryForObject("select count(*) from trd_user_info where user_id = 'devdt9'", Integer.class)).isZero();
 	}
+
 
 	@Test
 	@DisplayName("사용자 행을 만들 때 uid 를 보내도 무시하고 UP+날짜+일련번호로 새로 만든다")
@@ -253,7 +262,8 @@ class DevTableApiTest {
 				{ "ZZ2", "나", "일반", "소", "20261030000000", null } });
 		mvc.perform(multipart("/api/v1/dev/tables/{t}/import", TABLE).file(f)).andExpect(status().isOk())
 			.andExpect(jsonPath("$.data.results[0].inserted").value(2));
-		assertThat(jdbc.queryForObject("select reg_date from trd_ctgr_code where category_code='ZZ1'", String.class)).isEqualTo("20261030000000");
+		// reg_date 는 엑셀 값이 아니라 가져온 시각이다 (2026-11-20 자동 시각)
+		assertThat(jdbc.queryForObject("select reg_date from trd_ctgr_code where category_code='ZZ1'", String.class)).isNotEqualTo("20261030000000").hasSize(14);
 		assertThat(jdbc.queryForObject("select sort_order from trd_ctgr_code where category_code='ZZ1'", Integer.class)).isEqualTo(3);
 		assertThat(jdbc.queryForObject("select sort_order from trd_ctgr_code where category_code='ZZ2'", Integer.class)).isNull();
 	}

@@ -11,6 +11,8 @@ export interface DevTable {
   name: string;
   columns: DevColumn[];
   primaryKey: string[];
+  /** 생성할 때 서버가 채우는 칸 — 생성 폼이 숨긴다 (backend DevRowPreparer) */
+  autoColumns: string[];
 }
 
 export type DevCell = string | number | boolean | null;
@@ -26,4 +28,6 @@ export interface DevRows {
 export interface DevImportResult {
   table: string;
   inserted: number;
+  /** 서버가 새로 만든 키 중 엑셀의 옛 값과 달라진 것 ("사용자 옛 → 새") */
+  keys: string[];
 }
