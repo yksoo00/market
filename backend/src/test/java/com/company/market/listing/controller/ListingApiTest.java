@@ -570,6 +570,15 @@ class ListingApiTest {
 	}
 
 	@Test
+	@DisplayName("옛 형식(yyyy-MM-dd)으로 저장된 지난 납기일도 그대로 다시 보내면 통과한다 (변환 마이그레이션 전 호환)")
+	void updateKeepsLegacyHyphenPastDeliveryDate() throws Exception {
+		String regDate = createListing(authCookie);
+		jdbc.update("update trd_prod_reg set prov_date = '2020-01-01' where user_id = ? and reg_date = ?", userId, regDate);
+
+		patchListing(regDate, "{\"salesUnitPrice\":900,\"deliveryDate\":\"2020-01-01\"}").andExpect(status().isOk());
+	}
+
+	@Test
 	@DisplayName("같은 Idempotency-Key 로 다시 등록하면(응답 유실 후 재시도) 새로 만들지 않고 처음 매물을 돌려준다")
 	void idempotentCreateReturnsFirstListing() throws Exception {
 		String key = UUID.randomUUID().toString();

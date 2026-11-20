@@ -41,7 +41,7 @@ class KoreanDatesTest {
 	@Test
 	@DisplayName("날짜: 글자가 섞이거나 없는 날짜·자릿수 틀림·null 은 null")
 	void normalizeDateRejects() {
-		for (String in : new String[] { "2026-03-0a3", "2026-13-45", "2026-02-30", "26-10-10", "2026-10-100", "", "  ", null }) {
+		for (String in : new String[] { "2026-03-0a3", "2026-13-45", "2026-02-30", "26-10-10", "2026-10-100", "2026-1-111", "2026-10-1-0", "2 0 2 6 1 0 1 0", "", "  ", null }) {
 			assertThat(KoreanDates.normalizeDate(in)).as(String.valueOf(in)).isNull();
 		}
 		assertThat(KoreanDates.normalizeDateOrKeep("2026-03-0a3")).isEqualTo("2026-03-0a3");

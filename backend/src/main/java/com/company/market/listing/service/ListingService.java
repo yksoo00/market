@@ -174,7 +174,8 @@ public class ListingService {
 		if (req.deliveryDate() != null && req.deliveryDate().isBlank()) {
 			throw new ValidationException(Map.of("deliveryDate", ListingCreateRequest.DELIVERY_DATE_REQUIRED));
 		}
-		validateDates(Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
+		// 요청 값은 DTO 가 yyyyMMdd 로 바꿔 보내므로 옛 행(yyyy-MM-dd)도 같은 형식으로 맞춰 비교한다 (변환 마이그레이션 전 호환)
+		validateDates(Objects.equals(req.deliveryDate(), KoreanDates.normalizeDateOrKeep(listing.getDeliveryDate())) ? null : req.deliveryDate());
 		// 대표 사진 필수(등록 규칙)를 수정에서도 지킨다 — 사진이 있는 매물은 전부 뺄 수 없다.
 		// 사진 없는 옛 매물은 [] 를 보내도 바뀌는 게 없어 막지 않는다
 		if (req.photos() != null && req.photos().isEmpty() && firstPhoto(listing) != null) {
