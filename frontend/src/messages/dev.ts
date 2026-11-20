@@ -28,7 +28,7 @@ export const dev = {
     submit: "저장",
     cancel: "취소",
     saving: "저장 중…",
-    hint: "빈 칸은 null 로 저장됩니다. 사용자(trd_user_info)의 uid 는 새로 만들 때 칸이 없고, 엑셀에 있어도 무시하고 서버가 UP+날짜+일련번호로 새로 만듭니다. 비밀번호(password)는 평문을 넣으면 bcrypt 로 바꿔 저장하고, 이미 bcrypt 해시면 그대로 저장합니다. 수정에서 *** 는 안 바꾼 것으로 봅니다.",
+    hint: "빈 칸은 null 로 저장됩니다. 새로 만들 때 서버가 채우는 칸(uid·prod_id·trade_id·ser_no·등록일시)은 칸이 없고, 엑셀에 있어도 무시하고 서버가 규칙대로 새로 만듭니다. 엑셀 여러 시트를 한 번에 넣으면 그 키를 가리키는 칸은 새 키에 맞춰 바뀌고, 옛 키 → 새 키 목록이 결과에 나옵니다. 비밀번호(password)는 평문을 넣으면 bcrypt 로 바꿔 저장하고, 이미 bcrypt 해시면 그대로 저장합니다. 수정에서 *** 는 안 바꾼 것으로 봅니다.",
   },
   confirmDelete: {
     title: "행을 삭제할까요?",
@@ -53,7 +53,8 @@ export const dev = {
     deleteFailed: "삭제하지 못했어요",
     importDone: "불러오기를 마쳤어요",
     importFailed: "불러오지 못했어요",
-    importLine: (table: string, inserted: number) => `${table}: ${inserted.toLocaleString("ko-KR")}행`,
+    importLine: (table: string, inserted: number, keys: string[] = []) =>
+      [`${table}: ${inserted.toLocaleString("ko-KR")}행`, ...keys.slice(0, 20).map((k) => `  · ${k}`), ...(keys.length > 20 ? [`  · 외 ${keys.length - 20}건`] : [])].join("\n"),
     xlsxOnly: ".xlsx 파일만 고를 수 있어요.",
     pickFile: "엑셀 파일을 고르세요",
     tooLarge: "파일은 10MB 이하여야 해요.",

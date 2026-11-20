@@ -36,7 +36,7 @@ export function DevTables() {
     show({
       tone: "success",
       title: dev.result.importDone,
-      message: res.data.results.map((r) => dev.result.importLine(r.table, r.inserted)).join("\n"),
+      message: res.data.results.map((r) => dev.result.importLine(r.table, r.inserted, r.keys)).join("\n"),
     });
   }
 
