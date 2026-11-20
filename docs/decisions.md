@@ -888,3 +888,10 @@
 - 이유: 네 주소 모두 페이지가 없어 눌러도 404였다. `/listings`는 하위 화면(`new`, `bulk`, `[userId]`)만 있고 목록이 없다. 판매·구매 진입은 홈 아이콘 줄과 앱 메뉴(∷), 받은 구매요청은 사용자 메뉴에 이미 있다.
 - 대안: 검색·받은 구매요청 화면으로 연결 — 메뉴 이름과 화면이 1:1이 아니라 탈락(사용자 선택).
 - 일부 해소: 위 "헤더 메뉴(판매매물·구매요청·시세·사업자·고객센터)를 계속 쓸지" 미결. 사업자·고객센터 화면을 만들 때 다시 넣는다.
+
+## 2026-11-20 제공가능일·납품희망일을 숫자 8자리(yyyyMMdd)로 저장, 입력은 구분 문자 허용
+- 결정 (사용자 지시 "통일해, 변환해서 저장"): `prov_date`·`req_deli_date` 를 `yyyy-MM-dd` → `yyyyMMdd` 로 저장한다. 개업일(`company_open_date`)은 원래 `yyyyMMdd`. 등록일시 계열(`reg_date` 등)은 이미 `yyyyMMddHHmmss`. 입력은 구분 문자(공백 - . / : T)를 지우고 숫자 8자리의 실제 날짜일 때만 받는다 — 글자가 섞이면 400(조용히 지우면 엉뚱한 날짜가 저장된다). 일시는 8·12·14자리를 `yyyyMMddHHmmss` 로 맞춘다(`KoreanDates.normalizeDateTime`, 임시 테이블 등록일시 입력에 쓴다).
+- 구현: 서버는 요청 DTO 생성자가 `KoreanDates.normalizeDateOrKeep` 로 먼저 바꾸고 `@Pattern("^(\d{8})?$")` 가 뒤에서 거른다. 엑셀(대량 등록·구매)도 같은 DTO 를 거친다. 프론트는 응답 JSON 의 날짜 키(`deliveryDate`·`reqDeliDate`·`provDate`)를 `lib/api/client` 에서 `YYYY-MM-DD` 로 바꿔 화면 코드(달력 입력·표시)를 그대로 둔다. 대량 엑셀 칸 검증은 `lib/date.normalizeDate`.
+- 이유: 날짜·일시 칸이 전부 숫자만 있는 한 가지 모양이면 변환 규칙이 하나라 임시 테이블·엑셀·폼이 같은 입력 규칙을 쓴다.
+- 감수: 정의서가 이 두 칸을 `yyyy-MM-dd` 로 적었다면 정의서와 다르다 — 사용자 결정. 기존 행은 `db/` 마이그레이션이 `replace(col, '-', '')` 로 바꾼다(코드와 같은 배포 단위). 검색의 납품일 조건(`deliveryBy`)은 요청은 ISO 날짜 그대로, 비교 값만 `yyyyMMdd`.
+- 계획: `docs/superpowers/plans/2026-11-20-uid-and-date-format.md` PR 1.

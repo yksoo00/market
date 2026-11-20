@@ -44,6 +44,10 @@ public record ListingCreateRequest(
 		// 수정(ListingUpdateRequest)은 옛 매물도 열 수 있어 필수로 하지 않는다
 		@Size(max = 4) List<@NotBlank @Size(max = 100) String> photos) {
 
+	public ListingCreateRequest {
+		deliveryDate = com.company.market.common.time.KoreanDates.normalizeDateOrKeep(deliveryDate);
+	}
+
 	/**
 	 * 등록 폼 드롭다운의 구간 값만 (2026-10-06, security.md "매물"). 위쪽은 10% 단위로 촘촘하게, 50% 미만은 하나로.
 	 * 자유 숫자(신품대비 N%)를 받으면 비교·필터가 어려워 구간으로 고정한다. 옛 값(신품대비 70% 등)은 DB 에 남지만 새로 쓸 수 없다
@@ -52,10 +56,10 @@ public record ListingCreateRequest(
 
 	public static final String PROD_STATE_MESSAGE = "상품상태는 목록에서 고른 값이어야 합니다 (신품, 신품대비 90~99% … 50% 미만).";
 
-	/** 형식만 본다. 빈 값은 각 요청이 따로 막는다 (제공가능일은 정의서 NOT NULL 이라 등록·수정 모두 필수, 2026-10-27) */
-	public static final String DELIVERY_DATE_PATTERN = "^(\\d{4}-\\d{2}-\\d{2})?$";
+	/** 형식만 본다 — 입력이 올바른 날짜면 생성자가 먼저 yyyyMMdd 로 바꾸므로 여기서는 8자리 숫자만 통과한다. 빈 값은 각 요청이 따로 막는다 (제공가능일은 정의서 NOT NULL 이라 등록·수정 모두 필수, 2026-10-27) */
+	public static final String DELIVERY_DATE_PATTERN = "^(\\d{8})?$";
 
-	public static final String DELIVERY_DATE_MESSAGE = "납기일은 YYYY-MM-DD 형식이어야 합니다.";
+	public static final String DELIVERY_DATE_MESSAGE = "납기일은 날짜 형식이어야 합니다 (2026-10-10 또는 20261010).";
 
 	public static final String DELIVERY_DATE_REQUIRED = "제공가능일을 입력해 주세요.";
 

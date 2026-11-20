@@ -1,5 +1,6 @@
 import { UNREACHABLE, type ApiResult } from "@/types/api";
 import { resolveApiBase } from "@/lib/api/base";
+import { reviveDates } from "@/lib/date";
 import { common as t } from "@/messages/common";
 
 export const API_BASE = resolveApiBase(process.env.NEXT_PUBLIC_API_URL);
@@ -73,7 +74,7 @@ async function parse<T>(res: Response): Promise<ApiResult<T>> {
     const body: unknown = await res.json();
     // Spring 기본 오류 본문({timestamp,status,error})처럼 우리 형식이 아니면 상태코드로 판단
     if (typeof body === "object" && body !== null && typeof (body as { ok?: unknown }).ok === "boolean") {
-      return body as ApiResult<T>;
+      return reviveDates(body) as ApiResult<T>;
     }
   } catch {
     // Spring Security 기본 401/403, rate limit 429 등은 본문이 빌 수 있음

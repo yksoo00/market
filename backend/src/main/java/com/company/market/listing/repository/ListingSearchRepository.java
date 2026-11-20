@@ -178,9 +178,9 @@ public class ListingSearchRepository {
 			params.put("maxPrice", c.maxPrice());
 		}
 		if (c.deliveryBy() != null) {
-			// prov_date 는 YYYY-MM-DD 문자열이라 문자열 비교가 날짜 비교와 같다. 납기일 없는 매물은 제외
+			// prov_date 는 yyyyMMdd 숫자 문자열이라 문자열 비교가 날짜 비교와 같다. 납기일 없는 매물은 제외
 			jpql.append(" and l.deliveryDate is not null and l.deliveryDate <= :deliveryBy");
-			params.put("deliveryBy", c.deliveryBy().toString());
+			params.put("deliveryBy", c.deliveryBy().format(java.time.format.DateTimeFormatter.BASIC_ISO_DATE));
 		}
 		appendDetailConditions(jpql, params, c);
 	}

@@ -18,6 +18,7 @@ import java.util.stream.Collectors;
 
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
+import com.company.market.common.time.KoreanDates;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
@@ -84,7 +85,7 @@ public class DevTableService {
 		List<Map<String, Object>> rows = new ArrayList<>();
 		for (Map<String, Object> raw : jdbc.queryForList("select * from " + quote(t.name()) + " order by " + order + " limit ? offset ?", lim, off)) {
 			Map<String, Object> row = new LinkedHashMap<>();
-			raw.forEach((k, v) -> row.put(k, MASK_COLUMN.equals(k) && v != null ? MASK : v instanceof UUID ? v.toString() : v));
+			raw.forEach((k, v) -> row.put(k, MASK_COLUMN.equals(k) && v != null ? MASK : v instanceof UUID ? v.toString() : displayTemporal(k, v)));
 			rows.add(row);
 		}
 		Long total = jdbc.queryForObject("select count(*) from " + quote(t.name()), Long.class);
@@ -349,7 +350,7 @@ public class DevTableService {
 		}
 		boolean textual = col.type().equals("character varying") || col.type().equals("character") || col.type().equals("text");
 		if (textual) {
-			return hashIfPlainPassword(col, text);
+			return normalizeTemporal(col, hashIfPlainPassword(col, text), where);
 		}
 		if (text.isBlank()) {
 			return null;
@@ -367,6 +368,46 @@ public class DevTableService {
 		catch (IllegalArgumentException | ArithmeticException e) {
 			throw bad(where + col.name() + " 값 형식이 맞지 않습니다(" + col.type() + "): " + text);
 		}
+	}
+
+	/** 날짜(8자리) 컬럼 — 입력은 2026-10-10 처럼 와도 yyyyMMdd 로 저장 (decisions.md 2026-11-20) */
+	static final Set<String> DATE_COLUMNS = Set.of("prov_date", "req_deli_date", "company_open_date");
+
+	/** 일시(14자리 yyyyMMddHHmmss) 컬럼 — 입력은 2026-10-14 13:44 처럼 와도 14자리로 저장 */
+	static final Set<String> DATETIME_COLUMNS = Set.of("reg_date", "prod_date", "prod_reg_date", "trade_date", "dt_update", "dt_expire", "dt_reg");
+
+	/** 날짜·일시 컬럼 값이면 저장 형식으로. 형식이 맞지 않으면 400 — 글자가 섞인 값을 조용히 고치지 않는다. 빈 값은 그대로 */
+	private static String normalizeTemporal(ColumnInfo col, String text, String where) {
+		if (text.isBlank()) {
+			return text;
+		}
+		boolean dateTime = DATETIME_COLUMNS.contains(col.name());
+		if (!dateTime && !DATE_COLUMNS.contains(col.name())) {
+			return text;
+		}
+		String normalized = dateTime ? KoreanDates.normalizeDateTime(text) : KoreanDates.normalizeDate(text);
+		if (normalized == null) {
+			throw bad(where + col.name() + " 날짜 형식이 맞지 않습니다: " + text + (dateTime ? " (예: 2026-10-14 13:44)" : " (예: 2026-10-14)"));
+		}
+		return normalized;
+	}
+
+	/**
+	 * 조회 화면용 표시. 일시는 2026-10-14 13:44(초가 00 이 아니면 :ss 까지), 날짜는 2026-10-14. 이 표시를 그대로 다시 보내도
+	 * normalizeTemporal 이 같은 값으로 되돌린다 — 매물 PK 처럼 reg_date 가 키라 초를 잃으면 다른 행을 가리키게 된다
+	 */
+	private static Object displayTemporal(String column, Object value) {
+		if (!(value instanceof String s) || !s.chars().allMatch(Character::isDigit)) {
+			return value;
+		}
+		if (DATETIME_COLUMNS.contains(column) && s.length() == 14) {
+			String head = s.substring(0, 4) + "-" + s.substring(4, 6) + "-" + s.substring(6, 8) + " " + s.substring(8, 10) + ":" + s.substring(10, 12);
+			return s.endsWith("00") ? head : head + ":" + s.substring(12);
+		}
+		if (DATE_COLUMNS.contains(column) && s.length() == 8) {
+			return s.substring(0, 4) + "-" + s.substring(4, 6) + "-" + s.substring(6);
+		}
+		return value;
 	}
 
 	/** bcrypt 해시 형태(버전 2a/2b/2y + 비용 + 53자) — 이 모양이면 이미 해시라 다시 해시하지 않는다 */
