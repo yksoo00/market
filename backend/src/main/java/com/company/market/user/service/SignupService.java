@@ -82,7 +82,7 @@ public class SignupService {
 	 * 일반 가입. trd_user_info 한 행으로 저장한다.
 	 * 비밀번호 해시(bcrypt ~250ms)는 트랜잭션 밖에서 먼저 계산해 DB 커넥션을 오래 잡지 않는다.
 	 */
-	public UUID signupPersonal(SignupPersonalRequest req, String ip) {
+	public String signupPersonal(SignupPersonalRequest req, String ip) {
 
 		// 아이디 포함 금지는 두 필드가 필요해 Bean Validation 이 아니라 여기서. 응답은 같은 VALIDATION 형식
 		if (req.password().toLowerCase(Locale.ROOT).contains(req.loginId().toLowerCase(Locale.ROOT))) {
@@ -97,7 +97,7 @@ public class SignupService {
 
 		String passwordHash = passwordEncoder.encode(req.password());
 		try {
-			UUID userId = tx.execute(status -> persist(req, email, passwordHash));
+			String userId = tx.execute(status -> persist(req, email, passwordHash));
 			log.info("일반 가입 userId={} ip={}", userId, ip);
 			return userId;
 		}
@@ -123,7 +123,7 @@ public class SignupService {
 	}
 
 	/** 사업자번호는 조회 토큰에서 가져오고, 계정·회사 정보는 trd_user_info 한 행에 저장한다. */
-	public UUID signupBusiness(SignupBusinessRequest req, String ip) {
+	public String signupBusiness(SignupBusinessRequest req, String ip) {
 		// 한 페이지 폼이라 아이디 중복 같은 오류로 다시 제출하는 일이 흔하다. 토큰은 가입이 끝난 뒤에 지운다
 		// (같은 토큰으로 두 번 가입되는 경쟁은 bus_reg_id 유일 제약이 막는다)
 		String tokenKey = BUSINESS_VERIFY_PREFIX + req.verificationToken();
@@ -154,7 +154,7 @@ public class SignupService {
 		}
 		String passwordHash = passwordEncoder.encode(req.password());
 		try {
-			UUID userId = tx.execute(status -> users.save(User.builder()
+			String userId = tx.execute(status -> users.save(User.builder()
 				.kind(UserKind.BUSINESS)
 				.loginId(req.loginId())
 				.passwordHash(passwordHash)
@@ -222,7 +222,7 @@ public class SignupService {
 		}
 	}
 
-	private UUID persist(SignupPersonalRequest req, String email, String passwordHash) {
+	private String persist(SignupPersonalRequest req, String email, String passwordHash) {
 		User user = users.save(User.builder()
 			.kind(UserKind.PERSONAL)
 			.loginId(req.loginId())

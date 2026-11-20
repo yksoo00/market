@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.auth.AuthCookies;
@@ -68,7 +67,7 @@ class ListingSearchApiTest {
 	@Autowired
 	JwtProvider jwtProvider;
 
-	UUID userId;
+	String userId;
 
 	@BeforeEach
 	void setUp() {
@@ -149,8 +148,8 @@ class ListingSearchApiTest {
 	}
 
 	/** 10-01 검색 결과 프론트 필터 테스트(lib/search.test.ts)의 사례를 옮긴 4건. 최신순 = A, B, C, D */
-	private UUID saveOtherUsersListing(String prodId, String regDate, String name) {
-		UUID other = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("searchother")
+	private String saveOtherUsersListing(String prodId, String regDate, String name) {
+		String other = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("searchother")
 			.passwordHash("$2a$12$hash").nickname("searchother").email("searchother@example.com")
 			.name("김철수").phone("01012340009").phoneHash(hasher.hash("01012340009")).build()).getId();
 		productRepository.saveAndFlush(Product.builder().prodId(prodId).majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName(name)
@@ -516,7 +515,7 @@ class ListingSearchApiTest {
 		productRepository.saveAndFlush(Product.builder().prodId("ELEC00019000").majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("부품 동률")
 			.prodBrand("삼성").regDate(tieDate).build());
 		for (String loginId : List.of("searchtieb", "searchtiec")) {
-			UUID other = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
+			String other = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
 				.nickname(loginId).email(loginId + "@example.com").name("김철수")
 				.phone(loginId.equals("searchtieb") ? "01099998888" : "01077776666")
 				.phoneHash(hasher.hash(loginId.equals("searchtieb") ? "01099998888" : "01077776666")).build()).getId();

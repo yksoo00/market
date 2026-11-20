@@ -4,7 +4,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
-import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.auth.AuthCookies;
@@ -68,7 +67,7 @@ class UploadApiTest {
 
 	Cookie authCookie;
 
-	UUID userId;
+	String userId;
 
 	@BeforeEach
 	void setUp() {

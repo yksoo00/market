@@ -1,6 +1,5 @@
 package com.company.market.trade.domain;
 
-import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -31,7 +30,7 @@ public class TradeHistory implements Persistable<TradeHistoryId> {
 	/** 구매자 */
 	@Id
 	@Column(name = "user_id")
-	private UUID userId;
+	private String userId;
 
 	@Id
 	@Column(name = "trade_id")
@@ -49,7 +48,7 @@ public class TradeHistory implements Persistable<TradeHistoryId> {
 	private TradeType tradeType;
 
 	@Column(nullable = false)
-	private UUID sellerId;
+	private String sellerId;
 
 	private Integer tradeUnitPrice;
 
@@ -63,7 +62,7 @@ public class TradeHistory implements Persistable<TradeHistoryId> {
 	}
 
 	@Builder
-	private TradeHistory(UUID userId, String tradeId, String tradeDate, String prodId, TradeType tradeType, UUID sellerId,
+	private TradeHistory(String userId, String tradeId, String tradeDate, String prodId, TradeType tradeType, String sellerId,
 			Integer tradeUnitPrice, Integer tradeQuantity, Integer tradeAmount) {
 		this.userId = userId;
 		this.tradeId = tradeId;

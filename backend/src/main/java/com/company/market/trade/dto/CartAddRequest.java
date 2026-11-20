@@ -1,7 +1,6 @@
 package com.company.market.trade.dto;
 
 import java.util.List;
-import java.util.UUID;
 
 import com.company.market.listing.dto.ListingCreateRequest;
 import jakarta.validation.Valid;
@@ -21,7 +20,7 @@ public record CartAddRequest(@NotNull @Size(min = 1, max = MAX_ADD) List<@Valid 
 	public static final int MAX_ADD = 20;
 
 	public record Item(
-			@NotNull UUID sellerId,
+			@NotBlank @Size(max = 11) String sellerId,
 			@NotBlank @Size(max = 14) String regDate,
 			@NotNull @Min(1) @Max(100_000) Integer orderQuantity,
 			@NotBlank(message = TradeCreateRequest.REQ_DELI_DATE_REQUIRED)

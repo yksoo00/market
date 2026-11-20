@@ -66,9 +66,9 @@ class QuoteApiTest {
 	@Autowired
 	ProductRepository productRepository;
 
-	UUID sellerId;
+	String sellerId;
 
-	UUID buyerId;
+	String buyerId;
 
 	Cookie seller;
 
@@ -94,13 +94,13 @@ class QuoteApiTest {
 		jdbc.update("delete from trd_user_info");
 	}
 
-	private UUID newUser(String loginId, String phone) {
+	private String newUser(String loginId, String phone) {
 		return users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
 			.nickname(loginId).nicknameUsage("Y").email(loginId + "@example.com").name("홍길동").phone(phone)
 			.phoneHash(hasher.hash(phone)).build()).getId();
 	}
 
-	private Cookie cookieOf(UUID id) {
+	private Cookie cookieOf(String id) {
 		return new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(id));
 	}
 
@@ -112,12 +112,12 @@ class QuoteApiTest {
 			.minOrderQuantity(1).orderUnit(1).deliveryDate("20991231").build());
 	}
 
-	private static String item(UUID seller, String regDate, int price, int quantity) {
+	private static String item(String seller, String regDate, int price, int quantity) {
 		return item(seller, regDate, price, quantity, "20991130");
 	}
 
 	/** reqDeliDate = null 이면 칸을 빼고 보낸다 */
-	private static String item(UUID seller, String regDate, int price, int quantity, String reqDeliDate) {
+	private static String item(String seller, String regDate, int price, int quantity, String reqDeliDate) {
 		return """
 				{"sellerId":"%s","regDate":"%s","orderUnitPrice":%d,"orderQuantity":%d,"remarks":"단가 조정 부탁"%s}
 				""".formatted(seller, regDate, price, quantity,

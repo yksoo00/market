@@ -1,6 +1,6 @@
 package com.company.market.listing.controller;
 
-import java.util.UUID;
+import com.company.market.TestUids;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.auth.AuthCookies;
@@ -44,7 +44,7 @@ class ProductCategoryApiTest {
 
 	/** 쿠키 인증은 토큰만 검사한다 — 사용자 행이 없어도 이 읽기 API 는 동작한다 */
 	Cookie cookie() {
-		return new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(UUID.randomUUID()));
+		return new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(TestUids.random()));
 	}
 
 	@AfterEach

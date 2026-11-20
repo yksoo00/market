@@ -2,7 +2,6 @@ package com.company.market.user.controller;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import org.junit.jupiter.api.AfterEach;
@@ -80,7 +79,7 @@ class SignupApiTest {
 		void createsAllRows() throws Exception {
 			MvcResult r = mvc.perform(signup(Map.of("email", "GilDong@Example.com"))).andExpect(status().isCreated())
 				.andExpect(jsonPath("$.ok").value(true)).andReturn();
-			UUID userId = UUID.fromString(r.getResponse().getContentAsString().replaceAll(".*\"userId\":\"([^\"]+)\".*", "$1"));
+			String userId = String.valueOf(r.getResponse().getContentAsString().replaceAll(".*\"userId\":\"([^\"]+)\".*", "$1"));
 
 			Map<String, Object> u = jdbc.queryForMap("select user_class, user_id, user_nickname, nickname_usage, contact_method, user_email, user_name, user_phone, password, spare_col from trd_user_info where uid = ?", userId);
 			assertThat(u.get("user_class")).isEqualTo("personal");
@@ -246,7 +245,7 @@ class SignupApiTest {
 		void verifyByBizNoAndLoginById() throws Exception {
 			String token = verify("1234567890");
 			MvcResult r = mvc.perform(signupBusiness(token, "acme01", true)).andExpect(status().isCreated()).andReturn();
-			UUID userId = UUID.fromString(r.getResponse().getContentAsString().replaceAll(".*\"userId\":\"([^\"]+)\".*", "$1"));
+			String userId = String.valueOf(r.getResponse().getContentAsString().replaceAll(".*\"userId\":\"([^\"]+)\".*", "$1"));
 
 			Map<String, Object> u = jdbc.queryForMap("select user_class, user_id, bus_reg_id, spare_col, company_open_date, contact_method, user_address, company_address from trd_user_info where uid = ?", userId);
 			assertThat(u.get("user_class")).isEqualTo("business");

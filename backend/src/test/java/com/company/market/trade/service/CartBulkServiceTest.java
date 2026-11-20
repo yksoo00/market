@@ -1,5 +1,6 @@
 package com.company.market.trade.service;
 
+import com.company.market.TestUids;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -49,13 +50,13 @@ class CartBulkServiceTest {
 	@Autowired
 	JdbcTemplate jdbc;
 
-	final UUID buyer = UUID.randomUUID();
+	final String buyer = TestUids.random();
 
-	final UUID sellerA = UUID.randomUUID();
+	final String sellerA = TestUids.random();
 
-	final UUID sellerB = UUID.randomUUID();
+	final String sellerB = TestUids.random();
 
-	final UUID sellerC = UUID.randomUUID();
+	final String sellerC = TestUids.random();
 
 	Product main;
 
@@ -78,7 +79,7 @@ class CartBulkServiceTest {
 		return new ProductDraft(CategoryFragments.parse(CATEGORY), name, null, brand, null, null, null, null, alterName, null, null);
 	}
 
-	private void listing(UUID seller, String regDate, Product product, int price, int stock, int minOrder, int unit, boolean completed) {
+	private void listing(String seller, String regDate, Product product, int price, int stock, int minOrder, int unit, boolean completed) {
 		listings.saveAndFlush(Listing.builder().userId(seller).regDate(regDate).prodId(product.getProdId()).tradeType("등록").prodState("신품")
 			.salesUnitPrice(price).salesQuantity(stock).minOrderQuantity(minOrder).orderUnit(unit).deliveryDate("2099-12-31")
 			.stockQuantity(stock).build());
@@ -100,7 +101,7 @@ class CartBulkServiceTest {
 		return service.check(buyer, List.of(row)).results().get(0);
 	}
 
-	private static ListingOption option(CartBulkRowResult r, UUID seller) {
+	private static ListingOption option(CartBulkRowResult r, String seller) {
 		return r.options().stream().filter(o -> o.sellerId().equals(seller.toString())).findFirst().orElseThrow();
 	}
 

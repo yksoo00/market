@@ -11,7 +11,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.company.market.common.exception.ApiException;
@@ -81,7 +80,7 @@ public class CartBulkService {
 	private final CartBulkConditions conditionRules;
 
 	/** 업로드한 엑셀을 읽고 줄마다 검사한다 (저장 없음). 데이터 줄이 하나도 없으면 빈 결과 — 화면이 "입력한 줄이 없어요"를 보이게 */
-	public CartBulkParseResponse parse(UUID buyerId, MultipartFile file) {
+	public CartBulkParseResponse parse(String buyerId, MultipartFile file) {
 		String fileName = file.getOriginalFilename();
 		if (file.isEmpty() || fileName == null || !fileName.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
 			throw new ValidationException(Map.of("file", "엑셀(.xlsx) 파일을 올려 주세요."));
@@ -105,7 +104,7 @@ public class CartBulkService {
 	}
 
 	/** 줄별 검사 결과 + 지금 장바구니 줄 수. 저장은 안 한다. 미리 고르는 건 조건에 맞는 매물이 하나일 때뿐이고, options 는 고정 순서(CartBulkConditions.comparator)다 */
-	public CartBulkCheckResult check(UUID buyerId, List<CartBulkRowDto> rows) {
+	public CartBulkCheckResult check(String buyerId, List<CartBulkRowDto> rows) {
 		List<CartBulkRowResult> results = checkAll(buyerId, rows).stream().map(Checked::result).toList();
 		return new CartBulkCheckResult(results, cartInfos.countByUserIdAndCartType(buyerId, CartType.CART), CartService.MAX_ITEMS);
 	}
@@ -116,7 +115,7 @@ public class CartBulkService {
 	 * 같은 매물을 고른 두 줄은 앞 줄이 묶은 재고를 뒤 줄의 add 가 보고 판정하고, 장바구니가 중간에 가득 차면 그 줄부터 CART_FULL 로 실패한다.
 	 * 장바구니는 빼기가 쉬운 일이라 전부-아니면-전무가 아닌 줄별 결과를 택했다 (계획 2026-11-09)
 	 */
-	public CartBulkCommitResult commit(UUID buyerId, List<CartBulkRowDto> rows) {
+	public CartBulkCommitResult commit(String buyerId, List<CartBulkRowDto> rows) {
 		List<Checked> checked = checkAll(buyerId, rows);
 		List<Outcome> outcomes = new ArrayList<>();
 		boolean cartFull = false;
@@ -141,7 +140,7 @@ public class CartBulkService {
 				continue;
 			}
 			CartBulkRowDto row = rows.get(i);
-			CartAddRequest.Item item = new CartAddRequest.Item(UUID.fromString(r.chosen().sellerId()), r.chosen().regDate(),
+			CartAddRequest.Item item = new CartAddRequest.Item(r.chosen().sellerId(), r.chosen().regDate(),
 					checked.get(i).quantity(), norm(row.reqDeliDate()), remarksOf(row.remarks(), r));
 			try {
 				cart.add(buyerId, new CartAddRequest(List.of(item)));
@@ -188,7 +187,7 @@ public class CartBulkService {
 	record Checked(CartBulkRowResult result, Integer quantity) {
 	}
 
-	List<Checked> checkAll(UUID buyerId, List<CartBulkRowDto> rows) {
+	List<Checked> checkAll(String buyerId, List<CartBulkRowDto> rows) {
 		if (rows == null || rows.isEmpty() || rows.size() > MAX_ROWS) {
 			throw new ValidationException(Map.of("rows", "담을 줄은 1~" + MAX_ROWS + "개여야 합니다."));
 		}
@@ -200,7 +199,7 @@ public class CartBulkService {
 		return rows.stream().map(row -> checkOne(buyerId, row, seen)).toList();
 	}
 
-	private Checked checkOne(UUID buyerId, CartBulkRowDto row, Set<String> seen) {
+	private Checked checkOne(String buyerId, CartBulkRowDto row, Set<String> seen) {
 		Map<String, String> fields = new LinkedHashMap<>();
 		String name = norm(row.prodName());
 		String brand = norm(row.prodBrand());
@@ -309,13 +308,13 @@ public class CartBulkService {
 	}
 
 	/** 그 마스터의 모든 매물을 후보로 — 못 사는 매물은 사유(reason), 조건과 다른 매물은 다른 점(mismatches)과 함께 남기고 각 매물에 자기 상품을 붙인다. 정렬은 부르는 쪽이 한다 */
-	private List<ListingOption> optionsOf(Product master, Integer quantity, UUID buyerId, CartBulkConditions.Conditions conditions, String reqDeliDate) {
+	private List<ListingOption> optionsOf(Product master, Integer quantity, String buyerId, CartBulkConditions.Conditions conditions, String reqDeliDate) {
 		String prodId = master.getProdId();
 		List<ListingTradeSnapshot> snapshots = listings.snapshotsOfProduct(prodId);
 		if (snapshots.isEmpty()) {
 			return new ArrayList<>();
 		}
-		Map<UUID, String> nicknames = userDirectory.nicknamesOf(snapshots.stream().map(ListingTradeSnapshot::sellerId).distinct().toList());
+		Map<String, String> nicknames = userDirectory.nicknamesOf(snapshots.stream().map(ListingTradeSnapshot::sellerId).distinct().toList());
 		Map<ListingId, String> hints = listings.replaceHintsOfProduct(prodId);
 		Map<ListingId, ListingTraits> traits = listings.traitsOfProduct(prodId);
 		List<ListingOption> options = new ArrayList<>();
@@ -335,7 +334,7 @@ public class CartBulkService {
 	 * 못 사는 이유(하드 막힘). 담기(CartService.add)가 거절하는 것과 같은 조건을 미리 보인다 — 거래완료·내 매물·최소주문량·주문단위·재고.
 	 * 수량이 틀렸으면(null) 수량 때문에 못 사는지는 알 수 없어 그 부분은 건너뛴다. 줄 조건과의 차이는 mismatches 로 따로 알린다
 	 */
-	private String reasonOf(ListingTradeSnapshot s, Integer quantity, UUID buyerId) {
+	private String reasonOf(ListingTradeSnapshot s, Integer quantity, String buyerId) {
 		if (s.completed()) {
 			return "거래가 끝난 매물이에요.";
 		}
@@ -355,7 +354,7 @@ public class CartBulkService {
 	}
 
 	/** 마스터의 대체상품명과 이름이 같은 마스터와 그 매물(못 사는 매물 포함) — 제안일 뿐 고르지 않는다 */
-	private List<Alternative> alternativesOf(Product master, Integer quantity, UUID buyerId, CartBulkConditions.Conditions conditions, String reqDeliDate) {
+	private List<Alternative> alternativesOf(Product master, Integer quantity, String buyerId, CartBulkConditions.Conditions conditions, String reqDeliDate) {
 		List<Alternative> out = new ArrayList<>();
 		for (Product alt : products.alternatesOf(master)) {
 			List<ListingOption> options = optionsOf(alt, quantity, buyerId, conditions, reqDeliDate);

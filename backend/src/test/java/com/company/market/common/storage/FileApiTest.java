@@ -1,5 +1,6 @@
 package com.company.market.common.storage;
 
+import com.company.market.TestUids;
 import java.io.ByteArrayInputStream;
 import java.util.UUID;
 
@@ -76,7 +77,7 @@ class FileApiTest {
 	@DisplayName("비공개 데이터시트는 로그인하면 200, application/pdf, inline, 캐시 private")
 	void privateForLoggedIn() throws Exception {
 		String key = saved("private/listings/datasheets", "pdf", UploadApiTest.PDF);
-		Cookie cookie = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(UUID.randomUUID()));
+		Cookie cookie = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(TestUids.random()));
 
 		mvc.perform(get("/api/v1/files/" + key).cookie(cookie))
 			.andExpect(status().isOk())

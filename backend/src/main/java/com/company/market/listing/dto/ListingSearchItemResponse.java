@@ -1,10 +1,9 @@
 package com.company.market.listing.dto;
 
-import java.util.UUID;
 
 /** 검색 결과 한 줄. 프론트 ListingSearchItem(types/listing.ts)과 1:1 */
 public record ListingSearchItemResponse(
-		UUID userId,
+		String userId,
 		String regDate,
 		String prodNo,
 		String prodName,

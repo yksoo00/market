@@ -1,6 +1,5 @@
 package com.company.market.listing.controller;
 
-import java.util.UUID;
 import java.util.stream.IntStream;
 
 import com.company.market.TestInfraConfiguration;
@@ -64,7 +63,7 @@ class ProductSearchPageApiTest {
 	@BeforeEach
 	void setUp() {
 		cleanUp();
-		UUID userId = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("prodpageapi")
+		String userId = users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("prodpageapi")
 			.passwordHash("$2a$12$hash").nickname("prodpageapi").email("prodpageapi@example.com")
 			.name("홍길동").phone("01077770127").phoneHash(hasher.hash("01077770127")).build()).getId();
 		authCookie = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(userId));

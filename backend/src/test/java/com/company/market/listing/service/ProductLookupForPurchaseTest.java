@@ -1,5 +1,6 @@
 package com.company.market.listing.service;
 
+import com.company.market.TestUids;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
@@ -44,9 +45,9 @@ class ProductLookupForPurchaseTest {
 	@Autowired
 	JdbcTemplate jdbc;
 
-	final UUID sellerA = UUID.randomUUID();
+	final String sellerA = TestUids.random();
 
-	final UUID sellerB = UUID.randomUUID();
+	final String sellerB = TestUids.random();
 
 	Product main;
 
@@ -70,7 +71,7 @@ class ProductLookupForPurchaseTest {
 		return new ProductDraft(CategoryFragments.parse(CATEGORY), name, null, brand, null, null, null, null, alterName, null, null);
 	}
 
-	private void listing(UUID seller, String regDate, String prodId, int price, int stock, boolean completed, String replaceProd) {
+	private void listing(String seller, String regDate, String prodId, int price, int stock, boolean completed, String replaceProd) {
 		listings.saveAndFlush(Listing.builder().userId(seller).regDate(regDate).prodId(prodId).tradeType("등록").prodState("신품")
 			.salesUnitPrice(price).salesQuantity(stock).minOrderQuantity(1).orderUnit(1).deliveryDate("2099-12-31").stockQuantity(stock)
 			.replaceProd(replaceProd).build());

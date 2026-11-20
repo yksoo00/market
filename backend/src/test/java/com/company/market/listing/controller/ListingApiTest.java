@@ -1,5 +1,6 @@
 package com.company.market.listing.controller;
 
+import com.company.market.TestUids;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.ZoneId;
@@ -87,7 +88,7 @@ class ListingApiTest {
 
 	Cookie authCookie;
 
-	UUID userId;
+	String userId;
 
 	@BeforeEach
 	void setUp() {
@@ -704,7 +705,7 @@ class ListingApiTest {
 	@Test
 	@DisplayName("존재하지 않는 매물 조회는 404 LISTING_NOT_FOUND")
 	void getMissingIsNotFound() throws Exception {
-		mvc.perform(get("/api/v1/listings/" + UUID.randomUUID() + "/20260101000000"))
+		mvc.perform(get("/api/v1/listings/" + TestUids.random() + "/20260101000000"))
 			.andExpect(status().isNotFound())
 			.andExpect(jsonPath("$.code").value("LISTING_NOT_FOUND"));
 	}
@@ -899,7 +900,7 @@ class ListingApiTest {
 	@Test
 	@DisplayName("없는 매물을 수정하려 하면 404")
 	void updateMissingIsNotFound() throws Exception {
-		mvc.perform(patch("/api/v1/listings/" + UUID.randomUUID() + "/20260101000000").cookie(authCookie)
+		mvc.perform(patch("/api/v1/listings/" + TestUids.random() + "/20260101000000").cookie(authCookie)
 				.contentType(MediaType.APPLICATION_JSON).content("{\"salesUnitPrice\":1}"))
 			.andExpect(status().isNotFound());
 	}
@@ -907,7 +908,7 @@ class ListingApiTest {
 	@Test
 	@DisplayName("로그인 없이 수정하면 401")
 	void updateRequiresAuth() throws Exception {
-		mvc.perform(patch("/api/v1/listings/" + UUID.randomUUID() + "/20260101000000")
+		mvc.perform(patch("/api/v1/listings/" + TestUids.random() + "/20260101000000")
 				.contentType(MediaType.APPLICATION_JSON).content("{}"))
 			.andExpect(status().isUnauthorized());
 	}
@@ -974,7 +975,7 @@ class ListingApiTest {
 	@DisplayName("견적요청·견적거절 행만 있는 매물은 삭제되고 견적 행도 같이 지워진다 (수락된 견적은 수량이 묶여 있어 삭제를 막는다 — QuoteApiTest)")
 	void listingWithOnlyQuotesIsDeletedWithThem() throws Exception {
 		String regDate = createListing(authCookie);
-		UUID buyer = userIdOf(otherUserCookie());
+		String buyer = userIdOf(otherUserCookie());
 		jdbc.update("""
 				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id, order_unit_price,
 					order_quantity, prov_date, req_deli_date, trade_stats)
@@ -990,7 +991,7 @@ class ListingApiTest {
 	@DisplayName("거래가 있는 매물은 삭제할 수 없다 — 409 LISTING_HAS_TRADES, 매물은 남고 견적 행도 남는다")
 	void listingWithTradeCannotBeDeleted() throws Exception {
 		String regDate = createListing(authCookie);
-		UUID buyer = userIdOf(otherUserCookie());
+		String buyer = userIdOf(otherUserCookie());
 		jdbc.update("""
 				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id, order_unit_price,
 					order_quantity, prov_date, req_deli_date, trade_stats)
@@ -1013,7 +1014,7 @@ class ListingApiTest {
 	@DisplayName("구매 단계로 넘어간 견적 행(구매요청·구매확정)이 있는 매물은 삭제할 수 없다 — 견적 단계 행만 같이 지워진다")
 	void listingWithPurchaseStageQuoteRowCannotBeDeleted() throws Exception {
 		String regDate = createListing(authCookie);
-		UUID buyer = userIdOf(otherUserCookie());
+		String buyer = userIdOf(otherUserCookie());
 		jdbc.update("""
 				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id, order_unit_price,
 					order_quantity, prov_date, req_deli_date, trade_stats)
@@ -1029,14 +1030,14 @@ class ListingApiTest {
 	@Test
 	@DisplayName("없는 매물을 삭제하려 하면 404")
 	void deleteMissingIsNotFound() throws Exception {
-		mvc.perform(delete("/api/v1/listings/" + UUID.randomUUID() + "/20260101000000").cookie(authCookie))
+		mvc.perform(delete("/api/v1/listings/" + TestUids.random() + "/20260101000000").cookie(authCookie))
 			.andExpect(status().isNotFound());
 	}
 
 	@Test
 	@DisplayName("로그인 없이 삭제하면 401")
 	void deleteRequiresAuth() throws Exception {
-		mvc.perform(delete("/api/v1/listings/" + UUID.randomUUID() + "/20260101000000"))
+		mvc.perform(delete("/api/v1/listings/" + TestUids.random() + "/20260101000000"))
 			.andExpect(status().isUnauthorized());
 	}
 
@@ -1053,7 +1054,7 @@ class ListingApiTest {
 		return created.getResponse().getContentAsString().replaceAll(".*\"regDate\":\"([^\"]+)\".*", "$1");
 	}
 
-	private String prodIdOf(UUID owner, String regDate) {
+	private String prodIdOf(String owner, String regDate) {
 		return jdbc.queryForObject("select prod_id from trd_prod_reg where user_id = ? and reg_date = ?", String.class, owner, regDate);
 	}
 
@@ -1062,8 +1063,8 @@ class ListingApiTest {
 				regDate);
 	}
 
-	private UUID userIdOf(Cookie cookie) {
-		return jdbc.queryForObject("select uid from trd_user_info where user_id = ?", UUID.class, cookie == authCookie ? "listingapitester" : "listingapiother");
+	private String userIdOf(Cookie cookie) {
+		return jdbc.queryForObject("select uid from trd_user_info where user_id = ?", String.class, cookie == authCookie ? "listingapitester" : "listingapiother");
 	}
 
 	@Test

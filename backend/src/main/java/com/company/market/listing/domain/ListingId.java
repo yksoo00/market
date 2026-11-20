@@ -1,7 +1,6 @@
 package com.company.market.listing.domain;
 
 import java.io.Serializable;
-import java.util.UUID;
 
 import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
@@ -18,7 +17,7 @@ import lombok.NoArgsConstructor;
 @Getter
 public class ListingId implements Serializable {
 
-	private UUID userId;
+	private String userId;
 
 	private String regDate;
 

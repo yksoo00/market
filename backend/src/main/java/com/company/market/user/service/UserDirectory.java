@@ -3,7 +3,6 @@ package com.company.market.user.service;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;
@@ -25,8 +24,8 @@ public class UserDirectory {
 	 * User.getNickname() 은 이때 로그인 아이디를 돌려주는데, 로그인 아이디는 자격증명 절반이라 남에게 보이지 않는다
 	 * (스펙 2026-10-15 "상대방은 닉네임만"). 한 쿼리로 묶어 조회(목록 N+1 방지), 없는 id 는 빠진다.
 	 */
-	public Map<UUID, String> nicknamesOf(Collection<UUID> ids) {
-		Map<UUID, String> names = new HashMap<>();
+	public Map<String, String> nicknamesOf(Collection<String> ids) {
+		Map<String, String> names = new HashMap<>();
 		for (User user : users.findAllById(ids)) {
 			names.put(user.getId(), publicName(user));
 		}
@@ -37,8 +36,8 @@ public class UserDirectory {
 	 * 알림 메일 받을 주소 — 서버 안(메일 발송)에서만 쓴다. API 응답·로그에 넣지 않는다(개인정보).
 	 * 비어 있는 사용자는 빠진다
 	 */
-	public Map<UUID, String> emailsOf(Collection<UUID> ids) {
-		Map<UUID, String> emails = new HashMap<>();
+	public Map<String, String> emailsOf(Collection<String> ids) {
+		Map<String, String> emails = new HashMap<>();
 		for (User user : users.findAllById(ids)) {
 			if (user.getEmail() != null && !user.getEmail().isBlank()) {
 				emails.put(user.getId(), user.getEmail());
@@ -51,7 +50,7 @@ public class UserDirectory {
 	 * 이 사용자의 로그인 아이디가 loginId 인가 — 아이디 값을 밖으로 내보내지 않고 비교 결과만 준다.
 	 * 문의 게시판의 임시 관리자 판정에 쓴다 (decisions.md 2026-11-19)
 	 */
-	public boolean hasLoginId(UUID id, String loginId) {
+	public boolean hasLoginId(String id, String loginId) {
 		return users.findById(id).map(u -> loginId.equals(u.getLoginId())).orElse(false);
 	}
 

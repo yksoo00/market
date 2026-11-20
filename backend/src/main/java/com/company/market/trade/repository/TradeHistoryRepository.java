@@ -2,7 +2,6 @@ package com.company.market.trade.repository;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.UUID;
 
 import com.company.market.trade.domain.TradeHistory;
 import com.company.market.trade.domain.TradeHistoryId;
@@ -14,7 +13,7 @@ import org.springframework.data.repository.query.Param;
 public interface TradeHistoryRepository extends JpaRepository<TradeHistory, TradeHistoryId> {
 
 	/** 내가 구매자인 이력이 하나라도 있나 (검색 "내 구매" 탭 판정) */
-	boolean existsByUserId(UUID userId);
+	boolean existsByUserId(String userId);
 
 	/**
 	 * 내 거래이력, 확정일시·거래ID 내림차순. buy 면 내가 구매자인 줄, sell 이면 내가 판매자인 줄 (둘 다 true 면 전체).
@@ -31,7 +30,7 @@ public interface TradeHistoryRepository extends JpaRepository<TradeHistory, Trad
 			   and (:cursorDate is null or h.tradeDate < :cursorDate or (h.tradeDate = :cursorDate and h.tradeId < :cursorId))
 			 order by h.tradeDate desc, h.tradeId desc
 			""")
-	List<TradeHistory> findPage(@Param("me") UUID me, @Param("buy") boolean buy, @Param("sell") boolean sell,
+	List<TradeHistory> findPage(@Param("me") String me, @Param("buy") boolean buy, @Param("sell") boolean sell,
 			@Param("fromDate") String fromDate, @Param("toDate") String toDate, @Param("minAmount") int minAmount,
 			@Param("maxAmount") int maxAmount, @Param("useProds") boolean useProds, @Param("prodIds") Collection<String> prodIds,
 			@Param("cursorDate") String cursorDate, @Param("cursorId") String cursorId, Pageable page);
@@ -48,7 +47,7 @@ public interface TradeHistoryRepository extends JpaRepository<TradeHistory, Trad
 			   and coalesce(h.tradeAmount, 0) >= :minAmount and coalesce(h.tradeAmount, 0) <= :maxAmount
 			   and (:useProds = false or h.prodId in :prodIds)
 			""")
-	List<Object[]> findKeys(@Param("me") UUID me, @Param("buy") boolean buy, @Param("sell") boolean sell,
+	List<Object[]> findKeys(@Param("me") String me, @Param("buy") boolean buy, @Param("sell") boolean sell,
 			@Param("fromDate") String fromDate, @Param("toDate") String toDate, @Param("minAmount") int minAmount,
 			@Param("maxAmount") int maxAmount, @Param("useProds") boolean useProds, @Param("prodIds") Collection<String> prodIds);
 
@@ -60,6 +59,6 @@ public interface TradeHistoryRepository extends JpaRepository<TradeHistory, Trad
 			select distinct h.prodId from TradeHistory h
 			 where ((:buy = true and h.userId = :me) or (:sell = true and h.sellerId = :me)) and h.prodId is not null
 			""")
-	List<String> findProdIds(@Param("me") UUID me, @Param("buy") boolean buy, @Param("sell") boolean sell);
+	List<String> findProdIds(@Param("me") String me, @Param("buy") boolean buy, @Param("sell") boolean sell);
 
 }

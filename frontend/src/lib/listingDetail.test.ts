@@ -19,7 +19,7 @@ describe("ownerActions", () => {
   });
 });
 
-const UUID = "3f2b6c1e-8a4d-4f7b-9c21-5d0e7a9b1c11";
+const UUID = "UP261008001";
 
 const base: ListingDetail = {
   userId: UUID,
@@ -83,7 +83,7 @@ describe("mainPhoto", () => {
 describe("isOwner", () => {
   it("대소문자 무시 비교, meId 가 null 이면 false", () => {
     expect(isOwner(UUID.toUpperCase(), UUID)).toBe(true);
-    expect(isOwner("a81d4e9f-2c6b-4b3a-8e57-1f9c0d2e6a22", UUID)).toBe(false);
+    expect(isOwner("UP261008002", UUID)).toBe(false);
     expect(isOwner(null, UUID)).toBe(false);
   });
 });
@@ -97,7 +97,7 @@ describe("isAuthLost", () => {
 
 
 describe("purchaseBlockReason", () => {
-  const OTHER = "11111111-2222-3333-4444-555555555555";
+  const OTHER = "UP261008003";
   const buyable = { ...base, stockQuantity: 10, minOrderQuantity: 2 };
 
   it("거래완료면 completed (로그인 여부와 관계없이)", () => {
@@ -190,7 +190,7 @@ describe("infoRows 카테고리", () => {
 });
 
 describe("cartBlocked", () => {
-  const OTHER = "11111111-2222-3333-4444-555555555555";
+  const OTHER = "UP261008003";
   const buyable = { ...base, stockQuantity: 10, minOrderQuantity: 2 };
 
   // 서버 CartService 와 같은 규칙: 거래완료·내 매물만 막는다. 재고 부족은 나중에 살 수 있어 담을 수 있다

@@ -1,12 +1,11 @@
 package com.company.market.trade.service;
 
-import java.util.UUID;
 
 /**
  * 견적·거래 단계 하나 = 메일 이벤트 하나. 커밋 뒤 TradeMailListener 가 받는 사람을 골라 보낸다.
  * actorId 는 그 동작을 한 사람(거래 취소처럼 받는 사람이 누가 했느냐로 갈릴 때).
  */
-public record TradeMailEvent(Kind kind, String tradeId, UUID buyerId, UUID sellerId, UUID actorId, String prodName,
+public record TradeMailEvent(Kind kind, String tradeId, String buyerId, String sellerId, String actorId, String prodName,
 		Integer salesUnitPrice, int unitPrice, int quantity) {
 
 	public enum Kind {

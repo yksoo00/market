@@ -1,5 +1,6 @@
 package com.company.market.listing.service;
 
+import com.company.market.TestUids;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -8,7 +9,6 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -66,7 +66,7 @@ class ListingBulkZipTest {
 	@Autowired
 	ListingBulkService service;
 
-	UUID sellerId;
+	String sellerId;
 
 	@BeforeEach
 	void setUp() {
@@ -220,7 +220,7 @@ class ListingBulkZipTest {
 	@DisplayName("남이 올린 키를 본문에 넣어 확정하면 400 이고 하나도 저장되지 않는다")
 	void foreignKeyRejected() throws IOException {
 		BulkParseResponse parsed = service.parse(sellerId, excel(line("압축 스위치", "a.jpg", null, null)), zip("a.jpg", JPG));
-		UUID other = UUID.randomUUID();
+		String other = TestUids.random();
 
 		assertThatThrownBy(() -> service.commit(other, parsed.rows())).isInstanceOf(ValidationException.class);
 		assertThat(jdbc.queryForObject("select count(*) from trd_prod_reg where user_id = ?", Integer.class, sellerId)).isZero();

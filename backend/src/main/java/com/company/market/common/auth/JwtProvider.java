@@ -51,7 +51,7 @@ public class JwtProvider {
 		return accessTtl;
 	}
 
-	public String createAccessToken(UUID userId) {
+	public String createAccessToken(String userId) {
 		Instant now = Instant.now();
 		JwtClaimsSet claims = JwtClaimsSet.builder()
 			.subject(userId.toString())
@@ -62,15 +62,18 @@ public class JwtProvider {
 		return encoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
 	}
 
+	private static final java.util.regex.Pattern UID_SUBJECT = java.util.regex.Pattern.compile("^[A-Z]{2}\\d{9}$");
+
 	/** 서명·만료가 맞지 않으면 empty. 이유는 구분하지 않는다 (호출자는 전부 401) */
 	public Optional<AuthenticatedUser> parse(String token) {
 		try {
 			Jwt jwt = decoder.decode(token);
 			// 옛 토큰의 role 클레임은 읽지 않고 무시한다 (역할 제거 후에도 발급된 access 15분 동안 유효)
-			if (jwt.getSubject() == null) {
+			// 사용자 식별자 형식(UP+yyMMdd+3자리, 테스트는 UT+9자리)이 아니면 거절 — uid 를 uuid 로 쓰던 때 발급된 옛 토큰도 여기서 걸러 다시 로그인하게 한다
+			if (jwt.getSubject() == null || !UID_SUBJECT.matcher(jwt.getSubject()).matches()) {
 				return Optional.empty();
 			}
-			return Optional.of(new AuthenticatedUser(UUID.fromString(jwt.getSubject())));
+			return Optional.of(new AuthenticatedUser(jwt.getSubject()));
 		}
 		catch (JwtException | IllegalArgumentException e) {
 			return Optional.empty();

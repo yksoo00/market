@@ -45,7 +45,7 @@ public class RefreshSessionStore {
 	}
 
 	/** 새 기기 로그인. 반환값이 쿠키에 들어갈 토큰 */
-	public String issue(UUID userId, boolean remember) {
+	public String issue(String userId, boolean remember) {
 		return issue(userId, UUID.randomUUID(), remember);
 	}
 
@@ -91,16 +91,16 @@ public class RefreshSessionStore {
 	}
 
 	/** 모든 기기에서 로그아웃 / 탈취 의심 시. `:prev` 키도 같은 접두어라 함께 지워진다 */
-	public void revokeAll(UUID userId) {
+	public void revokeAll(String userId) {
 		try (Cursor<String> cursor = redis.scan(ScanOptions.scanOptions().match(KEY_PREFIX + userId + ":*").count(100).build())) {
 			cursor.forEachRemaining(redis::delete);
 		}
 	}
 
-	public record Rotated(UUID userId, String token, boolean remember) {
+	public record Rotated(String userId, String token, boolean remember) {
 	}
 
-	private String issue(UUID userId, UUID deviceId, boolean remember) {
+	private String issue(String userId, UUID deviceId, boolean remember) {
 		byte[] bytes = new byte[32];
 		random.nextBytes(bytes);
 		String secret = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
@@ -108,7 +108,7 @@ public class RefreshSessionStore {
 		return userId + "." + deviceId + "." + secret;
 	}
 
-	private static String key(UUID userId, UUID deviceId) {
+	private static String key(String userId, UUID deviceId) {
 		return KEY_PREFIX + userId + ":" + deviceId;
 	}
 
@@ -129,7 +129,7 @@ public class RefreshSessionStore {
 
 	}
 
-	private record Parsed(UUID userId, UUID deviceId, String secret) {
+	private record Parsed(String userId, UUID deviceId, String secret) {
 	}
 
 	private static Optional<Parsed> parse(String token) {
@@ -138,7 +138,7 @@ public class RefreshSessionStore {
 			return Optional.empty();
 		}
 		try {
-			return Optional.of(new Parsed(UUID.fromString(parts[0]), UUID.fromString(parts[1]), parts[2]));
+			return Optional.of(new Parsed(parts[0], UUID.fromString(parts[1]), parts[2]));
 		}
 		catch (IllegalArgumentException e) {
 			return Optional.empty();

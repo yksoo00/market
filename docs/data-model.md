@@ -11,7 +11,7 @@
 
 | 컬럼 | 타입 | 용도 |
 |---|---|---|
-| `uid` | uuid | 내부 사용자 ID, PK |
+| `uid` | varchar(11) | 사용자 식별자, PK. `UP` + 가입일(한국) `yyMMdd` + 그날의 일련번호 3자리 (예 `UP261008001`, 2026-11-20 부터 — 그 전엔 uuid). 하루 999명을 넘으면 가입 거절 |
 | `user_id` | varchar(20) | 로그인 아이디 (개인·기업 공통, 2026-10-13부터 기업도 직접 정함). 그 전에 가입한 기업 행은 사업자번호가 들어 있다 |
 | `password` | varchar(200) | bcrypt 비밀번호 해시 |
 | `user_class` | varchar(10) | `personal` 또는 `business` |
@@ -106,7 +106,7 @@
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| user_id | uuid | PK(복합) | 레거시 "사용자ID". 로그인 아이디 문자열이 아니라 trd_user_info.uid(uuid). 조직(seller_org_id)은 넣지 않음 — decisions.md 미정 항목을 이 커밋에서 확정 |
+| user_id | uuid | PK(복합) | 레거시 "사용자ID". 로그인 아이디 문자열이 아니라 trd_user_info.uid(varchar(11), 2026-11-20 부터). 조직(seller_org_id)은 넣지 않음 — decisions.md 미정 항목을 이 커밋에서 확정 |
 | reg_date | varchar(14) | PK(복합), not null | 등록일시(일시분초). 같은 사용자가 같은 초에 두 번 등록하면 409 — 서버가 사용자별 잠금으로 막아(2026-10-27) 매물 주소의 (user_id, reg_date) 두 값으로도 매물 하나 |
 | prod_id | varchar(20) | PK(복합) | 정의서 PK 세 값 중 하나 (2026-10-27). 매물 수정에서 상품을 바꾸면 이 값과 그 매물을 가리키는 거래 행의 prod_id 가 같이 바뀐다 |
 | trade_type | varchar(20) | not null | 거래종류 (등록) |
@@ -158,7 +158,7 @@
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| user_id | uuid | PK(복합) | 구매자. 정의서 varchar(20) → uuid |
+| user_id | varchar(11) | PK(복합) | 구매자. 정의서 varchar(20) → uuid |
 | trade_id | varchar(20) | PK(복합) | `yyMMddHH`(한국 시간) + 순번 3자리, 11자 (예 `26092917001`). 순번은 그 시간대 전체에서 001부터. 겹치지 않는 건 생성기(시간대 잠금)가 보장 — DB unique 는 2026-10-27 에 뺐다 |
 | trade_type | varchar(20) | not null | 거래종류: 위 표 |
 | seller_id | uuid | | 판매자. (seller_id, prod_reg_date, prod_id) = 매물 PK 세 값. 정의서 물리명 `USER_ID`가 구매자와 겹쳐 이름 변경 |

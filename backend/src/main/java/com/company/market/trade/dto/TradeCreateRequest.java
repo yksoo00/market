@@ -1,6 +1,5 @@
 package com.company.market.trade.dto;
 
-import java.util.UUID;
 
 import com.company.market.listing.dto.ListingCreateRequest;
 import jakarta.validation.constraints.Max;
@@ -15,7 +14,7 @@ import jakarta.validation.constraints.Size;
  * 납품희망일은 필수 (정의서 NOT NULL, 2026-10-27 — 화면 기본값은 제공가능일). 구매자 id 는 인증 정보에서만.
  */
 public record TradeCreateRequest(
-		@NotNull UUID sellerId,
+		@NotBlank @Size(max = 11) String sellerId,
 		@NotBlank @Size(max = 14) String regDate,
 		@NotNull @Min(1) @Max(100_000) Integer orderQuantity,
 		@NotBlank(message = REQ_DELI_DATE_REQUIRED)
@@ -28,7 +27,7 @@ public record TradeCreateRequest(
 		reqDeliDate = com.company.market.common.time.KoreanDates.normalizeDateOrKeep(reqDeliDate);
 	}
 
-	public TradeCreateRequest(UUID sellerId, String regDate, Integer orderQuantity, String reqDeliDate, String remarks) {
+	public TradeCreateRequest(String sellerId, String regDate, Integer orderQuantity, String reqDeliDate, String remarks) {
 		this(sellerId, regDate, orderQuantity, reqDeliDate, remarks, null);
 	}
 

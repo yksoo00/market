@@ -1,6 +1,5 @@
 package com.company.market.listing.dto;
 
-import java.util.UUID;
 
 import com.company.market.listing.domain.ListingId;
 
@@ -9,7 +8,7 @@ import com.company.market.listing.domain.ListingId;
  * photo 는 공개 대표 사진 키만 (비공개 파일 키는 담지 않는다).
  */
 public record ListingTradeSnapshot(
-		UUID sellerId,
+		String sellerId,
 		String regDate,
 		String prodId,
 		String prodName,

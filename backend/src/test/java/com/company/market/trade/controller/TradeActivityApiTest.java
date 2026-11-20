@@ -3,7 +3,6 @@ package com.company.market.trade.controller;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.List;
-import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.auth.AuthCookies;
@@ -75,11 +74,11 @@ class TradeActivityApiTest {
 	@Autowired
 	TradeService tradeService;
 
-	UUID sellerId;
+	String sellerId;
 
-	UUID buyerId;
+	String buyerId;
 
-	UUID strangerId;
+	String strangerId;
 
 	Cookie seller;
 
@@ -110,11 +109,11 @@ class TradeActivityApiTest {
 		jdbc.update("delete from trd_user_info");
 	}
 
-	private Cookie cookie(UUID id) {
+	private Cookie cookie(String id) {
 		return new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(id));
 	}
 
-	private UUID newUser(String loginId, String phone) {
+	private String newUser(String loginId, String phone) {
 		return users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
 			.nickname(loginId).nicknameUsage("Y").email(loginId + "@example.com").name("홍길동").phone(phone)
 			.phoneHash(hasher.hash(phone)).build()).getId();
@@ -132,7 +131,7 @@ class TradeActivityApiTest {
 		return LocalDate.now(ZoneId.of("Asia/Seoul")).plusDays(7).toString();
 	}
 
-	private String buy(UUID who, String regDate, int quantity) {
+	private String buy(String who, String regDate, int quantity) {
 		return tradeService.request(who, new TradeCreateRequest(sellerId, regDate, quantity, future(), null)).tradeId();
 	}
 
@@ -415,7 +414,7 @@ class TradeActivityApiTest {
 	}
 
 	/** 구매자·판매자·단가·수량을 고른 이력 한 줄 (금액 = 단가 × 수량) */
-	private void historyRow(String tradeId, String date, String prodId, UUID buyerOfRow, UUID sellerOfRow, int unitPrice, int quantity) {
+	private void historyRow(String tradeId, String date, String prodId, String buyerOfRow, String sellerOfRow, int unitPrice, int quantity) {
 		jdbc.update("""
 				insert into trd_trade_history (user_id, trade_id, trade_date, prod_id, trade_type, seller_id, trade_unit_price, trade_quantity, trade_amount)
 				values (?, ?, ?, ?, '거래', ?, ?, ?, ?)

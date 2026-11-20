@@ -73,7 +73,7 @@ public class InquiryService {
 
 	/** viewer: 보는 사람(로그인 안 했으면 null). 수정·삭제 버튼을 보일지(canEdit·canDelete)를 보는 사람 기준으로 채운다 */
 	@Transactional(readOnly = true)
-	public InquiryDetailResponse get(UUID viewer, UUID id) {
+	public InquiryDetailResponse get(String viewer, UUID id) {
 		Inquiry inquiry = find(id);
 		boolean admin = isAdmin(viewer);
 		List<InquiryReplyResponse> replyViews = replies.findByInquiryIdOrderByCreatedAtAscIdAsc(id).stream()
@@ -83,14 +83,14 @@ public class InquiryService {
 	}
 
 	@Transactional
-	public InquiryDetailResponse create(UUID me, InquiryCreateRequest req) {
+	public InquiryDetailResponse create(String me, InquiryCreateRequest req) {
 		Inquiry saved = inquiries.save(Inquiry.create(me, req.title().strip(), req.content().strip()));
 		return InquiryDetailResponse.of(saved, true, true, List.of());
 	}
 
 	/** 본인 글만 고친다. 관리자도 못 고친다(삭제만) */
 	@Transactional
-	public InquiryDetailResponse edit(UUID me, UUID id, InquiryCreateRequest req) {
+	public InquiryDetailResponse edit(String me, UUID id, InquiryCreateRequest req) {
 		Inquiry inquiry = find(id);
 		requireAuthor(inquiry.isAuthor(me));
 		inquiry.edit(req.title().strip(), req.content().strip());
@@ -102,7 +102,7 @@ public class InquiryService {
 
 	/** 본인 글 또는 관리자. 외래키가 없어 답글도 같이 지운다 */
 	@Transactional
-	public void delete(UUID me, UUID id) {
+	public void delete(String me, UUID id) {
 		Inquiry inquiry = find(id);
 		requireAuthor(inquiry.isAuthor(me) || isAdmin(me));
 		replies.deleteByInquiryId(id);
@@ -110,7 +110,7 @@ public class InquiryService {
 	}
 
 	@Transactional
-	public InquiryReplyResponse reply(UUID me, UUID inquiryId, InquiryReplyRequest req) {
+	public InquiryReplyResponse reply(String me, UUID inquiryId, InquiryReplyRequest req) {
 		// 존재만 확인하면 되니 내용(2000자)까지 읽는 findById 대신 existsById
 		if (!inquiries.existsById(inquiryId)) {
 			throw notFound();
@@ -119,7 +119,7 @@ public class InquiryService {
 	}
 
 	@Transactional
-	public InquiryReplyResponse editReply(UUID me, UUID inquiryId, UUID replyId, InquiryReplyRequest req) {
+	public InquiryReplyResponse editReply(String me, UUID inquiryId, UUID replyId, InquiryReplyRequest req) {
 		InquiryReply reply = findReply(inquiryId, replyId);
 		requireAuthor(reply.isAuthor(me));
 		reply.edit(req.content().strip());
@@ -127,18 +127,18 @@ public class InquiryService {
 	}
 
 	@Transactional
-	public void deleteReply(UUID me, UUID inquiryId, UUID replyId) {
+	public void deleteReply(String me, UUID inquiryId, UUID replyId) {
 		InquiryReply reply = findReply(inquiryId, replyId);
 		requireAuthor(reply.isAuthor(me) || isAdmin(me));
 		replies.delete(reply);
 	}
 
-	private InquiryReplyResponse replyView(InquiryReply reply, UUID viewer, boolean admin) {
+	private InquiryReplyResponse replyView(InquiryReply reply, String viewer, boolean admin) {
 		boolean mine = reply.isAuthor(viewer);
 		return InquiryReplyResponse.of(reply, mine, mine || admin);
 	}
 
-	private boolean isAdmin(UUID viewer) {
+	private boolean isAdmin(String viewer) {
 		return viewer != null && userDirectory.hasLoginId(viewer, ADMIN_LOGIN_ID);
 	}
 

@@ -181,6 +181,17 @@ class DevTableApiTest {
 	}
 
 	@Test
+	@DisplayName("사용자 행을 만들 때 uid 를 보내도 무시하고 UP+날짜+일련번호로 새로 만든다")
+	void ignoresSuppliedUid() throws Exception {
+		mvc.perform(post("/api/v1/dev/tables/{t}/rows", "trd_user_info").contentType(MediaType.APPLICATION_JSON)
+			.content("{\"uid\":\"UP000000001\",\"user_id\":\"devuidignore\",\"password\":\"Plain-pass1!\",\"user_class\":\"personal\",\"user_name\":\"홍\",\"dt_reg\":\"2026-10-14 13:44\",\"dt_update\":\"2026-10-14 13:44\"}"))
+			.andExpect(status().isOk());
+		String uid = jdbc.queryForObject("select uid from trd_user_info where user_id = 'devuidignore'", String.class);
+		assertThat(uid).isNotEqualTo("UP000000001").matches("UP\\d{6}\\d{3}");
+		jdbc.update("delete from trd_user_info where user_id = 'devuidignore'");
+	}
+
+	@Test
 	@DisplayName("password 에 평문을 넣으면 bcrypt 로 바꿔 저장하고, 이미 bcrypt 해시면 그대로 저장한다")
 	void hashes_plain_password_only() throws Exception {
 		users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("devhashuser").passwordHash("$2a$12$realhash")

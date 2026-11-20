@@ -2,7 +2,6 @@ package com.company.market.trade.controller;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -77,9 +76,9 @@ class CartApiTest {
 	@Autowired
 	ProductRepository productRepository;
 
-	UUID sellerId;
+	String sellerId;
 
-	UUID buyerId;
+	String buyerId;
 
 	Cookie seller;
 
@@ -106,13 +105,13 @@ class CartApiTest {
 		jdbc.update("delete from trd_user_info");
 	}
 
-	private UUID newUser(String loginId, String phone) {
+	private String newUser(String loginId, String phone) {
 		return users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
 			.nickname(loginId).nicknameUsage("Y").email(loginId + "@example.com").name("홍길동").phone(phone)
 			.phoneHash(hasher.hash(phone)).build()).getId();
 	}
 
-	private Cookie cookieOf(UUID id) {
+	private Cookie cookieOf(String id) {
 		return new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(id));
 	}
 
@@ -179,7 +178,7 @@ class CartApiTest {
 		return jdbc.queryForObject("select count(*) from trd_cart_info where cart_type = ?", Integer.class, type);
 	}
 
-	private String cartTradeId(UUID buyer, String regDate) {
+	private String cartTradeId(String buyer, String regDate) {
 		return jdbc.queryForObject("select trade_id from trd_trade_info where user_id = ? and prod_reg_date = ? and trade_stats = '장바구니'",
 				String.class, buyer, regDate);
 	}
@@ -264,7 +263,7 @@ class CartApiTest {
 	@DisplayName("두 구매자가 동시에 마지막 1개를 담으면 한 명만 담긴다 — 다른 쪽은 400 재고 부족, 재고는 음수가 안 된다")
 	void concurrentLastUnit() throws Exception {
 		jdbc.update("update trd_prod_reg set stock_quantity = 1 where reg_date = ?", REG_A);
-		UUID otherId = newUser("cartother2", "01033330033");
+		String otherId = newUser("cartother2", "01033330033");
 		Cookie other = cookieOf(otherId);
 		ExecutorService pool = Executors.newFixedThreadPool(2);
 		CountDownLatch start = new CountDownLatch(1);
@@ -425,7 +424,7 @@ class CartApiTest {
 	@Test
 	@DisplayName("빼기에 남의 행이 섞이면 404 TRADE_NOT_FOUND — 내 행도 안 지움")
 	void removeWithOthersRowRejectsAll() throws Exception {
-		UUID otherId = newUser("cartother", "01033330003");
+		String otherId = newUser("cartother", "01033330003");
 		add(buyer, REG_A).andExpect(status().isOk());
 		add(cookieOf(otherId), REG_A).andExpect(status().isOk());
 		remove(buyer, cartTradeId(buyerId, REG_A), cartTradeId(otherId, REG_A)).andExpect(status().isNotFound())
@@ -517,7 +516,7 @@ class CartApiTest {
 	@Test
 	@DisplayName("수량 바꾸기: 남의 줄·없는 줄은 404, 장바구니가 아닌 줄(구매요청)도 404, 거래완료 매물은 409")
 	void changeQuantityGuards() throws Exception {
-		UUID otherId = newUser("cartother4", "01033330055");
+		String otherId = newUser("cartother4", "01033330055");
 		add(cookieOf(otherId), REG_A).andExpect(status().isOk());
 		String othersRow = cartTradeId(otherId, REG_A);
 		changeQuantity(buyer, othersRow, 2).andExpect(status().isNotFound());
@@ -618,7 +617,7 @@ class CartApiTest {
 	@Test
 	@DisplayName("남의 장바구니 줄이나 다른 매물의 줄을 가리키면 404 — 구매·견적 모두, 아무것도 안 바뀐다")
 	void cartTradeIdMustBeMineAndMatchListing() throws Exception {
-		UUID otherId = newUser("cartother3", "01033330044");
+		String otherId = newUser("cartother3", "01033330044");
 		add(cookieOf(otherId), REG_A).andExpect(status().isOk());
 		String othersRow = cartTradeId(otherId, REG_A);
 		add(buyer, REG_B).andExpect(status().isOk());
@@ -771,7 +770,7 @@ class CartApiTest {
 	@DisplayName("장바구니가 묶은 수량이 남아 있으면 마지막 구매가 확정돼도 판매완료가 아니다 — 줄을 빼 수량이 돌아오면 계속 거래 중")
 	void cartHoldPreventsSoldOutAtConfirmation() throws Exception {
 		jdbc.update("update trd_prod_reg set stock_quantity = 2, sales_quantity = 2 where reg_date = ?", REG_A);
-		UUID otherId = newUser("cartother4", "01033330055");
+		String otherId = newUser("cartother4", "01033330055");
 		Cookie other = cookieOf(otherId);
 		add(buyer, REG_A).andExpect(status().isOk());
 		mvc.perform(post("/api/v1/trades").cookie(other).contentType(MediaType.APPLICATION_JSON)

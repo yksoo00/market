@@ -36,7 +36,7 @@ public class IdempotencyGuard {
 	 * @param idOf 결과 → 다시 찾을 id (Redis 에 저장)
 	 * @param replay 저장된 id → 처음 결과
 	 */
-	public <T> T run(String scope, UUID userId, String key, Supplier<T> action, Function<T, String> idOf,
+	public <T> T run(String scope, String userId, String key, Supplier<T> action, Function<T, String> idOf,
 			Function<String, T> replay) {
 		if (key == null) {
 			return action.get();

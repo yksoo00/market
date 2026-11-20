@@ -1,6 +1,5 @@
 package com.company.market.inquiry.domain;
 
-import java.util.UUID;
 
 import com.company.market.common.domain.BaseEntity;
 import jakarta.persistence.Entity;
@@ -24,9 +23,9 @@ public class Inquiry extends BaseEntity {
 
 	private String content;
 
-	private UUID authorUid;
+	private String authorUid;
 
-	public static Inquiry create(UUID authorUid, String title, String content) {
+	public static Inquiry create(String authorUid, String title, String content) {
 		Inquiry inquiry = new Inquiry();
 		inquiry.authorUid = authorUid;
 		inquiry.title = title;
@@ -39,7 +38,7 @@ public class Inquiry extends BaseEntity {
 		this.content = content;
 	}
 
-	public boolean isAuthor(UUID uid) {
+	public boolean isAuthor(String uid) {
 		return authorUid != null && authorUid.equals(uid);
 	}
 

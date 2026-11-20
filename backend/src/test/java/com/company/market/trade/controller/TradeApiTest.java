@@ -93,9 +93,9 @@ class TradeApiTest {
 	@Autowired
 	TransactionTemplate tx;
 
-	UUID sellerId;
+	String sellerId;
 
-	UUID buyerId;
+	String buyerId;
 
 	Cookie seller;
 
@@ -120,7 +120,7 @@ class TradeApiTest {
 	}
 
 	/** 별명 사용(Y) 사용자 — 별명이 로그인 아이디와 같아 테스트에서 알아보기 쉽다 */
-	private UUID newUser(String loginId, String phone) {
+	private String newUser(String loginId, String phone) {
 		return users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
 			.nickname(loginId).nicknameUsage("Y").email(loginId + "@example.com").name("홍길동").phone(phone)
 			.phoneHash(hasher.hash(phone)).build()).getId();
@@ -281,11 +281,11 @@ class TradeApiTest {
 	@DisplayName("동시 요청: 재고 5에 3개씩 2건이면 하나만 성공하고 재고는 2")
 	void concurrentRequestsCannotOversell() throws Exception {
 		listing(1000, 5, 1, 1, null);
-		UUID secondBuyer = newUser("tradebuyer2", "01012340003");
+		String secondBuyer = newUser("tradebuyer2", "01012340003");
 		CountDownLatch start = new CountDownLatch(1);
 		ExecutorService pool = Executors.newFixedThreadPool(2);
 		List<Future<Boolean>> results = new ArrayList<>();
-		for (UUID who : List.of(buyerId, secondBuyer)) {
+		for (String who : List.of(buyerId, secondBuyer)) {
 			results.add(pool.submit(() -> {
 				start.await();
 				try {
@@ -526,7 +526,7 @@ class TradeApiTest {
 			jdbc.update("delete from trd_prod_reg");
 			jdbc.update("delete from trd_prod_master");
 			listing(1000, 2, 1, 1, null);
-			UUID otherId = newUser("tradeconc" + round, "0101234" + (7100 + round));
+			String otherId = newUser("tradeconc" + round, "0101234" + (7100 + round));
 			Cookie other = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(otherId));
 			String first = requested(1);
 			String second = tradeService.request(otherId, new TradeCreateRequest(sellerId, REG_DATE, 1, future(), null)).tradeId();
@@ -553,7 +553,7 @@ class TradeApiTest {
 	@DisplayName("묶인 건이 더 남아 있으면 확정해도 판매완료가 아니다 — 마지막 건이 확정될 때 판매완료, 먼저 취소된 건의 수량이 돌아오면 계속 거래 중")
 	void notSoldOutWhileOtherHoldsRemain() throws Exception {
 		listing(1000, 2, 1, 1, null);
-		UUID otherId = newUser("tradeother", "01012340007");
+		String otherId = newUser("tradeother", "01012340007");
 		Cookie other = new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(otherId));
 		String first = requested(1);
 		String second = tradeService.request(otherId, new TradeCreateRequest(sellerId, REG_DATE, 1, future(), null)).tradeId();
@@ -651,7 +651,7 @@ class TradeApiTest {
 			.minOrderQuantity(1).orderUnit(1).deliveryDate("2026-12-31").build());
 	}
 
-	private String requestAs(UUID who, String regDate, int quantity, String remarks) {
+	private String requestAs(String who, String regDate, int quantity, String remarks) {
 		return tradeService.request(who, new TradeCreateRequest(sellerId, regDate, quantity, future(), remarks)).tradeId();
 	}
 
@@ -659,7 +659,7 @@ class TradeApiTest {
 	@DisplayName("구매자 목록: 내 거래만 최신순, 상대 닉네임은 판매자, 이메일·전화 없음")
 	void buyerList() throws Exception {
 		listing(1000, 100, 1, 1, null);
-		UUID other = newUser("tradebuyer2", "01012340003");
+		String other = newUser("tradebuyer2", "01012340003");
 		String first = requestAs(buyerId, REG_DATE, 1, null);
 		requestAs(other, REG_DATE, 1, null);
 		String second = requestAs(buyerId, REG_DATE, 2, null);

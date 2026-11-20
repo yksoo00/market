@@ -6,12 +6,13 @@ import type { ListingDetail } from "@/types/listing";
 const t = listing.detail;
 const num = new Intl.NumberFormat("ko-KR");
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// 사용자 식별자(uid) = UP + yyMMdd + 일련번호 3자리 (예: UP261008001, decisions.md 2026-11-20)
+const UID_RE = /^UP\d{9}$/;
 const REG_DATE_RE = /^\d{14}$/;
 
 /** 형식이 틀린 경로는 API 를 부르지 않고 바로 "찾을 수 없음"으로 */
 export function isValidListingPath(userId: string, regDate: string): boolean {
-  return UUID_RE.test(userId) && REG_DATE_RE.test(regDate);
+  return UID_RE.test(userId) && REG_DATE_RE.test(regDate);
 }
 
 export function formatRegDate(regDate: string): string {
