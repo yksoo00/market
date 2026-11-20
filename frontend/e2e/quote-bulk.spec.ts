@@ -68,7 +68,7 @@ async function register(page: Page, prodName: string, quantity: number) {
   await page.locator('input[name="salesQuantity"]').fill(String(quantity));
   await page.locator('input[name="deliveryDate"]').fill(new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10));
   await page.getByRole("button", { name: listing.form.submit, exact: true }).click();
-  await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
+  await expect(page).toHaveURL(/\/listings\/UP\d{9}\/\d{14}$/);
 }
 
 /** 검색 결과에서 상품을 체크해 한 번에 견적 요청 — 줄마다 수량 (희망단가 9000) */

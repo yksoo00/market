@@ -6,7 +6,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
-import java.util.UUID;
 
 import com.company.market.common.auth.JwtProvider;
 import com.company.market.common.auth.RefreshSessionStore;

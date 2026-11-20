@@ -1,8 +1,8 @@
 package com.company.market.common.storage;
 
+import com.company.market.TestUids;
 import java.io.IOException;
 import java.time.Clock;
-import java.util.UUID;
 
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
@@ -39,7 +39,7 @@ class UploadServiceTest {
 				new StorageProperties("unused", DataSize.ofGigabytes(10)));
 		when(storage.usableSpace()).thenReturn(DataSize.ofGigabytes(10).toBytes() - 1);
 
-		assertThatThrownBy(() -> service.upload(UUID.randomUUID(), "listing-photo",
+		assertThatThrownBy(() -> service.upload(TestUids.random(), "listing-photo",
 				new MockMultipartFile("file", "a.jpg", "image/jpeg", UploadApiTest.JPG)))
 			.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode())
 				.isEqualTo(ErrorCode.STORAGE_FULL));
@@ -52,7 +52,7 @@ class UploadServiceTest {
 		UploadService service = new UploadService(storage, redis, Clock.systemUTC(),
 				new StorageProperties("unused", DataSize.ofGigabytes(10)));
 
-		assertThatThrownBy(() -> service.store(UUID.randomUUID(), UploadKind.LISTING_PHOTO, "a.pdf", UploadApiTest.JPG))
+		assertThatThrownBy(() -> service.store(TestUids.random(), UploadKind.LISTING_PHOTO, "a.pdf", UploadApiTest.JPG))
 			.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_TYPE));
 		verify(storage, never()).save(any(), any());
 	}
@@ -63,7 +63,7 @@ class UploadServiceTest {
 		UploadService service = new UploadService(storage, redis, Clock.systemUTC(),
 				new StorageProperties("unused", DataSize.ofGigabytes(10)));
 
-		assertThatThrownBy(() -> service.store(UUID.randomUUID(), UploadKind.LISTING_PHOTO, "a.jpg", new byte[] { 1, 2, 3, 4 }))
+		assertThatThrownBy(() -> service.store(TestUids.random(), UploadKind.LISTING_PHOTO, "a.jpg", new byte[] { 1, 2, 3, 4 }))
 			.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.UPLOAD_INVALID_TYPE));
 	}
 
@@ -75,7 +75,7 @@ class UploadServiceTest {
 		byte[] big = new byte[(int) UploadKind.LISTING_PHOTO.maxBytes() + 1];
 		System.arraycopy(UploadApiTest.JPG, 0, big, 0, UploadApiTest.JPG.length);
 
-		assertThatThrownBy(() -> service.store(UUID.randomUUID(), UploadKind.LISTING_PHOTO, "a.jpg", big))
+		assertThatThrownBy(() -> service.store(TestUids.random(), UploadKind.LISTING_PHOTO, "a.jpg", big))
 			.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.UPLOAD_TOO_LARGE));
 	}
 

@@ -17,4 +17,8 @@ public record QuotePurchaseRequest(
 		@NotBlank(message = TradeCreateRequest.REQ_DELI_DATE_REQUIRED)
 		@Pattern(regexp = ListingCreateRequest.DELIVERY_DATE_PATTERN, message = TradeCreateRequest.REQ_DELI_DATE_MESSAGE) String reqDeliDate,
 		@Size(max = 100) String remarks) {
+
+	public QuotePurchaseRequest {
+		reqDeliDate = com.company.market.common.time.KoreanDates.normalizeDateOrKeep(reqDeliDate);
+	}
 }

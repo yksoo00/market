@@ -8,7 +8,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.company.market.common.exception.ValidationException;
@@ -58,7 +57,7 @@ public class TradeActivityService {
 	 * side = all | buy | sell. 최신 확정순 20줄 + 커서(확정일시 14자 + 거래ID). 필터(상품명·기간·금액·정렬, 계획 2026-10-30)는
 	 * 전부 본인 이력 조건 안에서만 걸린다. 정렬이 최신순이 아니면 page 가 필요하다 (커서는 최신순 전용)
 	 */
-	public TradeHistoryPageResponse history(UUID me, String side, String cursor, Integer pageNo, TradeFilter filter) {
+	public TradeHistoryPageResponse history(String me, String side, String cursor, Integer pageNo, TradeFilter filter) {
 		if (!Set.of("all", "buy", "sell").contains(side == null ? "all" : side)) {
 			throw new ValidationException(Map.of("side", "side 는 all, buy, sell 중 하나여야 합니다."));
 		}
@@ -95,15 +94,15 @@ public class TradeActivityService {
 			pageKeys = PageKeys.of(keys, pageNo, PAGE_SIZE);
 			List<Object[]> slice = keys.subList((pageNo - 1) * PAGE_SIZE, Math.min(pageNo * PAGE_SIZE, keys.size()));
 			Map<TradeHistoryId, TradeHistory> byId = histories
-				.findAllById(slice.stream().map(k -> new TradeHistoryId((UUID) k[2], (String) k[1], (String) k[0])).toList()).stream()
+				.findAllById(slice.stream().map(k -> new TradeHistoryId((String) k[2], (String) k[1], (String) k[0])).toList()).stream()
 				.collect(Collectors.toMap(TradeHistory::getId, h -> h));
-			page = slice.stream().map(k -> byId.get(new TradeHistoryId((UUID) k[2], (String) k[1], (String) k[0]))).filter(Objects::nonNull).toList();
+			page = slice.stream().map(k -> byId.get(new TradeHistoryId((String) k[2], (String) k[1], (String) k[0]))).filter(Objects::nonNull).toList();
 			hasMore = (long) pageNo * PAGE_SIZE < pageKeys.total();
 		}
 
 		// 상품명은 매물이 아니라 상품마스터에서 — 이력 줄은 매물 키를 갖고 있지 않다
 		Map<String, String> names = listings.productNames(page.stream().map(TradeHistory::getProdId).collect(Collectors.toSet()));
-		Map<UUID, String> nicknames = userDirectory.nicknamesOf(
+		Map<String, String> nicknames = userDirectory.nicknamesOf(
 				page.stream().map(h -> me.equals(h.getUserId()) ? h.getSellerId() : h.getUserId()).collect(Collectors.toSet()));
 		List<TradeHistoryItemResponse> items = page.stream().map(h -> {
 			boolean asBuyer = me.equals(h.getUserId());
@@ -124,7 +123,7 @@ public class TradeActivityService {
 	 * (오래된 순은 그 정확한 반대), 값이 비어 있는 줄(이름 모름·금액 없음)은 오름·내림 모두 맨 뒤. 상품명은 상품마스터에서, 상대는 화면에 보이는 별명으로
 	 * 정렬한다 — 목록에 보이는 값과 같아야 해서 키를 전부 모은 뒤 한 번에 조회한다
 	 */
-	private Comparator<Object[]> keyOrder(String sort, UUID me, List<Object[]> keys) {
+	private Comparator<Object[]> keyOrder(String sort, String me, List<Object[]> keys) {
 		Comparator<Object[]> oldest = Comparator.comparing((Object[] k) -> (String) k[0]).thenComparing(k -> (String) k[1]);
 		Comparator<Object[]> latest = oldest.reversed();
 		if ("oldest".equals(sort)) {
@@ -139,7 +138,7 @@ public class TradeActivityService {
 				yield TradeKeySorting.columnOrder(k -> names.get((String) k[4]), (a, b) -> collator.compare(a, b), desc);
 			}
 			case "party" -> {
-				Map<UUID, String> nicknames = userDirectory.nicknamesOf(keys.stream().map(k -> counterpartOf(me, k)).collect(Collectors.toSet()));
+				Map<String, String> nicknames = userDirectory.nicknamesOf(keys.stream().map(k -> counterpartOf(me, k)).collect(Collectors.toSet()));
 				yield TradeKeySorting.columnOrder(k -> nicknames.get(counterpartOf(me, k)), (a, b) -> collator.compare(a, b), desc);
 			}
 			// 구분: 내가 구매자면 구매, 아니면 판매. 오름 = 구매 먼저
@@ -153,21 +152,21 @@ public class TradeActivityService {
 	}
 
 	/** 구매자면 판매자가, 판매자면 구매자가 상대 */
-	private static UUID counterpartOf(UUID me, Object[] key) {
-		return me.equals(key[2]) ? (UUID) key[3] : (UUID) key[2];
+	private static String counterpartOf(String me, Object[] key) {
+		return me.equals(key[2]) ? (String) key[3] : (String) key[2];
 	}
 
 	/** 검색 범위 탭 판정: 내 매물이 있나 / 구매 거래(구매검토 아님)나 거래이력이 있나 */
-	public TradeScopesResponse scopes(UUID me) {
+	public TradeScopesResponse scopes(String me) {
 		boolean sales = listings.hasListings(me);
 		boolean purchases = trades.existsByUserIdAndTradeTypeNot(me, TradeType.REVIEW) || histories.existsByUserId(me);
 		return new TradeScopesResponse(sales, purchases);
 	}
 
 	/** 내 구매 범위 검색: 내가 거래한 매물(진행 중 + 구매확정)을 같은 필터로. 거래가 없으면 빈 결과 */
-	public ListingPageResponse purchasedListings(UUID me, ListingSearchCondition condition) {
+	public ListingPageResponse purchasedListings(String me, ListingSearchCondition condition) {
 		List<ListingId> keys = trades.findPurchasedListings(me, TradeType.REVIEW, PageRequest.of(0, PURCHASED_KEYS_MAX)).stream()
-			.map(r -> new ListingId((UUID) r[0], (String) r[1], null))
+			.map(r -> new ListingId((String) r[0], (String) r[1], null))
 			.toList();
 		return listings.search(condition, null, keys);
 	}

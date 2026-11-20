@@ -20,9 +20,9 @@ public class InquiryReply extends BaseEntity {
 
 	private String content;
 
-	private UUID authorUid;
+	private String authorUid;
 
-	public static InquiryReply create(UUID authorUid, UUID inquiryId, String content) {
+	public static InquiryReply create(String authorUid, UUID inquiryId, String content) {
 		InquiryReply reply = new InquiryReply();
 		reply.authorUid = authorUid;
 		reply.inquiryId = inquiryId;
@@ -34,7 +34,7 @@ public class InquiryReply extends BaseEntity {
 		this.content = content;
 	}
 
-	public boolean isAuthor(UUID uid) {
+	public boolean isAuthor(String uid) {
 		return authorUid != null && authorUid.equals(uid);
 	}
 

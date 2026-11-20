@@ -4,12 +4,9 @@ import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
-import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -28,9 +25,9 @@ public class User {
 	private static final DateTimeFormatter DATABASE_TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMddHHmmss");
 
 	@Id
-	@GeneratedValue(strategy = GenerationType.UUID)
-	@Column(name = "uid")
-	private UUID id;
+	@UidGeneratedValue
+	@Column(name = "uid", length = 11)
+	private String id;
 
 	@Column(name = "user_class", nullable = false, length = 10)
 	private UserKind kind;

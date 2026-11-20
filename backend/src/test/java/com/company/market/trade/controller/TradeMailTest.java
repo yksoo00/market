@@ -1,7 +1,6 @@
 package com.company.market.trade.controller;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.company.market.TestInfraConfiguration;
@@ -102,9 +101,9 @@ class TradeMailTest {
 	@Autowired
 	RecordingMailer mailer;
 
-	UUID sellerId;
+	String sellerId;
 
-	UUID buyerId;
+	String buyerId;
 
 	Cookie seller;
 
@@ -135,7 +134,7 @@ class TradeMailTest {
 		jdbc.update("delete from trd_user_info");
 	}
 
-	private UUID newUser(String loginId, String phone) {
+	private String newUser(String loginId, String phone) {
 		return users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
 			.nickname(loginId).nicknameUsage("Y").email(loginId + "@example.com").name("홍길동").phone(phone)
 			.phoneHash(hasher.hash(phone)).build()).getId();

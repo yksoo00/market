@@ -8,7 +8,6 @@ import java.time.Instant;
 import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.crypto.PiiHasher;
@@ -67,7 +66,7 @@ class ListingBulkCommitTest {
 
 	ListingBulkService service;
 
-	UUID sellerId;
+	String sellerId;
 
 	String withPhotoId;
 

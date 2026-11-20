@@ -1,7 +1,6 @@
 package com.company.market.user.repository;
 
 import java.util.Optional;
-import java.util.UUID;
 
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;
@@ -9,7 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-public interface UserRepository extends JpaRepository<User, UUID> {
+public interface UserRepository extends JpaRepository<User, String> {
 
 	Optional<User> findByLoginId(String loginId);
 

@@ -1,6 +1,5 @@
 package com.company.market.trade.dto;
 
-import java.util.UUID;
 
 /**
  * 거래 한 건 (요청 응답·목록 항목). tradeType 은 quote|purchase, tradeStats 는 quoteRequested|quoteAccepted|quoteRejected|requested|confirmed.
@@ -12,7 +11,7 @@ public record TradeResponse(
 		String tradeId,
 		String tradeType,
 		String tradeStats,
-		UUID sellerId,
+		String sellerId,
 		String regDate,
 		String prodName,
 		int orderQuantity,

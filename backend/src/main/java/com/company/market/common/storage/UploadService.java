@@ -11,7 +11,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
@@ -76,7 +75,7 @@ public class UploadService {
 
 	private final StorageProperties props;
 
-	public String upload(UUID userId, String kindValue, MultipartFile file) throws IOException {
+	public String upload(String userId, String kindValue, MultipartFile file) throws IOException {
 		// TODO(rate limit 보류, decisions.md 2026-10-19): 업로드 횟수·하루 용량 한도를 지웠다. 운영 전에 다시 넣는다
 		UploadKind kind = UploadKind.fromValue(kindValue)
 			.orElseThrow(() -> new ValidationException(Map.of("kind", "알 수 없는 업로드 용도입니다.")));
@@ -103,7 +102,7 @@ public class UploadService {
 	 * 이미 메모리에 있는 파일(다량 등록 ZIP 안의 파일)을 단건 업로드와 같은 검사로 저장하고 키를 돌려준다.
 	 * 호출자가 크기를 미리 한도 안으로 읽어 와야 한다 (바이트가 이미 메모리에 있으므로 여기선 용도별 상한만 다시 본다)
 	 */
-	public String store(UUID userId, UploadKind kind, String filename, byte[] content) throws IOException {
+	public String store(String userId, UploadKind kind, String filename, byte[] content) throws IOException {
 		FileType type = FileType.fromFilename(filename)
 			.filter(kind::allows)
 			.orElseThrow(() -> new ApiException(ErrorCode.UPLOAD_INVALID_TYPE));
@@ -120,7 +119,7 @@ public class UploadService {
 	}
 
 	/** 검사를 마친 파일을 저장하고 소유 기록을 남긴다 */
-	private String save(UUID userId, UploadKind kind, FileType type, InputStream in, long size) throws IOException {
+	private String save(String userId, UploadKind kind, FileType type, InputStream in, long size) throws IOException {
 		// 디스크 하한 — 같은 디스크의 Postgres 보호 (security.md "파일 업로드")
 		if (storage.usableSpace() - size < props.minFree().toBytes()) {
 			throw new ApiException(ErrorCode.STORAGE_FULL);
@@ -138,7 +137,7 @@ public class UploadService {
 	 * 와도 하나만 통과한다. 기록은 커밋된 뒤에 지우고, 롤백되면 되돌린다 — 저장이 실패해도 다시 올리지 않게.
 	 * 호출자의 트랜잭션 안에서만 부른다.
 	 */
-	public void claim(UUID userId, List<UploadRef> refs) {
+	public void claim(String userId, List<UploadRef> refs) {
 		Map<String, String> failures = new LinkedHashMap<>();
 		// 키 → 그 키를 쓴 필드들. 같은 키를 두 칸에 보내도 한 번만 선점한다 (용도는 키 형식이 정하므로 키마다 하나)
 		Map<String, List<String>> fieldsByKey = new LinkedHashMap<>();

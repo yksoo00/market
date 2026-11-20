@@ -11,7 +11,7 @@
 
 | 컬럼 | 타입 | 용도 |
 |---|---|---|
-| `uid` | uuid | 내부 사용자 ID, PK |
+| `uid` | varchar(11) | 사용자 식별자, PK. `UP` + 가입일(한국) `yyMMdd` + 그날의 일련번호 3자리 (예 `UP261008001`, 2026-11-20 부터 — 그 전엔 uuid). 하루 999명을 넘으면 가입 거절 |
 | `user_id` | varchar(20) | 로그인 아이디 (개인·기업 공통, 2026-10-13부터 기업도 직접 정함). 그 전에 가입한 기업 행은 사업자번호가 들어 있다 |
 | `password` | varchar(200) | bcrypt 비밀번호 해시 |
 | `user_class` | varchar(10) | `personal` 또는 `business` |
@@ -106,7 +106,7 @@
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| user_id | uuid | PK(복합) | 레거시 "사용자ID". 로그인 아이디 문자열이 아니라 trd_user_info.uid(uuid). 조직(seller_org_id)은 넣지 않음 — decisions.md 미정 항목을 이 커밋에서 확정 |
+| user_id | uuid | PK(복합) | 레거시 "사용자ID". 로그인 아이디 문자열이 아니라 trd_user_info.uid(varchar(11), 2026-11-20 부터). 조직(seller_org_id)은 넣지 않음 — decisions.md 미정 항목을 이 커밋에서 확정 |
 | reg_date | varchar(14) | PK(복합), not null | 등록일시(일시분초). 같은 사용자가 같은 초에 두 번 등록하면 409 — 서버가 사용자별 잠금으로 막아(2026-10-27) 매물 주소의 (user_id, reg_date) 두 값으로도 매물 하나 |
 | prod_id | varchar(20) | PK(복합) | 정의서 PK 세 값 중 하나 (2026-10-27). 매물 수정에서 상품을 바꾸면 이 값과 그 매물을 가리키는 거래 행의 prod_id 가 같이 바뀐다 |
 | trade_type | varchar(20) | not null | 거래종류 (등록) |
@@ -115,7 +115,7 @@
 | sales_quantity | integer | not null | 등록수량 |
 | min_order_quantity | integer | default 1 | 정의서대로 NOT NULL 아님 (서버는 늘 채운다) |
 | order_unit | integer | default 1 | 같음 |
-| prov_date | varchar(10) | not null | 제공가능일(납기일). 등록·수정에서 필수 (2026-10-27, 그 전 빈 행은 등록일로 채움). **레거시 스펙엔 물리명이 REG_DATE 로 등록일시와 중복 기재되어 있어 분리함** |
+| prov_date | varchar(10) | not null | 제공가능일(납기일) yyyyMMdd (2026-11-20 부터 숫자만, 그 전 행은 yyyy-MM-dd — 변환 마이그레이션은 db/ PR). 등록·수정에서 필수 (2026-10-27, 그 전 빈 행은 등록일로 채움). **레거시 스펙엔 물리명이 REG_DATE 로 등록일시와 중복 기재되어 있어 분리함** |
 | stock_quantity | integer ? | | 재고수량. 비우면 등록수량(sales_quantity)으로 채운다(레거시 기본값 "판매수량") |
 | prod_description | varchar(200) | | |
 | prod_data_sheet | varchar(100) | | |
@@ -158,7 +158,7 @@
 
 | 컬럼 | 타입 | 제약 | 설명 |
 |---|---|---|---|
-| user_id | uuid | PK(복합) | 구매자. 정의서 varchar(20) → uuid |
+| user_id | varchar(11) | PK(복합) | 구매자. 정의서 varchar(20) → uuid |
 | trade_id | varchar(20) | PK(복합) | `yyMMddHH`(한국 시간) + 순번 3자리, 11자 (예 `26092917001`). 순번은 그 시간대 전체에서 001부터. 겹치지 않는 건 생성기(시간대 잠금)가 보장 — DB unique 는 2026-10-27 에 뺐다 |
 | trade_type | varchar(20) | not null | 거래종류: 위 표 |
 | seller_id | uuid | | 판매자. (seller_id, prod_reg_date, prod_id) = 매물 PK 세 값. 정의서 물리명 `USER_ID`가 구매자와 겹쳐 이름 변경 |
@@ -173,7 +173,7 @@
 | prov_date | varchar(10) | not null | 복사 (제공가능일, 2026-10-27 부터 매물에서 필수) |
 | order_unit_price | integer | not null | 거래: = 등록단가 (구매자가 못 바꿈). 견적조정: 희망단가 (1 ~ 등록단가) |
 | order_quantity | integer | not null | 구매자 입력, 기본 최소주문량 |
-| req_deli_date | varchar(10) | not null | 납품희망일 yyyy-MM-dd. 구매·견적 모두 구매자 입력(필수), 화면 기본값은 제공가능일. 장바구니 행은 제공가능일 (2026-10-27, 그 전 빈 행은 제공가능일로 채움) |
+| req_deli_date | varchar(10) | not null | 납품희망일 yyyyMMdd (2026-11-20 부터 숫자만 — 입력은 2026-10-10·2026.10.10 도 받아 바꿔 저장). 구매·견적 모두 구매자 입력(필수), 화면 기본값은 제공가능일. 장바구니 행은 제공가능일 (2026-10-27, 그 전 빈 행은 제공가능일로 채움) |
 | remarks | varchar(100) | | 요청사항 (견적은 비고) |
 | trade_stats | varchar(10) | not null | 거래상태: 위 표 |
 | spare_col | varchar(100) | | |

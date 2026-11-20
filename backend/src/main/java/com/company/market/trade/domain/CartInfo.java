@@ -1,6 +1,5 @@
 package com.company.market.trade.domain;
 
-import java.util.UUID;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Convert;
@@ -31,7 +30,7 @@ public class CartInfo implements Persistable<CartInfoId> {
 
 	@Id
 	@Column(name = "user_id")
-	private UUID userId;
+	private String userId;
 
 	@Id
 	@Column(name = "trade_id")
@@ -44,7 +43,7 @@ public class CartInfo implements Persistable<CartInfoId> {
 	@Convert(converter = CartType.DbConverter.class)
 	private CartType cartType;
 
-	private UUID sellerId;
+	private String sellerId;
 
 	@Column(nullable = false)
 	private String prodDate;
@@ -84,7 +83,7 @@ public class CartInfo implements Persistable<CartInfoId> {
 	}
 
 	@Builder
-	private CartInfo(UUID userId, String tradeId, Integer serNo, CartType cartType, UUID sellerId, String prodDate,
+	private CartInfo(String userId, String tradeId, Integer serNo, CartType cartType, String sellerId, String prodDate,
 			String prodName, String prodNo, String manufacturer, String prodSpecInfo, String prodState,
 			String provDate, Integer orderUnitPrice, Integer orderQuantity, String reqDeliDate, String remarks,
 			String regDate) {

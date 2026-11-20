@@ -15,7 +15,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 import com.company.market.common.exception.ApiException;
@@ -86,7 +85,7 @@ public class TradeService {
 	private final ApplicationEventPublisher events;
 
 	@Transactional
-	public TradeResponse request(UUID buyerId, TradeCreateRequest req) {
+	public TradeResponse request(String buyerId, TradeCreateRequest req) {
 		ListingTradeSnapshot listing = listings.lockForTrade(req.sellerId(), req.regDate());
 		if (buyerId.equals(listing.sellerId())) {
 			throw new ApiException(ErrorCode.TRADE_OWN_LISTING);
@@ -153,7 +152,7 @@ public class TradeService {
 	 * 잠그면 다른 요청과 순서가 엇갈려 교착될 수 있다. 한 요청에 같은 매물이 두 번 오면 409
 	 */
 	@Transactional
-	public List<TradeResponse> requestQuotes(UUID buyerId, QuoteCreateRequest req) {
+	public List<TradeResponse> requestQuotes(String buyerId, QuoteCreateRequest req) {
 		Map<String, String> failures = new LinkedHashMap<>();
 		List<TradeInfo> saved = new ArrayList<>();
 		List<ListingTradeSnapshot> snapshots = new ArrayList<>();
@@ -258,7 +257,7 @@ public class TradeService {
 		if (!failures.isEmpty()) {
 			throw new ValidationException(failures);
 		}
-		Map<UUID, String> nicknames = userDirectory.nicknamesOf(saved.stream().map(TradeInfo::getSellerId).collect(Collectors.toSet()));
+		Map<String, String> nicknames = userDirectory.nicknamesOf(saved.stream().map(TradeInfo::getSellerId).collect(Collectors.toSet()));
 		List<TradeResponse> responses = new ArrayList<>();
 		for (int i = 0; i < saved.size(); i++) {
 			TradeInfo trade = saved.get(i);
@@ -271,7 +270,7 @@ public class TradeService {
 
 	/** 구매자 [거래완료] → 구매확정 + 거래이력 1줄. 판매자는 못 한다 (사용자 결정 2026-10-15) */
 	@Transactional
-	public TradeResponse complete(UUID me, String tradeId) {
+	public TradeResponse complete(String me, String tradeId) {
 		TradeInfo trade = trades.findByTradeId(tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
 		if (!me.equals(trade.getUserId())) {
 			throw new ApiException(ErrorCode.FORBIDDEN);
@@ -309,7 +308,7 @@ public class TradeService {
 	 * 이력에도 쌓지 않는다
 	 */
 	@Transactional
-	public void cancel(UUID me, String tradeId) {
+	public void cancel(String me, String tradeId) {
 		TradeInfo trade = trades.findByTradeId(tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
 		TradeStats stats = trade.getTradeStats();
 		// 견적 단계: 보낸 구매자만 거둔다(판매자는 거절). 답 오기 전(견적요청)이나 거절 뒤(견적거절)에만, 재고는 잡지 않았으니 그대로.
@@ -359,7 +358,7 @@ public class TradeService {
 	 * 두 번 눌러도 하나만 — 상태 조건부 UPDATE (2026-11-02)
 	 */
 	@Transactional
-	public TradeResponse purchaseFromQuote(UUID buyerId, String tradeId, QuotePurchaseRequest req) {
+	public TradeResponse purchaseFromQuote(String buyerId, String tradeId, QuotePurchaseRequest req) {
 		TradeInfo trade = trades.findByTradeId(tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
 		if (!buyerId.equals(trade.getUserId())) {
 			throw new ApiException(ErrorCode.FORBIDDEN);
@@ -396,17 +395,17 @@ public class TradeService {
 
 	/** 판매자 견적 수락 — 매물 단가를 희망단가로 내리고 견적수락 (사용자 결정 2026-10-21) */
 	@Transactional
-	public TradeResponse accept(UUID me, String tradeId) {
+	public TradeResponse accept(String me, String tradeId) {
 		return reply(me, tradeId, true);
 	}
 
 	/** 판매자 견적 거절 — 매물은 그대로, 견적거절 */
 	@Transactional
-	public TradeResponse reject(UUID me, String tradeId) {
+	public TradeResponse reject(String me, String tradeId) {
 		return reply(me, tradeId, false);
 	}
 
-	private TradeResponse reply(UUID me, String tradeId, boolean accepted) {
+	private TradeResponse reply(String me, String tradeId, boolean accepted) {
 		TradeInfo trade = trades.findByTradeId(tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
 		if (!me.equals(trade.getSellerId())) {
 			throw new ApiException(ErrorCode.FORBIDDEN);
@@ -429,7 +428,7 @@ public class TradeService {
 		return replied;
 	}
 
-	private void mail(Kind kind, TradeInfo trade, UUID actorId, String prodName) {
+	private void mail(Kind kind, TradeInfo trade, String actorId, String prodName) {
 		events.publishEvent(new TradeMailEvent(kind, trade.getTradeId(), trade.getUserId(), trade.getSellerId(), actorId,
 				prodName, trade.getSalesUnitPrice(), trade.getOrderUnitPrice(), trade.getOrderQuantity()));
 	}
@@ -440,12 +439,12 @@ public class TradeService {
 	}
 
 	/** 구매자·판매자만 본다. 남이면 없는 것과 같게 404 (거래ID 존재 여부를 흘리지 않게) */
-	public TradeResponse get(UUID viewerId, String tradeId) {
+	public TradeResponse get(String viewerId, String tradeId) {
 		return find(viewerId, tradeId).orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
 	}
 
 	/** get 과 같되 없으면(남의 거래 포함) 빈 값 — 멱등 재전송이 지워진 거래를 건너뛰게 */
-	public Optional<TradeResponse> find(UUID viewerId, String tradeId) {
+	public Optional<TradeResponse> find(String viewerId, String tradeId) {
 		return trades.findByTradeId(tradeId)
 			.filter(t -> viewerId.equals(t.getUserId()) || viewerId.equals(t.getSellerId()))
 			.map(trade -> respond(viewerId, trade, trade.getTradeStats()));
@@ -462,7 +461,7 @@ public class TradeService {
 	 * 검색·필터(상품명·상태·기간·금액·정렬, 계획 2026-10-30)는 본인 거래 조건 안에서만 걸린다. status 는 이 목록에서 보일 수 있는 상태
 	 * (active 면 진행 중 상태) 중 하나 — 아니면 400. 최신순이 아닌 정렬은 page 가 필요하다 (커서는 최신순 전용)
 	 */
-	public TradePageResponse list(UUID me, String role, String regDate, String cursor, boolean active, Integer pageNo, String status,
+	public TradePageResponse list(String me, String role, String regDate, String cursor, boolean active, Integer pageNo, String status,
 			TradeFilter filter) {
 		if (cursor != null && !cursor.isEmpty() && !cursor.matches("\\d{11}")) {
 			throw new ValidationException(Map.of("cursor", "커서 형식이 올바르지 않습니다."));
@@ -530,15 +529,15 @@ public class TradeService {
 			pageKeys = PageKeys.of(keys, pageNo, PAGE_SIZE);
 			List<Object[]> slice = keys.subList((pageNo - 1) * PAGE_SIZE, Math.min(pageNo * PAGE_SIZE, keys.size()));
 			Map<TradeInfoId, TradeInfo> byId = trades
-				.findAllById(slice.stream().map(k -> new TradeInfoId((UUID) k[1], (String) k[0])).toList()).stream()
+				.findAllById(slice.stream().map(k -> new TradeInfoId((String) k[1], (String) k[0])).toList()).stream()
 				.collect(Collectors.toMap(TradeInfo::getId, t -> t));
-			pageRows = slice.stream().map(k -> byId.get(new TradeInfoId((UUID) k[1], (String) k[0]))).filter(Objects::nonNull).toList();
+			pageRows = slice.stream().map(k -> byId.get(new TradeInfoId((String) k[1], (String) k[0]))).filter(Objects::nonNull).toList();
 			hasMore = (long) pageNo * PAGE_SIZE < pageKeys.total();
 		}
 
 		Map<ListingId, ListingTradeSnapshot> listingsById = listings.snapshotsForTrades(
 				pageRows.stream().map(t -> t.listingId()).collect(Collectors.toSet()));
-		Map<UUID, String> nicknames = userDirectory.nicknamesOf(
+		Map<String, String> nicknames = userDirectory.nicknamesOf(
 				pageRows.stream().map(t -> asBuyer ? t.getSellerId() : t.getUserId()).collect(Collectors.toSet()));
 		List<TradeResponse> items = pageRows.stream()
 			.map(t -> {
@@ -560,7 +559,7 @@ public class TradeService {
 	 * 상품명은 상품마스터에서, 상대는 화면에 보이는 별명(내 구매는 판매자, 받은 요청은 구매자)으로 정렬해 목록에 보이는 값과 같다.
 	 * 상태는 진행 순서(견적요청 → 견적수락 → 견적거절 → 구매요청)
 	 */
-	private Comparator<Object[]> keyOrder(String sort, UUID me, boolean asBuyer, List<Object[]> keys) {
+	private Comparator<Object[]> keyOrder(String sort, String me, boolean asBuyer, List<Object[]> keys) {
 		Comparator<Object[]> byIdDesc = Comparator.comparing((Object[] k) -> (String) k[0]).reversed();
 		if ("oldest".equals(sort)) {
 			return Comparator.comparing((Object[] k) -> (String) k[0]);
@@ -574,8 +573,8 @@ public class TradeService {
 				yield TradeKeySorting.columnOrder(k -> names.get((String) k[4]), (a, b) -> collator.compare(a, b), desc);
 			}
 			case "party" -> {
-				Map<UUID, String> nicknames = userDirectory.nicknamesOf(keys.stream().map(k -> asBuyer ? (UUID) k[3] : (UUID) k[1]).collect(Collectors.toSet()));
-				yield TradeKeySorting.columnOrder(k -> nicknames.get(asBuyer ? (UUID) k[3] : (UUID) k[1]), (a, b) -> collator.compare(a, b), desc);
+				Map<String, String> nicknames = userDirectory.nicknamesOf(keys.stream().map(k -> asBuyer ? (String) k[3] : (String) k[1]).collect(Collectors.toSet()));
+				yield TradeKeySorting.columnOrder(k -> nicknames.get(asBuyer ? (String) k[3] : (String) k[1]), (a, b) -> collator.compare(a, b), desc);
 			}
 			case "amount" -> TradeKeySorting.columnOrder(k -> (Number) k[2], (a, b) -> Long.compare(a.longValue(), b.longValue()), desc);
 			case "quantity" -> TradeKeySorting.columnOrder(k -> (Number) k[5], (a, b) -> Long.compare(a.longValue(), b.longValue()), desc);
@@ -589,7 +588,7 @@ public class TradeService {
 	}
 
 	/** 내 매물별 판매자가 처리할 건수(견적요청 + 구매요청). 키 = 매물 regDate. 내 판매글 표의 "구매요청 N건" */
-	public Map<String, Long> pendingCounts(UUID sellerId) {
+	public Map<String, Long> pendingCounts(String sellerId) {
 		return trades.countBySellerGroupByListing(sellerId, List.of(TradeStats.QUOTE_REQUESTED, TradeStats.REQUESTED)).stream()
 			.collect(Collectors.toMap(r -> (String) r[0], r -> (Long) r[1]));
 	}
@@ -598,7 +597,7 @@ public class TradeService {
 	 * 장바구니에서 누른 구매·견적이 가리키는 내 장바구니 줄 (cartTradeId 없으면 null = 새 거래). 내 줄이 아니거나 그 매물의 줄이
 	 * 아니거나 장바구니 상태가 아니면 404 — 다른 사람의 줄 존재를 흘리지 않게 없는 것과 같게
 	 */
-	private TradeInfo takeCartRow(UUID buyerId, ListingTradeSnapshot listing, String cartTradeId) {
+	private TradeInfo takeCartRow(String buyerId, ListingTradeSnapshot listing, String cartTradeId) {
 		if (cartTradeId == null || cartTradeId.isBlank()) {
 			return null;
 		}
@@ -622,14 +621,14 @@ public class TradeService {
 	 * 구매요청이 만들어지면 그 구매자의 비교 목록에서 그 매물을 뺀다 (사용자 결정 2026-11-03). 샀으니 더 비교할 일이 없다.
 	 * 견적 요청은 아직 사는 게 아니라 비교 행을 건드리지 않는다. 없으면 아무것도 안 한다
 	 */
-	private void dropCompareRow(UUID buyerId, UUID sellerId, String regDate, String prodId) {
+	private void dropCompareRow(String buyerId, String sellerId, String regDate, String prodId) {
 		trades.findReviewRow(buyerId, sellerId, regDate, prodId, TradeType.REVIEW, TradeStats.COMPARE).ifPresent(row -> {
 			trades.deleteCartRows(buyerId, List.of(row.getTradeId()), TradeStats.COMPARE);
 			cartInfos.deleteByTradeId(row.getTradeId());
 		});
 	}
 
-	private String nicknameOf(UUID userId) {
+	private String nicknameOf(String userId) {
 		return userDirectory.nicknamesOf(List.of(userId)).get(userId);
 	}
 
@@ -637,9 +636,9 @@ public class TradeService {
 	 * 이미 읽은 거래 행으로 응답을 만든다. status 를 따로 받는 이유: 확정·취소는 벌크 UPDATE 라 읽어 둔 엔티티의 상태가 옛 값이다.
 	 * 상품명·사진은 지금 매물에서 — 거래 행의 prod_id 는 매물 상품이 바뀌면 같이 바뀐다 (2026-10-27)
 	 */
-	private TradeResponse respond(UUID viewerId, TradeInfo trade, TradeStats status) {
+	private TradeResponse respond(String viewerId, TradeInfo trade, TradeStats status) {
 		ListingTradeSnapshot listing = listings.snapshotForTrade(trade.listingId());
-		UUID counterpart = viewerId.equals(trade.getUserId()) ? trade.getSellerId() : trade.getUserId();
+		String counterpart = viewerId.equals(trade.getUserId()) ? trade.getSellerId() : trade.getUserId();
 		return toResponse(trade, status, listing.prodName(), listing.photo(), nicknameOf(counterpart));
 	}
 

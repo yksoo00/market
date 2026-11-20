@@ -1,6 +1,5 @@
 package com.company.market.listing.service;
 
-import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.crypto.PiiHasher;
@@ -55,7 +54,7 @@ class ListingStockTest {
 	@Autowired
 	JdbcTemplate jdbc;
 
-	UUID sellerId;
+	String sellerId;
 
 	@BeforeEach
 	void setUp() {

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isValidDate } from "@/lib/search";
+import { normalizeDate } from "@/lib/date";
 import { MAX_DESCRIPTION, MAX_PRICE, MAX_QUANTITY, PROD_STATES } from "@/lib/validation/listing";
 import { listing } from "@/messages/listing";
 
@@ -74,8 +74,8 @@ function bulkRowSchema(today: string) {
         .string()
         .trim()
         .min(1, v.required)
-        .refine((s) => isValidDate(s), v.date)
-        .refine((s) => !isValidDate(s) || s >= today, v.deliveryDate),
+        .refine((s) => normalizeDate(s) !== null, v.date)
+        .refine((s) => (normalizeDate(s) ?? "9999-12-31") >= today, v.deliveryDate),
       description: text(MAX_DESCRIPTION, v.description),
     })
     .superRefine((d, ctx) => {

@@ -1,6 +1,5 @@
 package com.company.market.user.service;
 
-import java.util.UUID;
 
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
@@ -18,7 +17,7 @@ public class UserService {
 
 	private final UserRepository users;
 
-	public MeResponse me(UUID id) {
+	public MeResponse me(String id) {
 		User user = users.findById(id)
 			.orElseThrow(() -> new ApiException(ErrorCode.SESSION_EXPIRED));
 		return MeResponse.from(user);

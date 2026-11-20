@@ -64,7 +64,7 @@ async function register(page: Page, prodName: string) {
   await page.locator('input[name="salesQuantity"]').fill("5");
   await page.locator('input[name="deliveryDate"]').fill(new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10));
   await page.getByRole("button", { name: listing.form.submit, exact: true }).click();
-  await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
+  await expect(page).toHaveURL(/\/listings\/UP\d{9}\/\d{14}$/);
 }
 
 /** 양식 헤더(*는 필수 표시) — 백엔드 ListingBulkParser.HEADER_LABELS 와 같은 순서 */

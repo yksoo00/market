@@ -12,7 +12,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -80,7 +79,7 @@ public class ListingService {
 	private final ApplicationEventPublisher events;
 
 	@Transactional
-	public ListingResponse create(UUID userId, ListingCreateRequest req) {
+	public ListingResponse create(String userId, ListingCreateRequest req) {
 		List<String> photos = req.photos() == null ? List.of() : req.photos();
 		String firstPhoto = photos.isEmpty() ? null : photos.get(0);
 
@@ -163,7 +162,7 @@ public class ListingService {
 	}
 
 	@Transactional
-	public ListingResponse update(UUID pathUserId, String regDate, UUID requesterId, ListingUpdateRequest req) {
+	public ListingResponse update(String pathUserId, String regDate, String requesterId, ListingUpdateRequest req) {
 		Listing listing = lockOwned(pathUserId, regDate, requesterId);
 		// 거래완료(재고 소진)된 매물은 못 고친다 (사용자 결정 2026-10-15). 취소로 재고가 돌아오면 dt_expire 가 지워져 다시 된다
 		if (listing.getDtExpire() != null) {
@@ -174,7 +173,8 @@ public class ListingService {
 		if (req.deliveryDate() != null && req.deliveryDate().isBlank()) {
 			throw new ValidationException(Map.of("deliveryDate", ListingCreateRequest.DELIVERY_DATE_REQUIRED));
 		}
-		validateDates(Objects.equals(req.deliveryDate(), listing.getDeliveryDate()) ? null : req.deliveryDate());
+		// 요청 값은 DTO 가 yyyyMMdd 로 바꿔 보내므로 옛 행(yyyy-MM-dd)도 같은 형식으로 맞춰 비교한다 (변환 마이그레이션 전 호환)
+		validateDates(Objects.equals(req.deliveryDate(), KoreanDates.normalizeDateOrKeep(listing.getDeliveryDate())) ? null : req.deliveryDate());
 		// 대표 사진 필수(등록 규칙)를 수정에서도 지킨다 — 사진이 있는 매물은 전부 뺄 수 없다.
 		// 사진 없는 옛 매물은 [] 를 보내도 바뀌는 게 없어 막지 않는다
 		if (req.photos() != null && req.photos().isEmpty() && firstPhoto(listing) != null) {
@@ -306,7 +306,7 @@ public class ListingService {
 	}
 
 	@Transactional
-	public void delete(UUID pathUserId, String regDate, UUID requesterId) {
+	public void delete(String pathUserId, String regDate, String requesterId) {
 		Listing listing = lockOwned(pathUserId, regDate, requesterId);
 		// 견적·장바구니 행은 매물과 함께 지우고, 남은 거래가 있으면 LISTING_HAS_TRADES 로 막는다 — 거래 도메인이 같은
 		// 트랜잭션에서 듣는다 (listing → trade 직접 호출 금지, FK 가 없어 DB 는 막지 않는다 2026-10-27)
@@ -319,7 +319,7 @@ public class ListingService {
 	 * 매물 행을 잠가 구매요청을 막을 수 있다. 확인용 조회는 엔티티를 올리지 않는다(exists) — 먼저 올려 두면
 	 * 잠금 조회가 그 옛 상태를 그대로 돌려준다. 없는 매물은 남이 보내도 404 (기존 응답 그대로)
 	 */
-	private Listing lockOwned(UUID pathUserId, String regDate, UUID requesterId) {
+	private Listing lockOwned(String pathUserId, String regDate, String requesterId) {
 		if (!requesterId.equals(pathUserId)) {
 			throw new ApiException(listings.existsByUserIdAndRegDate(pathUserId, regDate) ? ErrorCode.FORBIDDEN
 					: ErrorCode.LISTING_NOT_FOUND);
@@ -333,7 +333,7 @@ public class ListingService {
 	 * 기다리는 요청이 다른 매물 구매를 막지 않게)
 	 */
 	@Transactional
-	public ListingTradeSnapshot lockForTrade(UUID sellerId, String regDate) {
+	public ListingTradeSnapshot lockForTrade(String sellerId, String regDate) {
 		Listing listing = listings.findForUpdate(sellerId, regDate)
 			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
 		return toSnapshot(listing, products.get(listing.getProdId()));
@@ -352,7 +352,7 @@ public class ListingService {
 	 * 기다린다 — 지워진 매물을 가리키는 거래 행이 생기지 않게 (ListingRepository.findForShare)
 	 */
 	@Transactional
-	public ListingTradeSnapshot snapshotForTrade(UUID sellerId, String regDate) {
+	public ListingTradeSnapshot snapshotForTrade(String sellerId, String regDate) {
 		Listing listing = listings.findForShare(sellerId, regDate)
 			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
 		return toSnapshot(listing, products.get(listing.getProdId()));
@@ -480,24 +480,24 @@ public class ListingService {
 		return listings.releaseStock(id.getUserId(), id.getRegDate(), id.getProdId(), quantity) > 0;
 	}
 
-	public ListingResponse get(UUID userId, String regDate) {
+	public ListingResponse get(String userId, String regDate) {
 		Listing listing = listings.findByUserIdAndRegDate(userId, regDate)
 			.orElseThrow(() -> new ApiException(ErrorCode.LISTING_NOT_FOUND));
 		return toResponse(listing, products.get(listing.getProdId()));
 	}
 
 	/** 내 매물이 하나라도 있나 — 거래 도메인이 검색 범위 탭을 정할 때 부른다 */
-	public boolean hasListings(UUID userId) {
+	public boolean hasListings(String userId) {
 		return listings.existsByUserId(userId);
 	}
 
 	/** ownerId = null 이면 전체, 있으면 그 사용자 글만 (컨트롤러가 mine=true 일 때 인증 정보에서 넣는다) */
-	public ListingPageResponse search(ListingSearchCondition condition, UUID ownerId) {
+	public ListingPageResponse search(ListingSearchCondition condition, String ownerId) {
 		return search(condition, ownerId, null);
 	}
 
 	/** keys = null 이면 매물 제한 없음, 있으면 그 매물들 안에서만 (내 구매 범위 — 거래 도메인이 키를 넘긴다) */
-	public ListingPageResponse search(ListingSearchCondition condition, UUID ownerId, Collection<ListingId> keys) {
+	public ListingPageResponse search(ListingSearchCondition condition, String ownerId, Collection<ListingId> keys) {
 		if (condition.minPrice() != null && condition.maxPrice() != null && condition.minPrice() > condition.maxPrice()) {
 			throw new ValidationException(Map.of("maxPrice", "최대 가격은 최소 가격보다 크거나 같아야 합니다."));
 		}
@@ -508,7 +508,7 @@ public class ListingService {
 		PageKeys<Object[]> pageKeys = condition.page() == null ? null
 				: PageKeys.of(searchRepository.findKeys(condition, ownerId, keys), condition.page(), PAGE_SIZE);
 		Optional<Cursor> cursor = pageKeys != null
-				? Optional.ofNullable(pageKeys.after()).map(k -> new Cursor((String) k[0], (UUID) k[1]))
+				? Optional.ofNullable(pageKeys.after()).map(k -> new Cursor((String) k[0], (String) k[1]))
 				: decodeCursor(condition.cursor());
 		List<Object[]> rows = searchRepository.findPage(condition, ownerId, keys, cursor.map(Cursor::regDate).orElse(null),
 				cursor.map(Cursor::userId).orElse(null), PAGE_SIZE + 1);
@@ -529,7 +529,7 @@ public class ListingService {
 	 * 최신순이 아닌 정렬 (2026-10-30). 커서는 최신순 전용이라 page 가 있어야 한다. 정렬 키를 전부 읽어 그 페이지 키만 자르고
 	 * 그 매물만 읽어 키 순서로 맞춘다 (offset 아님 — 거래 목록 정렬과 같은 방식)
 	 */
-	private ListingPageResponse searchSorted(ListingSearchCondition condition, UUID ownerId, Collection<ListingId> keys) {
+	private ListingPageResponse searchSorted(ListingSearchCondition condition, String ownerId, Collection<ListingId> keys) {
 		if (condition.page() == null) {
 			throw new ValidationException(Map.of("sort", "최신순 말고 다른 정렬은 page 와 함께 써야 합니다."));
 		}
@@ -551,7 +551,7 @@ public class ListingService {
 	 * 내 매물만 최신순 20개씩 (추가등록 대상 고르기). 거래완료 매물은 수정할 수 없어 뺀다.
 	 * 커서는 regDate 하나 — 같은 사용자의 regDate 는 유일하다. 깨진 커서는 첫 페이지
 	 */
-	public ListingMinePageResponse mine(UUID userId, String cursor) {
+	public ListingMinePageResponse mine(String userId, String cursor) {
 		String after = cursor != null && cursor.matches("\\d{14}") ? cursor : null;
 		List<Object[]> rows = searchRepository.findMinePage(userId, after, PAGE_SIZE + 1);
 		boolean hasMore = rows.size() > PAGE_SIZE;
@@ -580,14 +580,14 @@ public class ListingService {
 			return Optional.empty();
 		}
 		try {
-			return Optional.of(new Cursor(cursor.substring(0, sep), UUID.fromString(cursor.substring(sep + 1))));
+			return Optional.of(new Cursor(cursor.substring(0, sep), cursor.substring(sep + 1)));
 		}
 		catch (IllegalArgumentException e) {
 			return Optional.empty();
 		}
 	}
 
-	private record Cursor(String regDate, UUID userId) {
+	private record Cursor(String regDate, String userId) {
 	}
 
 	private static ListingSearchItemResponse toSearchItem(Listing listing, Product product, String categoryPath) {

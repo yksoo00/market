@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.auth.oauth.OAuthLoginHandlers;
@@ -303,7 +302,7 @@ class OAuthApiTest {
 					.content("{\"token\":\"" + token + "\",\"nickname\":\"길동이\",\"marketingOptIn\":false}"))
 				.andExpect(status().isCreated()).andReturn();
 
-			UUID userId = UUID.fromString(r.getResponse().getContentAsString().replaceAll(".*\"userId\":\"([^\"]+)\".*", "$1"));
+			String userId = String.valueOf(r.getResponse().getContentAsString().replaceAll(".*\"userId\":\"([^\"]+)\".*", "$1"));
 			Map<String, Object> u = jdbc.queryForMap("select kind, login_id, password_hash, nickname, email, email_verified_at, name, phone from trd_user_info where uid = ?", userId);
 			assertThat(u.get("kind")).isEqualTo("personal");
 			assertThat(u.get("login_id")).isNull();

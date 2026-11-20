@@ -100,7 +100,7 @@ test("구매요청 → 구매자 거래완료, 다시 요청 → 판매자 취�
     // 제공가능일 필수 (2026-10-27)
     await page.locator('input[name="deliveryDate"]').fill(new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10));
     await page.getByRole("button", { name: listing.form.submit, exact: true }).click();
-    await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
+    await expect(page).toHaveURL(/\/listings\/UP\d{9}\/\d{14}$/);
     listingPath = new URL(page.url()).pathname;
     // 내 매물이라 [구매]가 없다
     await expect(page.getByRole("button", { name: listing.detail.buy, exact: true })).toHaveCount(0);

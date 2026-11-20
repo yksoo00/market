@@ -3,7 +3,7 @@ import { diffToUpdateRequest, editInitialValues, prodStateFromStored, type Listi
 import type { ListingDetail } from "@/types/listing";
 
 const detail: ListingDetail = {
-  userId: "11111111-1111-1111-1111-111111111111",
+  userId: "UP261008001",
   regDate: "20261001090000",
   prodId: "ELEC00010001",
   prodName: "R740",
