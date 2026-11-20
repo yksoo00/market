@@ -195,10 +195,11 @@ class DevTableApiTest {
 	}
 
 	@Test
-	@DisplayName("휴대폰은 하이픈·공백이 있어도 하이픈 없는 11자리로 저장한다 (가입 API 와 같은 형식)")
+	@DisplayName("휴대폰은 하이픈·공백이 있어도 하이픈 없이 저장하고, 엑셀이 0 을 지운 10자리(1040178936)는 앞에 0 을 붙인다")
 	void normalizesPhone() throws Exception {
 		String[][] cases = { { "devph1", "010-4017-8936", "01040178936" }, { "devph2", " 010 4018 8936 ", "01040188936" },
-				{ "devph3", "01040198936", "01040198936" }, { "devph4", "011-123-45678", "01112345678" } };
+				{ "devph3", "01040198936", "01040198936" }, { "devph4", "011-123-45678", "01112345678" },
+				{ "devph5", "1040208936", "01040208936" }, { "devph6", "011-123-4567", "0111234567" } };
 		try {
 			for (String[] c : cases) {
 				createUserWithPhone(c[0], c[1]).andExpect(status().isOk());
@@ -213,7 +214,7 @@ class DevTableApiTest {
 	@Test
 	@DisplayName("휴대폰 형식이 아니면 400 — 글자가 섞이거나 자릿수가 틀려도 조용히 고치지 않는다")
 	void rejectsBadPhone() throws Exception {
-		for (String bad : new String[] { "02-123-4567", "010-4017-89a6", "0104017893", "010-4017-89367" }) {
+		for (String bad : new String[] { "02-123-4567", "010-4017-89a6", "010401789", "010-4017-89367", "2040178936" }) {
 			createUserWithPhone("devph9", bad).andExpect(status().isBadRequest())
 				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("user_phone 휴대폰 번호 형식이 맞지 않습니다")));
 		}

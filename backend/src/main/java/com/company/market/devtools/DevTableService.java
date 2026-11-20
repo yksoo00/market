@@ -404,8 +404,11 @@ public class DevTableService {
 	/** 일시(14자리 yyyyMMddHHmmss) 컬럼 — 입력은 2026-10-14 13:44 처럼 와도 14자리로 저장 */
 	static final Set<String> DATETIME_COLUMNS = Set.of("reg_date", "prod_date", "prod_reg_date", "trade_date", "dt_update", "dt_expire", "dt_reg");
 
-	/** 가입 API 가 받는 휴대폰 형식(하이픈 없는 11자리, SignupPersonalRequest) */
-	private static final Pattern PHONE_DIGITS = Pattern.compile("^01[016789]\\d{8}$");
+	/** 휴대폰 형식: 하이픈 없는 11자리(가입 API 와 같다, 01012345678) 또는 옛 10자리(0111234567) */
+	private static final Pattern PHONE_DIGITS = Pattern.compile("^01[016789]\\d{7,8}$");
+
+	/** 엑셀 숫자 셀은 앞의 0 이 지워져 10자리(1040178936)로 온다 — 앞에 0 을 붙여 11자리로 되돌린다 */
+	private static final Pattern PHONE_LOST_ZERO = Pattern.compile("^1[016789]\\d{8}$");
 
 	private static final Pattern PHONE_SEPARATORS = Pattern.compile("[\\s-]");
 
@@ -418,8 +421,11 @@ public class DevTableService {
 			return text;
 		}
 		String digits = PHONE_SEPARATORS.matcher(text).replaceAll("");
+		if (PHONE_LOST_ZERO.matcher(digits).matches()) {
+			digits = "0" + digits;
+		}
 		if (!PHONE_DIGITS.matcher(digits).matches()) {
-			throw bad(where + "user_phone 휴대폰 번호 형식이 맞지 않습니다: " + text + " (예: 010-4017-8936 또는 01040178936)");
+			throw bad(where + "user_phone 휴대폰 번호 형식이 맞지 않습니다: " + text + " (예: 010-4017-8936, 01040178936, 1040178936)");
 		}
 		return digits;
 	}
