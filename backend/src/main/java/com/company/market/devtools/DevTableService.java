@@ -3,6 +3,7 @@ package com.company.market.devtools;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
+import java.time.Clock;
 import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -23,7 +24,7 @@ import java.util.stream.Collectors;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.time.KoreanDates;
-import com.company.market.user.domain.UidGenerator;
+import com.company.market.trade.service.TradeIdGenerator;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
@@ -68,14 +69,20 @@ public class DevTableService {
 
 	private final PasswordEncoder passwordEncoder;
 
+	private final Clock clock;
+
+	private final TradeIdGenerator tradeIds;
+
 	/** hasDefault: DB 기본값이 있어 생성 때 비워 두면 그 값이 들어간다 */
 	public record ColumnInfo(String name, String type, boolean nullable, boolean hasDefault) {
 	}
 
-	public record TableInfo(String name, List<ColumnInfo> columns, List<String> primaryKey) {
+	/** autoColumns: 생성할 때 서버가 채우는 칸(DevRowPreparer) — 생성 폼이 숨긴다 */
+	public record TableInfo(String name, List<ColumnInfo> columns, List<String> primaryKey, List<String> autoColumns) {
 	}
 
-	public record ImportResult(String table, int inserted) {
+	/** keys: 서버가 새로 만든 키 중 엑셀의 옛 값과 달라진 것 ("사용자 옛 → 새") */
+	public record ImportResult(String table, int inserted, List<String> keys) {
 	}
 
 	public List<TableInfo> tables() {
@@ -100,13 +107,11 @@ public class DevTableService {
 	@Transactional
 	public void insert(String tableName, Map<String, Object> body) {
 		TableInfo t = table(tableName);
-		Map<String, Object> values = convert(t, USER_TABLE.equals(t.name()) ? withoutUid(body) : body, "");
-		if (USER_TABLE.equals(t.name())) {
-			values.put(UID_COLUMN, nextUid());
-		}
-		if (values.isEmpty()) {
+		Map<String, Object> values = convert(t, body, "");
+		if (values.isEmpty() && !DevRowPreparer.AUTO_ON_CREATE.containsKey(t.name())) {
 			throw bad("넣을 값이 없습니다.");
 		}
+		values = new DevRowPreparer(jdbc, clock, tradeIds, false).prepare(t.name(), values, "");
 		exec(insertSql(t, new ArrayList<>(values.keySet())), new ArrayList<>(values.values()), "");
 	}
 
@@ -120,8 +125,16 @@ public class DevTableService {
 		// 조회 화면이 가린 값(***)을 그대로 돌려보내도 실제 값을 덮어쓰지 않는다
 		raw.entrySet().removeIf(e -> MASK_COLUMN.equalsIgnoreCase(e.getKey()) && MASK.equals(e.getValue()));
 		Map<String, Object> set = convert(t, raw, "");
+		// 생성 시각(dt_reg·키가 아닌 reg_date)은 수정으로 바뀌지 않는다. 사용자·매물의 dt_update 는 값이 와도 지금 시각으로 (백엔드와 같다)
+		set.remove("dt_reg");
+		if (!t.primaryKey().contains("reg_date")) {
+			set.remove("reg_date");
+		}
 		if (set.isEmpty()) {
 			throw bad("바꿀 값이 없습니다.");
+		}
+		if (t.name().equals("trd_user_info") || t.name().equals("trd_prod_reg")) {
+			set.put("dt_update", DevRowPreparer.timestamp(clock));
 		}
 		List<Object> args = new ArrayList<>(set.values());
 		args.addAll(keyValues.values());
@@ -221,7 +234,7 @@ public class DevTableService {
 			if (wb.getNumberOfSheets() == 0) {
 				throw bad("시트가 없습니다.");
 			}
-			return List.of(importSheet(t, wb.getSheetAt(0)));
+			return List.of(importSheet(t, wb.getSheetAt(0), new DevRowPreparer(jdbc, clock, tradeIds, true)));
 		}
 		catch (IOException e) {
 			throw bad("엑셀 파일을 닫는 중 오류가 났습니다.");
@@ -247,8 +260,11 @@ public class DevTableService {
 			if (sheets.isEmpty()) {
 				throw bad("시트가 없습니다.");
 			}
+			// 부모 → 자식 순서(TABLES 순서가 곧 의존 순서)로 넣어야 자식의 참조 칸을 새 키로 맞출 수 있다
+			DevRowPreparer preparer = new DevRowPreparer(jdbc, clock, tradeIds, true);
 			List<ImportResult> results = new ArrayList<>();
-			sheets.forEach((sh, t) -> results.add(importSheet(t, sh)));
+			sheets.entrySet().stream().sorted(java.util.Comparator.comparingInt(e -> TABLES.indexOf(e.getValue().name())))
+				.forEach(e -> results.add(importSheet(e.getValue(), e.getKey(), preparer)));
 			return results;
 		}
 		catch (IOException e) {
@@ -256,7 +272,7 @@ public class DevTableService {
 		}
 	}
 
-	private ImportResult importSheet(TableInfo t, Sheet sheet) {
+	private ImportResult importSheet(TableInfo t, Sheet sheet, DevRowPreparer preparer) {
 		String sheetName = sheet.getSheetName();
 		Row header = sheet.getRow(0);
 		if (header == null) {
@@ -279,44 +295,36 @@ public class DevTableService {
 			if (byIndex.containsValue(col)) {
 				throw bad("시트 " + sheetName + ": 컬럼이 두 번 나옵니다 " + col.name());
 			}
-			if (USER_TABLE.equals(t.name()) && UID_COLUMN.equals(col.name())) {
-				continue; // 사용자식별자는 엑셀 값을 무시하고 가져올 때마다 새로 만든다 (사용자 지시 2026-11-20)
-			}
 			byIndex.put(c, col);
 		}
 		if (byIndex.isEmpty()) {
 			throw bad("시트 " + sheetName + ": 컬럼 이름이 없습니다.");
 		}
-		boolean userTable = USER_TABLE.equals(t.name());
-		List<String> columns = new ArrayList<>(byIndex.values().stream().map(ColumnInfo::name).toList());
-		if (userTable) {
-			columns.add(UID_COLUMN);
-		}
-		String sql = insertSql(t, columns);
 		int inserted = 0;
+		int keysBefore = preparer.keyLog().size();
+		Map<List<String>, String> sqlByColumns = new LinkedHashMap<>();
 		for (int r = 1; r <= sheet.getLastRowNum(); r++) {
 			Row row = sheet.getRow(r);
 			if (row == null) {
 				continue;
 			}
 			String where = "시트 " + sheetName + ", " + (r + 1) + "행: ";
-			List<Object> args = new ArrayList<>();
+			Map<String, Object> values = new LinkedHashMap<>();
 			boolean any = false;
 			for (Map.Entry<Integer, ColumnInfo> e : byIndex.entrySet()) {
 				String text = cellText(row.getCell(e.getKey()));
 				any |= text != null;
-				args.add(parse(e.getValue(), text, where));
+				values.put(e.getValue().name(), parse(e.getValue(), text, where));
 			}
 			if (!any) {
 				continue;
 			}
-			if (userTable) {
-				args.add(nextUid());
-			}
-			exec(sql, args, where);
+			values = preparer.prepare(t.name(), values, where);
+			String sql = sqlByColumns.computeIfAbsent(new ArrayList<>(values.keySet()), cols -> insertSql(t, cols));
+			exec(sql, new ArrayList<>(values.values()), where);
 			inserted++;
 		}
-		return new ImportResult(t.name(), inserted);
+		return new ImportResult(t.name(), inserted, preparer.keyLog().subList(keysBefore, preparer.keyLog().size()));
 	}
 
 	private XSSFWorkbook open(MultipartFile file) {
@@ -389,29 +397,6 @@ public class DevTableService {
 			throw bad(where + col.name() + " 값 형식이 맞지 않습니다(" + col.type() + "): " + text);
 		}
 	}
-
-	static final String USER_TABLE = "trd_user_info";
-
-	static final String UID_COLUMN = "uid";
-
-	/** 사용자 행의 uid 는 받지 않는다 — 폼·엑셀에 값이 있어도 무시하고 UP+yyMMdd+일련번호 3자리로 새로 만든다 (사용자 지시 2026-11-20) */
-	private static Map<String, Object> withoutUid(Map<String, Object> body) {
-		if (body == null) {
-			return null;
-		}
-		Map<String, Object> copy = new LinkedHashMap<>(body);
-		copy.keySet().removeIf(k -> UID_COLUMN.equalsIgnoreCase(k));
-		return copy;
-	}
-
-	/** 오늘 가장 큰 uid 다음 번호 (UidGenerator 와 같은 규칙). 같은 날 동시 생성은 날짜 advisory lock 으로 줄 세운다 */
-	private String nextUid() {
-		String day = UidGenerator.todayPrefix();
-		jdbc.queryForList("select pg_advisory_xact_lock(hashtext(?))", "uid:" + day);
-		String max = jdbc.queryForObject("select max(uid) from trd_user_info where uid like ?", String.class, day + "%");
-		return UidGenerator.next(day, max);
-	}
-
 
 	/** 날짜(8자리) 컬럼 — 입력은 2026-10-10 처럼 와도 yyyyMMdd 로 저장 (decisions.md 2026-11-20) */
 	static final Set<String> DATE_COLUMNS = Set.of("prov_date", "req_deli_date", "company_open_date");
@@ -553,7 +538,8 @@ public class DevTableService {
 				}, names.toArray());
 		List<TableInfo> out = new ArrayList<>();
 		for (String n : names) {
-			out.add(new TableInfo(n, columns.getOrDefault(n, List.of()), keys.getOrDefault(n, List.of())));
+			out.add(new TableInfo(n, columns.getOrDefault(n, List.of()), keys.getOrDefault(n, List.of()),
+					DevRowPreparer.AUTO_ON_CREATE.getOrDefault(n, List.of())));
 		}
 		return out;
 	}

@@ -30,11 +30,11 @@ export function DevRowForm({ table, row, onSubmit, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // 새로 만들 때 사용자 식별자(uid)는 칸을 보이지 않는다 — 서버가 UP+yyMMdd+일련번호로 새로 만든다 (값을 보내도 무시)
-  const autoKey = (c: DevTable["columns"][number]) => !editing && table.name === "trd_user_info" && c.name === "uid";
+  // 새로 만들 때 서버가 채우는 칸(uid·prod_id·trade_id·ser_no·시각)은 칸을 보이지 않는다 — 값을 보내도 무시한다 (backend DevRowPreparer)
+  const autoKey = (c: DevTable["columns"][number]) => !editing && table.autoColumns.includes(c.name);
 
   const missingRequired = table.columns.some(
-    (c) => !c.nullable && !c.hasDefault && !(editing && table.primaryKey.includes(c.name)) && values[c.name].trim() === "",
+    (c) => !autoKey(c) && !c.nullable && !c.hasDefault && !(editing && table.primaryKey.includes(c.name)) && values[c.name].trim() === "",
   );
 
   async function submit() {
