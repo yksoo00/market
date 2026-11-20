@@ -4,8 +4,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.time.Clock;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.time.DateTimeException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -136,7 +134,7 @@ public class DevTableService {
 			throw bad("바꿀 값이 없습니다.");
 		}
 		if (t.name().equals("trd_user_info") || t.name().equals("trd_prod_reg")) {
-			set.put("dt_update", LocalDateTime.now(clock).format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss")));
+			set.put("dt_update", DevRowPreparer.timestamp(clock));
 		}
 		List<Object> args = new ArrayList<>(set.values());
 		args.addAll(keyValues.values());
@@ -304,6 +302,7 @@ public class DevTableService {
 		}
 		int inserted = 0;
 		int keysBefore = preparer.keyLog().size();
+		Map<List<String>, String> sqlByColumns = new LinkedHashMap<>();
 		for (int r = 1; r <= sheet.getLastRowNum(); r++) {
 			Row row = sheet.getRow(r);
 			if (row == null) {
@@ -321,7 +320,8 @@ public class DevTableService {
 				continue;
 			}
 			values = preparer.prepare(t.name(), values, where);
-			exec(insertSql(t, new ArrayList<>(values.keySet())), new ArrayList<>(values.values()), where);
+			String sql = sqlByColumns.computeIfAbsent(new ArrayList<>(values.keySet()), cols -> insertSql(t, cols));
+			exec(sql, new ArrayList<>(values.values()), where);
 			inserted++;
 		}
 		return new ImportResult(t.name(), inserted, preparer.keyLog().subList(keysBefore, preparer.keyLog().size()));

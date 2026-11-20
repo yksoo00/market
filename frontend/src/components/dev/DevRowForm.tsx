@@ -34,7 +34,7 @@ export function DevRowForm({ table, row, onSubmit, onClose }: Props) {
   const autoKey = (c: DevTable["columns"][number]) => !editing && table.autoColumns.includes(c.name);
 
   const missingRequired = table.columns.some(
-    (c) => !c.nullable && !c.hasDefault && !(editing && table.primaryKey.includes(c.name)) && values[c.name].trim() === "",
+    (c) => !autoKey(c) && !c.nullable && !c.hasDefault && !(editing && table.primaryKey.includes(c.name)) && values[c.name].trim() === "",
   );
 
   async function submit() {

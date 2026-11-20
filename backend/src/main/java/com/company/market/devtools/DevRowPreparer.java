@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -58,7 +59,15 @@ final class DevRowPreparer {
 
 	private final Set<String> usedListingKeys = new HashSet<>();
 
+	/** (판매자|상품) 별로 마지막에 준 등록일시 — 다음 행은 그 다음 초부터 찾는다 */
+	private final Map<String, LocalDateTime> lastListingReg = new HashMap<>();
+
 	private final List<String> keyLog = new ArrayList<>();
+
+	/** 저장 형식 yyyyMMddHHmmss 의 지금(서버 clock, UTC) */
+	static String timestamp(Clock clock) {
+		return LocalDateTime.now(clock).format(TIMESTAMP);
+	}
 
 	DevRowPreparer(JdbcTemplate jdbc, Clock clock, TradeIdGenerator tradeIds, boolean fileMode) {
 		this.jdbc = jdbc;
@@ -75,7 +84,7 @@ final class DevRowPreparer {
 	/** values: 컬럼 이름 → 파싱된 값 (엑셀·폼에 있던 것). 반환: 실제로 넣을 값 */
 	Map<String, Object> prepare(String table, Map<String, Object> values, String where) {
 		Map<String, Object> v = new LinkedHashMap<>(values);
-		String now = LocalDateTime.now(clock).format(TIMESTAMP);
+		String now = timestamp(clock);
 		switch (table) {
 			case "trd_user_info" -> {
 				String oldUid = text(v.get("uid"));
@@ -121,13 +130,19 @@ final class DevRowPreparer {
 
 	/** 지금 시각, 같은 (판매자·상품) 키가 이 요청 안이나 DB 에 이미 있으면 1초씩 늦춰 빈 값을 찾는다 */
 	private String freeListingReg(String user, String prod, String now) {
+		String base = user + "|" + prod;
 		LocalDateTime at = LocalDateTime.parse(now, TIMESTAMP);
+		LocalDateTime last = lastListingReg.get(base);
+		if (last != null && !at.isAfter(last)) {
+			at = last.plusSeconds(1);
+		}
 		while (true) {
 			String reg = at.format(TIMESTAMP);
 			String key = user + "|" + reg + "|" + prod;
 			Integer taken = user == null || prod == null ? 0
 					: jdbc.queryForObject("select count(*) from trd_prod_reg where user_id = ? and reg_date = ? and prod_id = ?", Integer.class, user, reg, prod);
 			if (usedListingKeys.add(key) && (taken == null || taken == 0)) {
+				lastListingReg.put(base, at);
 				return reg;
 			}
 			at = at.plusSeconds(1);
@@ -167,6 +182,9 @@ final class DevRowPreparer {
 		String prod = resolveProd(v, "prod_no", where);
 		resolveListing(v, "prod_date", oldSeller, oldProdDate, oldProd, seller, prod, where);
 		resolveTrade(v, "trade_id", oldBuyer, oldTrade, buyer, where);
+		if (buyer != null) {
+			jdbc.queryForList("select pg_advisory_xact_lock(hashtext(?))", "ser_no:" + buyer);
+		}
 		Integer serNo = buyer == null ? Integer.valueOf(1)
 				: jdbc.queryForObject("select coalesce(max(ser_no), 0) + 1 from trd_cart_info where user_id = ?", Integer.class, buyer);
 		v.put("ser_no", serNo);
@@ -282,6 +300,7 @@ final class DevRowPreparer {
 	/** 상품 서비스와 같은 규칙: KP-한국 연도-6자리, 개수 + 1 (이미 있으면 빈 번호까지 올린다) */
 	private String nextProdId() {
 		String prefix = "KP-" + KoreanDates.today(clock).getYear() + "-";
+		jdbc.queryForList("select pg_advisory_xact_lock(hashtext(?))", "prod_id:" + prefix);
 		Long count = jdbc.queryForObject("select count(*) from trd_prod_master where prod_id like ?", Long.class, prefix + "%");
 		long sequence = (count == null ? 0 : count) + 1;
 		while (exists("select count(*) from trd_prod_master where prod_id = ?", prefix + "%06d".formatted(sequence))) {
