@@ -46,13 +46,12 @@ class SchemaConstraintsTest {
 	}
 
 	@Test
-	@DisplayName("사용자 ID와 이메일은 중복될 수 없다")
-	void activeIdsAndEmailsAreUnique() {
+	@DisplayName("사용자 ID 는 중복될 수 없고 이메일은 중복돼도 된다 (2026-11-20)")
+	void activeIdsAreUniqueButEmailsMayRepeat() {
 		insertUser("user004", "Same@Example.com", "personal", null);
 		assertThatThrownBy(() -> insertUser("user004", "other@x.com", "personal", null))
 			.isInstanceOf(DataIntegrityViolationException.class);
-		assertThatThrownBy(() -> insertUser("user005", "same@example.com", "personal", null))
-			.isInstanceOf(DataIntegrityViolationException.class);
+		insertUser("user005", "same@example.com", "personal", null);
 	}
 
 	@Test

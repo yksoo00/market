@@ -1,0 +1,126 @@
+{
+  "r650": {
+    "datasheet": "private/listings/datasheets/2026/11/29fac47e-0e37-4de8-bb2f-28cfc2cdd645.pdf",
+    "datasheetSource": "https://i.dell.com/sites/csdocuments/Product_Docs/en/poweredge-r650-spec-sheet.pdf",
+    "photo": "public/listings/photos/2026/11/6af1286c-fc6e-4c4d-a4df-32138ceffb3a.jpg",
+    "photoSource": "데이터시트 PDF 안의 사진 (https://i.dell.com/sites/csdocuments/Product_Docs/en/poweredge-r650-spec-sheet.pdf)"
+  },
+  "dl380": {},
+  "sr650": {
+    "datasheet": "private/listings/datasheets/2026/11/af184106-611b-4dcb-ab12-9444836e101c.pdf",
+    "datasheetSource": "https://psref.lenovo.com/syspool/Sys/PDF/datasheet/SR650_DS_EN.pdf",
+    "photo": "public/listings/photos/2026/11/80638608-8bac-4c5c-a9d3-500084991a14.png",
+    "photoSource": "https://lenovopress.lenovo.com/share/e93c0f625e3320f51dd83c1422b5e6b4/meta_og.png"
+  },
+  "r750": {
+    "datasheet": "private/listings/datasheets/2026/11/8faa8c2f-0c1e-4585-a7c7-e1fdbd2e59d2.pdf",
+    "datasheetSource": "https://www.delltechnologies.com/asset/en-us/products/servers/technical-support/dell-emc-poweredge-r750-spec-sheet.pdf"
+  },
+  "t350": {
+    "datasheet": "private/listings/datasheets/2026/11/e0cb0465-5197-4a0d-a000-573b5bc1968d.pdf",
+    "datasheetSource": "https://i.dell.com/sites/csdocuments/product_docs/en/dell-emc-poweredge-t350-spec-sheet.pdf",
+    "photo": "public/listings/photos/2026/11/28684f97-f9a1-43e7-99e5-7ec46e0d9730.jpg",
+    "photoSource": "데이터시트 PDF 안의 사진 (https://i.dell.com/sites/csdocuments/product_docs/en/dell-emc-poweredge-t350-spec-sheet.pdf)"
+  },
+  "rdimm": {},
+  "ds1621": {
+    "datasheet": "private/listings/datasheets/2026/11/5991fc60-c059-429a-bd7d-55577d950a25.pdf",
+    "datasheetSource": "https://global.download.synology.com/download/Document/Hardware/DataSheet/DiskStation/21-year/DS1621+/enu/Synology_DS1621_Plus_Data_Sheet_enu.pdf",
+    "photo": "public/listings/photos/2026/11/d9ed7229-c547-4151-bf25-8584a57c63da.png",
+    "photoSource": "https://www.synology.com/img/products/detail/DS1621plus/heading.png"
+  },
+  "ironwolf": {
+    "datasheet": "private/listings/datasheets/2026/11/50c4fc34-f8f0-4a15-963b-b4ace182b5f3.pdf",
+    "datasheetSource": "https://www.seagate.com/files/www-content/datasheets/pdfs/ironwolf-pro-20tb-DS1914-21-2206US-en_US.pdf"
+  },
+  "wdred": {
+    "datasheet": "private/listings/datasheets/2026/11/62fc31a0-8f9e-40d1-91ef-b3ef69639701.pdf",
+    "datasheetSource": "https://documents.westerndigital.com/content/dam/doc-library/en_us/assets/public/western-digital/product/internal-drives/wd-red-plus-hdd/data-sheet-western-digital-wd-red-plus-hdd.pdf",
+    "photo": "public/listings/photos/2026/11/93c3deab-a94d-4417-b01c-81b6cebde1f3.png",
+    "photoSource": "https://www.westerndigital.com/content/dam/store/en-us/assets/products/internal-storage/wd-red-plus-sata-3-5-hdd/gallery/wd-red-plus-sata-3-5-hdd-8tb.png"
+  },
+  "pm9a3": {
+    "datasheet": "private/listings/datasheets/2026/11/6d9b1828-8da4-41e4-ab18-c049225ac880.pdf",
+    "datasheetSource": "https://download.semiconductor.samsung.com/resources/data-sheet/Samsung_SSD_PM9A3_Data_Sheet_Rev1.0.pdf",
+    "photo": "public/listings/photos/2026/11/48b56f9b-6914-4bde-aa03-a3fd7b6c5025.jpg",
+    "photoSource": "데이터시트 PDF 안의 사진 (https://download.semiconductor.samsung.com/resources/data-sheet/Samsung_SSD_PM9A3_Data_Sheet_Rev1.0.pdf)"
+  },
+  "smt1500": {
+    "photo": "public/listings/photos/2026/11/65228d5f-9848-4eca-ae0b-e5ee94daa667.jpg",
+    "photoSource": "https://download.se.com/files?p_Doc_Ref=SPD_CENZ-AW77CR_A_V&p_File_Type=rendition_1500_jpg"
+  },
+  "a4000": {
+    "datasheet": "private/listings/datasheets/2026/11/43fe61a1-fde2-4030-8d72-d8305cd401b5.pdf",
+    "datasheetSource": "https://www.nvidia.com/content/dam/en-zz/Solutions/gtcs21/rtx-a4000/nvidia-rtx-a4000-datasheet.pdf",
+    "photo": "public/listings/photos/2026/11/c736dbda-dad2-4048-b67e-a8a622025242.jpg",
+    "photoSource": "https://www.nvidia.com/content/dam/en-zz/Solutions/gtcs21/rtx-a4000/proviz-a4000-pdp-page-og.jpg"
+  },
+  "c2960x": {},
+  "c9200l": {},
+  "usw24": {
+    "datasheet": "private/listings/datasheets/2026/11/df0d70bd-0e41-431f-9680-72aef894a8cb.pdf",
+    "datasheetSource": "https://dl.ui.com/ds/usw-pro-24-poe_ds.pdf",
+    "photo": "public/listings/photos/2026/11/ee144771-c602-42a5-b051-3081acfa3d9b.png",
+    "photoSource": "https://cdn.ecomm.ui.com/products/5b69cdb5-e7ea-44e6-ae16-8714339038fb/18d39964-78e7-45f9-874d-e331f1408730.png"
+  },
+  "u6pro": {
+    "datasheet": "private/listings/datasheets/2026/11/e5c9502f-fa82-4edc-b000-2ed952835cec.pdf",
+    "datasheetSource": "https://dl.ui.com/ds/u6-pro_ds.pdf",
+    "photo": "public/listings/photos/2026/11/b7dda530-6544-4e79-9726-35a951d0529b.png",
+    "photoSource": "https://cdn.ecomm.ui.com/products/8e88b222-7a55-4cf0-8677-ae9b6347fe84/e16aa122-b5e5-4ffb-9f1a-27ee14d9ab3d.png"
+  },
+  "ap22": {},
+  "fg60f": {
+    "datasheet": "private/listings/datasheets/2026/11/6ca49605-5113-4cde-9dcc-84b120f955a7.pdf",
+    "datasheetSource": "https://www.fortinet.com/content/dam/fortinet/assets/data-sheets/pdf/fortigate-fortiwifi-60f-series.pdf"
+  },
+  "pa220": {},
+  "t14": {
+    "datasheet": "private/listings/datasheets/2026/11/4f686461-65c4-4817-825c-0dd51787a61a.pdf",
+    "datasheetSource": "https://psref.lenovo.com/syspool/Sys/PDF/ThinkPad/ThinkPad_T14_Gen_3_Intel/ThinkPad_T14_Gen_3_Intel_Spec.pdf",
+    "photo": "public/listings/photos/2026/11/3d820c28-a328-4101-bc66-3abe1bf66076.jpg",
+    "photoSource": "데이터시트 PDF 안의 사진 (https://psref.lenovo.com/syspool/Sys/PDF/ThinkPad/ThinkPad_T14_Gen_3_Intel/ThinkPad_T14_Gen_3_Intel_Spec.pdf)"
+  },
+  "elite840": {},
+  "lat5430": {
+    "datasheet": "private/listings/datasheets/2026/11/51163946-143e-47eb-8eaa-906c2e7e6810.pdf",
+    "datasheetSource": "https://www.delltechnologies.com/asset/en-us/products/laptops-and-2-in-1s/technical-support/latitude-5x30-spec-sheet.pdf",
+    "photo": "public/listings/photos/2026/11/a3404413-b33e-4553-adf3-99a8ccbcc148.jpg",
+    "photoSource": "데이터시트 PDF 안의 사진 (https://www.delltechnologies.com/asset/en-us/products/laptops-and-2-in-1s/technical-support/latitude-5x30-spec-sheet.pdf)"
+  },
+  "op7090": {
+    "datasheet": "private/listings/datasheets/2026/11/ee7c04e3-8868-4462-95f1-a461e73b9242.pdf",
+    "datasheetSource": "https://dl.dell.com/content/manual60216691-optiplex-7090-small-form-factor-setup-and-specifications.pdf?language=en-us&ps=true"
+  },
+  "ed800": {
+    "datasheet": "private/listings/datasheets/2026/11/a74c1b08-0dcf-4b32-9606-285fbe9fc6d1.pdf",
+    "datasheetSource": "https://h10032.www1.hp.com/ctg/Manual/c05390710.pdf"
+  },
+  "m720q": {
+    "datasheet": "private/listings/datasheets/2026/11/442360c5-5df5-4183-b4f8-f4eca671ae77.pdf",
+    "datasheetSource": "https://psref.lenovo.com/syspool/Sys/PDF/datasheet/ThinkCentre_M720_Tiny_datasheet_EN.pdf"
+  },
+  "lg27": {},
+  "u2723": {},
+  "p2422": {
+    "datasheet": "private/listings/datasheets/2026/11/7f707f22-c3a2-4aef-aa6d-1a00252cddaa.pdf",
+    "datasheetSource": "https://dl.dell.com/manuals/all-products/esuprt_electronics_accessories/esuprt_electronics_accessories_monitor/esuprt_monitor_p_series/dell-p2422h-monitor_user's-guide_en-us.pdf"
+  },
+  "s980": {
+    "datasheet": "private/listings/datasheets/2026/11/314c53c8-82b2-4dd5-b758-3d322c467c83.pdf",
+    "datasheetSource": "https://download.semiconductor.samsung.com/resources/data-sheet/Samsung-NVMe-SSD-980-PRO-Data-Sheet_Rev.2.1_230509_10129505081019.pdf"
+  },
+  "s870": {
+    "datasheet": "private/listings/datasheets/2026/11/dfe65778-9a14-4140-8f09-6a1e0d23db92.pdf",
+    "datasheetSource": "https://download.semiconductor.samsung.com/resources/data-sheet/Samsung_SSD_870_EVO_Data_Sheet_Rev1.1_230509.pdf",
+    "photo": "public/listings/photos/2026/11/0e970c46-b8fe-436b-a723-23fb404bf5b9.jpg",
+    "photoSource": "데이터시트 PDF 안의 사진 (https://download.semiconductor.samsung.com/resources/data-sheet/Samsung_SSD_870_EVO_Data_Sheet_Rev1.1_230509.pdf)"
+  },
+  "mx500": {},
+  "mxm3s": {
+    "datasheet": "private/listings/datasheets/2026/11/4d3ebbbe-fbcc-4bad-a493-357d275f6784.pdf",
+    "datasheetSource": "https://www.logitech.com/content/dam/logitech/en/business/pdf/mx-master-3s-business-wireless-mouse.pdf",
+    "photo": "public/listings/photos/2026/11/77608c85-b083-47b5-900d-a87875c56216.jpg",
+    "photoSource": "데이터시트 PDF 안의 사진 (https://www.logitech.com/content/dam/logitech/en/business/pdf/mx-master-3s-business-wireless-mouse.pdf)"
+  }
+}

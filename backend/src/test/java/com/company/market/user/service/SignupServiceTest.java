@@ -91,17 +91,4 @@ class SignupServiceTest {
 			.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.getFields()).containsKey("startDate"));
 	}
 
-	@Test
-	@DisplayName("동시 가입으로 이메일 유일 인덱스(ux_trd_user_info_email)가 터지면 DUPLICATE_EMAIL 로 바꾼다")
-	void concurrentDuplicateEmailMapsToConflict() {
-		when(passwordEncoder.encode(anyString())).thenReturn("hash");
-		when(tx.execute(any())).thenThrow(new DataIntegrityViolationException("저장 실패",
-				new RuntimeException("duplicate key value violates unique constraint \"ux_trd_user_info_email\"")));
-		SignupPersonalRequest req = new SignupPersonalRequest("홍길동", "길동이", "Y", "gildong1", "a@example.com", "Abcdefg-1234", "01012345678",
-				"서울", "1", true, true);
-
-		assertThatThrownBy(() -> service().signupPersonal(req, "127.0.0.1"))
-			.isInstanceOfSatisfying(ApiException.class, e -> assertThat(e.getCode()).isEqualTo(ErrorCode.DUPLICATE_EMAIL));
-	}
-
 }

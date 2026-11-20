@@ -53,7 +53,6 @@ public class SignupService {
 	private static final Map<String, ErrorCode> CONSTRAINT_CODES = Map.of(
 			"ux_trd_user_info_user_id", ErrorCode.DUPLICATE_LOGIN_ID,
 			"ux_trd_user_info_nickname", ErrorCode.DUPLICATE_NICKNAME,
-			"ux_trd_user_info_email", ErrorCode.DUPLICATE_EMAIL,
 			"ux_trd_user_info_phone", ErrorCode.DUPLICATE_PHONE,
 			"ux_trd_user_info_bus_reg_id", ErrorCode.DUPLICATE_BIZ_NO);
 
@@ -93,7 +92,7 @@ public class SignupService {
 		if ("Y".equals(req.nicknameUsage()) && (req.nickname() == null || req.nickname().isBlank())) {
 			throw new ValidationException(Map.of("nickname", "별명을 입력하세요."));
 		}
-		checkDuplicates(req.loginId(), req.nickname(), email, req.phone(), "Y".equals(req.nicknameUsage()));
+		checkDuplicates(req.loginId(), req.nickname(), req.phone(), "Y".equals(req.nicknameUsage()));
 
 		String passwordHash = passwordEncoder.encode(req.password());
 		try {
@@ -145,9 +144,6 @@ public class SignupService {
 		}
 		if (users.existsByLoginId(req.loginId())) {
 			throw new ApiException(ErrorCode.DUPLICATE_LOGIN_ID);
-		}
-		if (users.existsByEmailIgnoreCaseActive(email)) {
-			throw new ApiException(ErrorCode.DUPLICATE_EMAIL);
 		}
 		if (users.existsByPhone(req.contactPhone())) {
 			throw new ApiException(ErrorCode.DUPLICATE_PHONE);
@@ -207,15 +203,12 @@ public class SignupService {
 		}
 	}
 
-	private void checkDuplicates(String loginId, String nickname, String email, String phone, boolean useNickname) {
+	private void checkDuplicates(String loginId, String nickname, String phone, boolean useNickname) {
 		if (users.existsByLoginId(loginId)) {
 			throw new ApiException(ErrorCode.DUPLICATE_LOGIN_ID);
 		}
 		if (useNickname && users.existsByNicknameAndKind(nickname, UserKind.PERSONAL)) {
 			throw new ApiException(ErrorCode.DUPLICATE_NICKNAME);
-		}
-		if (users.existsByEmailIgnoreCaseActive(email)) {
-			throw new ApiException(ErrorCode.DUPLICATE_EMAIL);
 		}
 		if (users.existsByPhone(phone)) {
 			throw new ApiException(ErrorCode.DUPLICATE_PHONE);
