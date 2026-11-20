@@ -189,6 +189,38 @@ class DevTableApiTest {
 	}
 
 
+	private org.springframework.test.web.servlet.ResultActions createUserWithPhone(String loginId, String phone) throws Exception {
+		return mvc.perform(post("/api/v1/dev/tables/{t}/rows", "trd_user_info").contentType(MediaType.APPLICATION_JSON)
+			.content("{\"user_id\":\"%s\",\"password\":\"x\",\"user_class\":\"personal\",\"user_name\":\"홍\",\"user_phone\":\"%s\"}".formatted(loginId, phone)));
+	}
+
+	@Test
+	@DisplayName("휴대폰은 하이픈·공백이 있어도 하이픈 없는 11자리로 저장한다 (가입 API 와 같은 형식)")
+	void normalizesPhone() throws Exception {
+		String[][] cases = { { "devph1", "010-4017-8936", "01040178936" }, { "devph2", " 010 4018 8936 ", "01040188936" },
+				{ "devph3", "01040198936", "01040198936" }, { "devph4", "011-123-45678", "01112345678" } };
+		try {
+			for (String[] c : cases) {
+				createUserWithPhone(c[0], c[1]).andExpect(status().isOk());
+				assertThat(jdbc.queryForObject("select user_phone from trd_user_info where user_id = ?", String.class, c[0])).isEqualTo(c[2]);
+			}
+		}
+		finally {
+			jdbc.update("delete from trd_user_info where user_id like 'devph%'");
+		}
+	}
+
+	@Test
+	@DisplayName("휴대폰 형식이 아니면 400 — 글자가 섞이거나 자릿수가 틀려도 조용히 고치지 않는다")
+	void rejectsBadPhone() throws Exception {
+		for (String bad : new String[] { "02-123-4567", "010-4017-89a6", "0104017893", "010-4017-89367" }) {
+			createUserWithPhone("devph9", bad).andExpect(status().isBadRequest())
+				.andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("user_phone 휴대폰 번호 형식이 맞지 않습니다")));
+		}
+		assertThat(jdbc.queryForObject("select count(*) from trd_user_info where user_id = 'devph9'", Integer.class)).isZero();
+	}
+
+
 	@Test
 	@DisplayName("사용자 행을 만들 때 uid 를 보내도 무시하고 UP+날짜+일련번호로 새로 만든다")
 	void ignoresSuppliedUid() throws Exception {

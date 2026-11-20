@@ -378,7 +378,7 @@ public class DevTableService {
 		}
 		boolean textual = col.type().equals("character varying") || col.type().equals("character") || col.type().equals("text");
 		if (textual) {
-			return normalizeTemporal(col, hashIfPlainPassword(col, text), where);
+			return normalizePhone(col, normalizeTemporal(col, hashIfPlainPassword(col, text), where), where);
 		}
 		if (text.isBlank()) {
 			return null;
@@ -403,6 +403,26 @@ public class DevTableService {
 
 	/** 일시(14자리 yyyyMMddHHmmss) 컬럼 — 입력은 2026-10-14 13:44 처럼 와도 14자리로 저장 */
 	static final Set<String> DATETIME_COLUMNS = Set.of("reg_date", "prod_date", "prod_reg_date", "trade_date", "dt_update", "dt_expire", "dt_reg");
+
+	/** 가입 API 가 받는 휴대폰 형식(하이픈 없는 11자리, SignupPersonalRequest) */
+	private static final Pattern PHONE_DIGITS = Pattern.compile("^01[016789]\\d{8}$");
+
+	private static final Pattern PHONE_SEPARATORS = Pattern.compile("[\\s-]");
+
+	/**
+	 * user_phone: 010-4017-8936 처럼 하이픈·공백이 있어도 01040178936 으로 저장한다 — 가입 API 가 하이픈 없는 11자리로 저장하고 중복 확인도
+	 * 그 문자열로 해서, 하이픈 값이 섞이면 같은 번호가 중복 확인을 피한다. 구분 문자를 지운 뒤 휴대폰 형식이 아니면 400 (조용히 고치지 않는다). 빈 값은 그대로
+	 */
+	private static String normalizePhone(ColumnInfo col, String text, String where) {
+		if (!"user_phone".equals(col.name()) || text == null || text.isBlank()) {
+			return text;
+		}
+		String digits = PHONE_SEPARATORS.matcher(text).replaceAll("");
+		if (!PHONE_DIGITS.matcher(digits).matches()) {
+			throw bad(where + "user_phone 휴대폰 번호 형식이 맞지 않습니다: " + text + " (예: 010-4017-8936 또는 01040178936)");
+		}
+		return digits;
+	}
 
 	/** 날짜·일시 컬럼 값이면 저장 형식으로. 형식이 맞지 않으면 400 — 글자가 섞인 값을 조용히 고치지 않는다. 빈 값은 그대로 */
 	private static String normalizeTemporal(ColumnInfo col, String text, String where) {
