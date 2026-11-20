@@ -117,7 +117,7 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     await page.locator('input[name="deliveryDate"]').fill(new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10));
     await expect(submit).toBeEnabled();
     await submit.click();
-    await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
+    await expect(page).toHaveURL(/\/listings\/UP\d{9}\/\d{14}$/);
     await expect(page.getByText(prodName).first()).toBeVisible();
   });
 
@@ -221,7 +221,7 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
   await test.step("주기능 칸을 닫으면 상세(보조)가 남아 주기능으로 올라온다 — 홈 | 상세 반반", async () => {
     // 주기능 닫기 = iframe 을 직접 담은 칸 밖에 있는 닫기 버튼 (보조 칸 닫기는 iframe 과 같은 칸 안)
     await page.locator(`xpath=//button[@aria-label="${common.tileClose}"][not(ancestor::div[./iframe])]`).click();
-    await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
+    await expect(page).toHaveURL(/\/listings\/UP\d{9}\/\d{14}$/);
     await expect(page.locator("iframe")).toHaveCount(1);
     await expect(page.locator('iframe[src="/"]')).toBeVisible();
     await expect(page.getByText(prodName).first()).toBeVisible();
@@ -256,7 +256,7 @@ test("가입 → 로그인 → 매물 등록 → 상세 → 마이페이지 → 
     const submit = page.getByRole("button", { name: listing.form.submit, exact: true });
     await expect(submit).toBeEnabled();
     await submit.click();
-    await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
+    await expect(page).toHaveURL(/\/listings\/UP\d{9}\/\d{14}$/);
     await expect(page.getByText(prodName).first()).toBeVisible();
   });
 });
