@@ -1,6 +1,5 @@
 package com.company.market.listing.controller;
 
-import java.util.UUID;
 
 import com.company.market.common.api.ApiResponse;
 import com.company.market.common.auth.AuthenticatedUser;

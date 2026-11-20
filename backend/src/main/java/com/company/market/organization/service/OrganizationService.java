@@ -1,7 +1,6 @@
 package com.company.market.organization.service;
 
 import java.util.Optional;
-import java.util.UUID;
 
 import com.company.market.organization.domain.MemberRole;
 import com.company.market.organization.repository.OrganizationMemberRepository;

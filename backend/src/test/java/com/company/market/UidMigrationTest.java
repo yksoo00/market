@@ -41,12 +41,13 @@ class UidMigrationTest {
 	void migrateWithOldData() {
 		jdbc = new JdbcTemplate(dataSource);
 		flyway("202611201000").migrate();
-		// 같은 날 둘(dt_reg 순), 다른 날 하나
+		// 같은 날 둘(dt_reg 순), 다른 날 둘 — dt_reg 는 UTC, uid 날짜는 한국 날짜
 		jdbc.update("""
 				insert into uidtest.trd_user_info (user_id, password, user_class, user_name, dt_reg, dt_update)
 				values ('uidb', 'h', 'personal', 'B', '20261015110000', '20261015110000'),
 				       ('uida', 'h', 'personal', 'A', '20261015100000', '20261015100000'),
-				       ('uidc', 'h', 'personal', 'C', '20261016090000', '20261016090000')
+				       ('uidc', 'h', 'personal', 'C', '20261016090000', '20261016090000'),
+				       ('uidd', 'h', 'personal', 'D', '20261015160000', '20261015160000')
 				""");
 		jdbc.update("""
 				insert into uidtest.trd_prod_master (prod_id, major_category, middle_category, minor_category, prod_name,
@@ -66,11 +67,12 @@ class UidMigrationTest {
 	}
 
 	@Test
-	@DisplayName("가입일 기준 날짜별 001~ (같은 날은 dt_reg 순)")
+	@DisplayName("가입일(한국 날짜) 기준 날짜별 001~ (같은 날은 dt_reg 순)")
 	void usersGetDailySequence() {
 		assertThat(uidOf("uida")).isEqualTo("UP261015001");
 		assertThat(uidOf("uidb")).isEqualTo("UP261015002");
-		assertThat(uidOf("uidc")).isEqualTo("UP261016001");
+		assertThat(uidOf("uidd")).isEqualTo("UP261016001"); // 10-15 16:00 UTC = 한국 10-16 01:00
+		assertThat(uidOf("uidc")).isEqualTo("UP261016002");
 	}
 
 	@Test

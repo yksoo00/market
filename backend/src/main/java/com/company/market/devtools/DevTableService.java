@@ -97,6 +97,7 @@ public class DevTableService {
 		return Map.of("rows", rows, "total", total == null ? 0 : total, "limit", lim, "offset", off);
 	}
 
+	@Transactional
 	public void insert(String tableName, Map<String, Object> body) {
 		TableInfo t = table(tableName);
 		Map<String, Object> values = convert(t, USER_TABLE.equals(t.name()) ? withoutUid(body) : body, "");

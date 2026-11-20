@@ -1,6 +1,5 @@
 package com.company.market.trade.dto;
 
-import java.util.UUID;
 
 import com.company.market.listing.dto.ListingCreateRequest;
 import jakarta.validation.constraints.Max;

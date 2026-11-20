@@ -2,7 +2,6 @@ package com.company.market.trade.service;
 
 import java.util.List;
 import java.util.Map;
-import java.util.UUID;
 
 import com.company.market.common.config.AppProperties;
 import com.company.market.common.mail.Mailer;

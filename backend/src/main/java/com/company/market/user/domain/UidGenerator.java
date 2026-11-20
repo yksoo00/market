@@ -45,7 +45,7 @@ public class UidGenerator implements BeforeExecutionGenerator {
 	public static String next(String day, String max) {
 		int next = max == null ? 1 : Integer.parseInt(max.substring(day.length())) + 1;
 		if (next > MAX_PER_DAY) {
-			throw new ApiException(ErrorCode.INTERNAL);
+			throw new ApiException(ErrorCode.SIGNUP_DAILY_LIMIT);
 		}
 		return "%s%03d".formatted(day, next);
 	}

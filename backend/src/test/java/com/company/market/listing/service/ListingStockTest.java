@@ -1,6 +1,5 @@
 package com.company.market.listing.service;
 
-import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.crypto.PiiHasher;

@@ -1,6 +1,5 @@
 package com.company.market.trade.domain;
 
-import java.util.UUID;
 
 import com.company.market.listing.domain.ListingId;
 import jakarta.persistence.Column;

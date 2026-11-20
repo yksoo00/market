@@ -1,6 +1,5 @@
 package com.company.market.listing.dto;
 
-import java.util.UUID;
 
 import com.company.market.listing.domain.ListingId;
 

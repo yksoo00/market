@@ -1,6 +1,5 @@
 package com.company.market.user.dto;
 
-import java.util.UUID;
 
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;

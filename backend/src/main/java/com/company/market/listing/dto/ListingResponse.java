@@ -1,7 +1,6 @@
 package com.company.market.listing.dto;
 
 import java.util.List;
-import java.util.UUID;
 
 public record ListingResponse(
 		String userId,

@@ -1,7 +1,6 @@
 package com.company.market.listing.service;
 
 import com.company.market.TestUids;
-import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;

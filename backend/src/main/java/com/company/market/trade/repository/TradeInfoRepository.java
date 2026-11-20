@@ -3,7 +3,6 @@ package com.company.market.trade.repository;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import com.company.market.trade.domain.TradeInfo;
 import com.company.market.trade.domain.TradeInfoId;

@@ -3,7 +3,6 @@ package com.company.market.user.service;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
 
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;

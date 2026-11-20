@@ -4,7 +4,6 @@ import com.company.market.TestUids;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.Map;
-import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.listing.domain.CategoryFragments;

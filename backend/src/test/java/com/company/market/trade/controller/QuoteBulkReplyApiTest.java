@@ -3,7 +3,6 @@ package com.company.market.trade.controller;
 import com.company.market.TestUids;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.auth.AuthCookies;

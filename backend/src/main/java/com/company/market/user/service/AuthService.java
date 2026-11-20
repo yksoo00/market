@@ -1,7 +1,6 @@
 package com.company.market.user.service;
 
 import java.util.Optional;
-import java.util.UUID;
 
 import com.company.market.common.auth.JwtProvider;
 import com.company.market.common.auth.RefreshSessionStore;

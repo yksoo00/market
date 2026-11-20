@@ -1,7 +1,6 @@
 package com.company.market.trade.controller;
 
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import com.company.market.TestInfraConfiguration;

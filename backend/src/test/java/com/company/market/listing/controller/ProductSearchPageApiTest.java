@@ -1,6 +1,5 @@
 package com.company.market.listing.controller;
 
-import java.util.UUID;
 import java.util.stream.IntStream;
 
 import com.company.market.TestInfraConfiguration;

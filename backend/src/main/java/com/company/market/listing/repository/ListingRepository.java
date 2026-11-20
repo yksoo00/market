@@ -2,7 +2,6 @@ package com.company.market.listing.repository;
 
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import com.company.market.listing.domain.Listing;
 import com.company.market.listing.domain.ListingId;

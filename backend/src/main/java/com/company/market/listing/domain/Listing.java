@@ -3,7 +3,6 @@ package com.company.market.listing.domain;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.UUID;
 import java.util.stream.Stream;
 
 import com.company.market.listing.dto.ListingUpdateRequest;

@@ -2,7 +2,6 @@ package com.company.market.trade.repository;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.UUID;
 
 import com.company.market.trade.domain.TradeHistory;
 import com.company.market.trade.domain.TradeHistoryId;

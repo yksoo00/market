@@ -1,7 +1,6 @@
 package com.company.market.user.repository;
 
 import java.util.Optional;
-import java.util.UUID;
 
 import com.company.market.user.domain.User;
 import com.company.market.user.domain.UserKind;

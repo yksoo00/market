@@ -1,6 +1,5 @@
 package com.company.market.inquiry.domain;
 
-import java.util.UUID;
 
 import com.company.market.common.domain.BaseEntity;
 import jakarta.persistence.Entity;

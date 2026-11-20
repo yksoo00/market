@@ -3,7 +3,6 @@ package com.company.market.common.storage;
 import com.company.market.TestUids;
 import java.time.Clock;
 import java.util.List;
-import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.exception.ValidationException;

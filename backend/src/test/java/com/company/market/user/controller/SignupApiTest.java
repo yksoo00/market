@@ -2,7 +2,6 @@ package com.company.market.user.controller;
 
 import java.util.Map;
 import java.util.Objects;
-import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import org.junit.jupiter.api.AfterEach;

@@ -3,7 +3,6 @@ package com.company.market.common.storage;
 import com.company.market.TestUids;
 import java.io.IOException;
 import java.time.Clock;
-import java.util.UUID;
 
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;

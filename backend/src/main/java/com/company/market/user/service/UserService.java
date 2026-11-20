@@ -1,6 +1,5 @@
 package com.company.market.user.service;
 
-import java.util.UUID;
 
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;

@@ -1,6 +1,5 @@
 package com.company.market.devtools;
 
-import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.auth.AuthCookies;

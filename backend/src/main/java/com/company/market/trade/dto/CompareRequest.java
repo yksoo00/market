@@ -1,7 +1,6 @@
 package com.company.market.trade.dto;
 
 import java.util.List;
-import java.util.UUID;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;

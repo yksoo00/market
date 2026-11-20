@@ -1,6 +1,5 @@
 package com.company.market.trade.service;
 
-import java.util.UUID;
 
 /**
  * 견적·거래 단계 하나 = 메일 이벤트 하나. 커밋 뒤 TradeMailListener 가 받는 사람을 골라 보낸다.

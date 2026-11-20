@@ -1,7 +1,6 @@
 package com.company.market.listing.controller;
 
 import com.company.market.TestUids;
-import java.util.UUID;
 
 import com.company.market.TestInfraConfiguration;
 import com.company.market.common.auth.AuthCookies;
