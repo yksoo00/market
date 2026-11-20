@@ -59,7 +59,7 @@ final class DevRowPreparer {
 
 	private final Set<String> usedListingKeys = new HashSet<>();
 
-	/** (판매자|상품) 별로 마지막에 준 등록일시 — 다음 행은 그 다음 초부터 찾는다 */
+	/** 판매자 별로 마지막에 준 등록일시 — 다음 행은 그 다음 초부터 찾는다 */
 	private final Map<String, LocalDateTime> lastListingReg = new HashMap<>();
 
 	private final List<String> keyLog = new ArrayList<>();
@@ -119,8 +119,8 @@ final class DevRowPreparer {
 		String oldProd = text(v.get("prod_id"));
 		String oldReg = text(v.get("reg_date"));
 		String user = resolveUser(v, "user_id", where);
-		String prod = resolveProd(v, "prod_id", where);
-		String reg = freeListingReg(user, prod, now);
+		resolveProd(v, "prod_id", where);
+		String reg = freeListingReg(user, now);
 		if (oldUser != null && oldProd != null && oldReg != null) {
 			remember(listings, oldUser + "|" + oldReg + "|" + oldProd, reg, "매물");
 		}
@@ -128,21 +128,23 @@ final class DevRowPreparer {
 		v.remove("dt_update");
 	}
 
-	/** 지금 시각, 같은 (판매자·상품) 키가 이 요청 안이나 DB 에 이미 있으면 1초씩 늦춰 빈 값을 찾는다 */
-	private String freeListingReg(String user, String prod, String now) {
-		String base = user + "|" + prod;
+	/**
+	 * 지금 시각, 같은 판매자의 매물이 이 요청 안이나 DB 에 같은 reg_date 로 이미 있으면 1초씩 늦춰 빈 값을 찾는다.
+	 * 상품이 달라도 겹치면 안 된다 — 매물 주소·상세·수정은 (판매자, reg_date) 두 값으로 한 건을 찾고(`findByUserIdAndRegDate`),
+	 * 직접 등록(`ListingService.create`)·다량 등록도 판매자 단위로 같은 초를 막는다.
+	 */
+	private String freeListingReg(String user, String now) {
 		LocalDateTime at = LocalDateTime.parse(now, TIMESTAMP);
-		LocalDateTime last = lastListingReg.get(base);
+		LocalDateTime last = lastListingReg.get(user);
 		if (last != null && !at.isAfter(last)) {
 			at = last.plusSeconds(1);
 		}
 		while (true) {
 			String reg = at.format(TIMESTAMP);
-			String key = user + "|" + reg + "|" + prod;
-			Integer taken = user == null || prod == null ? 0
-					: jdbc.queryForObject("select count(*) from trd_prod_reg where user_id = ? and reg_date = ? and prod_id = ?", Integer.class, user, reg, prod);
+			String key = user + "|" + reg;
+			Integer taken = user == null ? 0 : jdbc.queryForObject("select count(*) from trd_prod_reg where user_id = ? and reg_date = ?", Integer.class, user, reg);
 			if (usedListingKeys.add(key) && (taken == null || taken == 0)) {
-				lastListingReg.put(base, at);
+				lastListingReg.put(user, at);
 				return reg;
 			}
 			at = at.plusSeconds(1);
