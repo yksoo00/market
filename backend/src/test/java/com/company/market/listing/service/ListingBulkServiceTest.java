@@ -58,7 +58,7 @@ class ListingBulkServiceTest {
 
 	/** 통과하는 기본 줄. 바꾸고 싶은 칸만 바꿔 쓴다 */
 	private static BulkRowDto row(int rowNo, String name, String brand, String classNo) {
-		return new BulkRowDto(rowNo, null, name, brand, classNo, null, null, "신품", "500000", "3", null, null, "2099-12-31", "메모");
+		return new BulkRowDto(rowNo, null, name, brand, classNo, null, null, "신품", "500000", "3", null, null, "20991231", "메모");
 	}
 
 	private BulkRowResult only(BulkRowDto row) {
@@ -80,8 +80,8 @@ class ListingBulkServiceTest {
 	@Test
 	@DisplayName("prodId 를 직접 주면 그 마스터, 없는 prodId 는 prodId 칸 오류")
 	void byProdId() {
-		BulkRowDto ok = new BulkRowDto(2, withPhotoId, null, null, null, null, null, "신품", "1", "1", null, null, "2099-12-31", null);
-		BulkRowDto missing = new BulkRowDto(3, "KP-0000-000000", null, null, null, null, null, "신품", "1", "1", null, null, "2099-12-31", null);
+		BulkRowDto ok = new BulkRowDto(2, withPhotoId, null, null, null, null, null, "신품", "1", "1", null, null, "20991231", null);
+		BulkRowDto missing = new BulkRowDto(3, "KP-0000-000000", null, null, null, null, null, "신품", "1", "1", null, null, "20991231", null);
 
 		List<BulkRowResult> r = service.check(UUID.randomUUID(), List.of(ok, missing));
 
@@ -93,7 +93,7 @@ class ListingBulkServiceTest {
 	@Test
 	@DisplayName("마스터를 못 찾으면 신규 마스터 후보. 이름이 겹치는 기존 상품은 candidates 에 나온다")
 	void newMasterWithCandidates() {
-		BulkRowDto typo = new BulkRowDto(2, null, "벌크 스위치", "Cisco", null, null, CATEGORY, "신품", "1", "1", null, null, "2099-12-31", null);
+		BulkRowDto typo = new BulkRowDto(2, null, "벌크 스위치", "Cisco", null, null, CATEGORY, "신품", "1", "1", null, null, "20991231", null);
 
 		BulkRowResult r = only(typo);
 
@@ -105,8 +105,8 @@ class ListingBulkServiceTest {
 	@Test
 	@DisplayName("신규 마스터인데 카테고리 코드가 없거나 없는 코드면 categoryCode 오류")
 	void newMasterNeedsCategory() {
-		BulkRowDto none = new BulkRowDto(2, null, "벌크 새상품", "Acme", null, null, null, "신품", "1", "1", null, null, "2099-12-31", null);
-		BulkRowDto unknown = new BulkRowDto(3, null, "벌크 새상품2", "Acme", null, null, "ZZZ-ZZZ-ZZZ", "신품", "1", "1", null, null, "2099-12-31", null);
+		BulkRowDto none = new BulkRowDto(2, null, "벌크 새상품", "Acme", null, null, null, "신품", "1", "1", null, null, "20991231", null);
+		BulkRowDto unknown = new BulkRowDto(3, null, "벌크 새상품2", "Acme", null, null, "ZZZ-ZZZ-ZZZ", "신품", "1", "1", null, null, "20991231", null);
 
 		List<BulkRowResult> r = service.check(UUID.randomUUID(), List.of(none, unknown));
 
@@ -118,7 +118,7 @@ class ListingBulkServiceTest {
 	@Test
 	@DisplayName("상품명·제조사가 비면 각 칸 오류")
 	void nameAndBrandRequired() {
-		BulkRowResult r = only(new BulkRowDto(2, null, null, null, null, null, null, "신품", "1", "1", null, null, "2099-12-31", null));
+		BulkRowResult r = only(new BulkRowDto(2, null, null, null, null, null, null, "신품", "1", "1", null, null, "20991231", null));
 
 		assertThat(r.status()).isEqualTo(Status.FAILED);
 		assertThat(r.fields()).containsKeys("prodName", "prodBrand");
@@ -127,7 +127,7 @@ class ListingBulkServiceTest {
 	@Test
 	@DisplayName("상품상태가 목록 밖이면 prodState 오류")
 	void prodStateOutsideList() {
-		BulkRowDto bad = new BulkRowDto(2, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "새것", "1", "1", null, null, "2099-12-31", null);
+		BulkRowDto bad = new BulkRowDto(2, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "새것", "1", "1", null, null, "20991231", null);
 
 		assertThat(only(bad).fields()).containsKey("prodState");
 	}
@@ -135,10 +135,10 @@ class ListingBulkServiceTest {
 	@Test
 	@DisplayName("수량 0·단가 음수·글자 숫자·쉼표 숫자: 0·음수·글자는 오류, \"1,000\" 은 통과")
 	void numberFields() {
-		BulkRowDto qtyZero = new BulkRowDto(2, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "1", "0", null, null, "2099-12-31", null);
-		BulkRowDto priceNeg = new BulkRowDto(3, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "-5", "1", null, null, "2099-12-31", null);
-		BulkRowDto priceText = new BulkRowDto(4, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "오백", "1", null, null, "2099-12-31", null);
-		BulkRowDto comma = new BulkRowDto(5, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "1,000", "1", null, null, "2099-12-31", null);
+		BulkRowDto qtyZero = new BulkRowDto(2, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "1", "0", null, null, "20991231", null);
+		BulkRowDto priceNeg = new BulkRowDto(3, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "-5", "1", null, null, "20991231", null);
+		BulkRowDto priceText = new BulkRowDto(4, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "오백", "1", null, null, "20991231", null);
+		BulkRowDto comma = new BulkRowDto(5, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "1,000", "1", null, null, "20991231", null);
 
 		// 같은 상품 네 줄을 한 파일에 넣으면 파일 안 중복이 끼므로 줄마다 따로 검사한다
 		assertThat(only(qtyZero).fields()).containsKey("salesQuantity");
@@ -150,7 +150,7 @@ class ListingBulkServiceTest {
 	@Test
 	@DisplayName("int 범위를 넘는 숫자는 정수 형식 오류가 아니라 범위 오류 문구")
 	void hugeNumber() {
-		BulkRowDto huge = new BulkRowDto(2, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "3000000000", "1", null, null, "2099-12-31", null);
+		BulkRowDto huge = new BulkRowDto(2, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "3000000000", "1", null, null, "20991231", null);
 
 		String message = only(huge).fields().get("salesUnitPrice");
 
@@ -168,7 +168,7 @@ class ListingBulkServiceTest {
 	@Test
 	@DisplayName("최소주문량이 수량보다 크면 minOrderQuantity 오류")
 	void minOrderOverQuantity() {
-		BulkRowDto bad = new BulkRowDto(2, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "1", "3", "5", null, "2099-12-31", null);
+		BulkRowDto bad = new BulkRowDto(2, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "1", "3", "5", null, "20991231", null);
 
 		assertThat(only(bad).fields()).containsKey("minOrderQuantity");
 	}
@@ -177,8 +177,8 @@ class ListingBulkServiceTest {
 	@DisplayName("제공가능일이 비었거나 형식이 틀리거나 지난 날짜면 deliveryDate 오류")
 	void deliveryDate() {
 		BulkRowDto empty = new BulkRowDto(2, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "1", "1", null, null, null, null);
-		BulkRowDto format = new BulkRowDto(3, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "1", "1", null, null, "2099/12/31", null);
-		BulkRowDto past = new BulkRowDto(4, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "1", "1", null, null, "2020-01-01", null);
+		BulkRowDto format = new BulkRowDto(3, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "1", "1", null, null, "2099-12-3x", null);
+		BulkRowDto past = new BulkRowDto(4, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "1", "1", null, null, "20200101", null);
 
 		List<BulkRowResult> r = service.check(UUID.randomUUID(), List.of(empty, format, past));
 

@@ -109,11 +109,11 @@ class QuoteApiTest {
 			.prodName(name).prodBrand("Dell").regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(sellerId).regDate(regDate).prodId(prodId)
 			.tradeType("등록").prodState("신품").salesUnitPrice(price).salesQuantity(stock).stockQuantity(stock)
-			.minOrderQuantity(1).orderUnit(1).deliveryDate("2099-12-31").build());
+			.minOrderQuantity(1).orderUnit(1).deliveryDate("20991231").build());
 	}
 
 	private static String item(UUID seller, String regDate, int price, int quantity) {
-		return item(seller, regDate, price, quantity, "2099-11-30");
+		return item(seller, regDate, price, quantity, "20991130");
 	}
 
 	/** reqDeliDate = null 이면 칸을 빼고 보낸다 */
@@ -143,14 +143,14 @@ class QuoteApiTest {
 			.andExpect(jsonPath("$.data[0].tradeStats").value("quoteRequested"))
 			.andExpect(jsonPath("$.data[0].salesUnitPrice").value(1000))
 			.andExpect(jsonPath("$.data[0].orderUnitPrice").value(900))
-			.andExpect(jsonPath("$.data[0].reqDeliDate").value("2099-11-30"));
+			.andExpect(jsonPath("$.data[0].reqDeliDate").value("20991130"));
 
 		var row = jdbc.queryForMap("select * from trd_trade_info where prod_reg_date = ?", REG_A);
 		assertThat(row.get("trade_type")).isEqualTo("견적조정");
 		assertThat(row.get("trade_stats")).isEqualTo("견적요청");
 		assertThat(row.get("order_unit_price")).isEqualTo(900);
 		assertThat(row.get("sales_unit_price")).isEqualTo(1000);
-		assertThat(row.get("req_deli_date")).isEqualTo("2099-11-30");
+		assertThat(row.get("req_deli_date")).isEqualTo("20991130");
 		assertThat(row.get("remarks")).isEqualTo("단가 조정 부탁");
 		assertThat(jdbc.queryForObject("select stock_quantity from trd_prod_reg where reg_date = ?", Integer.class, REG_A))
 			.isEqualTo(10);
@@ -210,7 +210,7 @@ class QuoteApiTest {
 	void quoteReqDeliDateRequired() throws Exception {
 		quotes(buyer, item(sellerId, REG_A, 900, 1, null)).andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields['items[0].reqDeliDate']").value("납품희망일을 입력해 주세요."));
-		quotes(buyer, item(sellerId, REG_A, 900, 1), item(sellerId, REG_B, 450, 10, "2000-01-01"))
+		quotes(buyer, item(sellerId, REG_A, 900, 1), item(sellerId, REG_B, 450, 10, "20000101"))
 			.andExpect(status().isBadRequest())
 			.andExpect(jsonPath("$.fields['items[1].reqDeliDate']").value("납품희망일은 오늘 이후 날짜로 입력하세요."));
 		assertThat(tradeCount()).isZero();
@@ -220,9 +220,9 @@ class QuoteApiTest {
 	@DisplayName("견적 재요청은 납품희망일도 새 값으로 덮어쓴다")
 	void requoteOverwritesReqDeliDate() throws Exception {
 		String tradeId = quoted(REG_A, 900);
-		quotes(buyer, item(sellerId, REG_A, 800, 3, "2099-10-01")).andExpect(status().isCreated());
+		quotes(buyer, item(sellerId, REG_A, 800, 3, "20991001")).andExpect(status().isCreated());
 		assertThat(jdbc.queryForObject("select req_deli_date from trd_trade_info where trade_id = ?", String.class, tradeId))
-			.isEqualTo("2099-10-01");
+			.isEqualTo("20991001");
 	}
 
 	@Test
@@ -444,7 +444,7 @@ class QuoteApiTest {
 		assertThat(row.get("trade_type")).isEqualTo("견적조정");
 		assertThat(row.get("trade_stats")).isEqualTo("구매요청");
 		assertThat(row.get("order_quantity")).isEqualTo(2);
-		assertThat(row.get("req_deli_date")).isEqualTo("2099-12-31");
+		assertThat(row.get("req_deli_date")).isEqualTo("20991231");
 		assertThat(row.get("remarks")).isEqualTo("납품 전 연락");
 		assertThat(stockOf(REG_A)).isEqualTo(8);
 	}

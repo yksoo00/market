@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { isValidDate } from "@/lib/search";
+import { normalizeDate } from "@/lib/date";
 import { PROD_STATES } from "@/lib/validation/listing";
 import { buyBulk } from "@/messages/buyBulk";
 
@@ -80,8 +80,8 @@ function buyRowSchema(today: string) {
         .string()
         .trim()
         .min(1, v.required)
-        .refine((s) => isValidDate(s), v.date)
-        .refine((s) => !isValidDate(s) || s >= today, v.reqDeliDate),
+        .refine((s) => normalizeDate(s) !== null, v.date)
+        .refine((s) => (normalizeDate(s) ?? "9999-12-31") >= today, v.reqDeliDate),
       remarks: text(MAX_REMARKS, v.remarks),
       sellerId: z.string(),
       regDate: z.string(),

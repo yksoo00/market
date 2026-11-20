@@ -420,7 +420,9 @@ public class CartBulkService {
 		return value.intValue();
 	}
 
-	private void dateFailure(String date, Map<String, String> fields) {
+	private void dateFailure(String rawDate, Map<String, String> fields) {
+		// 엑셀 칸은 2026-10-10·2026.10.10 처럼 올 수 있어 저장 형식으로 먼저 바꾼다 (올바르지 않으면 그대로 두어 형식 오류로 거절)
+		String date = com.company.market.common.time.KoreanDates.normalizeDateOrKeep(rawDate);
 		if (date == null) {
 			fields.put("reqDeliDate", TradeCreateRequest.REQ_DELI_DATE_REQUIRED);
 		}

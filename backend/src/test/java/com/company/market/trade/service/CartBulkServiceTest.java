@@ -312,7 +312,7 @@ class CartBulkServiceTest {
 	void deliveryDateRules() {
 		listing(sellerA, "20261105100000", main, 1000, 5, 1, 1, false);
 
-		for (String bad : new String[] { null, "2099/12/31", "2020-01-01" }) {
+		for (String bad : new String[] { null, "2099-12-3x", "2020-01-01" }) {
 			CartBulkRowResult r = only(new CartBulkRowDto(2, null, "구매검사 원품 A", "Acme", null, "3", bad, null, null, null, null, null, null, null, null, null, null, null));
 			assertThat(r.fields()).containsKey("reqDeliDate");
 		}

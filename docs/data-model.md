@@ -115,7 +115,7 @@
 | sales_quantity | integer | not null | 등록수량 |
 | min_order_quantity | integer | default 1 | 정의서대로 NOT NULL 아님 (서버는 늘 채운다) |
 | order_unit | integer | default 1 | 같음 |
-| prov_date | varchar(10) | not null | 제공가능일(납기일). 등록·수정에서 필수 (2026-10-27, 그 전 빈 행은 등록일로 채움). **레거시 스펙엔 물리명이 REG_DATE 로 등록일시와 중복 기재되어 있어 분리함** |
+| prov_date | varchar(10) | not null | 제공가능일(납기일) yyyyMMdd (2026-11-20 부터 숫자만, 그 전 행은 yyyy-MM-dd — 변환 마이그레이션은 db/ PR). 등록·수정에서 필수 (2026-10-27, 그 전 빈 행은 등록일로 채움). **레거시 스펙엔 물리명이 REG_DATE 로 등록일시와 중복 기재되어 있어 분리함** |
 | stock_quantity | integer ? | | 재고수량. 비우면 등록수량(sales_quantity)으로 채운다(레거시 기본값 "판매수량") |
 | prod_description | varchar(200) | | |
 | prod_data_sheet | varchar(100) | | |
@@ -173,7 +173,7 @@
 | prov_date | varchar(10) | not null | 복사 (제공가능일, 2026-10-27 부터 매물에서 필수) |
 | order_unit_price | integer | not null | 거래: = 등록단가 (구매자가 못 바꿈). 견적조정: 희망단가 (1 ~ 등록단가) |
 | order_quantity | integer | not null | 구매자 입력, 기본 최소주문량 |
-| req_deli_date | varchar(10) | not null | 납품희망일 yyyy-MM-dd. 구매·견적 모두 구매자 입력(필수), 화면 기본값은 제공가능일. 장바구니 행은 제공가능일 (2026-10-27, 그 전 빈 행은 제공가능일로 채움) |
+| req_deli_date | varchar(10) | not null | 납품희망일 yyyyMMdd (2026-11-20 부터 숫자만 — 입력은 2026-10-10·2026.10.10 도 받아 바꿔 저장). 구매·견적 모두 구매자 입력(필수), 화면 기본값은 제공가능일. 장바구니 행은 제공가능일 (2026-10-27, 그 전 빈 행은 제공가능일로 채움) |
 | remarks | varchar(100) | | 요청사항 (견적은 비고) |
 | trade_stats | varchar(10) | not null | 거래상태: 위 표 |
 | spare_col | varchar(100) | | |

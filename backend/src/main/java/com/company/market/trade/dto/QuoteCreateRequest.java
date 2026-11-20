@@ -33,6 +33,10 @@ public record QuoteCreateRequest(@NotNull @Size(min = 1, max = MAX_ITEMS) List<@
 			// 장바구니에서 누른 견적이면 그 줄의 거래ID — 있으면 그 줄이 견적요청이 된다 (2026-11-02)
 			@Size(max = 20) String cartTradeId) {
 
+		public Item {
+			reqDeliDate = com.company.market.common.time.KoreanDates.normalizeDateOrKeep(reqDeliDate);
+		}
+
 		public Item(UUID sellerId, String regDate, Integer orderUnitPrice, Integer orderQuantity, String reqDeliDate, String remarks) {
 			this(sellerId, regDate, orderUnitPrice, orderQuantity, reqDeliDate, remarks, null);
 		}

@@ -38,6 +38,10 @@ public record ListingUpdateRequest(
 		@Size(max = 20) String prodNo,
 		@Size(max = 100) String prodSpecInfo) {
 
+	public ListingUpdateRequest {
+		deliveryDate = com.company.market.common.time.KoreanDates.normalizeDateOrKeep(deliveryDate);
+	}
+
 	public boolean hasProductFields() {
 		return categoryCode != null || prodName != null || prodBrand != null || prodNo != null
 				|| prodSpecInfo != null;
