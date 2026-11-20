@@ -115,7 +115,7 @@ public class OAuthLoginService {
 			if (message.contains("ux_trd_user_info_nickname")) {
 				throw new ApiException(ErrorCode.DUPLICATE_NICKNAME);
 			}
-			if (message.contains("ux_trd_user_info_email") || message.contains("ux_social_accounts_provider_user")) {
+			if (message.contains("ux_social_accounts_provider_user")) {
 				throw new ApiException(ErrorCode.EMAIL_ALREADY_REGISTERED);
 			}
 			throw e;

@@ -119,7 +119,7 @@ class SignupApiTest {
 	class Duplicates {
 
 		@Test
-		@DisplayName("아이디·닉네임·이메일(대소문자 무시)·휴대폰 중복은 각자 409 코드")
+		@DisplayName("아이디·닉네임·휴대폰 중복은 각자 409 코드 (이메일은 중복돼도 된다 — 2026-11-20)")
 		void eachDuplicateHasItsCode() throws Exception {
 			mvc.perform(signup(Map.of())).andExpect(status().isCreated());
 
@@ -127,7 +127,8 @@ class SignupApiTest {
 			Map<String, Object> other = Map.of("nickname", "다른이", "loginId", "other01", "email", "other@example.com", "phone", "01099998888");
 			mvc.perform(signup(with(other, "loginId", "gildong1"))).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DUPLICATE_LOGIN_ID"));
 			mvc.perform(signup(with(other, "nickname", "길동이"))).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DUPLICATE_NICKNAME"));
-			mvc.perform(signup(with(other, "email", "GILDONG@EXAMPLE.COM"))).andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DUPLICATE_EMAIL"));
+			// 이메일은 같아도(대소문자만 달라도) 가입된다
+			mvc.perform(signup(with(other, "email", "GILDONG@EXAMPLE.COM"))).andExpect(status().isCreated());
 		}
 
 		@Test

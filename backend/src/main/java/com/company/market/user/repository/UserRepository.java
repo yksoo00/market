@@ -18,10 +18,6 @@ public interface UserRepository extends JpaRepository<User, String> {
 	@Query("select count(u) > 0 from User u where u.userNickname = :nickname and u.kind = :kind")
 	boolean existsByNicknameAndKind(@Param("nickname") String nickname, @Param("kind") UserKind kind);
 
-	/** 이메일 중복 확인. 개인정보 암호화 컬럼이 아니라 단일 trd_user_info 표의 값을 직접 조회한다. */
-	@Query("select count(u) > 0 from User u where lower(u.email) = lower(:email)")
-	boolean existsByEmailIgnoreCaseActive(@Param("email") String email);
-
 	@Query("select u from User u where lower(u.email) = lower(:email)")
 	Optional<User> findByEmailIgnoreCaseActive(@Param("email") String email);
 
