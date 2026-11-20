@@ -20,6 +20,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -145,6 +146,32 @@ class DevTableApiTest {
 			.andExpect(status().isOk());
 		assertThat(jdbc.queryForObject("select password from trd_user_info where user_id='devtooluser'", String.class))
 			.isEqualTo("$2a$12$realhash");
+	}
+
+	@Autowired
+	PasswordEncoder passwordEncoder;
+
+	@Test
+	@DisplayName("password 에 평문을 넣으면 bcrypt 로 바꿔 저장하고, 이미 bcrypt 해시면 그대로 저장한다")
+	void hashes_plain_password_only() throws Exception {
+		users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId("devhashuser").passwordHash("$2a$12$realhash")
+			.nickname("dev").nicknameUsage("Y").email("devhash@example.com").name("홍길동").phone("01044440002")
+			.phoneHash(hasher.hash("01044440002")).build());
+		String uid = jdbc.queryForObject("select uid::text from trd_user_info where user_id='devhashuser'", String.class);
+
+		putPassword(uid, "Plain-pass1!");
+		String stored = jdbc.queryForObject("select password from trd_user_info where user_id='devhashuser'", String.class);
+		assertThat(stored).isNotEqualTo("Plain-pass1!");
+		assertThat(passwordEncoder.matches("Plain-pass1!", stored)).isTrue();
+
+		String ready = passwordEncoder.encode("ready-made");
+		putPassword(uid, ready);
+		assertThat(jdbc.queryForObject("select password from trd_user_info where user_id='devhashuser'", String.class)).isEqualTo(ready);
+	}
+
+	private void putPassword(String uid, String password) throws Exception {
+		mvc.perform(put("/api/v1/dev/tables/{t}/rows", "trd_user_info").contentType(MediaType.APPLICATION_JSON)
+			.content("{\"key\":{\"uid\":\"%s\"},\"values\":{\"password\":\"%s\"}}".formatted(uid, password))).andExpect(status().isOk());
 	}
 
 	// ---- 엑셀 ----

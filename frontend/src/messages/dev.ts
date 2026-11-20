@@ -28,7 +28,7 @@ export const dev = {
     submit: "저장",
     cancel: "취소",
     saving: "저장 중…",
-    hint: "빈 칸은 null 로 저장됩니다. 비밀번호(password)는 bcrypt 해시를 직접 넣으세요. 수정에서 *** 는 안 바꾼 것으로 봅니다.",
+    hint: "빈 칸은 null 로 저장됩니다. 새로 만들 때 uid 같은 자동 생성 키는 칸이 없고 DB 가 채웁니다. 비밀번호(password)는 평문을 넣으면 bcrypt 로 바꿔 저장하고, 이미 bcrypt 해시면 그대로 저장합니다. 수정에서 *** 는 안 바꾼 것으로 봅니다.",
   },
   confirmDelete: {
     title: "행을 삭제할까요?",

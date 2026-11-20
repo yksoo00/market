@@ -13,6 +13,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import com.company.market.common.exception.ApiException;
@@ -26,6 +27,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -57,6 +59,8 @@ public class DevTableService {
 	static final String MASK = "***";
 
 	private final JdbcTemplate jdbc;
+
+	private final PasswordEncoder passwordEncoder;
 
 	/** hasDefault: DB 기본값이 있어 생성 때 비워 두면 그 값이 들어간다 */
 	public record ColumnInfo(String name, String type, boolean nullable, boolean hasDefault) {
@@ -339,13 +343,13 @@ public class DevTableService {
 	}
 
 	/** 컬럼 타입에 맞는 Java 값. 숫자·uuid·불리언 컬럼의 빈 문자열은 null */
-	private static Object parse(ColumnInfo col, String text, String where) {
+	private Object parse(ColumnInfo col, String text, String where) {
 		if (text == null) {
 			return null;
 		}
 		boolean textual = col.type().equals("character varying") || col.type().equals("character") || col.type().equals("text");
 		if (textual) {
-			return text;
+			return hashIfPlainPassword(col, text);
 		}
 		if (text.isBlank()) {
 			return null;
@@ -363,6 +367,17 @@ public class DevTableService {
 		catch (IllegalArgumentException | ArithmeticException e) {
 			throw bad(where + col.name() + " 값 형식이 맞지 않습니다(" + col.type() + "): " + text);
 		}
+	}
+
+	/** bcrypt 해시 형태(버전 2a/2b/2y + 비용 + 53자) — 이 모양이면 이미 해시라 다시 해시하지 않는다 */
+	private static final Pattern BCRYPT = Pattern.compile("^\\$2[aby]\\$\\d{2}\\$[./A-Za-z0-9]{53}$");
+
+	/** password 컬럼에 평문을 넣으면 가입과 같은 인코더(bcrypt)로 바꿔 저장하고, 이미 해시면 그대로 넣는다 (사용자 지시 2026-11-19). 빈 값·가림(***)은 그대로 */
+	private String hashIfPlainPassword(ColumnInfo col, String text) {
+		if (!MASK_COLUMN.equals(col.name()) || text.isEmpty() || MASK.equals(text) || BCRYPT.matcher(text).matches()) {
+			return text;
+		}
+		return passwordEncoder.encode(text);
 	}
 
 	/** Boolean.valueOf 는 오타도 false 로 삼켜서 true/false 만 받는다 */
