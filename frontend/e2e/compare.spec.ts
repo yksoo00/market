@@ -72,7 +72,7 @@ async function register(page: Page, prodName: string, category: string, price: n
   // 제공가능일 필수 (2026-10-27)
   await page.locator('input[name="deliveryDate"]').fill(new Date(Date.now() + 7 * 86_400_000).toISOString().slice(0, 10));
   await page.getByRole("button", { name: listing.form.submit, exact: true }).click();
-  await expect(page).toHaveURL(/\/listings\/[0-9a-f-]{36}\/\d{14}$/);
+  await expect(page).toHaveURL(/\/listings\/UP\d{9}\/\d{14}$/);
   return page.url();
 }
 
