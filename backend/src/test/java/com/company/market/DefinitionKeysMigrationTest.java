@@ -54,7 +54,7 @@ class DefinitionKeysMigrationTest {
 				insert into migtest.trd_prod_master (prod_id, category_code, prod_name, prod_brand, reg_date)
 				values ('MIGTEST001', 'P01-Q01-R001', '상품', '브랜드', '20261015100000')
 				""");
-		// 제공가능일 없는 매물 (옛 규칙에선 선택)
+		// 제공가능일 없는 매물 (옛 규칙에선 선택). 끝까지 적용하므로 V202611201000 이 채워진 값도 숫자 8자리로 바꾼다
 		jdbc.update("""
 				insert into migtest.trd_prod_reg (user_id, reg_date, prod_id, trade_type, prod_state, sales_unit_price, sales_quantity)
 				values (?, '20261015100000', 'MIGTEST001', '판매', '신품', 1000, 10)
@@ -99,7 +99,7 @@ class DefinitionKeysMigrationTest {
 	@DisplayName("제공가능일 없는 매물은 등록일(reg_date 앞 8자리)로 채운다")
 	void listingProvDateBackfilled() {
 		assertThat(jdbc.queryForObject("select prov_date from migtest.trd_prod_reg where user_id = ?", String.class, seller))
-			.isEqualTo("2026-10-15");
+			.isEqualTo("20261015");
 	}
 
 	@Test
@@ -110,8 +110,8 @@ class DefinitionKeysMigrationTest {
 				""");
 		assertThat(row.get("prod_reg_date")).isEqualTo("20261015100000");
 		assertThat(row.get("reg_date")).isEqualTo("20261015100000");
-		assertThat(row.get("prov_date")).isEqualTo("2026-10-15");
-		assertThat(row.get("req_deli_date")).isEqualTo("2026-10-15");
+		assertThat(row.get("prov_date")).isEqualTo("20261015");
+		assertThat(row.get("req_deli_date")).isEqualTo("20261015");
 	}
 
 	@Test
