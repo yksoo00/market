@@ -1,5 +1,6 @@
 package com.company.market.common.storage;
 
+import com.company.market.TestUids;
 import java.time.Clock;
 import java.util.List;
 import java.util.UUID;
@@ -33,7 +34,7 @@ class UploadClaimTest {
 	@Autowired
 	TransactionTemplate tx;
 
-	final UUID userId = UUID.randomUUID();
+	final String userId = TestUids.random();
 
 	@Test
 	@DisplayName("커밋되면 업로드 기록과 선점 표시가 모두 지워진다")
@@ -78,7 +79,7 @@ class UploadClaimTest {
 	@DisplayName("키 하나라도 틀리면 아무것도 선점하지 않는다 (맞는 키는 다음 요청에 그대로 쓸 수 있게)")
 	void failureClaimsNothing() {
 		String good = recorded(UploadKind.LISTING_PHOTO);
-		String others = recorded(UploadKind.LISTING_DATASHEET, UUID.randomUUID());
+		String others = recorded(UploadKind.LISTING_DATASHEET, TestUids.random());
 
 		tx.executeWithoutResult(s -> assertThatThrownBy(() -> uploads.claim(userId,
 				List.of(photo(good), new UploadRef("listingDataSheet", others, UploadKind.LISTING_DATASHEET))))
@@ -107,7 +108,7 @@ class UploadClaimTest {
 		return recorded(kind, userId);
 	}
 
-	private String recorded(UploadKind kind, UUID owner) {
+	private String recorded(UploadKind kind, String owner) {
 		String filename = kind == UploadKind.LISTING_PHOTO ? "a.jpg" : "a.pdf";
 		String key = kind.newKey(FileType.fromFilename(filename).orElseThrow(), Clock.systemUTC());
 		redis.opsForValue().set(UploadService.RECORD_PREFIX + key, owner + "|" + kind.value());

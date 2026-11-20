@@ -13,7 +13,7 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class CartInfoId implements Serializable {
 
-	private UUID userId;
+	private String userId;
 
 	private String tradeId;
 

@@ -1,5 +1,6 @@
 package com.company.market.listing.service;
 
+import com.company.market.TestUids;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
@@ -60,7 +61,7 @@ class ListingConcurrencyTest {
 	@Autowired
 	TransactionTemplate tx;
 
-	UUID sellerId;
+	String sellerId;
 
 	@BeforeEach
 	void setUp() {
@@ -121,7 +122,7 @@ class ListingConcurrencyTest {
 			await(release);
 		}));
 		assertThat(reserved.await(10, TimeUnit.SECONDS)).isTrue();
-		UUID stranger = UUID.randomUUID();
+		String stranger = TestUids.random();
 		CompletableFuture<Throwable> attempt = CompletableFuture.supplyAsync(() -> {
 			try {
 				service.update(sellerId, REG_DATE, stranger, new ListingUpdateRequest(null, null, 1, null, null, null, null,

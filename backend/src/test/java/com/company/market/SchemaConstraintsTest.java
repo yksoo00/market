@@ -37,13 +37,13 @@ class SchemaConstraintsTest {
 
 	private void insertUser(String userId, String email, String userClass, String busRegId) {
 		jdbc.update("""
-				insert into trd_user_info (user_id, password, user_class, user_name, user_email, bus_reg_id, company_type,
+				insert into trd_user_info (uid, user_id, password, user_class, user_name, user_email, bus_reg_id, company_type,
 					company_name, company_open_date, dt_reg, dt_update)
-				values (?, 'hashed', ?, '사용자', ?, ?, case when ? = 'business' then 'corporate' else null end,
+				values (substr('UT' || md5(?), 1, 11), ?, 'hashed', ?, '사용자', ?, ?, case when ? = 'business' then 'corporate' else null end,
 					case when ? = 'business' then '회사' else null end,
 					case when ? = 'business' then '20200101' else null end,
 					'20260928120000', '20260928120000')
-				""", userId, userClass, email, busRegId, userClass, userClass, userClass);
+				""", userId, userId, userClass, email, busRegId, userClass, userClass, userClass);
 	}
 
 	@Test
@@ -60,8 +60,8 @@ class SchemaConstraintsTest {
 	@DisplayName("기업 계정은 회사 식별 필드가 필요하고 사업자번호는 중복될 수 없다")
 	void businessAccountNeedsCompanyFieldsAndUniqueNumber() {
 		assertThatThrownBy(() -> jdbc.update("""
-				insert into trd_user_info (user_id, password, user_class, user_name, dt_reg, dt_update)
-				values ('biz001', 'hashed', 'business', '담당자', '20260928120000', '20260928120000')
+				insert into trd_user_info (uid, user_id, password, user_class, user_name, dt_reg, dt_update)
+				values ('UTBIZ000001', 'biz001', 'hashed', 'business', '담당자', '20260928120000', '20260928120000')
 				""")).isInstanceOf(DataIntegrityViolationException.class);
 
 		insertUser("biz002", "biz1@example.com", "business", "1234567890");
@@ -163,20 +163,20 @@ class SchemaConstraintsTest {
 	}
 
 	/** 판매자·매물·구매자 한 벌을 만들고 [구매자 uid, 판매자 uid] 를 돌려준다. 매물 키는 (판매자, '20261015100000') */
-	private UUID[] insertListingAndBuyer() {
+	private String[] insertListingAndBuyer() {
 		insertUser("seller01", "seller@example.com", "personal", null);
 		insertUser("buyer01", "buyer@example.com", "personal", null);
-		UUID seller = jdbc.queryForObject("select uid from trd_user_info where user_id = 'seller01'", UUID.class);
-		UUID buyer = jdbc.queryForObject("select uid from trd_user_info where user_id = 'buyer01'", UUID.class);
+		String seller = jdbc.queryForObject("select uid from trd_user_info where user_id = 'seller01'", String.class);
+		String buyer = jdbc.queryForObject("select uid from trd_user_info where user_id = 'buyer01'", String.class);
 		jdbc.update("""
 				insert into trd_prod_master (prod_id, major_category, middle_category, minor_category, prod_name, prod_brand, reg_date)
 				values ('TRADETEST1', 'P01', 'Q01', 'R001', '상품', '브랜드', '20261015100000')
 				""");
 		insertProdReg(seller, "20261015100000", "TRADETEST1");
-		return new UUID[] { buyer, seller };
+		return new String[] { buyer, seller };
 	}
 
-	private void insertProdReg(UUID seller, String regDate, String prodId) {
+	private void insertProdReg(String seller, String regDate, String prodId) {
 		jdbc.update("""
 				insert into trd_prod_reg (user_id, reg_date, prod_id, trade_type, prod_state, sales_unit_price,
 					sales_quantity, prov_date)
@@ -184,7 +184,7 @@ class SchemaConstraintsTest {
 				""", seller, regDate, prodId);
 	}
 
-	private void insertTrade(UUID buyer, UUID seller, String tradeId) {
+	private void insertTrade(String buyer, String seller, String tradeId) {
 		jdbc.update("""
 				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id,
 					order_unit_price, order_quantity, prov_date, req_deli_date, trade_stats)
@@ -199,7 +199,7 @@ class SchemaConstraintsTest {
 				select count(*) from information_schema.table_constraints
 				 where table_schema = current_schema() and constraint_type = 'FOREIGN KEY' and table_name like 'trd_%'
 				""", Integer.class)).isZero();
-		UUID[] ids = insertListingAndBuyer();
+		String[] ids = insertListingAndBuyer();
 		jdbc.update("""
 				insert into trd_trade_history (user_id, trade_id, trade_date, prod_id, trade_type, seller_id)
 				values (?, '26101599999', '20261015120000', 'TRADETEST1', '거래', ?)
@@ -210,7 +210,7 @@ class SchemaConstraintsTest {
 	@Test
 	@DisplayName("trd_prod_reg PK 는 (user_id, reg_date, prod_id) — 상품이 다르면 같은 초도 저장, 세 값이 같으면 거부")
 	void prodRegPrimaryKeyHasProdId() {
-		UUID[] ids = insertListingAndBuyer();
+		String[] ids = insertListingAndBuyer();
 		jdbc.update("""
 				insert into trd_prod_master (prod_id, major_category, middle_category, minor_category, prod_name, prod_brand, reg_date)
 				values ('TRADETEST2', 'P01', 'Q01', 'R001', '상품2', '브랜드', '20261015100000')
@@ -223,7 +223,7 @@ class SchemaConstraintsTest {
 	@Test
 	@DisplayName("trd_trade_info 의 prod_reg_date·prov_date·req_deli_date 는 NOT NULL (정의서)")
 	void tradeInfoNotNullColumns() {
-		UUID[] ids = insertListingAndBuyer();
+		String[] ids = insertListingAndBuyer();
 		String sql = """
 				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id,
 					order_unit_price, order_quantity, prov_date, req_deli_date, trade_stats)
@@ -248,8 +248,8 @@ class SchemaConstraintsTest {
 				   and c.constraint_type = 'PRIMARY KEY'
 				 order by k.ordinal_position
 				""", String.class)).containsExactly("user_id", "trade_id", "ser_no");
-		String[][] expected = { { "user_id", "uuid NO" }, { "trade_id", "character varying(20) NO" }, { "ser_no", "integer NO" },
-				{ "cart_type", "character varying(10) YES" }, { "seller_id", "uuid YES" },
+		String[][] expected = { { "user_id", "character varying(11) NO" }, { "trade_id", "character varying(20) NO" }, { "ser_no", "integer NO" },
+				{ "cart_type", "character varying(10) YES" }, { "seller_id", "character varying(11) YES" },
 				{ "prod_date", "character varying(14) NO" }, { "prod_name", "character varying(50) NO" },
 				{ "prod_no", "character varying(20) NO" }, { "manufacturer", "character varying(50) YES" },
 				{ "prod_spec_info", "character varying(100) NO" },
@@ -289,7 +289,7 @@ class SchemaConstraintsTest {
 				""", String.class)).containsExactly("user_id", "trade_id", "trade_date");
 	}
 
-	private void insertRow(UUID buyer, UUID seller, String tradeId, String type, String stats) {
+	private void insertRow(String buyer, String seller, String tradeId, String type, String stats) {
 		jdbc.update("""
 				insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, prod_id,
 					order_unit_price, order_quantity, prov_date, req_deli_date, trade_stats)
@@ -300,7 +300,7 @@ class SchemaConstraintsTest {
 	@Test
 	@DisplayName("장바구니 행은 같은 매물도 여러 줄(V202611021000 — 전엔 구매자·매물당 하나), 비교용 행은 하나. 견적 행과는 같이 있을 수 있다")
 	void cartRowsRepeatPerListing() {
-		UUID[] ids = insertListingAndBuyer();
+		String[] ids = insertListingAndBuyer();
 		insertRow(ids[0], ids[1], "26102113001", "구매검토", "장바구니");
 		insertRow(ids[0], ids[1], "26102113002", "구매검토", "장바구니");
 		insertRow(ids[0], ids[1], "26102113005", "구매검토", "비교용");
@@ -309,7 +309,7 @@ class SchemaConstraintsTest {
 		insertRow(ids[0], ids[1], "26102113003", "견적조정", "견적요청");
 		// 다른 구매자는 같은 매물을 따로 담는다
 		insertUser("buyer02", "buyer2@example.com", "personal", null);
-		UUID other = jdbc.queryForObject("select uid from trd_user_info where user_id = 'buyer02'", UUID.class);
+		String other = jdbc.queryForObject("select uid from trd_user_info where user_id = 'buyer02'", String.class);
 		insertRow(other, ids[1], "26102113004", "구매검토", "장바구니");
 		assertThat(jdbc.queryForObject("select count(*) from trd_trade_info", Integer.class)).isEqualTo(5);
 	}

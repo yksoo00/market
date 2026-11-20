@@ -68,9 +68,9 @@ class TradeListingLockTest {
 	@Autowired
 	TransactionTemplate tx;
 
-	UUID sellerId;
+	String sellerId;
 
-	UUID buyerId;
+	String buyerId;
 
 	@BeforeEach
 	void setUp() {
@@ -84,7 +84,7 @@ class TradeListingLockTest {
 			.minOrderQuantity(1).orderUnit(1).deliveryDate("2099-12-31").build());
 	}
 
-	private UUID user(String loginId, String phone) {
+	private String user(String loginId, String phone) {
 		return users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
 			.nickname(loginId).email(loginId + "@example.com").name("홍길동").phone(phone).phoneHash(hasher.hash(phone))
 			.build()).getId();

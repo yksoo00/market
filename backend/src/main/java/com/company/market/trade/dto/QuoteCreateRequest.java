@@ -22,7 +22,7 @@ public record QuoteCreateRequest(@NotNull @Size(min = 1, max = MAX_ITEMS) List<@
 	public static final int MAX_ITEMS = 20;
 
 	public record Item(
-			@NotNull UUID sellerId,
+			@NotBlank @Size(max = 11) String sellerId,
 			@NotBlank @Size(max = 14) String regDate,
 			@NotNull @Min(1) Integer orderUnitPrice,
 			@NotNull @Min(1) @Max(100_000) Integer orderQuantity,
@@ -37,7 +37,7 @@ public record QuoteCreateRequest(@NotNull @Size(min = 1, max = MAX_ITEMS) List<@
 			reqDeliDate = com.company.market.common.time.KoreanDates.normalizeDateOrKeep(reqDeliDate);
 		}
 
-		public Item(UUID sellerId, String regDate, Integer orderUnitPrice, Integer orderQuantity, String reqDeliDate, String remarks) {
+		public Item(String sellerId, String regDate, Integer orderUnitPrice, Integer orderQuantity, String reqDeliDate, String remarks) {
 			this(sellerId, regDate, orderUnitPrice, orderQuantity, reqDeliDate, remarks, null);
 		}
 	}

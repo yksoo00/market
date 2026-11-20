@@ -18,7 +18,7 @@ import lombok.NoArgsConstructor;
 @Getter
 public class ListingId implements Serializable {
 
-	private UUID userId;
+	private String userId;
 
 	private String regDate;
 

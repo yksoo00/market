@@ -69,19 +69,19 @@ public class ListingController {
 	}
 
 	@GetMapping("/{userId}/{regDate}")
-	public ApiResponse<ListingResponse> get(@PathVariable UUID userId, @PathVariable String regDate) {
+	public ApiResponse<ListingResponse> get(@PathVariable String userId, @PathVariable String regDate) {
 		return ApiResponse.of(listings.get(userId, regDate));
 	}
 
 	@PatchMapping("/{userId}/{regDate}")
 	public ApiResponse<ListingResponse> update(@AuthenticationPrincipal AuthenticatedUser me,
-			@PathVariable UUID userId, @PathVariable String regDate, @Valid @RequestBody ListingUpdateRequest req) {
+			@PathVariable String userId, @PathVariable String regDate, @Valid @RequestBody ListingUpdateRequest req) {
 		return ApiResponse.of(listings.update(userId, regDate, me.id(), req));
 	}
 
 	@DeleteMapping("/{userId}/{regDate}")
 	public ResponseEntity<Void> delete(@AuthenticationPrincipal AuthenticatedUser me,
-			@PathVariable UUID userId, @PathVariable String regDate) {
+			@PathVariable String userId, @PathVariable String regDate) {
 		listings.delete(userId, regDate, me.id());
 		return ResponseEntity.noContent().build();
 	}

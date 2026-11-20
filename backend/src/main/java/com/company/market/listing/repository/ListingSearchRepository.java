@@ -27,8 +27,8 @@ public class ListingSearchRepository {
 	 * 각 행은 [Listing, Product]. ownerId 가 있으면 그 사용자 글만, keys 가 있으면 그 매물들만(내 구매 범위 — 빈 목록이면 결과 없음),
 	 * after* 가 있으면 그 커서 다음부터
 	 */
-	public List<Object[]> findPage(ListingSearchCondition c, UUID ownerId, Collection<ListingId> keys, String afterRegDate,
-			UUID afterUserId, int limit) {
+	public List<Object[]> findPage(ListingSearchCondition c, String ownerId, Collection<ListingId> keys, String afterRegDate,
+			String afterUserId, int limit) {
 		Map<String, Object> params = new HashMap<>();
 		StringBuilder jpql = new StringBuilder("select l, p from Listing l join Product p on p.prodId = l.prodId where 1=1");
 		appendConditions(jpql, params, c, ownerId, keys);
@@ -44,7 +44,7 @@ public class ListingSearchRepository {
 	}
 
 	/** 내 매물 한 페이지(각 행 [Listing, Product]). 같은 사용자의 regDate 는 유일해 regDate 만으로 커서가 된다 */
-	public List<Object[]> findMinePage(UUID userId, String afterRegDate, int limit) {
+	public List<Object[]> findMinePage(String userId, String afterRegDate, int limit) {
 		StringBuilder jpql = new StringBuilder(
 				"select l, p from Listing l join Product p on p.prodId = l.prodId where l.userId = :u and l.dtExpire is null");
 		if (afterRegDate != null) {
@@ -63,7 +63,7 @@ public class ListingSearchRepository {
 	 * (PageKeys — 조건에 맞는 행의 키를 전부 훑는 비용은 설계 2026-10-27 PR 5 에서 감수). 최신순이면 findPage 와 같은 순서,
 	 * 아니면 정렬 열 다음에 최신순으로 끝을 맞춘다 (같은 값끼리 순서가 페이지마다 흔들리지 않게)
 	 */
-	public List<Object[]> findKeys(ListingSearchCondition c, UUID ownerId, Collection<ListingId> keys) {
+	public List<Object[]> findKeys(ListingSearchCondition c, String ownerId, Collection<ListingId> keys) {
 		Map<String, Object> params = new HashMap<>();
 		StringBuilder jpql = new StringBuilder("select l.regDate, l.userId from Listing l join Product p on p.prodId = l.prodId where 1=1");
 		appendConditions(jpql, params, c, ownerId, keys);
@@ -106,7 +106,7 @@ public class ListingSearchRepository {
 	 * 키(regDate, userId) 목록의 매물만 [Listing, Product] — 순서는 보장하지 않는다(호출자가 키 순서로 맞춘다). 정렬된 페이지용.
 	 * 같은 검색 조건을 다시 건다: 키를 읽은 뒤 그 사이에 조건에서 벗어난 매물(거래완료·가격 수정)이 섞이지 않게
 	 */
-	public List<Object[]> findByKeys(ListingSearchCondition c, UUID ownerId, Collection<ListingId> keys, List<Object[]> pageKeys) {
+	public List<Object[]> findByKeys(ListingSearchCondition c, String ownerId, Collection<ListingId> keys, List<Object[]> pageKeys) {
 		if (pageKeys.isEmpty()) {
 			return List.of();
 		}
@@ -125,7 +125,7 @@ public class ListingSearchRepository {
 		return query.getResultList();
 	}
 
-	public long count(ListingSearchCondition c, UUID ownerId, Collection<ListingId> keys) {
+	public long count(ListingSearchCondition c, String ownerId, Collection<ListingId> keys) {
 		Map<String, Object> params = new HashMap<>();
 		StringBuilder jpql = new StringBuilder("select count(l) from Listing l join Product p on p.prodId = l.prodId where 1=1");
 		appendConditions(jpql, params, c, ownerId, keys);
@@ -134,7 +134,7 @@ public class ListingSearchRepository {
 		return query.getSingleResult();
 	}
 
-	private static void appendConditions(StringBuilder jpql, Map<String, Object> params, ListingSearchCondition c, UUID ownerId,
+	private static void appendConditions(StringBuilder jpql, Map<String, Object> params, ListingSearchCondition c, String ownerId,
 			Collection<ListingId> keys) {
 		// keys 는 거래 도메인이 내 거래 행에서 모은 값 — 값마다 파라미터 바인딩. 같은 사용자의 regDate 는 유일해 두 값이면 매물이 하나다
 		if (keys != null) {

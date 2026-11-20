@@ -67,7 +67,7 @@ class ListingBulkCommitTest {
 
 	ListingBulkService service;
 
-	UUID sellerId;
+	String sellerId;
 
 	String withPhotoId;
 

@@ -1,5 +1,6 @@
 package com.company.market.trade.service;
 
+import com.company.market.TestUids;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
@@ -51,9 +52,9 @@ class CartBulkCommitTest {
 	@Autowired
 	JdbcTemplate jdbc;
 
-	final UUID buyer = UUID.randomUUID();
+	final String buyer = TestUids.random();
 
-	final UUID seller = UUID.randomUUID();
+	final String seller = TestUids.random();
 
 	Product a;
 

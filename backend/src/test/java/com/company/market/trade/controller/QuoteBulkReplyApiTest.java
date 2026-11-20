@@ -1,5 +1,6 @@
 package com.company.market.trade.controller;
 
+import com.company.market.TestUids;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -70,11 +71,11 @@ class QuoteBulkReplyApiTest {
 	@Autowired
 	ProductRepository productRepository;
 
-	UUID sellerId;
+	String sellerId;
 
-	UUID buyer1Id;
+	String buyer1Id;
 
-	UUID buyer2Id;
+	String buyer2Id;
 
 	Cookie seller;
 
@@ -104,13 +105,13 @@ class QuoteBulkReplyApiTest {
 		jdbc.update("delete from trd_user_info");
 	}
 
-	private UUID newUser(String loginId, String phone) {
+	private String newUser(String loginId, String phone) {
 		return users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
 			.nickname(loginId).nicknameUsage("Y").email(loginId + "@example.com").name("홍길동").phone(phone)
 			.phoneHash(hasher.hash(phone)).build()).getId();
 	}
 
-	private Cookie cookieOf(UUID id) {
+	private Cookie cookieOf(String id) {
 		return new Cookie(AuthCookies.ACCESS, jwtProvider.createAccessToken(id));
 	}
 
@@ -123,7 +124,7 @@ class QuoteBulkReplyApiTest {
 	}
 
 	/** 그 구매자가 견적을 보내고, 만들어진 거래ID 를 돌려준다 */
-	private String quote(Cookie who, UUID whoId, String regDate, int price, int quantity) throws Exception {
+	private String quote(Cookie who, String whoId, String regDate, int price, int quantity) throws Exception {
 		mvc.perform(post("/api/v1/trades/quotes").cookie(who).contentType(MediaType.APPLICATION_JSON)
 			.content("""
 					{"items":[{"sellerId":"%s","regDate":"%s","orderUnitPrice":%d,"orderQuantity":%d,"reqDeliDate":"2099-11-30"}]}
@@ -180,7 +181,7 @@ class QuoteBulkReplyApiTest {
 	@DisplayName("목록은 30건까지만 주고 total 은 전체 건수 — 오래된 것부터")
 	void listIsCappedAtThirty() throws Exception {
 		for (int i = 0; i < 31; i++) {
-			UUID buyerId = UUID.randomUUID();
+			String buyerId = TestUids.random();
 			jdbc.update("""
 					insert into trd_trade_info (user_id, trade_id, trade_type, seller_id, prod_reg_date, reg_date, prod_id, order_unit_price,
 						order_quantity, prov_date, req_deli_date, trade_stats)

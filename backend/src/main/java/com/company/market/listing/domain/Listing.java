@@ -36,7 +36,7 @@ public class Listing implements Persistable<ListingId> {
 
 	@Id
 	@Column(name = "user_id")
-	private UUID userId;
+	private String userId;
 
 	@Id
 	@Column(name = "reg_date")
@@ -104,7 +104,7 @@ public class Listing implements Persistable<ListingId> {
 	}
 
 	@Builder
-	private Listing(UUID userId, String regDate, String prodId, String tradeType, String prodState,
+	private Listing(String userId, String regDate, String prodId, String tradeType, String prodState,
 			Integer salesUnitPrice, Integer salesQuantity, Integer minOrderQuantity, Integer orderUnit,
 			String deliveryDate, Integer stockQuantity, String prodDescription, String prodDataSheet,
 			String prodPhoto1, String prodPhoto2, String prodPhoto3, String prodImage4, Integer warrantyPeriod,

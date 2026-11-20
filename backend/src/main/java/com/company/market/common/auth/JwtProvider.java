@@ -51,7 +51,7 @@ public class JwtProvider {
 		return accessTtl;
 	}
 
-	public String createAccessToken(UUID userId) {
+	public String createAccessToken(String userId) {
 		Instant now = Instant.now();
 		JwtClaimsSet claims = JwtClaimsSet.builder()
 			.subject(userId.toString())
@@ -70,7 +70,7 @@ public class JwtProvider {
 			if (jwt.getSubject() == null) {
 				return Optional.empty();
 			}
-			return Optional.of(new AuthenticatedUser(UUID.fromString(jwt.getSubject())));
+			return Optional.of(new AuthenticatedUser(jwt.getSubject()));
 		}
 		catch (JwtException | IllegalArgumentException e) {
 			return Optional.empty();

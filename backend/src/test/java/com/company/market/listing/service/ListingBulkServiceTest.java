@@ -1,5 +1,6 @@
 package com.company.market.listing.service;
 
+import com.company.market.TestUids;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
@@ -62,7 +63,7 @@ class ListingBulkServiceTest {
 	}
 
 	private BulkRowResult only(BulkRowDto row) {
-		return service.check(UUID.randomUUID(), List.of(row)).get(0);
+		return service.check(TestUids.random(), List.of(row)).get(0);
 	}
 
 	@Test
@@ -83,7 +84,7 @@ class ListingBulkServiceTest {
 		BulkRowDto ok = new BulkRowDto(2, withPhotoId, null, null, null, null, null, "신품", "1", "1", null, null, "20991231", null);
 		BulkRowDto missing = new BulkRowDto(3, "KP-0000-000000", null, null, null, null, null, "신품", "1", "1", null, null, "20991231", null);
 
-		List<BulkRowResult> r = service.check(UUID.randomUUID(), List.of(ok, missing));
+		List<BulkRowResult> r = service.check(TestUids.random(), List.of(ok, missing));
 
 		assertThat(r.get(0).status()).isEqualTo(Status.MATCHED);
 		assertThat(r.get(1).status()).isEqualTo(Status.FAILED);
@@ -108,7 +109,7 @@ class ListingBulkServiceTest {
 		BulkRowDto none = new BulkRowDto(2, null, "벌크 새상품", "Acme", null, null, null, "신품", "1", "1", null, null, "20991231", null);
 		BulkRowDto unknown = new BulkRowDto(3, null, "벌크 새상품2", "Acme", null, null, "ZZZ-ZZZ-ZZZ", "신품", "1", "1", null, null, "20991231", null);
 
-		List<BulkRowResult> r = service.check(UUID.randomUUID(), List.of(none, unknown));
+		List<BulkRowResult> r = service.check(TestUids.random(), List.of(none, unknown));
 
 		assertThat(r.get(0).status()).isEqualTo(Status.FAILED);
 		assertThat(r.get(0).fields()).containsKey("categoryCode");
@@ -160,7 +161,7 @@ class ListingBulkServiceTest {
 	@Test
 	@DisplayName("줄 번호가 겹치면 거절")
 	void duplicateRowNo() {
-		org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.check(UUID.randomUUID(),
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.check(TestUids.random(),
 				List.of(row(2, "벌크 스위치 C9300", "Cisco", "CLS-1"), row(2, "벌크 라우터 ISR", "Cisco", null))))
 			.isInstanceOf(com.company.market.common.exception.ValidationException.class);
 	}
@@ -180,7 +181,7 @@ class ListingBulkServiceTest {
 		BulkRowDto format = new BulkRowDto(3, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "1", "1", null, null, "2099-12-3x", null);
 		BulkRowDto past = new BulkRowDto(4, null, "벌크 스위치 C9300", "Cisco", "CLS-1", null, null, "신품", "1", "1", null, null, "20200101", null);
 
-		List<BulkRowResult> r = service.check(UUID.randomUUID(), List.of(empty, format, past));
+		List<BulkRowResult> r = service.check(TestUids.random(), List.of(empty, format, past));
 
 		r.forEach(x -> assertThat(x.fields()).containsKey("deliveryDate"));
 	}
@@ -188,7 +189,7 @@ class ListingBulkServiceTest {
 	@Test
 	@DisplayName("같은 상품이 한 파일에 두 줄이면 둘째 줄부터 실패")
 	void duplicateInFile() {
-		List<BulkRowResult> r = service.check(UUID.randomUUID(),
+		List<BulkRowResult> r = service.check(TestUids.random(),
 				List.of(row(2, "벌크 스위치 C9300", "Cisco", "CLS-1"), row(3, "벌크 스위치 c9300", "cisco", "cls-1")));
 
 		assertThat(r.get(0).status()).isEqualTo(Status.MATCHED);
@@ -209,10 +210,10 @@ class ListingBulkServiceTest {
 	@Test
 	@DisplayName("줄이 0개이거나 200개를 넘으면 거절")
 	void rowCountBounds() {
-		org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.check(UUID.randomUUID(), List.of()))
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.check(TestUids.random(), List.of()))
 			.isInstanceOf(com.company.market.common.exception.ValidationException.class);
 		List<BulkRowDto> many = java.util.stream.IntStream.range(0, 201).mapToObj(i -> row(i + 2, "벌크 스위치 C9300", "Cisco", "CLS-1")).toList();
-		org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.check(UUID.randomUUID(), many))
+		org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.check(TestUids.random(), many))
 			.isInstanceOf(com.company.market.common.exception.ValidationException.class);
 	}
 

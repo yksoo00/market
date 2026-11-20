@@ -55,7 +55,7 @@ class ListingStockTest {
 	@Autowired
 	JdbcTemplate jdbc;
 
-	UUID sellerId;
+	String sellerId;
 
 	@BeforeEach
 	void setUp() {

@@ -23,6 +23,7 @@ import java.util.stream.Collectors;
 import com.company.market.common.exception.ApiException;
 import com.company.market.common.exception.ErrorCode;
 import com.company.market.common.time.KoreanDates;
+import com.company.market.user.domain.UidGenerator;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellType;
@@ -98,7 +99,10 @@ public class DevTableService {
 
 	public void insert(String tableName, Map<String, Object> body) {
 		TableInfo t = table(tableName);
-		Map<String, Object> values = convert(t, body, "");
+		Map<String, Object> values = convert(t, USER_TABLE.equals(t.name()) ? withoutUid(body) : body, "");
+		if (USER_TABLE.equals(t.name())) {
+			values.put(UID_COLUMN, nextUid());
+		}
 		if (values.isEmpty()) {
 			throw bad("넣을 값이 없습니다.");
 		}
@@ -274,12 +278,20 @@ public class DevTableService {
 			if (byIndex.containsValue(col)) {
 				throw bad("시트 " + sheetName + ": 컬럼이 두 번 나옵니다 " + col.name());
 			}
+			if (USER_TABLE.equals(t.name()) && UID_COLUMN.equals(col.name())) {
+				continue; // 사용자식별자는 엑셀 값을 무시하고 가져올 때마다 새로 만든다 (사용자 지시 2026-11-20)
+			}
 			byIndex.put(c, col);
 		}
 		if (byIndex.isEmpty()) {
 			throw bad("시트 " + sheetName + ": 컬럼 이름이 없습니다.");
 		}
-		String sql = insertSql(t, byIndex.values().stream().map(ColumnInfo::name).toList());
+		boolean userTable = USER_TABLE.equals(t.name());
+		List<String> columns = new ArrayList<>(byIndex.values().stream().map(ColumnInfo::name).toList());
+		if (userTable) {
+			columns.add(UID_COLUMN);
+		}
+		String sql = insertSql(t, columns);
 		int inserted = 0;
 		for (int r = 1; r <= sheet.getLastRowNum(); r++) {
 			Row row = sheet.getRow(r);
@@ -296,6 +308,9 @@ public class DevTableService {
 			}
 			if (!any) {
 				continue;
+			}
+			if (userTable) {
+				args.add(nextUid());
 			}
 			exec(sql, args, where);
 			inserted++;
@@ -373,6 +388,29 @@ public class DevTableService {
 			throw bad(where + col.name() + " 값 형식이 맞지 않습니다(" + col.type() + "): " + text);
 		}
 	}
+
+	static final String USER_TABLE = "trd_user_info";
+
+	static final String UID_COLUMN = "uid";
+
+	/** 사용자 행의 uid 는 받지 않는다 — 폼·엑셀에 값이 있어도 무시하고 UP+yyMMdd+일련번호 3자리로 새로 만든다 (사용자 지시 2026-11-20) */
+	private static Map<String, Object> withoutUid(Map<String, Object> body) {
+		if (body == null) {
+			return null;
+		}
+		Map<String, Object> copy = new LinkedHashMap<>(body);
+		copy.keySet().removeIf(k -> UID_COLUMN.equalsIgnoreCase(k));
+		return copy;
+	}
+
+	/** 오늘 가장 큰 uid 다음 번호 (UidGenerator 와 같은 규칙). 같은 날 동시 생성은 날짜 advisory lock 으로 줄 세운다 */
+	private String nextUid() {
+		String day = UidGenerator.todayPrefix();
+		jdbc.queryForList("select pg_advisory_xact_lock(hashtext(?))", "uid:" + day);
+		String max = jdbc.queryForObject("select max(uid) from trd_user_info where uid like ?", String.class, day + "%");
+		return UidGenerator.next(day, max);
+	}
+
 
 	/** 날짜(8자리) 컬럼 — 입력은 2026-10-10 처럼 와도 yyyyMMdd 로 저장 (decisions.md 2026-11-20) */
 	static final Set<String> DATE_COLUMNS = Set.of("prov_date", "req_deli_date", "company_open_date");

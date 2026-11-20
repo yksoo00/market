@@ -18,7 +18,7 @@ public class UserService {
 
 	private final UserRepository users;
 
-	public MeResponse me(UUID id) {
+	public MeResponse me(String id) {
 		User user = users.findById(id)
 			.orElseThrow(() -> new ApiException(ErrorCode.SESSION_EXPIRED));
 		return MeResponse.from(user);

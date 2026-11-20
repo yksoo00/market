@@ -1,5 +1,6 @@
 package com.company.market.listing.service;
 
+import com.company.market.TestUids;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -53,7 +54,7 @@ class ListingServiceTest {
 	void rejectsSameSecondBeforeSaving() {
 		Clock clock = Clock.fixed(Instant.parse("2026-09-29T12:00:00Z"), ZoneOffset.UTC);
 		ListingService service = new ListingService(listings, searchRepository, products, categories, uploads, clock, mock(ApplicationEventPublisher.class));
-		UUID userId = UUID.randomUUID();
+		String userId = TestUids.random();
 		when(categories.resolveMinor("P01-Q01-R001")).thenReturn(new CategoryFragments("P01", "Q01", "R001"));
 		when(products.findOrCreate(any())).thenReturn(Product.builder().prodId("ELEC00010001").regDate("20260929120000")
 			.majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("노트북").prodBrand("삼성").build());
@@ -77,10 +78,10 @@ class ListingServiceTest {
 		when(products.findOrCreate(any())).thenReturn(Product.builder().prodId("ELEC00010001").regDate("20261001233000")
 			.majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName("노트북").prodBrand("삼성").build());
 
-		service.create(UUID.randomUUID(), new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성", null, null, null, null, null, null,
+		service.create(TestUids.random(), new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성", null, null, null, null, null, null,
 				"판매", "신품", 1000, 1, null, null, "2026-10-02", null, null, List.of("p.jpg")));
 
-		assertThatThrownBy(() -> service.create(UUID.randomUUID(), new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성",
+		assertThatThrownBy(() -> service.create(TestUids.random(), new ListingCreateRequest(null, "P01-Q01-R001", "노트북", null, "삼성",
 				null, null, null, null, null, null, "판매", "신품", 1000, 1, null, null, "2026-10-01", null, null, List.of("p.jpg"))))
 			.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.getFields()).containsKey("deliveryDate"));
 	}

@@ -29,11 +29,11 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	Optional<TradeInfo> findForUpdateByTradeId(@Param("tradeId") String tradeId);
 
 	/** 구매자·매물당 견적 단계 행은 하나(ux_trd_trade_info_one_quote) — 재요청이 덮어쓸 행. 구매 단계로 넘어간 행은 찾지 않는다 */
-	Optional<TradeInfo> findByUserIdAndSellerIdAndProdRegDateAndProdIdAndTradeTypeAndTradeStatsIn(UUID userId,
-			UUID sellerId, String prodRegDate, String prodId, TradeType tradeType, Collection<TradeStats> stats);
+	Optional<TradeInfo> findByUserIdAndSellerIdAndProdRegDateAndProdIdAndTradeTypeAndTradeStatsIn(String userId,
+			String sellerId, String prodRegDate, String prodId, TradeType tradeType, Collection<TradeStats> stats);
 
 	/** 이 매물에 거래 행이 남아 있는지 — 매물 삭제를 막을 때 (FK 가 없어 DB 가 막지 않는다) */
-	boolean existsBySellerIdAndProdRegDateAndProdId(UUID sellerId, String prodRegDate, String prodId);
+	boolean existsBySellerIdAndProdRegDateAndProdId(String sellerId, String prodRegDate, String prodId);
 
 	/**
 	 * 구매검토 1행 — 장바구니(거래상태 '장바구니')나 비교용('비교용'). 이미 있으면(동시에 담은 다른 요청 포함) 아무것도 안 한다 → 0.
@@ -51,7 +51,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 				:tradeStats)
 			on conflict do nothing
 			""")
-	int insertReviewIfAbsent(@Param("userId") UUID userId, @Param("tradeId") String tradeId, @Param("sellerId") UUID sellerId,
+	int insertReviewIfAbsent(@Param("userId") String userId, @Param("tradeId") String tradeId, @Param("sellerId") String sellerId,
 			@Param("prodRegDate") String prodRegDate, @Param("regDate") String regDate, @Param("prodId") String prodId,
 			@Param("prodState") String prodState,
 			@Param("salesUnitPrice") Integer salesUnitPrice, @Param("stockQuantity") Integer stockQuantity,
@@ -66,11 +66,11 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			 where t.sellerId = :sellerId and t.tradeType = :type and t.tradeStats = :stats
 			 order by t.regDate asc, t.tradeId asc
 			""")
-	List<TradeInfo> findPendingBySeller(@Param("sellerId") UUID sellerId, @Param("type") TradeType type,
+	List<TradeInfo> findPendingBySeller(@Param("sellerId") String sellerId, @Param("type") TradeType type,
 			@Param("stats") TradeStats stats, Pageable pageable);
 
 	@Query("select count(t) from TradeInfo t where t.sellerId = :sellerId and t.tradeType = :type and t.tradeStats = :stats")
-	long countPendingBySeller(@Param("sellerId") UUID sellerId, @Param("type") TradeType type, @Param("stats") TradeStats stats);
+	long countPendingBySeller(@Param("sellerId") String sellerId, @Param("type") TradeType type, @Param("stats") TradeStats stats);
 
 	/** 장바구니 줄의 담은 수량만 바꾼다 (담은 시각·납품희망일·요청사항은 그대로). 줄은 호출자가 잠가 두었다 */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
@@ -80,7 +80,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 	/** 장바구니 빼기 — 내 행만 지운다. 지운 수가 요청 수보다 적으면 호출자가 404 로 되돌린다 */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("delete from TradeInfo t where t.userId = :buyerId and t.tradeId in :tradeIds and t.tradeStats = :stats")
-	int deleteCartRows(@Param("buyerId") UUID buyerId, @Param("tradeIds") Collection<String> tradeIds,
+	int deleteCartRows(@Param("buyerId") String buyerId, @Param("tradeIds") Collection<String> tradeIds,
 			@Param("stats") TradeStats stats);
 
 	/** 이 매물의 내 장바구니 거래 행 (구매·견적이 이 행을 바꿔 쓴다). 구매자·매물당 장바구니 행은 하나 */
@@ -89,18 +89,18 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			 where t.userId = :buyerId and t.sellerId = :sellerId and t.prodRegDate = :prodRegDate and t.prodId = :prodId
 			   and t.tradeType = :type and t.tradeStats = :stats
 			""")
-	Optional<TradeInfo> findReviewRow(@Param("buyerId") UUID buyerId, @Param("sellerId") UUID sellerId,
+	Optional<TradeInfo> findReviewRow(@Param("buyerId") String buyerId, @Param("sellerId") String sellerId,
 			@Param("prodRegDate") String prodRegDate, @Param("prodId") String prodId, @Param("type") TradeType type,
 			@Param("stats") TradeStats stats);
 
 	/** 내 구매검토 행 중 그 거래상태(비교용) 전부 삭제 — 비교 교체·비우기 때만 */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
 	@Query("delete from TradeInfo t where t.userId = :buyerId and t.tradeType = :type and t.tradeStats = :stats")
-	int deleteByUserAndTypeAndStats(@Param("buyerId") UUID buyerId, @Param("type") TradeType type, @Param("stats") TradeStats stats);
+	int deleteByUserAndTypeAndStats(@Param("buyerId") String buyerId, @Param("type") TradeType type, @Param("stats") TradeStats stats);
 
 	/** 구매자별 비교 목록 교체를 줄 세운다 (트랜잭션 끝까지) — 지우고 담는 사이에 같은 구매자의 다른 요청이 끼지 않게 */
 	@Query(value = "select 1 from (select pg_advisory_xact_lock(hashtext('compare:' || cast(:userId as text)))) l", nativeQuery = true)
-	Integer lockCompare(@Param("userId") UUID userId);
+	Integer lockCompare(@Param("userId") String userId);
 
 	/** 매물 삭제 때 그 매물의 견적 단계 행을 모두 지운다 (구매요청·구매확정 행은 그대로 — 남아 있으면 TradeListingCleanup 이 삭제를 막는다) */
 	@Modifying(flushAutomatically = true, clearAutomatically = true)
@@ -109,7 +109,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			 where t.sellerId = :sellerId and t.prodRegDate = :prodRegDate and t.prodId = :prodId and t.tradeType = :type
 			   and t.tradeStats in :stats
 			""")
-	int deleteByListingAndTypeAndStats(@Param("sellerId") UUID sellerId, @Param("prodRegDate") String prodRegDate,
+	int deleteByListingAndTypeAndStats(@Param("sellerId") String sellerId, @Param("prodRegDate") String prodRegDate,
 			@Param("prodId") String prodId,
 			@Param("type") TradeType type, @Param("stats") Collection<TradeStats> stats);
 
@@ -149,7 +149,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			   and (:cursor is null or t.tradeId < :cursor)
 			 order by t.tradeId desc
 			""")
-	List<TradeInfo> findBuyerPage(@Param("buyerId") UUID buyerId, @Param("hidden") TradeType hidden,
+	List<TradeInfo> findBuyerPage(@Param("buyerId") String buyerId, @Param("hidden") TradeType hidden,
 			@Param("stats") Collection<TradeStats> stats, @Param("fromDate") String fromDate, @Param("toDate") String toDate, @Param("minAmount") int minAmount,
 			@Param("maxAmount") int maxAmount, @Param("useProds") boolean useProds, @Param("prodIds") Collection<String> prodIds,
 			@Param("cursor") String cursor, Pageable page);
@@ -168,7 +168,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			   and (:cursor is null or t.tradeId < :cursor)
 			 order by t.tradeId desc
 			""")
-	List<TradeInfo> findSellerPage(@Param("sellerId") UUID sellerId, @Param("hidden") TradeType hidden,
+	List<TradeInfo> findSellerPage(@Param("sellerId") String sellerId, @Param("hidden") TradeType hidden,
 			@Param("stats") Collection<TradeStats> stats, @Param("regDate") String regDate,
 			@Param("fromDate") String fromDate, @Param("toDate") String toDate, @Param("minAmount") int minAmount,
 			@Param("maxAmount") int maxAmount, @Param("useProds") boolean useProds, @Param("prodIds") Collection<String> prodIds,
@@ -187,7 +187,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			   and cast(t.orderUnitPrice as long) * t.orderQuantity >= :minAmount and cast(t.orderUnitPrice as long) * t.orderQuantity <= :maxAmount
 			   and (:useProds = false or t.prodId in :prodIds)
 			""")
-	List<Object[]> findBuyerKeys(@Param("buyerId") UUID buyerId, @Param("hidden") TradeType hidden,
+	List<Object[]> findBuyerKeys(@Param("buyerId") String buyerId, @Param("hidden") TradeType hidden,
 			@Param("stats") Collection<TradeStats> stats, @Param("fromDate") String fromDate, @Param("toDate") String toDate, @Param("minAmount") int minAmount,
 			@Param("maxAmount") int maxAmount, @Param("useProds") boolean useProds, @Param("prodIds") Collection<String> prodIds);
 
@@ -201,7 +201,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			   and cast(t.orderUnitPrice as long) * t.orderQuantity >= :minAmount and cast(t.orderUnitPrice as long) * t.orderQuantity <= :maxAmount
 			   and (:useProds = false or t.prodId in :prodIds)
 			""")
-	List<Object[]> findSellerKeys(@Param("sellerId") UUID sellerId, @Param("hidden") TradeType hidden,
+	List<Object[]> findSellerKeys(@Param("sellerId") String sellerId, @Param("hidden") TradeType hidden,
 			@Param("stats") Collection<TradeStats> stats, @Param("regDate") String regDate,
 			@Param("fromDate") String fromDate, @Param("toDate") String toDate, @Param("minAmount") int minAmount,
 			@Param("maxAmount") int maxAmount, @Param("useProds") boolean useProds, @Param("prodIds") Collection<String> prodIds);
@@ -211,7 +211,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			select distinct t.prodId from TradeInfo t
 			 where t.userId = :buyerId and t.tradeType <> :hidden and t.tradeStats in :stats and t.prodId is not null
 			""")
-	List<String> findBuyerProdIds(@Param("buyerId") UUID buyerId, @Param("hidden") TradeType hidden, @Param("stats") Collection<TradeStats> stats);
+	List<String> findBuyerProdIds(@Param("buyerId") String buyerId, @Param("hidden") TradeType hidden, @Param("stats") Collection<TradeStats> stats);
 
 	/** findSellerPage 범위(검색 조건 빼고)에 나온 상품ID */
 	@Query("""
@@ -219,14 +219,14 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			 where t.sellerId = :sellerId and t.tradeType <> :hidden and t.tradeStats in :stats
 			   and (:regDate is null or t.prodRegDate = :regDate) and t.prodId is not null
 			""")
-	List<String> findSellerProdIds(@Param("sellerId") UUID sellerId, @Param("hidden") TradeType hidden,
+	List<String> findSellerProdIds(@Param("sellerId") String sellerId, @Param("hidden") TradeType hidden,
 			@Param("stats") Collection<TradeStats> stats, @Param("regDate") String regDate);
 
 	/**
 	 * 그 매물에 수량을 묶고 있는 거래가 있나 (구매요청·수락된 견적 — 장바구니 묶기는 PR 2). 구매 확정 뒤 "더 묶인 건이 없을 때만
 	 * 판매완료" 판정에 쓴다 (2026-11-02)
 	 */
-	boolean existsBySellerIdAndProdRegDateAndProdIdAndTradeStatsIn(UUID sellerId, String prodRegDate, String prodId,
+	boolean existsBySellerIdAndProdRegDateAndProdIdAndTradeStatsIn(String sellerId, String prodRegDate, String prodId,
 			Collection<TradeStats> stats);
 
 	/** 담은 지 오래된 장바구니 줄의 거래ID (reg_date = 담은 시각 14자리, cutoff 보다 이르면) — 1시간 자동 정리용 */
@@ -239,10 +239,10 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			 where t.sellerId = :sellerId and t.tradeStats in :stats
 			 group by t.prodRegDate
 			""")
-	List<Object[]> countBySellerGroupByListing(@Param("sellerId") UUID sellerId, @Param("stats") Collection<TradeStats> stats);
+	List<Object[]> countBySellerGroupByListing(@Param("sellerId") String sellerId, @Param("stats") Collection<TradeStats> stats);
 
 	/** 내가 구매자인 거래 중 hidden 종류(구매검토)가 아닌 행이 있나 (검색 "내 구매" 탭 판정) */
-	boolean existsByUserIdAndTradeTypeNot(UUID userId, TradeType hidden);
+	boolean existsByUserIdAndTradeTypeNot(String userId, TradeType hidden);
 
 	/** 내가 구매자인 거래(hidden 종류 제외)의 매물 → [판매자 id, 매물 등록일시], 최신 거래부터. 같은 매물은 한 번 (내 구매 범위) */
 	@Query("""
@@ -251,7 +251,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			 group by t.sellerId, t.prodRegDate
 			 order by max(t.tradeId) desc
 			""")
-	List<Object[]> findPurchasedListings(@Param("buyerId") UUID buyerId, @Param("hidden") TradeType hidden, Pageable page);
+	List<Object[]> findPurchasedListings(@Param("buyerId") String buyerId, @Param("hidden") TradeType hidden, Pageable page);
 
 
 	/** 매물 수정으로 상품이 바뀌면 그 매물을 가리키는 거래 행도 새 prod_id 로 — 세 값으로 계속 찾게 */
@@ -260,7 +260,7 @@ public interface TradeInfoRepository extends JpaRepository<TradeInfo, TradeInfoI
 			update TradeInfo t set t.prodId = :newProdId
 			 where t.sellerId = :sellerId and t.prodRegDate = :prodRegDate and t.prodId = :oldProdId
 			""")
-	int changeListingProdId(@Param("sellerId") UUID sellerId, @Param("prodRegDate") String prodRegDate,
+	int changeListingProdId(@Param("sellerId") String sellerId, @Param("prodRegDate") String prodRegDate,
 			@Param("oldProdId") String oldProdId, @Param("newProdId") String newProdId);
 
 }

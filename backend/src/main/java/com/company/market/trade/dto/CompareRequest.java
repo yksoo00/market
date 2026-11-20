@@ -14,7 +14,7 @@ import jakarta.validation.constraints.Size;
  */
 public record CompareRequest(@NotNull @Size(min = 1, max = 20) List<@Valid @NotNull Item> items) {
 
-	public record Item(@NotNull UUID sellerId, @NotBlank @Size(max = 14) String regDate) {
+	public record Item(@NotBlank @Size(max = 11) String sellerId, @NotBlank @Size(max = 14) String regDate) {
 	}
 
 }

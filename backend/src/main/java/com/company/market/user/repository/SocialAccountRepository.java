@@ -17,6 +17,6 @@ public interface SocialAccountRepository extends JpaRepository<SocialAccount, UU
 	@Query("select s from SocialAccount s join fetch s.user where s.provider = :provider and s.providerUserId = :providerUserId")
 	Optional<SocialAccount> findByProviderAndProviderUserId(@Param("provider") SocialProvider provider, @Param("providerUserId") String providerUserId);
 
-	Optional<SocialAccount> findByUserId(UUID userId);
+	Optional<SocialAccount> findByUserId(String userId);
 
 }

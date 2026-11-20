@@ -896,3 +896,12 @@
 - 감수: 정의서가 이 두 칸을 `yyyy-MM-dd` 로 적었다면 정의서와 다르다 — 사용자 결정. 기존 행은 `db/` 마이그레이션이 `replace(col, '-', '')` 로 바꾼다(코드와 같은 배포 단위). 검색의 납품일 조건(`deliveryBy`)은 요청은 ISO 날짜 그대로, 비교 값만 `yyyyMMdd`.
 - 계획: `docs/superpowers/plans/2026-11-20-uid-and-date-format.md` PR 1.
 - 추가 (2026-11-20, 사용자 지시): 임시 테이블의 일시 컬럼 입력만 더 느슨하게 받는다 — `26-11-12 1:12:12 PM`, `2026-3-3 9:05 am` 처럼 연 2자리(2000년대로 가정)·4자리, 월·일·시 1자리, AM/PM, 연-월-일(yy-MM-dd) 순서. 12시간제는 시가 1~12 일 때만, 12 AM 은 0시·12 PM 은 12시. 일반 화면 입력(`KoreanDates`)은 엄격한 규칙 그대로 — 개발 도구 전용 (`DevTableService.normalizeLooseDateTime`).
+
+## 2026-11-20 사용자 식별자 uid 를 UUID → UP+yyMMdd+일련번호 3자리(varchar(11))로
+- 결정 (사용자 지시, 정의서 "사용자식별자" 형식): `trd_user_info.uid` 와 uid 를 담는 모든 컬럼(매물 `user_id`, 거래·장바구니·거래이력 `user_id`·`seller_id`, 문의 `author_uid`)을 `uuid` → `varchar(11)` 로. 값은 `UP` + 가입일(한국) `yyMMdd` + 그날의 일련번호 3자리 (예 `UP261008001`). 날짜가 바뀌면 001 부터, 하루 999명을 넘으면 가입 거절(사용자: "하루 1000명 이상 안 할 것"). 기존 사용자는 마이그레이션이 가입일(`dt_reg`) 기준으로 새 uid 를 주고 참조 컬럼 값도 같이 바꾼다 (`V202611201100__uid_varchar.sql`).
+- 구현: 코드의 사용자 키 `UUID` → `String`(JWT subject, 리프레시 세션 Redis 키, `AuthenticatedUser`, 업로드·멱등성·문의·매물·거래·장바구니). 문의 글 id·기기 id·파일 키 같은 다른 UUID 는 그대로. 번호는 Hibernate `UidGenerator`(`@UidGeneratedValue`)가 날짜별 `pg_advisory_xact_lock` 을 잡고 그날 최댓값 + 1 로 만든다 — 라이브러리 추가 없음, 같은 트랜잭션·동시 가입 모두 겹치지 않는다.
+- 임시 테이블: 사용자 행 생성·엑셀 가져오기에서 uid 값이 오든 안 오든 무시하고 항상 새 번호 (`DevTableService`), 생성 폼에서 uid 칸을 숨긴다. 엑셀로 다른 테이블의 `user_id` 를 넣을 때는 새 uid 를 직접 맞춰야 한다 — 감수.
+- 이유: 업무 담당자가 엑셀·정의서에서 읽고 대조하는 식별자라 사람이 읽는 형식을 키로 쓴다. 대안(uuid 유지 + 별도 `user_code`)은 영향이 작지만 키가 둘이 되어 사용자가 전체 키 변경을 골랐다.
+- 감수: UUID 와 달리 uid 를 추측할 수 있다. 소유자 검사는 이미 서버가 인증 정보의 uid 로 하므로(요청의 userId 불신) 새 위험은 없다고 봤지만 uid 가 주소에 나오는 API(`/listings/{userId}/…`)는 이 검사에 의존한다. 이 마이그레이션 뒤 기존 JWT·리프레시 세션(옛 uuid)은 무효라 모두 다시 로그인해야 한다.
+- 이 PR 은 계획의 PR 2(DB)·PR 3(코드)을 하나로 합쳤다 — 스키마와 엔티티 타입이 맞아야 기동되므로 따로는 CI 가 통과하지 않는다 (`db/` 분리 규칙의 예외).
+- 계획: `docs/superpowers/plans/2026-11-20-uid-and-date-format.md` PR 2·3.

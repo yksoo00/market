@@ -57,10 +57,10 @@ public class QuoteBulkService {
 
 	/** 내가 받은 견적요청 — 오래된 요청부터 30건, total 은 전체 건수. 재고는 지금 값 */
 	@Transactional(readOnly = true)
-	public QuoteRequestListResponse list(UUID sellerId) {
+	public QuoteRequestListResponse list(String sellerId) {
 		List<TradeInfo> rows = trades.findPendingBySeller(sellerId, TradeType.QUOTE, TradeStats.QUOTE_REQUESTED, PageRequest.of(0, MAX));
 		long total = trades.countPendingBySeller(sellerId, TradeType.QUOTE, TradeStats.QUOTE_REQUESTED);
-		Map<UUID, String> nicknames = userDirectory.nicknamesOf(rows.stream().map(TradeInfo::getUserId).distinct().toList());
+		Map<String, String> nicknames = userDirectory.nicknamesOf(rows.stream().map(TradeInfo::getUserId).distinct().toList());
 		Map<ListingId, ListingTradeSnapshot> snapshots = new LinkedHashMap<>();
 		List<QuoteRequestListResponse.Item> items = new ArrayList<>();
 		for (TradeInfo t : rows) {
@@ -87,7 +87,7 @@ public class QuoteBulkService {
 	 * 묶음 안은 전부 처리하거나 전부 못 한다 — 수락 합계가 재고를 넘으면 서버가 누구를 먼저 받을지 고르지 않고 그 묶음을 통째로 막는다
 	 * (판매자가 건별로 고른다). 결과는 요청한 순서(중복은 한 번)로 돌려준다
 	 */
-	public QuoteReplyResponse reply(UUID sellerId, List<String> tradeIds, boolean accept) {
+	public QuoteReplyResponse reply(String sellerId, List<String> tradeIds, boolean accept) {
 		List<String> ids = new ArrayList<>(new LinkedHashSet<>(tradeIds));
 		Map<String, QuoteReplyResponse.Result> results = new LinkedHashMap<>();
 		// 내 견적이 아니거나 없는 건은 같은 404 — 남의 거래 존재를 흘리지 않는다. 같은 매물 건은 한 묶음으로
@@ -133,7 +133,7 @@ public class QuoteBulkService {
 	 * 막으려고. 재고 묶기는 던지는 reserveStock 으로 통일해도 되고(묶음은 합계를 확인하고 매물을 잠갔으니 모자라면 묶음 롤백이 맞다),
 	 * 처리 순서는 단건의 "재고 먼저"를 따른다. 테스트: QuoteApiTest·TradeApiTest·QuoteBulkReplyApiTest·E2E quote/quote-bulk 를 다시 돌린다
 	 */
-	private Map<String, QuoteReplyResponse.Result> replyGroup(UUID sellerId, ListingId listingId, List<String> ids, boolean accept) {
+	private Map<String, QuoteReplyResponse.Result> replyGroup(String sellerId, ListingId listingId, List<String> ids, boolean accept) {
 		Map<String, QuoteReplyResponse.Result> out = new LinkedHashMap<>();
 		ListingTradeSnapshot listing = listings.lockForTrade(listingId);
 		List<TradeInfo> pending = new ArrayList<>();

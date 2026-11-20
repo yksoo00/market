@@ -30,8 +30,8 @@ export function DevRowForm({ table, row, onSubmit, onClose }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
-  // 새로 만들 때 DB 가 만들어 주는 uuid 키(uid)는 칸을 보이지 않는다 — 비워 두면 기본값(gen_random_uuid)이 들어간다
-  const autoKey = (c: DevTable["columns"][number]) => !editing && c.type === "uuid" && c.hasDefault && table.primaryKey.includes(c.name);
+  // 새로 만들 때 사용자 식별자(uid)는 칸을 보이지 않는다 — 서버가 UP+yyMMdd+일련번호로 새로 만든다 (값을 보내도 무시)
+  const autoKey = (c: DevTable["columns"][number]) => !editing && table.name === "trd_user_info" && c.name === "uid";
 
   const missingRequired = table.columns.some(
     (c) => !c.nullable && !c.hasDefault && !(editing && table.primaryKey.includes(c.name)) && values[c.name].trim() === "",

@@ -41,7 +41,7 @@ class ListingRepositoryTest {
 	@Autowired
 	PiiHasher hasher;
 
-	UUID userId;
+	String userId;
 
 	Product product;
 

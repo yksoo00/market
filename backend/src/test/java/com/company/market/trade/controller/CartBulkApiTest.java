@@ -1,5 +1,6 @@
 package com.company.market.trade.controller;
 
+import com.company.market.TestUids;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -81,9 +82,9 @@ class CartBulkApiTest {
 
 	Cookie authCookie;
 
-	UUID buyerId;
+	String buyerId;
 
-	final UUID sellerId = UUID.randomUUID();
+	final String sellerId = TestUids.random();
 
 	Product product;
 

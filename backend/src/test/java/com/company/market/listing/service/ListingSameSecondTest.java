@@ -72,7 +72,7 @@ class ListingSameSecondTest {
 
 	ListingService service;
 
-	UUID sellerId;
+	String sellerId;
 
 	@BeforeEach
 	void setUp() {

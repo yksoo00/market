@@ -68,7 +68,7 @@ class UploadApiTest {
 
 	Cookie authCookie;
 
-	UUID userId;
+	String userId;
 
 	@BeforeEach
 	void setUp() {

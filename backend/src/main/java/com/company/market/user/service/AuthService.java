@@ -87,7 +87,7 @@ public class AuthService {
 		sessions.revoke(refreshToken);
 	}
 
-	public void logoutAll(UUID userId) {
+	public void logoutAll(String userId) {
 		sessions.revokeAll(userId);
 	}
 

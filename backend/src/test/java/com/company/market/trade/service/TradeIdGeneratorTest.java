@@ -53,7 +53,7 @@ class TradeIdGeneratorTest {
 	@Autowired
 	PiiHasher hasher;
 
-	UUID buyerId;
+	String buyerId;
 
 	@BeforeEach
 	void setUp() {

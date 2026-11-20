@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { COMPARE_HREF, compareBlock, compareRows } from "./compare";
 import type { ListingDetail, ListingSearchItem } from "@/types/listing";
 
-const U1 = "11111111-1111-1111-1111-111111111111";
+const U1 = "UP261008001";
 const REG = (n: number) => `2026102210000${n}`;
 
 const searchItem = (regDate: string, category = "P01-Q01-R001"): ListingSearchItem =>

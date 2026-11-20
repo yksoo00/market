@@ -34,7 +34,7 @@ public class TradeInfo implements Persistable<TradeInfoId> {
 
 	@Id
 	@Column(name = "user_id")
-	private UUID userId;
+	private String userId;
 
 	@Id
 	@Column(name = "trade_id")
@@ -44,7 +44,7 @@ public class TradeInfo implements Persistable<TradeInfoId> {
 	@Column(nullable = false)
 	private TradeType tradeType;
 
-	private UUID sellerId;
+	private String sellerId;
 
 	@Column(nullable = false)
 	private String prodRegDate;
@@ -88,7 +88,7 @@ public class TradeInfo implements Persistable<TradeInfoId> {
 	}
 
 	@Builder
-	private TradeInfo(UUID userId, String tradeId, TradeType tradeType, UUID sellerId, String prodRegDate,
+	private TradeInfo(String userId, String tradeId, TradeType tradeType, String sellerId, String prodRegDate,
 			String regDate, String prodId, String prodState, Integer salesUnitPrice, Integer stockQuantity,
 			Integer minOrderQuantity, Integer orderUnit, String provDate, Integer orderUnitPrice, Integer orderQuantity,
 			String reqDeliDate, String remarks, TradeStats tradeStats) {

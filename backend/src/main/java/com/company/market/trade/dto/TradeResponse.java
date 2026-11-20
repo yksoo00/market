@@ -12,7 +12,7 @@ public record TradeResponse(
 		String tradeId,
 		String tradeType,
 		String tradeStats,
-		UUID sellerId,
+		String sellerId,
 		String regDate,
 		String prodName,
 		int orderQuantity,

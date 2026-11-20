@@ -61,7 +61,7 @@ public class CompareService {
 	 * 구매자별 잠금으로 지우고 담는 사이에 같은 구매자의 다른 요청이 끼지 않게 한다
 	 */
 	@Transactional
-	public int replace(UUID buyerId, CompareRequest req) {
+	public int replace(String buyerId, CompareRequest req) {
 		Map<String, CompareRequest.Item> unique = uniqueItems(req);
 		if (unique.size() > MAX_ITEMS) {
 			throw new ApiException(ErrorCode.COMPARE_COUNT);
@@ -81,7 +81,7 @@ public class CompareService {
 	 * 기존 목록은 그대로. 응답은 담은 뒤 전체 개수와 새로 담은 개수
 	 */
 	@Transactional
-	public CartAddResponse add(UUID buyerId, CompareRequest req) {
+	public CartAddResponse add(String buyerId, CompareRequest req) {
 		Map<String, CompareRequest.Item> unique = uniqueItems(req);
 		if (unique.size() > MAX_ITEMS) {
 			throw new ApiException(ErrorCode.COMPARE_FULL);
@@ -114,20 +114,20 @@ public class CompareService {
 
 	/** [비교 비우기] — 내 비교 목록 전부 삭제 */
 	@Transactional
-	public void clear(UUID buyerId) {
+	public void clear(String buyerId) {
 		trades.lockCompare(buyerId);
 		deleteAll(buyerId);
 	}
 
 	/** 담은 순서. 매물 값은 지금 값 */
 	@Transactional(readOnly = true)
-	public List<CartItemResponse> list(UUID buyerId) {
+	public List<CartItemResponse> list(String buyerId) {
 		return cart.items(cartInfos.findByUserIdAndCartTypeOrderBySerNo(buyerId, CartType.COMPARE));
 	}
 
 	/** 한 열 빼기. 내 비교 행이 아닌 게 하나라도 있으면 404 로 전부 되돌린다 */
 	@Transactional
-	public void remove(UUID buyerId, List<String> tradeIds) {
+	public void remove(String buyerId, List<String> tradeIds) {
 		Set<String> ids = new LinkedHashSet<>(tradeIds);
 		if (trades.deleteCartRows(buyerId, ids, TradeStats.COMPARE) != ids.size()) {
 			throw new ApiException(ErrorCode.TRADE_NOT_FOUND);
@@ -145,7 +145,7 @@ public class CompareService {
 	}
 
 	/** 매물 지금 값. 없는 매물은 404, 내 매물은 403 */
-	private List<ListingTradeSnapshot> snapshotsOf(UUID buyerId, Collection<CompareRequest.Item> items) {
+	private List<ListingTradeSnapshot> snapshotsOf(String buyerId, Collection<CompareRequest.Item> items) {
 		List<ListingTradeSnapshot> targets = items.stream().map(i -> listings.snapshotForTrade(i.sellerId(), i.regDate())).toList();
 		for (ListingTradeSnapshot l : targets) {
 			if (buyerId.equals(l.sellerId())) {
@@ -155,12 +155,12 @@ public class CompareService {
 		return targets;
 	}
 
-	private void deleteAll(UUID buyerId) {
+	private void deleteAll(String buyerId) {
 		trades.deleteByUserAndTypeAndStats(buyerId, TradeType.REVIEW, TradeStats.COMPARE);
 		cartInfos.deleteByUserAndType(buyerId, CartType.COMPARE);
 	}
 
-	private void insertRows(UUID buyerId, List<ListingTradeSnapshot> targets) {
+	private void insertRows(String buyerId, List<ListingTradeSnapshot> targets) {
 		String now = LocalDateTime.now(clock).format(TIMESTAMP_FORMAT);
 		for (ListingTradeSnapshot l : targets) {
 			int quantity = l.minOrderQuantity() == null || l.minOrderQuantity() < 1 ? 1 : l.minOrderQuantity();

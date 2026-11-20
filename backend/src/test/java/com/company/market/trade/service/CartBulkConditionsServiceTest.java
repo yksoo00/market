@@ -1,5 +1,6 @@
 package com.company.market.trade.service;
 
+import com.company.market.TestUids;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.List;
@@ -46,13 +47,13 @@ class CartBulkConditionsServiceTest {
 	@Autowired
 	JdbcTemplate jdbc;
 
-	final UUID buyer = UUID.randomUUID();
+	final String buyer = TestUids.random();
 
-	final UUID sellerA = UUID.randomUUID();
+	final String sellerA = TestUids.random();
 
-	final UUID sellerB = UUID.randomUUID();
+	final String sellerB = TestUids.random();
 
-	final UUID sellerC = UUID.randomUUID();
+	final String sellerC = TestUids.random();
 
 	Product master;
 
@@ -70,7 +71,7 @@ class CartBulkConditionsServiceTest {
 	}
 
 	/** 기본 매물: 신품, 재고 50, 제공가능일 2099-12-31, 보증·증빙 없음 */
-	private Listing.ListingBuilder base(UUID seller, String regDate, int price) {
+	private Listing.ListingBuilder base(String seller, String regDate, int price) {
 		return Listing.builder().userId(seller).regDate(regDate).prodId(master.getProdId()).tradeType("등록").prodState("신품").salesUnitPrice(price)
 			.salesQuantity(50).minOrderQuantity(1).orderUnit(1).deliveryDate("2099-12-31").stockQuantity(50);
 	}
@@ -98,7 +99,7 @@ class CartBulkConditionsServiceTest {
 		return r.options().stream().filter(o -> o.reason() == null && o.mismatches().isEmpty()).findFirst().orElseThrow().sellerId();
 	}
 
-	private static ListingOption option(CartBulkRowResult r, UUID seller) {
+	private static ListingOption option(CartBulkRowResult r, String seller) {
 		return r.options().stream().filter(o -> o.sellerId().equals(seller.toString())).findFirst().orElseThrow();
 	}
 

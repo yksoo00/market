@@ -75,7 +75,7 @@ class ListingBulkApiTest {
 
 	Cookie authCookie;
 
-	UUID userId;
+	String userId;
 
 	@BeforeEach
 	void setUp() {

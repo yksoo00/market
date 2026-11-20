@@ -60,9 +60,9 @@ class ListingMineApiTest {
 	@Autowired
 	JwtProvider jwtProvider;
 
-	UUID userId;
+	String userId;
 
-	UUID otherId;
+	String otherId;
 
 	Cookie auth;
 
@@ -177,13 +177,13 @@ class ListingMineApiTest {
 			.andExpect(jsonPath("$.data.items", hasSize(1)));
 	}
 
-	private UUID newUser(String loginId, String phone) {
+	private String newUser(String loginId, String phone) {
 		return users.saveAndFlush(User.builder().kind(UserKind.PERSONAL).loginId(loginId).passwordHash("$2a$12$hash")
 			.nickname(loginId).email(loginId + "@example.com").name("홍길동").phone(phone).phoneHash(hasher.hash(phone))
 			.build()).getId();
 	}
 
-	private void save(UUID owner, String prodId, String regDate, String name) {
+	private void save(String owner, String prodId, String regDate, String name) {
 		productRepository.saveAndFlush(Product.builder().prodId(prodId).majorCategory("P01").middleCategory("Q01").minorCategory("R001").prodName(name)
 			.prodBrand("삼성").regDate(regDate).build());
 		listingRepository.saveAndFlush(Listing.builder().userId(owner).regDate(regDate).prodId(prodId).tradeType("등록")

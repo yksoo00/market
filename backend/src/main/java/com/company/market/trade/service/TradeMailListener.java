@@ -46,16 +46,16 @@ public class TradeMailListener {
 	}
 
 	private void send(TradeMailEvent e) {
-		Map<UUID, String> emails = userDirectory.emailsOf(List.of(e.buyerId(), e.sellerId()));
-		Map<UUID, String> names = userDirectory.nicknamesOf(List.of(e.buyerId(), e.sellerId()));
-		for (UUID to : recipients(e)) {
+		Map<String, String> emails = userDirectory.emailsOf(List.of(e.buyerId(), e.sellerId()));
+		Map<String, String> names = userDirectory.nicknamesOf(List.of(e.buyerId(), e.sellerId()));
+		for (String to : recipients(e)) {
 			String address = emails.get(to);
 			if (address == null) {
 				log.info("메일 건너뜀(이메일 없음): trade={} to={}", e.tradeId(), to);
 				continue;
 			}
 			boolean toSeller = to.equals(e.sellerId());
-			UUID other = toSeller ? e.buyerId() : e.sellerId();
+			String other = toSeller ? e.buyerId() : e.sellerId();
 			TradeMailComposer.Mail mail = TradeMailComposer.compose(e, toSeller, names.get(other), app.appUrl());
 			try {
 				mailer.send(address, mail.subject(), mail.body());
@@ -66,7 +66,7 @@ public class TradeMailListener {
 		}
 	}
 
-	private static List<UUID> recipients(TradeMailEvent e) {
+	private static List<String> recipients(TradeMailEvent e) {
 		return switch (e.kind()) {
 			case QUOTE_REQUESTED, PURCHASE_REQUESTED -> List.of(e.sellerId());
 			case QUOTE_ACCEPTED, QUOTE_REJECTED -> List.of(e.buyerId());

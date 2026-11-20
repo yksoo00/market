@@ -72,7 +72,7 @@ public class CartService {
 	 * 100개 확인은 동시에 담은 두 요청이 같이 통과하면 조금 넘을 수 있다(감수 — 행 수 상한이 목적이고 구매자 한 명 안의 경합이라)
 	 */
 	@Transactional
-	public CartAddResponse add(UUID buyerId, CartAddRequest req) {
+	public CartAddResponse add(String buyerId, CartAddRequest req) {
 		Map<String, String> failures = new LinkedHashMap<>();
 		// 매물을 배타 잠금으로 읽는다 — 공유 잠금으로 읽고 재고 UPDATE 로 올리면 같은 매물을 동시에 담는 두 요청이 서로를 기다려
 		// 교착된다. 여러 매물은 늘 같은 순서(판매자·등록일시)로 잠가 서로 다른 순서로 잠그는 요청끼리도 교착하지 않게 한다
@@ -157,7 +157,7 @@ public class CartService {
 	}
 
 	/** trd_cart_info 한 행 — 상품 값은 담을 때 복사. 빈 사양은 '' (정의서 NOT NULL) */
-	CartInfo cartInfo(UUID buyerId, String tradeId, CartType type, ListingTradeSnapshot l, int unitPrice, int quantity,
+	CartInfo cartInfo(String buyerId, String tradeId, CartType type, ListingTradeSnapshot l, int unitPrice, int quantity,
 			String reqDeliDate, String remarks, String now) {
 		return CartInfo.builder()
 			.userId(buyerId)
@@ -186,7 +186,7 @@ public class CartService {
 	 * (자동 삭제·구매·견적 전환과 같은 순서). 내 장바구니 줄이 아니면 404
 	 */
 	@Transactional
-	public CartQuantityResponse changeQuantity(UUID buyerId, String tradeId, int quantity) {
+	public CartQuantityResponse changeQuantity(String buyerId, String tradeId, int quantity) {
 		TradeInfo row = trades.findForUpdateByTradeId(tradeId)
 			.filter(t -> buyerId.equals(t.getUserId()) && t.getTradeType() == TradeType.REVIEW && t.getTradeStats() == TradeStats.CART)
 			.orElseThrow(() -> new ApiException(ErrorCode.TRADE_NOT_FOUND));
@@ -219,7 +219,7 @@ public class CartService {
 
 	/** 최근에 담은 것부터. 매물 값은 지금 값 */
 	@Transactional(readOnly = true)
-	public List<CartItemResponse> list(UUID buyerId) {
+	public List<CartItemResponse> list(String buyerId) {
 		return items(cartInfos.findByUserIdAndCartTypeOrderByTradeIdDesc(buyerId, CartType.CART));
 	}
 
@@ -239,13 +239,13 @@ public class CartService {
 	}
 
 	@Transactional(readOnly = true)
-	public CartCountResponse count(UUID buyerId) {
+	public CartCountResponse count(String buyerId) {
 		return new CartCountResponse(cartInfos.countByUserIdAndCartType(buyerId, CartType.CART));
 	}
 
 	/** 빼기. 내 장바구니 행이 아닌 게 하나라도 있으면 404 로 전부 되돌린다. 빼면 그 줄이 묶었던 수량이 풀린다 */
 	@Transactional
-	public void remove(UUID buyerId, List<String> tradeIds) {
+	public void remove(String buyerId, List<String> tradeIds) {
 		Set<String> ids = new LinkedHashSet<>(tradeIds);
 		for (String id : ids) {
 			TradeInfo row = trades.findByTradeId(id)
@@ -281,7 +281,7 @@ public class CartService {
 	private boolean dropAndRelease(TradeInfo row) {
 		ListingId listing = row.listingId();
 		int quantity = row.getOrderQuantity();
-		UUID buyerId = row.getUserId();
+		String buyerId = row.getUserId();
 		String id = row.getTradeId();
 		if (trades.deleteCartRows(buyerId, Set.of(id), TradeStats.CART) != 1) {
 			return false;

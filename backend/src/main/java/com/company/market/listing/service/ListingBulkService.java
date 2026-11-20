@@ -86,7 +86,7 @@ public class ListingBulkService {
 	/**
 	 * 업로드한 엑셀을 읽고 줄마다 검사한다 (저장 없음). 데이터 줄이 하나도 없으면 빈 결과 — 화면이 "입력한 줄이 없어요"를 보이게
 	 */
-	public BulkParseResponse parse(UUID userId, MultipartFile file, MultipartFile zip) {
+	public BulkParseResponse parse(String userId, MultipartFile file, MultipartFile zip) {
 		String name = file.getOriginalFilename();
 		if (file.isEmpty() || name == null || !name.toLowerCase(Locale.ROOT).endsWith(".xlsx")) {
 			throw new ValidationException(Map.of("file", "엑셀(.xlsx) 파일을 올려 주세요."));
@@ -110,7 +110,7 @@ public class ListingBulkService {
 	 * 시작한다 — 거절된 ZIP 이 파일을 남기지 않게. 칸마다 문제(ZIP 에 없음·형식·용량)는 줄 오류가 되도록 problem 에 담는다.
 	 * 엑셀이 쓰지 않는 ZIP 파일은 저장하지 않는다. 같은 이름을 여러 칸이 써도 칸마다 따로 저장한다(키 하나를 두 매물이 나눠 쓰지 못함)
 	 */
-	private List<BulkRowDto> attach(UUID userId, List<BulkRowDto> rows, MultipartFile zip) {
+	private List<BulkRowDto> attach(String userId, List<BulkRowDto> rows, MultipartFile zip) {
 		if (zip == null) {
 			return rows;
 		}
@@ -202,7 +202,7 @@ public class ListingBulkService {
 	 * 줄별 검사 결과. 저장은 안 한다. 트랜잭션을 걸지 않는다 — CategoryService.resolveMinor 가 예외로 끝나며 바깥 트랜잭션을
 	 * rollback-only 로 표시해, 잡아서 줄 오류로 바꿔도 UnexpectedRollbackException 이 나기 때문이다
 	 */
-	public List<BulkRowResult> check(UUID userId, List<BulkRowDto> rows) {
+	public List<BulkRowResult> check(String userId, List<BulkRowDto> rows) {
 		return checkAll(rows).stream().map(Checked::result).toList();
 	}
 
@@ -213,7 +213,7 @@ public class ListingBulkService {
 	 * (이미 있는 초는 건너뛴다). 200줄이면 최대 약 3분 뒤 시각이 찍힌다 — 계획 2026-11-05 가정 1.
 	 */
 	@Transactional
-	public int commit(UUID userId, List<BulkRowDto> rows) {
+	public int commit(String userId, List<BulkRowDto> rows) {
 		List<Checked> checked = checkAll(rows);
 		Map<String, String> failures = new LinkedHashMap<>();
 		for (Checked c : checked) {

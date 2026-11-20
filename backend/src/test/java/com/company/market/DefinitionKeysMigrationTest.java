@@ -39,6 +39,10 @@ class DefinitionKeysMigrationTest {
 
 	UUID buyer;
 
+	String sellerUid;
+
+	String buyerUid;
+
 	@BeforeAll
 	void migrateWithOldData() {
 		jdbc = new JdbcTemplate(dataSource);
@@ -80,6 +84,9 @@ class DefinitionKeysMigrationTest {
 				values ('26101510001', '20261016100000', 'MIGTEST001', '거래', ?, ?)
 				""", seller, buyer);
 		flyway(null).migrate();
+		// 끝까지 적용하면 uid 가 UP+날짜+일련번호 varchar 로 바뀐다(V202611201100) — 바뀐 값으로 다시 읽는다
+		sellerUid = jdbc.queryForObject("select uid from migtest.trd_user_info where user_id = 'mseller'", String.class);
+		buyerUid = jdbc.queryForObject("select uid from migtest.trd_user_info where user_id = 'mbuyer'", String.class);
 	}
 
 	private Flyway flyway(String target) {
@@ -98,7 +105,7 @@ class DefinitionKeysMigrationTest {
 	@Test
 	@DisplayName("제공가능일 없는 매물은 등록일(reg_date 앞 8자리)로 채운다")
 	void listingProvDateBackfilled() {
-		assertThat(jdbc.queryForObject("select prov_date from migtest.trd_prod_reg where user_id = ?", String.class, seller))
+		assertThat(jdbc.queryForObject("select prov_date from migtest.trd_prod_reg where user_id = ?", String.class, sellerUid))
 			.isEqualTo("20261015");
 	}
 
@@ -125,7 +132,7 @@ class DefinitionKeysMigrationTest {
 	@DisplayName("거래이력의 buyer_id 는 user_id 로 옮겨진다")
 	void historyBuyerRenamed() {
 		assertThat(jdbc.queryForObject("select user_id from migtest.trd_trade_history where trade_id = '26101510001'",
-				UUID.class)).isEqualTo(buyer);
+				String.class)).isEqualTo(buyerUid);
 	}
 
 }
