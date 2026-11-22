@@ -115,11 +115,6 @@ const M = [
   { k: "mx500", name: "MX500 1TB SATA SSD", brand: "Crucial", part: "CT1000MX500SSD1", cls: "43201832", cat: "P02-Q06-R014", spec: "2.5인치 SATA III / 읽기 최대 560MB/s", life: 60 },
   { k: "mxm3s", name: "MX Master 3S 무선 마우스", brand: "Logitech", part: "910-006556", cls: "43211708", cat: "P04-Q16-R048", spec: "블루투스·Logi Bolt / 8000DPI / 저소음 클릭", life: 24 },
 ];
-M.forEach((m, i) => {
-  m.prodId = `KP-2026-${String(101 + i).padStart(6, "0")}`; // 개발용 샘플 50건(000001~050)과 겹치지 않게 101 부터
-  [m.major, m.middle, m.minor] = m.cat.split("-");
-});
-const MB = Object.fromEntries(M.map((m) => [m.k, m]));
 
 // 제조사 사이트에서 받은 실제 사진·데이터시트의 업로드 키 (fetch-product-files.mjs 가 만든 assets/manifest.json). 없으면 비워 둔다.
 // 마스터에 사진이 있으면 그 매물은 같은 파일을 대표 사진으로 쓴다 (상품 처음 등록 때 마스터가 첫 매물 사진 키를 공유하는 것과 같다)
@@ -134,6 +129,18 @@ for (const m of M) {
   m.sheet = FILES[m.k]?.datasheet ?? null;
   if ((m.photo ?? "").length > 100 || (m.sheet ?? "").length > 100) throw new Error(`파일 키 100자 초과: ${m.k}`);
 }
+// 시연 데이터는 "완벽한 매물"만 둔다 — 사진·데이터시트가 둘 다 있는 상품만 마스터·매물로 만든다.
+// LIVE 는 시연 중 직접 등록하려고 미리 넣지 않는 상품 (사진·서류는 Downloads/판매등록 폴더로 따로 준비)
+const LIVE = new Set(["ds1621"]);
+const SKIPPED = M.filter((m) => !(m.photo && m.sheet)).map((m) => m.k);
+// LIVE 상품은 마스터만 넣고(상품 찾기에서 고를 수 있게) 매물은 안 만든다. 번호는 맨 뒤(KP-2026-000115)
+const complete = M.filter((m) => m.photo && m.sheet);
+M.splice(0, M.length, ...complete.filter((m) => !LIVE.has(m.k)), ...complete.filter((m) => LIVE.has(m.k)));
+M.forEach((m, i) => {
+  m.prodId = `KP-2026-${String(101 + i).padStart(6, "0")}`; // 개발용 샘플 50건(000001~050)과 겹치지 않게 101 부터
+  [m.major, m.middle, m.minor] = m.cat.split("-");
+});
+const MB = Object.fromEntries(M.map((m) => [m.k, m]));
 
 // ───────────────────────── 매물 (판매자별, 가상 가격) ─────────────────────────
 // [판매자, 상품, 상태, 단가, 수량, 최소주문, 주문단위, 설명, 보증일(0|30|90|180|360|720|1080), 불량지원, 대체품]
@@ -146,7 +153,7 @@ const S60 = "신품대비 60~69%";
 const hanbit = [
   L("hanbit", "r650", S90, 5800000, 4, 1, 1, "2024년 구축 후 반납 장비. 레일·전원케이블 포함, RAID·전원 점검 완료.", 360, "대체", "동급 이상 서버로 교환"),
   L("hanbit", "dl380", S80, 3200000, 6, 1, 1, "iLO 라이선스 포함. 전원·팬·디스크 점검 완료, 레일 포함.", 180, "대체", "동급 이상 서버로 교환"),
-  L("hanbit", "sr650", S70, 2100000, 3, 1, 1, "XClarity 컨트롤러 초기화 완료. 외관 사용감 있음.", 90, "환불", null),
+  L("hanbit", "sr650", S70, 2100000, 3, 1, 1, "XClarity 컨트롤러 초기화 완료. 외관 사용감 있음.", 90, "환불", "동급 2U 서버로 교환 가능(재고 한정)"),
   L("hanbit", "r750", N, 8900000, 2, 1, 1, "미개봉 신품. 제조사 보증 승계 가능.", 720, "대체", "동일 모델로 교환"),
   L("hanbit", "t350", S90, 1450000, 5, 1, 1, "사무실용 타워 서버. 사용 6개월, 설치 이력 초기화.", 360, "대체", "동급 이상 서버로 교환"),
   L("hanbit", "rdimm", N, 185000, 64, 4, 4, "서버 증설용 신품. 4개 단위 판매.", 720, "대체", "동일 모듈로 교환"),
@@ -155,7 +162,7 @@ const hanbit = [
   L("hanbit", "wdred", N, 235000, 12, 1, 1, "NAS용 신품 HDD.", 360, "대체", "동일 모델로 교환"),
   L("hanbit", "pm9a3", N, 330000, 10, 2, 1, "서버 증설용 U.2 NVMe 신품. 2개 이상 주문.", 360, "대체", "동일 모델로 교환"),
   L("hanbit", "smt1500", S80, 420000, 6, 1, 1, "배터리 교체 후 출고. 부하 시험 완료.", 90, "환불", null),
-  L("hanbit", "a4000", S80, 780000, 4, 1, 1, "워크스테이션 반납 분. 벤치마크 점검 완료.", 90, "환불", null),
+  L("hanbit", "a4000", S80, 780000, 4, 1, 1, "워크스테이션 반납 분. 벤치마크 점검 완료.", 90, "환불", "동급 RTX A 시리즈로 교환 가능(재고 한정)"),
 ];
 const netone = [
   L("netone", "c2960x", S80, 1350000, 8, 1, 1, "초기화 완료, IOS 최신 안정판. 랙 브래킷 포함.", 180, "대체", "동급 PoE 스위치로 교환"),
@@ -182,16 +189,16 @@ const pcmaru = [
   L("pcmaru", "mxm3s", N, 109000, 40, 1, 1, "미개봉 신품.", 360, "대체", "동일 모델로 교환"),
 ];
 const minjun = [
-  L("minjun", "s980", S90, 115000, 2, 1, 1, "개봉 후 2개월 사용. 박스·영수증 있음.", 0, null, null),
+  L("minjun", "s980", S90, 115000, 2, 1, 1, "개봉 후 2개월 사용. 박스·영수증 있음.", 90, "환불", "수령 7일 이내 불량 시 환불 또는 동일 모델 교환"),
   L("minjun", "lg27", S90, 285000, 1, 1, 1, "집에서 1년 사용. 박스 있음, 불량화소 없음.", 0, null, null),
-  L("minjun", "t14", S80, 560000, 1, 1, 1, "개인 사용. 배터리 사이클 낮음, 어댑터 포함.", 0, null, null),
+  L("minjun", "t14", S80, 560000, 1, 1, 1, "개인 사용. 배터리 사이클 낮음, 어댑터 포함.", 90, "환불", "수령 7일 이내 불량 시 환불 또는 동일 모델 교환"),
 ];
 // 판매자를 번갈아 놓아 최신순 목록이 한 판매자로 몰리지 않게 한다. 개인 판매자는 사이사이에.
+const keepListed = (arr) => arr.filter((l) => MB[l.k] && !LIVE.has(l.k));
+const [hanbitL, netoneL, pcmaruL, minjunL] = [hanbit, netone, pcmaru, minjun].map(keepListed);
 const LISTINGS = [];
-for (let i = 0; i < 14; i++) for (const arr of [hanbit, netone, pcmaru]) if (arr[i]) LISTINGS.push(arr[i]);
-LISTINGS.splice(5, 0, minjun[0]);
-LISTINGS.splice(17, 0, minjun[1]);
-LISTINGS.splice(29, 0, minjun[2]);
+for (let i = 0; i < 14; i++) for (const arr of [hanbitL, netoneL, pcmaruL]) if (arr[i]) LISTINGS.push(arr[i]);
+minjunL.forEach((l, i) => LISTINGS.splice(3 + i * 7, 0, l));
 const LISTING_START = dayStart - 13 * DAY + 9 * HOUR; // 가장 오래된 매물 = 시연일 13일 전 09시
 LISTINGS.forEach((l, i) => {
   const reg = LISTING_START + i * 8 * HOUR + ((i * 37) % 60) * 1000; // 초는 다르게 (같은 사용자 같은 초 충돌 방지)
@@ -202,6 +209,8 @@ LISTINGS.forEach((l, i) => {
   l.stock = l.qty; // 아래 거래 반영 뒤 줄어든다
   l.dtUpdate = null;
   l.dtExpire = null;
+  l.testReport = FILES._listings?.[l.id]?.testReport ?? null;
+  l.certificate = FILES._listings?.[l.id]?.certificate ?? null;
 });
 const LB = Object.fromEntries(LISTINGS.map((l) => [l.id, l]));
 
@@ -212,24 +221,24 @@ const T = (id, buyer, listing, qty, stats, extra = {}) => ({ id, buyer, listing,
 const TRADES = [
   // 거래완료(구매확정) → 거래이력에 1줄씩. 판매자·구매자 화면의 "내 거래이력" 이 비어 보이지 않게.
   T("H1", "daon", "hanbit:r650", 2, "구매확정", { after: 6, confirmAfter: 5, remarks: "서버실 이전 일정에 맞춰 납품 부탁드립니다." }),
-  T("H2", "daon", "netone:c9200l", 3, "구매확정", { after: 5, confirmAfter: 4, remarks: "세금계산서 발행 요청" }),
+  T("H2", "daon", "netone:usw24", 3, "구매확정", { after: 5, confirmAfter: 4, remarks: "세금계산서 발행 요청" }),
   T("H3", "seoyeon", "pcmaru:s980", 1, "구매확정", { after: 8, confirmAfter: 6 }),
-  T("H4", "jiwoo", "minjun:lg27", 1, "구매확정", { after: 7, confirmAfter: 8, remarks: "직거래 희망합니다." }), // 마지막 1개 → 판매완료
-  T("H5", "daon", "pcmaru:p2422", 10, "구매확정", { after: 6, confirmAfter: 6, remarks: "신규 사무실 책상 배치용" }),
-  T("H6", "seoyeon", "hanbit:ironwolf", 2, "구매확정", { after: 9, confirmAfter: 5 }),
+  T("H4", "jiwoo", "minjun:t14", 1, "구매확정", { after: 7, confirmAfter: 8, remarks: "직거래 희망합니다." }), // 마지막 1개 → 판매완료
+  T("H5", "daon", "pcmaru:lat5430", 5, "구매확정", { after: 6, confirmAfter: 6, remarks: "신규 사무실 직원용 노트북" }),
+  T("H6", "seoyeon", "hanbit:wdred", 2, "구매확정", { after: 9, confirmAfter: 5 }),
   T("H7", "daon", "netone:u6pro", 4, "구매확정", { after: 5, confirmAfter: 5 }),
   T("H8", "jiwoo", "pcmaru:mxm3s", 2, "구매확정", { after: 10, confirmAfter: 4 }),
   // 진행 중 — 시연에서 판매자·구매자가 직접 누르는 용도
   T("Q1", "daon", "netone:fg60f", 2, "견적요청", { after: 12, price: 600000, remarks: "지점 2곳 설치 예정, 단가 조정 부탁드립니다." }), // 판매자가 수락/거절
-  T("Q2", "jiwoo", "hanbit:dl380", 1, "견적요청", { after: 14, price: 2900000 }), // 판매자가 수락
+  T("Q2", "jiwoo", "hanbit:sr650", 1, "견적요청", { after: 14, price: 2000000 }), // 판매자가 수락
   T("Q3", "seoyeon", "pcmaru:t14", 2, "견적요청", { after: 16, price: 560000 }), // 같은 매물에 두 건 → 한꺼번에 수락
   T("Q3b", "daon", "pcmaru:t14", 5, "견적요청", { after: 18, price: 580000, remarks: "신입사원 입사 물량" }),
   T("Q4", "daon", "hanbit:t350", 3, "견적요청", { after: 15, price: 1350000 }), // 두 건 합계 6 > 재고 5 → [모두 수락] 에서 묶음 실패
   T("Q5", "jiwoo", "hanbit:t350", 3, "견적요청", { after: 17, price: 1400000 }),
-  T("A1", "daon", "hanbit:r750", 1, "견적수락", { after: 9, price: 8400000, remarks: "서버실 신규 구축" }), // 구매자가 [구매] 를 누르는 용도 (재고 1 묶임)
+  T("A1", "daon", "hanbit:a4000", 1, "견적수락", { after: 9, price: 740000, remarks: "AI 학습 PC 구축" }), // 구매자가 [구매] 를 누르는 용도 (재고 1 묶임)
   T("R1", "seoyeon", "pcmaru:lat5430", 2, "견적거절", { after: 11, price: 400000 }), // 구매자가 [재요청]
   T("P1", "seoyeon", "pcmaru:s870", 2, "구매요청", { after: 19 }), // 구매자가 [거래완료]
-  T("P2", "daon", "hanbit:rdimm", 8, "구매요청", { after: 20, remarks: "R650 증설용" }), // 4개 단위 주문 (최소·단위 4)
+  T("P2", "daon", "hanbit:pm9a3", 2, "구매요청", { after: 20, remarks: "R650 증설용 NVMe" }), // 최소주문 2
 ];
 const HOLDS = new Set(["견적수락", "구매요청", "구매확정"]);
 for (const t of TRADES) {
@@ -353,11 +362,13 @@ const SHEETS = [
       ["제공가능일", (l) => l.provDate],
       ["재고수량", (l) => l.stock, true],
       ["상품설명", (l) => l.desc],
-      ["DATA SHEET", (l) => (l.seller === "minjun" ? null : str(MB[l.k].sheet))], // 개인 판매자는 서류 없이
+      ["DATA SHEET", (l) => str(MB[l.k].sheet)],
       ["상품사진1", (l) => str(MB[l.k].photo)],
       ["보증기한", (l) => l.wdays, true],
       ["불량지원방법", (l) => str(l.cov)],
       ["대체품", (l) => str(l.repl)],
+      ["테스트리포트", (l) => str(l.testReport)],
+      ["정품인증서", (l) => str(l.certificate)],
       ["최종갱신일시", (l) => str(l.dtUpdate)],
       ["거래완료일시", (l) => str(l.dtExpire)],
     ],
@@ -447,7 +458,7 @@ function zip(files) {
   let offset = 0;
   for (const [name, text] of files) {
     const nameBuf = Buffer.from(name, "utf8");
-    const data = Buffer.from(text, "utf8");
+    const data = Buffer.isBuffer(text) ? text : Buffer.from(text, "utf8");
     const crc = crc32(data);
     const local = Buffer.alloc(30);
     local.writeUInt32LE(0x04034b50, 0);
@@ -563,6 +574,85 @@ for (const t of [...TRADES].sort((a, b) => a.reqMs - b.reqMs)) {
 md.push(``);
 writeFileSync(join(OUT, "데이터-목록.md"), md.join("\n"));
 
+// ───────────────────────── 다량 등록·다량 구매 시험용 엑셀 (10줄씩) ─────────────────────────
+// 앱의 [판매상품 다량 등록 (엑셀)]·[엑셀로 대량구매] 에 올리는 파일. 양식 헤더는 서버 파서(ListingBulkParser·CartBulkParser) 와 같다.
+const iso = (ms) => {
+  const t = parts(ms);
+  return `${t.y}-${t.M}-${t.d}`;
+};
+const BULK_DIR = join(OUT, "bulk");
+mkdirSync(BULK_DIR, { recursive: true });
+const sheetOf = (name, header, rows) => ({ name, header, body: rows.map((r) => r.map((v) => (v === null || v === undefined ? null : { v, n: typeof v === "number" })) ) });
+
+// ① 다량 등록 — 로그인한 판매자 이름으로 등록 (pcmaru01 권장). 1~8줄은 이미 있는 상품 마스터에 붙고(마스터 사진·데이터시트를 같이 씀),
+//    9·10줄은 새 상품(마스터가 새로 생김)이라 ZIP 에서 사진을 가져온다.
+const REG_HEADER = ["상품명*", "제조사*", "분류번호", "상품번호", "카테고리 코드", "상품ID", "상품상태*", "단가*", "수량*", "최소주문수량", "주문단위", "제공가능일*", "설명", "사진1", "사진2", "사진3", "사진4", "데이터시트"];
+const row = (k, state, price, qty, min, unit, dayOffset, desc, extra = {}) => {
+  const m = MB[k] ?? NEW_PRODUCTS[k];
+  return [m.name, m.brand, m.cls, m.part, extra.cat ?? null, null, state, price, qty, min, unit, iso(dayStart + dayOffset * DAY), desc, extra.photo ?? null, null, null, null, null];
+};
+// 새 상품 (미리 넣은 마스터에 없는 것 — 사진 파일만 받아 둔 상품)
+const NEW_PRODUCTS = {
+  lg27: { name: "27UP850-W 27인치 4K UHD 모니터", brand: "LG전자", cls: "43211902", part: "27UP850-W" },
+  u2723: { name: "UltraSharp U2723QE 27인치 4K 모니터", brand: "Dell", cls: "43211902", part: "U2723QE" },
+};
+const REG_ROWS = [
+  row("r650", S90, 5650000, 3, 1, 1, 5, "리스 반납 1U 서버. 레일·전원케이블 포함, 전원·RAID 점검 완료."),
+  row("sr650", S70, 2050000, 2, 1, 1, 6, "2U 서버. XClarity 초기화 완료, 외관 사용감 있음."),
+  row("t350", S90, 1400000, 4, 1, 1, 7, "사무실용 타워 서버. 사용 6개월, 설치 이력 초기화."),
+  row("usw24", N, 870000, 6, 1, 1, 4, "미개봉 신품 PoE 스위치. UniFi 컨트롤러 즉시 연결 가능."),
+  row("u6pro", N, 225000, 12, 2, 1, 4, "미개봉 신품 Wi-Fi 6 AP. 2개 이상 주문."),
+  row("wdred", N, 229000, 10, 1, 1, 8, "NAS용 신품 HDD."),
+  row("a4000", S80, 760000, 3, 1, 1, 9, "워크스테이션 반납 그래픽카드. 벤치마크 점검 완료."),
+  row("s870", N, 105000, 20, 1, 1, 3, "미개봉 신품 SATA SSD."),
+  row("lg27", S90, 320000, 8, 1, 1, 10, "사용 1년 4K 모니터. 불량화소 없음, 스탠드·USB-C 케이블 포함.", { cat: "E06-F24-G075", photo: "lg27.webp" }),
+  row("u2723", N, 680000, 5, 1, 1, 10, "미개봉 신품 4K USB-C 허브 모니터.", { cat: "E06-F24-G075", photo: "u2723.webp" }),
+];
+if (REG_ROWS.length !== 10) throw new Error("다량 등록은 10줄이어야 합니다");
+writeFileSync(join(BULK_DIR, "다량등록_10줄.xlsx"), xlsx([sheetOf("양식", REG_HEADER, REG_ROWS)]));
+// 첨부 ZIP: 새 상품 2개의 사진 (파일 이름은 엑셀 '사진1' 칸에 적은 것과 같아야 한다)
+const zipFiles = [];
+for (const [k, name] of [["lg27", "lg27.webp"], ["u2723", "u2723.webp"]]) {
+  const key = FILES[k]?.photo;
+  if (key) zipFiles.push([name, readFileSync(join(here, "..", "..", "backend", "data", "uploads", key))]);
+}
+if (zipFiles.length === 2) writeFileSync(join(BULK_DIR, "다량등록_첨부사진.zip"), zip(zipFiles));
+else console.log("⚠ lg27·u2723 사진이 없어 첨부 ZIP 을 만들지 못했다 (fetch-product-files.mjs 먼저)");
+
+// ② 다량 구매 — 로그인한 구매자 이름으로 (daon01 권장). 이름·제조사로 매물을 찾고 조건(상태·단가·보증·서류)에 맞는 매물을 고른다.
+const BUY_HEADER = ["상품명*", "제조사", "분류번호", "상품ID", "수량*", "납품희망일*", "최소상태", "단가상한", "최소보증(개월)", "데이터시트", "사진", "불량지원", "테스트리포트", "정품인증서", "요청사항"];
+const buy = (k, qty, dayOffset, c = {}, note = null) => {
+  const m = MB[k];
+  const Y = (b) => (b ? "Y" : null);
+  return [m.name, m.brand, m.cls, null, qty, iso(dayStart + dayOffset * DAY), c.state ?? null, c.maxPrice ?? null, c.months ?? null, Y(c.sheet), Y(c.photo), Y(c.cov), Y(c.test), Y(c.cert), note];
+};
+const ALL = { sheet: true, photo: true, cov: true, test: true, cert: true };
+const BUY_ROWS = [
+  buy("r650", 1, 21, { ...ALL, state: S90, months: 6 }, "서버실 1랙 구축용"),
+  buy("sr650", 1, 21, { ...ALL, state: S70, months: 3, maxPrice: 2200000 }),
+  buy("t350", 2, 21, { ...ALL, maxPrice: 1500000 }, "지점 2곳 배치"),
+  buy("usw24", 4, 14, { ...ALL, months: 12 }, "층별 PoE 스위치"),
+  buy("u6pro", 6, 14, { ...ALL, state: N }, "무선 AP 6대 (최소주문 2대 단위)"),
+  buy("wdred", 3, 21, { sheet: true, photo: true, cov: true }),
+  buy("a4000", 2, 21, { ...ALL, state: S80, maxPrice: 800000 }, "AI 학습 PC용"),
+  buy("t14", 3, 14, { ...ALL, state: S80 }, "신입사원 노트북"),
+  buy("lat5430", 2, 14, { sheet: true, photo: true, test: true }),
+  buy("s980", 5, 10, { ...ALL, state: N, months: 24 }, "개발 PC SSD 교체"),
+];
+if (BUY_ROWS.length !== 10) throw new Error("다량 구매는 10줄이어야 합니다");
+writeFileSync(join(BULK_DIR, "대량구매_10줄.xlsx"), xlsx([sheetOf("양식", BUY_HEADER, BUY_ROWS)]));
+
+// make-sample-docs.mjs 가 읽는 목록 (매물마다 테스트 리포트·정품 확인서를 만든다)
+const company = (key) => U[key].company ?? U[key].nickname ?? U[key].loginId;
+mkdirSync(join(here, "assets"), { recursive: true });
+writeFileSync(
+  join(here, "assets", "listings.json"),
+  JSON.stringify(LISTINGS.map((l) => ({ id: l.id, seller: company(l.seller), personal: U[l.seller].cls === "personal", k: l.k, name: MB[l.k].name, brand: MB[l.k].brand, part: MB[l.k].part, cat: MB[l.k].cat, state: l.state })), null, 2) + "\n",
+);
+const incomplete = LISTINGS.filter((l) => !(MB[l.k].photo && MB[l.k].sheet && l.desc && l.wdays > 0 && l.cov && l.repl && l.testReport && l.certificate));
+if (SKIPPED.length) console.log(`사진·데이터시트가 없어 뺀 상품: ${SKIPPED.join(", ")}`);
+if (incomplete.length) console.log(`⚠ 서류가 덜 갖춰진 매물 ${incomplete.length}건 — node docs/demo/make-sample-docs.mjs 를 돌린 뒤 다시 만든다`);
+else console.log(`매물 ${LISTINGS.length}건 모두 사진·데이터시트·설명·보증·불량지원·대체품·테스트리포트·정품인증서가 있다`);
 console.log(`시연일 ${DEMO_DAY} / uid ${uidPrefix}${String(UID_START).padStart(3, "0")} ~ ${uidPrefix}${String(UID_START + USERS.length - 1).padStart(3, "0")}`);
 console.log(counts.join("\n"));
 console.log(`→ ${OUT}`);

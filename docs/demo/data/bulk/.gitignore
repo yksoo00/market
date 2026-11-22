@@ -1,0 +1,2 @@
+# 제조사 사진이 든 첨부 ZIP 은 저장소에 올리지 않는다 (build-demo-data.mjs 가 backend/data/uploads 에서 만든다)
+*.zip

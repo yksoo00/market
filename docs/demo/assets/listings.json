@@ -1,0 +1,178 @@
+[
+  {
+    "id": "hanbit:r650",
+    "seller": "한빛정보통신(주)",
+    "personal": false,
+    "k": "r650",
+    "name": "PowerEdge R650 1U 랙마운트 서버",
+    "brand": "Dell",
+    "part": "R650",
+    "cat": "E02-F06-G017",
+    "state": "신품대비 90~99%"
+  },
+  {
+    "id": "netone:usw24",
+    "seller": "넷원시스템",
+    "personal": false,
+    "k": "usw24",
+    "name": "UniFi Switch Pro 24 PoE",
+    "brand": "Ubiquiti",
+    "part": "USW-Pro-24-PoE",
+    "cat": "E04-F13-G039",
+    "state": "신품"
+  },
+  {
+    "id": "pcmaru:t14",
+    "seller": "피씨마루",
+    "personal": false,
+    "k": "t14",
+    "name": "ThinkPad T14 Gen 3 노트북",
+    "brand": "Lenovo",
+    "part": "T14 Gen 3",
+    "cat": "E01-F02-G005",
+    "state": "신품대비 80~89%"
+  },
+  {
+    "id": "minjun:s980",
+    "seller": "중고IT민준",
+    "personal": true,
+    "k": "s980",
+    "name": "980 PRO 1TB NVMe SSD",
+    "brand": "Samsung",
+    "part": "MZ-V8P1T0BW",
+    "cat": "P02-Q06-R014",
+    "state": "신품대비 90~99%"
+  },
+  {
+    "id": "hanbit:sr650",
+    "seller": "한빛정보통신(주)",
+    "personal": false,
+    "k": "sr650",
+    "name": "ThinkSystem SR650 2U 서버",
+    "brand": "Lenovo",
+    "part": "7X06",
+    "cat": "E02-F06-G018",
+    "state": "신품대비 70~79%"
+  },
+  {
+    "id": "netone:u6pro",
+    "seller": "넷원시스템",
+    "personal": false,
+    "k": "u6pro",
+    "name": "UniFi U6 Pro 무선 AP",
+    "brand": "Ubiquiti",
+    "part": "U6-Pro",
+    "cat": "E04-F14-G043",
+    "state": "신품"
+  },
+  {
+    "id": "pcmaru:lat5430",
+    "seller": "피씨마루",
+    "personal": false,
+    "k": "lat5430",
+    "name": "Latitude 5430 노트북",
+    "brand": "Dell",
+    "part": "Latitude 5430",
+    "cat": "E01-F02-G007",
+    "state": "신품대비 80~89%"
+  },
+  {
+    "id": "hanbit:t350",
+    "seller": "한빛정보통신(주)",
+    "personal": false,
+    "k": "t350",
+    "name": "PowerEdge T350 타워 서버",
+    "brand": "Dell",
+    "part": "T350",
+    "cat": "E02-F07-G021",
+    "state": "신품대비 90~99%"
+  },
+  {
+    "id": "netone:fg60f",
+    "seller": "넷원시스템",
+    "personal": false,
+    "k": "fg60f",
+    "name": "FortiGate 60F 방화벽",
+    "brand": "Fortinet",
+    "part": "FG-60F",
+    "cat": "E04-F15-G046",
+    "state": "신품대비 90~99%"
+  },
+  {
+    "id": "pcmaru:s980",
+    "seller": "피씨마루",
+    "personal": false,
+    "k": "s980",
+    "name": "980 PRO 1TB NVMe SSD",
+    "brand": "Samsung",
+    "part": "MZ-V8P1T0BW",
+    "cat": "P02-Q06-R014",
+    "state": "신품"
+  },
+  {
+    "id": "minjun:t14",
+    "seller": "중고IT민준",
+    "personal": true,
+    "k": "t14",
+    "name": "ThinkPad T14 Gen 3 노트북",
+    "brand": "Lenovo",
+    "part": "T14 Gen 3",
+    "cat": "E01-F02-G005",
+    "state": "신품대비 80~89%"
+  },
+  {
+    "id": "hanbit:wdred",
+    "seller": "한빛정보통신(주)",
+    "personal": false,
+    "k": "wdred",
+    "name": "WD Red Plus 8TB NAS HDD",
+    "brand": "Western Digital",
+    "part": "WD80EFZZ",
+    "cat": "P02-Q07-R018",
+    "state": "신품"
+  },
+  {
+    "id": "pcmaru:s870",
+    "seller": "피씨마루",
+    "personal": false,
+    "k": "s870",
+    "name": "870 EVO 1TB SATA SSD",
+    "brand": "Samsung",
+    "part": "MZ-77E1T0B/KR",
+    "cat": "P02-Q06-R014",
+    "state": "신품"
+  },
+  {
+    "id": "hanbit:pm9a3",
+    "seller": "한빛정보통신(주)",
+    "personal": false,
+    "k": "pm9a3",
+    "name": "PM9A3 1.92TB NVMe SSD (U.2)",
+    "brand": "Samsung",
+    "part": "MZQL21T9HCJR",
+    "cat": "E05-F20-G062",
+    "state": "신품"
+  },
+  {
+    "id": "pcmaru:mxm3s",
+    "seller": "피씨마루",
+    "personal": false,
+    "k": "mxm3s",
+    "name": "MX Master 3S 무선 마우스",
+    "brand": "Logitech",
+    "part": "910-006556",
+    "cat": "P04-Q16-R048",
+    "state": "신품"
+  },
+  {
+    "id": "hanbit:a4000",
+    "seller": "한빛정보통신(주)",
+    "personal": false,
+    "k": "a4000",
+    "name": "RTX A4000 16GB 그래픽카드",
+    "brand": "NVIDIA",
+    "part": "RTX A4000",
+    "cat": "E05-F21-G067",
+    "state": "신품대비 80~89%"
+  }
+]

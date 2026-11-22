@@ -11,6 +11,7 @@
 
 import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -89,8 +90,13 @@ async function download(url, want, limit) {
   return { buf, ext: type };
 }
 
+function pageHtml(url) {
+  return execFileSync("curl", ["-sL", "-m", "40", "-A", UA, url], { maxBuffer: 64 * 1024 * 1024 }).toString("utf8");
+}
+
 function candidates(html, base) {
   const out = [];
+  for (const m of html.matchAll(/"image"\s*:\s*\[?\s*"([^"]+)"/g)) out.push(m[1]);
   for (const re of [/<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]*content=["']([^"']+)["']/gi, /<meta[^>]+content=["']([^"']+)["'][^>]*property=["']og:image["']/gi, /<meta[^>]+name=["']twitter:image["'][^>]*content=["']([^"']+)["']/gi]) {
     for (const m of html.matchAll(re)) out.push(m[1]);
   }
@@ -117,7 +123,7 @@ for (const [k, s] of Object.entries(SRC)) {
     try {
       let sheetUrl = s.sheet;
       if (!sheetUrl && s.sheetPage) {
-        const html = await (await get(s.sheetPage)).text();
+        const html = pageHtml(s.sheetPage);
         const link = [...html.matchAll(/href=["']([^"']+\.pdf[^"']*)["']/gi)].map((x) => new URL(x[1].replaceAll("&amp;", "&"), s.sheetPage).href).find((u) => /pa-?220/i.test(u));
         if (!link) throw new Error("페이지에서 PDF 링크를 못 찾음");
         sheetUrl = link;
@@ -139,7 +145,7 @@ for (const [k, s] of Object.entries(SRC)) {
   else {
     try {
       let list = s.image ? [s.image] : [];
-      if (!list.length && s.page) list = candidates(await (await get(s.page, "text/html")).text(), s.page);
+      if (!list.length && s.page) list = candidates(pageHtml(s.page), s.page);
       if (!list.length) throw new Error("사진 주소를 못 찾음");
       let done = false;
       let lastErr;

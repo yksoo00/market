@@ -5,7 +5,10 @@
     "photo": "public/listings/photos/2026/11/6af1286c-fc6e-4c4d-a4df-32138ceffb3a.jpg",
     "photoSource": "데이터시트 PDF 안의 사진 (https://i.dell.com/sites/csdocuments/Product_Docs/en/poweredge-r650-spec-sheet.pdf)"
   },
-  "dl380": {},
+  "dl380": {
+    "photo": "public/listings/photos/2026/11/b95963b0-7914-4be7-91e7-15a8bb3bc14f.png",
+    "photoSource": "https://www.itcreations.com/dist/landing/i/dl380-gen10-plus/carousel/dl380-gen10-plus-1.png"
+  },
   "sr650": {
     "datasheet": "private/listings/datasheets/2026/11/af184106-611b-4dcb-ab12-9444836e101c.pdf",
     "datasheetSource": "https://psref.lenovo.com/syspool/Sys/PDF/datasheet/SR650_DS_EN.pdf",
@@ -72,9 +75,14 @@
   "ap22": {},
   "fg60f": {
     "datasheet": "private/listings/datasheets/2026/11/6ca49605-5113-4cde-9dcc-84b120f955a7.pdf",
-    "datasheetSource": "https://www.fortinet.com/content/dam/fortinet/assets/data-sheets/pdf/fortigate-fortiwifi-60f-series.pdf"
+    "datasheetSource": "https://www.fortinet.com/content/dam/fortinet/assets/data-sheets/pdf/fortigate-fortiwifi-60f-series.pdf",
+    "photo": "public/listings/photos/2026/11/5d7ce4e6-2dfc-4283-9d8a-4119def370b6.jpg",
+    "photoSource": "https://www.avendor.com/cdn/shop/files/1078989001.jpg"
   },
-  "pa220": {},
+  "pa220": {
+    "photo": "public/listings/photos/2026/11/ee92e542-9a9b-43ad-938c-7ebdb283a1be.jpg",
+    "photoSource": "https://accyotta.com/assets/images/resources/pa-220-440-158.jpg"
+  },
   "t14": {
     "datasheet": "private/listings/datasheets/2026/11/4f686461-65c4-4817-825c-0dd51787a61a.pdf",
     "datasheetSource": "https://psref.lenovo.com/syspool/Sys/PDF/ThinkPad/ThinkPad_T14_Gen_3_Intel/ThinkPad_T14_Gen_3_Intel_Spec.pdf",
@@ -100,15 +108,23 @@
     "datasheet": "private/listings/datasheets/2026/11/442360c5-5df5-4183-b4f8-f4eca671ae77.pdf",
     "datasheetSource": "https://psref.lenovo.com/syspool/Sys/PDF/datasheet/ThinkCentre_M720_Tiny_datasheet_EN.pdf"
   },
-  "lg27": {},
-  "u2723": {},
+  "lg27": {
+    "photo": "public/listings/photos/2026/11/cda83243-df56-47c5-8728-1b7f2a1cc856.webp",
+    "photoSource": "https://media.us.lg.com/transform/ecomm-PDPGallery-1100x730/87259e5f-adb3-44d4-a650-d2d9f5340def/md08000010-zoom-01-jpg"
+  },
+  "u2723": {
+    "photo": "public/listings/photos/2026/11/9ca19ab4-cfc4-493e-ad3b-9bc7be541506.webp",
+    "photoSource": "https://i.dell.com/is/image/DellContent/content/dam/ss2/product-images/dell-client-products/peripherals/monitors/u-series/u2723qe/spi/ng/monitor-u2723qe-campaign-hero-504x350-ng.psd?fmt=jpg&wid=504&hei=350"
+  },
   "p2422": {
     "datasheet": "private/listings/datasheets/2026/11/7f707f22-c3a2-4aef-aa6d-1a00252cddaa.pdf",
     "datasheetSource": "https://dl.dell.com/manuals/all-products/esuprt_electronics_accessories/esuprt_electronics_accessories_monitor/esuprt_monitor_p_series/dell-p2422h-monitor_user's-guide_en-us.pdf"
   },
   "s980": {
     "datasheet": "private/listings/datasheets/2026/11/314c53c8-82b2-4dd5-b758-3d322c467c83.pdf",
-    "datasheetSource": "https://download.semiconductor.samsung.com/resources/data-sheet/Samsung-NVMe-SSD-980-PRO-Data-Sheet_Rev.2.1_230509_10129505081019.pdf"
+    "datasheetSource": "https://download.semiconductor.samsung.com/resources/data-sheet/Samsung-NVMe-SSD-980-PRO-Data-Sheet_Rev.2.1_230509_10129505081019.pdf",
+    "photo": "public/listings/photos/2026/11/8b3d63dc-d830-453e-8c9e-350cd44d1b08.png",
+    "photoSource": "https://stg-images.samsung.com/is/image/samsung/uk-980-pro-nvme-m2-ssd-mz-v8p1t0bw-frontblack-thumb-305309218?$720_576_PNG$"
   },
   "s870": {
     "datasheet": "private/listings/datasheets/2026/11/dfe65778-9a14-4140-8f09-6a1e0d23db92.pdf",
@@ -122,5 +138,71 @@
     "datasheetSource": "https://www.logitech.com/content/dam/logitech/en/business/pdf/mx-master-3s-business-wireless-mouse.pdf",
     "photo": "public/listings/photos/2026/11/77608c85-b083-47b5-900d-a87875c56216.jpg",
     "photoSource": "데이터시트 PDF 안의 사진 (https://www.logitech.com/content/dam/logitech/en/business/pdf/mx-master-3s-business-wireless-mouse.pdf)"
+  },
+  "_listings": {
+    "hanbit:r650": {
+      "testReport": "private/listings/test-reports/2026/11/b4c1cbaa-6e2a-44f2-bd64-979e02f52a46.pdf",
+      "certificate": "private/listings/certificates/2026/11/df5a1365-e6a9-4d80-a5c4-b49e3d613df2.pdf"
+    },
+    "netone:usw24": {
+      "testReport": "private/listings/test-reports/2026/11/d8d60a8a-5e44-401a-9a7c-3ac1e9bd1bb5.pdf",
+      "certificate": "private/listings/certificates/2026/11/4eae6c0f-f825-4b9d-90ff-ba5f53297ad1.pdf"
+    },
+    "pcmaru:t14": {
+      "testReport": "private/listings/test-reports/2026/11/cd8e9366-b555-44a8-a759-5512a8e5a7e3.pdf",
+      "certificate": "private/listings/certificates/2026/11/2970554f-d3ab-41cf-8f01-7f2c294866c2.pdf"
+    },
+    "minjun:s980": {
+      "testReport": "private/listings/test-reports/2026/11/1912e5a4-fb50-49ed-8236-591219d6da68.pdf",
+      "certificate": "private/listings/certificates/2026/11/2f7eacea-81b8-49ce-92e1-f95dbac6e980.pdf"
+    },
+    "hanbit:sr650": {
+      "testReport": "private/listings/test-reports/2026/11/6fe1fe7c-b400-403f-af77-4a4cbd222133.pdf",
+      "certificate": "private/listings/certificates/2026/11/e27e32cf-8ccb-44ca-b324-6619f319a207.pdf"
+    },
+    "netone:u6pro": {
+      "testReport": "private/listings/test-reports/2026/11/b65e949a-d0c5-4d37-aaf0-8205f217eba5.pdf",
+      "certificate": "private/listings/certificates/2026/11/236b684d-aa3f-4534-9e8e-8f14dc78c70e.pdf"
+    },
+    "pcmaru:lat5430": {
+      "testReport": "private/listings/test-reports/2026/11/57934fc6-8b7e-4688-9511-733e2d8cc3df.pdf",
+      "certificate": "private/listings/certificates/2026/11/e0cae9d4-7d3c-41a8-b5a4-23043f410fdd.pdf"
+    },
+    "hanbit:t350": {
+      "testReport": "private/listings/test-reports/2026/11/960b3d0f-0c1a-4fea-af52-0b90dd929d54.pdf",
+      "certificate": "private/listings/certificates/2026/11/9a4ccf9c-34de-443c-b5bb-c9df6559edf8.pdf"
+    },
+    "netone:fg60f": {
+      "testReport": "private/listings/test-reports/2026/11/05e42889-c1cf-45ab-a88f-abe43c3d406e.pdf",
+      "certificate": "private/listings/certificates/2026/11/29fe4dd0-3bc5-49c5-bd6e-a8b3c8776309.pdf"
+    },
+    "pcmaru:s980": {
+      "testReport": "private/listings/test-reports/2026/11/eed6fcc4-d414-46fc-b7ef-3fd2eeb5855e.pdf",
+      "certificate": "private/listings/certificates/2026/11/faabc524-f48e-4d4d-8c66-c5db5cc2f283.pdf"
+    },
+    "minjun:t14": {
+      "testReport": "private/listings/test-reports/2026/11/e4666855-0aaf-4542-b556-07501502d784.pdf",
+      "certificate": "private/listings/certificates/2026/11/10e95564-d7da-4951-9fbf-25171c4832ee.pdf"
+    },
+    "hanbit:wdred": {
+      "testReport": "private/listings/test-reports/2026/11/b3a676ed-5058-49ec-a1ed-04fed90770ba.pdf",
+      "certificate": "private/listings/certificates/2026/11/cbf9375a-15bf-4a6c-b3f8-631bd6edba22.pdf"
+    },
+    "pcmaru:s870": {
+      "testReport": "private/listings/test-reports/2026/11/0b37dead-e095-4ec8-bb0c-1d541efc23c3.pdf",
+      "certificate": "private/listings/certificates/2026/11/90c893c1-b048-4104-bb3d-9cec1d40c6e5.pdf"
+    },
+    "hanbit:pm9a3": {
+      "testReport": "private/listings/test-reports/2026/11/de48562d-9160-4348-995e-8e38c45de64f.pdf",
+      "certificate": "private/listings/certificates/2026/11/b2ebbb63-5068-4108-926a-37a6d7e9d5ef.pdf"
+    },
+    "pcmaru:mxm3s": {
+      "testReport": "private/listings/test-reports/2026/11/206723b7-7701-4389-af43-9d2f1edc4bc1.pdf",
+      "certificate": "private/listings/certificates/2026/11/4c33a26b-9de2-4916-97cc-1fa06b65b1df.pdf"
+    },
+    "hanbit:a4000": {
+      "testReport": "private/listings/test-reports/2026/11/945a6be3-7e50-4adc-8232-f12cdf981263.pdf",
+      "certificate": "private/listings/certificates/2026/11/f41c71c7-8288-469c-aeb7-11e3da6ce162.pdf"
+    }
   }
 }
