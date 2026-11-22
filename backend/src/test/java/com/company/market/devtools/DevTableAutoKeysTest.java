@@ -180,6 +180,23 @@ class DevTableAutoKeysTest {
 		assertThat(regs).hasSize(2).doesNotHaveDuplicates();
 	}
 
+	@Test
+	@DisplayName("같은 판매자의 서로 다른 상품 매물도 reg_date 가 겹치지 않는다 — 매물 주소·상세 조회는 (판매자, reg_date) 두 값으로 한 건을 찾는다")
+	void listingsOfSameSellerNeverShareRegDate() throws Exception {
+		MockMultipartFile file = workbook(
+				sheet("trd_user_info", new Object[] { "uid", "user_id", "password", "user_class", "user_name" },
+						new Object[] { "S-OLD", "adkseller", "x", "personal", "판매자" }),
+				sheet("trd_prod_master", new Object[] { "prod_id", "prod_name" }, new Object[] { "PM-A", "adk상품A" }, new Object[] { "PM-B", "adk상품B" }),
+				sheet("trd_prod_reg", new Object[] { "user_id", "reg_date", "prod_id", "trade_type", "prod_state", "sales_unit_price", "sales_quantity", "prov_date" },
+						new Object[] { "S-OLD", "20260101120001", "PM-A", "등록", "신품", 1000, 10, "20991231" },
+						new Object[] { "S-OLD", "20260101120002", "PM-B", "등록", "신품", 1000, 10, "20991231" }));
+
+		mvc.perform(multipart("/api/v1/dev/import").file(file)).andExpect(status().isOk());
+
+		List<String> regs = jdbc.queryForList("select reg_date from trd_prod_reg where user_id = ? order by reg_date", String.class, uid("adkseller"));
+		assertThat(regs).hasSize(2).doesNotHaveDuplicates();
+	}
+
 	// ---- 도우미 ----
 
 	private ResultActions insert(String table, String json) throws Exception {
