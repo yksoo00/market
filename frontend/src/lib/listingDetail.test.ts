@@ -132,7 +132,7 @@ describe("infoRows", () => {
     expect(infoRows(base).map((r) => r.label)).toEqual([
       "제조사",
       "상품코드",
-      "리드 타임",
+      "납기일",
       "상태",
       "단가",
       "수량",
@@ -172,7 +172,7 @@ describe("infoRows", () => {
 
   it("빈 값은 – 로, 상품코드는 mono", () => {
     const rows = infoRows({ ...base, deliveryDate: null, stockQuantity: null });
-    expect(rows.find((r) => r.label === "리드 타임")?.value).toBe("–");
+    expect(rows.find((r) => r.label === "납기일")?.value).toBe("–");
     expect(rows.find((r) => r.label === "수량")?.value).toBe("–");
     expect(rows.find((r) => r.label === "상품코드")?.mono).toBe(true);
   });

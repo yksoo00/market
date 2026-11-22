@@ -334,7 +334,7 @@ export const listing = {
     rows: {
       brand: "제조사",
       prodId: "상품코드",
-      leadTime: "리드 타임",
+      leadTime: "납기일",
       state: "상태",
       unitPrice: "단가",
       stock: "수량",
