@@ -302,12 +302,14 @@ function PurchaseForm({ detail, quoteTradeId, defaultQuantity, quoteUnitPrice, d
             maxLength={6}
             className="font-mono tabular-nums"
             readOnly={quoteFixed}
-            hint={quoteFixed ? trade.list.quoteFixedHint : undefined}
+            // 라벨 옆(hint)에 긴 안내를 두면 라벨이 두 줄이 되어 옆 칸(납품희망일)과 입력 칸 높이가 어긋난다 — 입력 아래(note)에 둔다
+            note={quoteFixed ? <span className="text-ink-3">{trade.list.quoteFixedHint}</span> : undefined}
           />
           <FormField<PurchaseFormInput>
             name="reqDeliDate"
             label={t.reqDeliDate}
-            hint={detail.deliveryDate ? t.reqDeliDateHint : undefined}
+            // 수락된 견적은 견적 때 보낸 날짜가 기본값이라 "기본값은 납기일" 안내가 맞지 않는다
+            hint={detail.deliveryDate && !quoteFixed ? t.reqDeliDateHint : undefined}
             type="date"
             min={today}
           />
