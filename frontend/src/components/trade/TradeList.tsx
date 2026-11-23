@@ -227,8 +227,11 @@ export function TradeList({ role, reg, active, page, pagePath, pageParams, filte
           // 수락된 견적이면 그 행이 구매요청이 된다 — 새 줄이 생기지 않는다
           quoteTradeId={buying.tradeId}
           defaultQuantity={buying.orderQuantity}
-          // 수락된 견적은 수락 단가·수량 그대로 (매물 단가가 아니다)
+          // 수락된 견적은 수락 단가·수량 그대로 (매물 단가가 아니다). 납품희망일·요청사항도 견적 때 보낸 값이 기본값이다 —
+          // 안 넘기면 매물의 납기일로 바뀌어 보인다
           quoteUnitPrice={buying.orderUnitPrice}
+          defaultReqDeliDate={buying.reqDeliDate ?? undefined}
+          defaultRemarks={buying.remarks ?? undefined}
           open
           onOpenChange={(open) => !open && setBuying(null)}
           // 그 줄이 구매요청으로 바뀌었으니 목록을 다시 읽고, 구매 모달을 연 다른 곳과 같은 완료 안내를 띄운다

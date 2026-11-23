@@ -52,6 +52,8 @@ test("견적 요청 → 판매자 수락(매물 단가 그대로·수량 묶임)
   const seller = `e2eqs${stamp}`;
   const buyer = `e2eqb${stamp}`;
   const prodName = `E2E 견적 ${stamp}`;
+  // 견적 때 보낸 납품희망일 — 수락된 줄의 [구매] 모달 기본값이어야 한다 (매물의 납기일이 아니라)
+  const wanted = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(Date.now() + 10 * 86_400_000));
   let listingPath = "";
   page.on("dialog", (d) => void d.accept());
 
@@ -101,6 +103,7 @@ test("견적 요청 → 판매자 수락(매물 단가 그대로·수량 묶임)
     await expect(dialog.getByText(q.validation.priceRange(10000))).toBeVisible();
     await expect(submit).toBeDisabled();
     await price.fill("9000");
+    await dialog.locator('input[name="items.0.reqDeliDate"]').fill(wanted);
     await expect(submit).toBeEnabled();
     await submit.click();
     await expect(page.getByRole("dialog", { name: q.doneTitle })).toBeVisible();
@@ -164,9 +167,8 @@ test("견적 요청 → 판매자 수락(매물 단가 그대로·수량 묶임)
     // 수락된 수량·단가 그대로 — 수량 칸은 읽기 전용, 금액은 수락 단가
     await expect(dialog.locator('input[name="orderQuantity"]')).toHaveAttribute("readonly", "");
     await expect(dialog.getByText("9,000").first()).toBeVisible();
-    await dialog.locator('input[name="reqDeliDate"]').fill(
-      new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Seoul" }).format(new Date(Date.now() + 7 * 86_400_000)),
-    );
+    // 견적 때 보낸 납품희망일이 그대로 기본값 (바꾸지 않고 구매)
+    await expect(dialog.locator('input[name="reqDeliDate"]')).toHaveValue(wanted);
     await dialog.getByRole("button", { name: trade.purchase.submit, exact: true }).click();
     await expect(page.getByRole("dialog", { name: trade.purchase.doneTitle })).toBeVisible();
     await page.keyboard.press("Escape");
