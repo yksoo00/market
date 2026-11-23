@@ -594,6 +594,7 @@ const row = (k, state, price, qty, min, unit, dayOffset, desc, extra = {}) => {
 // 새 상품 (미리 넣은 마스터에 없는 것 — 사진 파일만 받아 둔 상품)
 const NEW_PRODUCTS = {
   lg27: { name: "27UP850-W 27인치 4K UHD 모니터", brand: "LG전자", cls: "43211902", part: "27UP850-W" },
+  dl380: { name: "ProLiant DL380 Gen10 Plus 2U 서버", brand: "HPE", cls: "43211501", part: "DL380 Gen10 Plus" },
   u2723: { name: "UltraSharp U2723QE 27인치 4K 모니터", brand: "Dell", cls: "43211902", part: "U2723QE" },
 };
 const REG_ROWS = [
@@ -607,17 +608,21 @@ const REG_ROWS = [
   row("s870", N, 105000, 20, 1, 1, 3, "미개봉 신품 SATA SSD."),
   row("lg27", S90, 320000, 8, 1, 1, 10, "사용 1년 4K 모니터. 불량화소 없음, 스탠드·USB-C 케이블 포함.", { cat: "E06-F24-G075", photo: "lg27.webp" }),
   row("u2723", N, 680000, 5, 1, 1, 10, "미개봉 신품 4K USB-C 허브 모니터.", { cat: "E06-F24-G075", photo: "u2723.webp" }),
+  // 11줄: 새 상품 한 건 더 (DL380 — 마스터에 없는 상품, 사진은 ZIP 에서)
+  row("dl380", S80, 3150000, 4, 1, 1, 12, "iLO 라이선스 포함 2U 서버. 전원·팬·디스크 점검 완료, 레일 포함.", { cat: "E02-F06-G018", photo: "dl380.png" }),
+  // 12줄: 확인 필요(오타) — 상품상태에서 % 를 빠뜨렸다 ("신품대비 90~99"). 이 줄만 실패로 나오고 칸을 고치면 통과한다
+  row("pm9a3", "신품대비 90~99", 320000, 4, 2, 1, 7, "확인 필요(오타) 시연용 줄: 상품상태에 % 가 빠져 있다. 고치면 등록된다."),
 ];
-if (REG_ROWS.length !== 10) throw new Error("다량 등록은 10줄이어야 합니다");
-writeFileSync(join(BULK_DIR, "다량등록_10줄.xlsx"), xlsx([sheetOf("양식", REG_HEADER, REG_ROWS)]));
+if (REG_ROWS.length !== 12) throw new Error("다량 등록은 12줄이어야 합니다");
+writeFileSync(join(BULK_DIR, "다량등록_12줄.xlsx"), xlsx([sheetOf("양식", REG_HEADER, REG_ROWS)]));
 // 첨부 ZIP: 새 상품 2개의 사진 (파일 이름은 엑셀 '사진1' 칸에 적은 것과 같아야 한다)
 const zipFiles = [];
-for (const [k, name] of [["lg27", "lg27.webp"], ["u2723", "u2723.webp"]]) {
+for (const [k, name] of [["lg27", "lg27.webp"], ["u2723", "u2723.webp"], ["dl380", "dl380.png"]]) {
   const key = FILES[k]?.photo;
   if (key) zipFiles.push([name, readFileSync(join(here, "..", "..", "backend", "data", "uploads", key))]);
 }
-if (zipFiles.length === 2) writeFileSync(join(BULK_DIR, "다량등록_첨부사진.zip"), zip(zipFiles));
-else console.log("⚠ lg27·u2723 사진이 없어 첨부 ZIP 을 만들지 못했다 (fetch-product-files.mjs 먼저)");
+if (zipFiles.length === 3) writeFileSync(join(BULK_DIR, "다량등록_첨부사진.zip"), zip(zipFiles));
+else console.log("⚠ lg27·u2723·dl380 사진이 없어 첨부 ZIP 을 만들지 못했다 (fetch-product-files.mjs·add-local-photo.mjs 먼저)");
 
 // ② 다량 구매 — 로그인한 구매자 이름으로 (daon01 권장). 이름·제조사로 매물을 찾고 조건(상태·단가·보증·서류)에 맞는 매물을 고른다.
 const BUY_HEADER = ["상품명*", "제조사", "분류번호", "상품ID", "수량*", "납품희망일*", "최소상태", "단가상한", "최소보증(개월)", "데이터시트", "사진", "불량지원", "테스트리포트", "정품인증서", "요청사항"];
@@ -638,9 +643,13 @@ const BUY_ROWS = [
   buy("t14", 3, 14, { ...ALL, state: S80 }, "신입사원 노트북"),
   buy("lat5430", 2, 14, { sheet: true, photo: true, test: true }),
   buy("s980", 5, 10, { ...ALL, state: N, months: 24 }, "개발 PC SSD 교체"),
+  // 11줄: 매물 없음 — 상품마스터에는 있지만 지금 파는 매물이 없는 상품 (DS1621+). "매물 없음" 으로 나온다
+  buy("ds1621", 1, 14, {}, "매물 없음 시연용 줄: 상품은 있지만 판매 중인 매물이 없다"),
+  // 12줄: 확인 필요(오타) — 상품명 오타 ("Swich"). 이름이 달라 못 찾고, 고치면 찾는다
+  ["UniFi Swich Pro 24 PoE", "Ubiquiti", "43222609", null, 2, iso(dayStart + 14 * DAY), null, null, null, null, null, null, null, null, "오타 시연용 줄: Switch 철자가 틀렸다. 고치면 찾는다"],
 ];
-if (BUY_ROWS.length !== 10) throw new Error("다량 구매는 10줄이어야 합니다");
-writeFileSync(join(BULK_DIR, "대량구매_10줄.xlsx"), xlsx([sheetOf("양식", BUY_HEADER, BUY_ROWS)]));
+if (BUY_ROWS.length !== 12) throw new Error("대량구매는 12줄이어야 합니다");
+writeFileSync(join(BULK_DIR, "대량구매_12줄.xlsx"), xlsx([sheetOf("양식", BUY_HEADER, BUY_ROWS)]));
 
 // make-sample-docs.mjs 가 읽는 목록 (매물마다 테스트 리포트·정품 확인서를 만든다)
 const company = (key) => U[key].company ?? U[key].nickname ?? U[key].loginId;
