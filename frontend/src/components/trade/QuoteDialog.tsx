@@ -10,6 +10,7 @@ import { FormError, SubmitButton } from "@/components/auth/FormStatus";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { authApi } from "@/lib/api/auth";
 import { listingsApi } from "@/lib/api/listings";
+import { randomUUID } from "@/lib/uuid";
 import { tradesApi } from "@/lib/api/trades";
 import { formatPrice } from "@/lib/format";
 import { applyServerError } from "@/lib/form";
@@ -166,7 +167,7 @@ function QuoteForm({ sendable, skipped, defaultsByKey, onClose, onRequested }: F
   const cartHeldOf = (d: ListingDetail) => (defaultsOf(d)?.cartTradeId ? defaultsOf(d)?.orderQuantity : undefined);
   // 날짜 기준은 폼을 연 동안 고정 (구매 모달과 같음)
   const [today] = useState(() => todayInSeoul());
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey] = useState(() => randomUUID());
   const form = useForm<QuoteFormInput, unknown, QuoteFormOutput>({
     resolver: zodResolver(
       quoteSchema(

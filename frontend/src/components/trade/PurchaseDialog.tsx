@@ -10,6 +10,7 @@ import { FormError, SubmitButton } from "@/components/auth/FormStatus";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { authApi } from "@/lib/api/auth";
 import { listingsApi } from "@/lib/api/listings";
+import { randomUUID } from "@/lib/uuid";
 import { tradesApi } from "@/lib/api/trades";
 import { formatPrice } from "@/lib/format";
 import { applyServerError } from "@/lib/form";
@@ -199,7 +200,7 @@ interface FormProps {
 function PurchaseForm({ detail, quoteTradeId, defaultQuantity, quoteUnitPrice, defaultReqDeliDate, defaultRemarks, cartTradeId, notice, onStockChanged, onClose, onPurchased }: FormProps) {
   // 날짜 기준·중복 방지 키는 폼을 연 동안 고정
   const [today] = useState(() => todayInSeoul());
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
+  const [idempotencyKey] = useState(() => randomUUID());
   // 수락된 견적: 수량은 수락 때 이미 묶였다 — 남은 재고·최소주문량·주문단위로 다시 막지 않고, 수락된 수량·단가 그대로 (2026-11-02)
   const quoteFixed = quoteTradeId !== undefined && defaultQuantity !== undefined;
   // 장바구니 줄에서 연 모달이면 그 줄이 이미 묶은 수량도 쓸 수 있다 (서버도 줄 수량을 재고에 더해 본다) — 전량을 담은 줄도 구매할 수 있게
