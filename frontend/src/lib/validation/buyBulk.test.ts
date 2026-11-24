@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buyBulk } from "@/messages/buyBulk";
-import { conditionCount, validateBuyRow, type BuyFields } from "./buyBulk";
+import { BUY_INPUT_FIELDS, conditionCount, validateBuyRow, type BuyFields } from "./buyBulk";
 
 const v = buyBulk.validation;
 const TODAY = "2026-11-09";
@@ -43,6 +43,10 @@ describe("validateBuyRow", () => {
     expect(check({ prodClassNo: "a".repeat(21) }).prodClassNo).toBe(v.prodClassNo);
     expect(check({ remarks: "a".repeat(101) }).remarks).toBe(v.remarks);
     expect(check({ remarks: "a".repeat(100) }).remarks).toBeUndefined();
+  });
+
+  it("입력 칸에 구매자가 모르는 분류번호는 없다 (마스터를 고르면 내부 값으로만 채워진다)", () => {
+    expect(BUY_INPUT_FIELDS).toEqual(["prodName", "prodBrand", "orderQuantity", "reqDeliDate", "remarks"]);
   });
 
   it("수량: 비움·글자·0·소수·10만 초과는 오류, 1·100000·쉼표 숫자는 통과", () => {

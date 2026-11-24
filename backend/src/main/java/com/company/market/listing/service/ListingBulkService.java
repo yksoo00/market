@@ -383,8 +383,20 @@ public class ListingBulkService {
 				fields.putIfAbsent("prodBrand", REQUIRED);
 			}
 			if (name != null && brand != null) {
-				master = products.findSameIgnoreCase(name, brand, classNo).orElse(null);
-				if (master == null) {
+				// 분류번호는 판매자가 모르는 게 보통이다(계획 2026-11-24). 적었으면 세 값이 같은 마스터, 비었으면 이름·제조사가 같은 마스터가
+				// 정확히 하나일 때만 쓴다 — 여럿이면 자동으로 정하지 않고 후보로 보여 사용자가 고르게 한다
+				List<Product> same = classNo != null
+						? products.findSameIgnoreCase(name, brand, classNo).map(List::of).orElse(List.of())
+						: products.findAllByNameAndBrandIgnoreCase(name, brand, CANDIDATE_LIMIT + 1);
+				if (same.size() == 1) {
+					master = same.get(0);
+				}
+				else if (same.size() > 1) {
+					candidates = same.stream().limit(CANDIDATE_LIMIT)
+						.map(p -> new Candidate(p.getProdId(), p.getProdName(), p.getProdBrand(), p.getProdClassNo())).toList();
+					fields.putIfAbsent("prodName", "같은 이름·제조사의 상품이 여럿이에요. 아래에서 맞는 상품을 골라 주세요.");
+				}
+				else {
 					unmatched = true;
 					candidates = products.search(name).stream().limit(CANDIDATE_LIMIT)
 						.map(p -> new Candidate(p.prodId(), p.prodName(), p.prodBrand(), p.prodClassNo())).toList();
@@ -416,7 +428,7 @@ public class ListingBulkService {
 	/** 새 마스터를 만들려면 카테고리가 있어야 한다 (직접 등록의 requireProductFields 와 같은 조건) */
 	private CategoryFragments newMasterCategory(String categoryCode, Map<String, String> fields) {
 		if (categoryCode == null) {
-			fields.putIfAbsent("categoryCode", "마스터에 없는 상품이라 카테고리 코드가 필요합니다.");
+			fields.putIfAbsent("categoryCode", "마스터에 없는 상품이에요. 카테고리를 골라 주세요.");
 			return null;
 		}
 		try {

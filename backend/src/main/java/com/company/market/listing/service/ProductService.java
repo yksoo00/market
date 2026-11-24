@@ -75,6 +75,11 @@ public class ProductService {
 		return value == null || value.isBlank() ? null : value.trim();
 	}
 
+	/** 엑셀 다량 등록, 분류번호가 빈 줄의 상품 찾기 — 이름·제조사가 같은 마스터를 (대소문자 무시) 최대 limit 개. 만들지는 않는다 */
+	public List<Product> findAllByNameAndBrandIgnoreCase(String prodName, String prodBrand, int limit) {
+		return products.findAllByNameAndBrandIgnoreCase(prodName, prodBrand, PageRequest.of(0, limit));
+	}
+
 	/** 엑셀 다량 등록의 상품 찾기 — findOrCreate 의 "같은 상품"과 같은 세 값이되 대소문자를 무시한다. 만들지는 않는다 */
 	public Optional<Product> findSameIgnoreCase(String prodName, String prodBrand, String prodClassNo) {
 		return products.findAllSameIgnoreCase(prodName, prodBrand, orEmpty(prodClassNo), PageRequest.of(0, 1)).stream().findFirst();

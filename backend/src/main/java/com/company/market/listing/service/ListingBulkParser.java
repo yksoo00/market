@@ -29,7 +29,17 @@ public class ListingBulkParser {
 	/** 엑셀 파일 크기 (security.md 10MB). multipart 바깥 상한이 ZIP 때문에 50MB 가 되어 엑셀은 서비스가 직접 막는다 */
 	public static final long MAX_FILE_BYTES = 10L * 1024 * 1024;
 
-	/** BulkRowDto 칸 순서와 같다. * 는 필수 표시 — 읽을 땐 * 와 공백을 뗀다 */
+	/**
+	 * 헤더가 꼭 있어야 하는 칸 = 서버가 실제로 필수로 검사하는 칸(* 표시와 같다). 나머지 칸은 헤더가 없으면 빈 칸으로 읽는다 —
+	 * 상품ID·분류번호·카테고리 코드는 사용자가 알 수 없는 값이라 새 양식에서 빼면서도(계획 2026-11-24) 옛 양식을 계속 읽기 위해
+	 */
+	private static final List<String> REQUIRED_LABELS = List.of("상품명", "제조사", "상품상태", "단가", "수량", "제공가능일");
+
+	/** 양식(템플릿)이 내려주는 칸과 순서 — 판매자가 아는 값만. 필수(*)를 앞쪽에 두고 선택 칸은 뒤에. 첨부 칸은 FILE_LABELS */
+	public static final List<String> TEMPLATE_LABELS = List.of("상품명*", "제조사*", "상품번호", "상품상태*", "단가*", "수량*", "제공가능일*",
+			"최소주문수량", "주문단위", "설명", "사진1", "사진2", "사진3", "사진4", "데이터시트");
+
+	/** 읽을 수 있는 칸 전부 (옛 양식 포함). BulkRowDto 칸 순서와 같다. * 는 필수 표시 — 읽을 땐 * 와 공백을 뗀다 */
 	public static final List<String> HEADER_LABELS = List.of("상품명*", "제조사*", "분류번호", "상품번호", "카테고리 코드", "상품ID",
 			"상품상태*", "단가*", "수량*", "최소주문수량", "주문단위", "제공가능일*", "설명");
 
@@ -60,7 +70,7 @@ public class ListingBulkParser {
 				String[] v = new String[columns.length];
 				boolean any = false;
 				for (int i = 0; i < columns.length; i++) {
-					v[i] = cellText(row.getCell(columns[i]));
+					v[i] = columns[i] < 0 ? null : cellText(row.getCell(columns[i]));
 					any |= v[i] != null;
 				}
 				BulkFile[] files = new BulkFile[fileColumns.length];
@@ -101,6 +111,11 @@ public class ListingBulkParser {
 		int[] columns = new int[HEADER_LABELS.size()];
 		for (int i = 0; i < columns.length; i++) {
 			Integer c = byName.get(normalize(HEADER_LABELS.get(i)));
+			// 필수가 아닌 칸은 헤더가 없어도(옛·새 양식 모두) 빈 칸으로 읽는다
+			if (c == null && !REQUIRED_LABELS.contains(normalize(HEADER_LABELS.get(i)))) {
+				columns[i] = -1;
+				continue;
+			}
 			if (c == null) {
 				throw fileError("헤더 \"" + HEADER_LABELS.get(i).replace("*", "") + "\" 칸이 없습니다. 양식을 내려받아 사용해 주세요.");
 			}

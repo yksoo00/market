@@ -29,10 +29,16 @@ public class CartBulkParser {
 	public static final int MAX_ROWS = 100;
 
 	/**
-	 * 꼭 있어야 하는 헤더(옛 양식 그대로): 상품명·제조사·분류번호·상품ID, 수량·납품희망일·요청사항 순서. * 는 필수 표시 — 읽을 땐 * 와 공백을 뗀다.
-	 * 제조사는 값을 비워도 되지만(이름만으로 찾는다) 칸은 양식에 있어야 한다
+	 * 읽을 수 있는 헤더 전부(옛 양식 포함): 상품명·제조사·분류번호·상품ID, 수량·납품희망일·요청사항 순서. * 는 필수 표시 — 읽을 땐 * 와 공백을 뗀다.
+	 * 헤더가 꼭 있어야 하는 칸은 REQUIRED_LABELS 뿐이고 나머지는 없으면 빈 칸으로 읽는다 (제조사는 값을 비워도 이름만으로 찾는다)
 	 */
 	public static final List<String> HEADER_LABELS = List.of("상품명*", "제조사", "분류번호", "상품ID", "수량*", "납품희망일*", "요청사항");
+
+	/**
+	 * 서버가 실제로 필수로 검사하는 칸(* 표시와 같다). 분류번호·상품ID 는 구매자가 알 수 없는 값이라 새 양식에서 뺐지만(계획 2026-11-24)
+	 * 옛 양식은 계속 읽는다
+	 */
+	private static final List<String> REQUIRED_LABELS = List.of("상품명", "수량", "납품희망일");
 
 	/**
 	 * 조건 칸 헤더(계획 2026-11-09-bulk-purchase-conditions.md) — 선택. 파일에 없으면 조건 없음으로 읽으므로 조건 칸이 없던 옛 양식도 그대로 읽힌다.
@@ -40,8 +46,8 @@ public class CartBulkParser {
 	 */
 	public static final List<String> CONDITION_LABELS = List.of("최소상태", "단가상한", "최소보증(개월)", "데이터시트", "사진", "불량지원", "테스트리포트", "정품인증서");
 
-	/** 양식(템플릿)이 내려주는 전체 열 순서: 상품 식별·수량·희망일 → 조건 → 요청사항 */
-	public static final List<String> TEMPLATE_LABELS = List.of("상품명*", "제조사", "분류번호", "상품ID", "수량*", "납품희망일*", "최소상태", "단가상한",
+	/** 양식(템플릿)이 내려주는 전체 열 순서: 상품 식별(구매자가 아는 이름·제조사만)·수량·희망일 → 조건 → 요청사항 */
+	public static final List<String> TEMPLATE_LABELS = List.of("상품명*", "제조사", "수량*", "납품희망일*", "최소상태", "단가상한",
 			"최소보증(개월)", "데이터시트", "사진", "불량지원", "테스트리포트", "정품인증서", "요청사항");
 
 	public List<CartBulkRowDto> parse(InputStream in) {
@@ -66,7 +72,7 @@ public class CartBulkParser {
 				String[] c = new String[conditionColumns.length];
 				boolean any = false;
 				for (int i = 0; i < columns.length; i++) {
-					v[i] = cellText(row.getCell(columns[i]));
+					v[i] = columns[i] < 0 ? null : cellText(row.getCell(columns[i]));
 					any |= v[i] != null;
 				}
 				for (int i = 0; i < conditionColumns.length; i++) {
@@ -106,7 +112,7 @@ public class CartBulkParser {
 		int[] columns = new int[labels.size()];
 		for (int i = 0; i < columns.length; i++) {
 			Integer c = byName.get(normalize(labels.get(i)));
-			if (c == null && required) {
+			if (c == null && required && REQUIRED_LABELS.contains(normalize(labels.get(i)))) {
 				throw fileError("헤더 \"" + labels.get(i).replace("*", "") + "\" 칸이 없습니다. 양식을 내려받아 사용해 주세요.");
 			}
 			columns[i] = c == null ? -1 : c;

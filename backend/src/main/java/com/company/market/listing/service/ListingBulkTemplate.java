@@ -4,7 +4,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
-import java.util.stream.Stream;
 
 import org.apache.poi.ss.usermodel.DataValidation;
 import org.apache.poi.ss.usermodel.DataValidationConstraint;
@@ -23,8 +22,8 @@ public final class ListingBulkTemplate {
 	private static final List<String> PROD_STATES = List.of("신품", "신품대비 90~99%", "신품대비 80~89%", "신품대비 70~79%",
 			"신품대비 60~69%", "신품대비 50~59%", "신품대비 50% 미만");
 
-	/** 상품상태 칸의 0부터 센 열 번호 (HEADER_LABELS 의 "상품상태*") */
-	private static final int PROD_STATE_COLUMN = 6;
+	/** 상품상태 칸의 0부터 센 열 번호 (TEMPLATE_LABELS 의 "상품상태*") */
+	private static final int PROD_STATE_COLUMN = ListingBulkParser.TEMPLATE_LABELS.indexOf("상품상태*");
 
 	private ListingBulkTemplate() {
 	}
@@ -33,7 +32,7 @@ public final class ListingBulkTemplate {
 		try (XSSFWorkbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
 			Sheet sheet = wb.createSheet("다량 등록");
 			Row header = sheet.createRow(0);
-			List<String> labels = Stream.concat(ListingBulkParser.HEADER_LABELS.stream(), ListingBulkParser.FILE_LABELS.stream()).toList();
+			List<String> labels = ListingBulkParser.TEMPLATE_LABELS;
 			for (int c = 0; c < labels.size(); c++) {
 				header.createCell(c).setCellValue(labels.get(c));
 				sheet.setColumnWidth(c, 18 * 256);

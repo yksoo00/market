@@ -116,6 +116,40 @@ class ListingBulkServiceTest {
 	}
 
 	@Test
+	@DisplayName("분류번호를 안 적어도 이름·제조사가 같은 마스터가 하나면 그 마스터를 쓴다 (마스터에 분류번호가 있어도)")
+	void matchesWithoutClassNoWhenSingle() {
+		BulkRowResult r = only(row(2, "벌크 스위치 C9300", "Cisco", null));
+
+		assertThat(r.status()).isEqualTo(Status.MATCHED);
+		assertThat(r.prodId()).isEqualTo(withPhotoId);
+		assertThat(r.fields()).isEmpty();
+	}
+
+	@Test
+	@DisplayName("분류번호를 안 적었는데 이름·제조사가 같은 마스터가 여럿이면 자동으로 정하지 않고 후보로 보인다. 분류번호를 적으면 그 마스터")
+	void ambiguousWithoutClassNo() {
+		String other = products.findOrCreate(new ProductDraft(CategoryFragments.parse(CATEGORY), "벌크 스위치 C9300", null, "Cisco",
+				"CLS-2", null, null, null, null, null, null)).getProdId();
+
+		BulkRowResult ambiguous = only(row(2, "벌크 스위치 C9300", "Cisco", null));
+		BulkRowResult exact = only(row(2, "벌크 스위치 C9300", "Cisco", "CLS-2"));
+
+		assertThat(ambiguous.status()).isEqualTo(Status.FAILED);
+		assertThat(ambiguous.fields()).containsKey("prodName");
+		assertThat(ambiguous.candidates()).extracting(BulkRowResult.Candidate::prodId).containsExactlyInAnyOrder(withPhotoId, other);
+		assertThat(exact.status()).isEqualTo(Status.MATCHED);
+		assertThat(exact.prodId()).isEqualTo(other);
+	}
+
+	@Test
+	@DisplayName("새 상품은 카테고리를 고르라는 안내가 나온다 (코드를 적으라고 하지 않는다)")
+	void newMasterCategoryMessage() {
+		BulkRowResult r = only(new BulkRowDto(2, null, "벌크 새상품", "Acme", null, null, null, "신품", "1", "1", null, null, "20991231", null));
+
+		assertThat(r.fields().get("categoryCode")).contains("카테고리를 골라");
+	}
+
+	@Test
 	@DisplayName("상품명·제조사가 비면 각 칸 오류")
 	void nameAndBrandRequired() {
 		BulkRowResult r = only(new BulkRowDto(2, null, null, null, null, null, null, "신품", "1", "1", null, null, "20991231", null));

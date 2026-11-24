@@ -250,7 +250,7 @@ function ProductActions({
             {line.result.candidates.map((c) => (
               <li key={c.prodId}>
                 <button type="button" onClick={() => onPick(c)} className={buttonClass}>
-                  {t.line.pickCandidate(c.prodName, c.prodBrand)}
+                  {t.line.pickCandidate(c.prodName, c.prodBrand, c.prodClassNo)}
                 </button>
               </li>
             ))}
