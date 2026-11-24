@@ -27,7 +27,6 @@ public enum ErrorCode {
 	// 가입
 	DUPLICATE_LOGIN_ID(HttpStatus.CONFLICT, "이미 사용 중인 아이디입니다."),
 	DUPLICATE_NICKNAME(HttpStatus.CONFLICT, "이미 사용 중인 닉네임입니다."),
-	DUPLICATE_PHONE(HttpStatus.CONFLICT, "이미 가입된 휴대폰 번호입니다."),
 	DUPLICATE_BIZ_NO(HttpStatus.CONFLICT, "이미 가입된 사업자등록번호입니다."),
 	ALREADY_REGISTERED(HttpStatus.CONFLICT, "이미 가입된 회원입니다. 아이디 찾기를 이용해 주세요."),
 	VERIFICATION_EXPIRED(HttpStatus.GONE, "본인인증이 만료되었습니다. 처음부터 다시 진행해 주세요."),

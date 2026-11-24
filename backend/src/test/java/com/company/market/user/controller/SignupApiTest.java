@@ -141,12 +141,11 @@ class SignupApiTest {
 		}
 
 		@Test
-		@DisplayName("같은 휴대폰으로 다시 가입하면 중복으로 거부")
-		void samePhoneIsAlreadyRegistered() throws Exception {
+		@DisplayName("같은 휴대폰으로도 다시 가입할 수 있다 (휴대폰 유일 제약 없음, 2026-11-24)")
+		void samePhoneCanSignUpAgain() throws Exception {
 			mvc.perform(signup(Map.of())).andExpect(status().isCreated());
 
-			mvc.perform(signup(Map.of("nickname", "다른이", "loginId", "other01", "email", "other@example.com")))
-				.andExpect(status().isConflict()).andExpect(jsonPath("$.code").value("DUPLICATE_PHONE"));
+			mvc.perform(signup(Map.of("nickname", "다른이", "loginId", "other01", "email", "other@example.com"))).andExpect(status().isCreated());
 		}
 
 		@Test
