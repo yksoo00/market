@@ -62,7 +62,7 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onFind, onU
           : "bg-green-soft text-green";
 
   const field = (name: BuyInputField) => {
-    const isProductCell = locked && ["prodName", "prodBrand", "prodClassNo"].includes(name);
+    const isProductCell = locked && ["prodName", "prodBrand"].includes(name);
     const error = errors[name];
     return (
       <label key={name} className={cn("flex min-w-0 flex-col gap-1", wideFields.includes(name) && "col-span-2")}>

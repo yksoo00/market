@@ -47,8 +47,11 @@ export type BuyConditionField = (typeof BUY_CONDITION_FIELDS)[number];
 /** 조건이 하나라도 걸려 있는지 (접힌 구역의 요약 배지용) */
 export const conditionCount = (f: BuyFields): number => BUY_CONDITION_FIELDS.filter((k) => f[k].trim() !== "").length;
 
-/** 화면에 입력 칸으로 보이는 순서 */
-export const BUY_INPUT_FIELDS = ["prodName", "prodBrand", "prodClassNo", "orderQuantity", "reqDeliDate", "remarks"] as const satisfies readonly (keyof BuyFields)[];
+/**
+ * 화면에 입력 칸으로 보이는 순서. 분류번호는 구매자가 아는 값이 아니라 입력 칸에서 뺐다(계획 2026-11-24) —
+ * 마스터를 고르면 그 마스터의 값이 줄에 내부 값(BuyFields.prodClassNo)으로 채워져 같은 이름 마스터를 정확히 가리는 데만 쓰인다
+ */
+export const BUY_INPUT_FIELDS = ["prodName", "prodBrand", "orderQuantity", "reqDeliDate", "remarks"] as const satisfies readonly (keyof BuyFields)[];
 
 export type BuyInputField = (typeof BUY_INPUT_FIELDS)[number];
 
