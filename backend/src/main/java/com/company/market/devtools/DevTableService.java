@@ -308,13 +308,21 @@ public class DevTableService {
 			if (row == null) {
 				continue;
 			}
+			if (r == 1 && isPhysicalNameRow(row, byIndex)) {
+				continue;
+			}
 			String where = "시트 " + sheetName + ", " + (r + 1) + "행: ";
 			Map<String, Object> values = new LinkedHashMap<>();
 			boolean any = false;
 			for (Map.Entry<Integer, ColumnInfo> e : byIndex.entrySet()) {
 				String text = cellText(row.getCell(e.getKey()));
 				any |= text != null;
-				values.put(e.getValue().name(), parse(e.getValue(), text, where));
+				Object value = parse(e.getValue(), text, where);
+				// 빈 칸을 NULL 로 직접 넣으면 DB 기본값(예: 별칭사용여부 N)이 안 먹고 NOT NULL 에서 실패한다 — 기본값이 있는 칸은 insert 에서 뺀다
+				if (value == null && e.getValue().hasDefault()) {
+					continue;
+				}
+				values.put(e.getValue().name(), value);
 			}
 			if (!any) {
 				continue;
@@ -325,6 +333,29 @@ public class DevTableService {
 			inserted++;
 		}
 		return new ImportResult(t.name(), inserted, preparer.keyLog().subList(keysBefore, preparer.keyLog().size()));
+	}
+
+	/**
+	 * 정의서 엑셀은 1행 한글 논리명 아래 2행에 영문 물리명(UID, USER_ID …)을 한 줄 더 둔다. 이 줄이 데이터로 들어가 형식 오류가 나지 않게,
+	 * 값이 있는 칸이 전부 자기 컬럼의 물리명과 같은 2행만 건너뛴다(대소문자·공백·밑줄 무시). 하나라도 다르면 데이터 줄이다 (사용자 지시 2026-11-24)
+	 */
+	private static boolean isPhysicalNameRow(Row row, Map<Integer, ColumnInfo> byIndex) {
+		boolean any = false;
+		for (Map.Entry<Integer, ColumnInfo> e : byIndex.entrySet()) {
+			String text = cellText(row.getCell(e.getKey()));
+			if (text == null) {
+				continue;
+			}
+			any = true;
+			if (!sameName(text, e.getValue().name())) {
+				return false;
+			}
+		}
+		return any;
+	}
+
+	private static boolean sameName(String a, String b) {
+		return DevTableAliases.normalize(a).replace("_", "").equals(DevTableAliases.normalize(b).replace("_", ""));
 	}
 
 	private XSSFWorkbook open(MultipartFile file) {
@@ -378,7 +409,7 @@ public class DevTableService {
 		}
 		boolean textual = col.type().equals("character varying") || col.type().equals("character") || col.type().equals("text");
 		if (textual) {
-			return normalizePhone(col, normalizeTemporal(col, hashIfPlainPassword(col, text), where), where);
+			return normalizePhone(col, normalizeTemporal(col, hashIfPlainPassword(col, normalizeUserClass(col, text, where)), where), where);
 		}
 		if (text.isBlank()) {
 			return null;
@@ -396,6 +427,21 @@ public class DevTableService {
 		catch (IllegalArgumentException | ArithmeticException e) {
 			throw bad(where + col.name() + " 값 형식이 맞지 않습니다(" + col.type() + "): " + text);
 		}
+	}
+
+	/**
+	 * user_class: 정의서 엑셀의 한글 값("개인"·"기업")을 DB 값(personal·business)으로 바꾼다 (사용자 지시 2026-11-24).
+	 * 영문 값은 그대로 두고, 그 밖의 값은 DB 제약이 불친절하게 거절하기 전에 여기서 한글 오류로 막는다. 빈 값은 그대로
+	 */
+	private static String normalizeUserClass(ColumnInfo col, String text, String where) {
+		if (!"user_class".equals(col.name()) || text.isBlank()) {
+			return text;
+		}
+		return switch (text.trim()) {
+			case "개인", "personal" -> "personal";
+			case "기업", "business" -> "business";
+			default -> throw bad(where + "user_class 는 개인·기업(또는 personal·business)만 됩니다: " + text);
+		};
 	}
 
 	/** 날짜(8자리) 컬럼 — 입력은 2026-10-10 처럼 와도 yyyyMMdd 로 저장 (decisions.md 2026-11-20) */
