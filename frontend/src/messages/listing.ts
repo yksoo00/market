@@ -201,7 +201,8 @@ export const listing = {
       matchedAs: (name: string) => `상품마스터: ${name}`,
       newMasterHint: "상품마스터에 없는 상품이에요. 새 상품이 맞으면 카테고리를 고르고 체크해서 등록하고, 오타라면 칸을 고쳐 주세요.",
       candidates: "혹시 이 상품인가요?",
-      pickCandidate: (name: string, brand: string) => `${name} (${brand}) 로 바꾸기`,
+      // 같은 이름·제조사 마스터가 여럿이면 분류번호로만 구분되므로 있으면 함께 보인다
+      pickCandidate: (name: string, brand: string, classNo?: string | null) => `${name} (${brand}${classNo ? ` · ${classNo}` : ""}) 로 바꾸기`,
       checking: "검사 중이에요",
       clearFile: "이 파일 빼기",
       select: (n: number) => `${n}행 선택`,

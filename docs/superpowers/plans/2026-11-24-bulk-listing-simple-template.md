@@ -82,12 +82,12 @@
 
 ## 작업
 
-- [ ] **1. 사용처 확인** — `findSameIgnoreCase` 호출처 `grep`. 다량 등록만이면 그 메서드를 "분류번호 비면 안 봄 + 하나일 때만" 규칙으로 바꾼다 (`ProductRepository` 쿼리 + `ProductService`).
-- [ ] **2. 파서·양식 (테스트 먼저)** — `ListingBulkParser`: 필수 6칸 헤더 검사, 선택 칸은 `optionalColumnIndexes` 방식으로 확장(상품번호·최소주문수량·주문단위·설명·분류번호·카테고리 코드·상품ID·첨부 5칸). `ListingBulkTemplate`: 새 칸 순서·드롭다운 열. 테스트: 새 양식 / 필수만 있는 양식 / 옛 양식(전부) / 필수 헤더 누락 400 / 양식 round trip.
-- [ ] **3. 상품 찾기·새 상품 카테고리** — `ListingBulkService`: 분류번호 비면 이름·제조사만, 하나면 MATCHED, 여럿이면 후보, 없으면 NEW_MASTER + `categoryCode` 오류 문구. 테스트: 분류번호 있는 마스터를 분류번호 없이 이름·제조사로 찾음 / 같은 이름·제조사 둘이면 자동 선택 안 함·후보에 오름 / 새 상품은 카테고리 안내 / 옛 양식의 카테고리 코드는 계속 통과.
-- [ ] **3-1. 대량구매 양식 (테스트 먼저)** — `CartBulkParser`: 헤더 필수를 상품명·수량·납품희망일로, 제조사·요청사항·분류번호·상품ID는 선택으로. `CartBulkTemplate`: 분류번호·상품ID 칸 제거, 열 순서·드롭다운 위치 갱신. 테스트(`CartBulkParserTest`·템플릿 round trip): 새 양식 / 옛 양식 / 필수 3칸만 / 필수 헤더 누락 400. API 테스트·`bruno/cart/bulk-template.bru`·`bulk-parse.bru` 설명 갱신. 대량구매 화면 안내 문구(`messages/buyBulk.ts`)에 옛 칸 설명이 있으면 함께. 화면: `BUY_INPUT_FIELDS` 에서 `prodClassNo` 제거(입력칸만 — 마스터 선택으로 채워지는 내부 값은 유지), `buyBulk.test.ts`·`lib/validation/buyBulk.test.ts` 갱신, 줄 입력칸이 5개로 줄어도 격자가 어색하지 않은지 360·390px·넓은 화면 확인.
-- [ ] **4. 프론트 문구** — `messages/listing.ts` 안내 갱신, `newMasterHint`. 문구 테스트가 있으면 같이.
-- [ ] **5. 문서·확인** — `decisions.md` 에 2026-11-05 양식 칸 부분 변경 이유(사용자가 모르는 값) 추가, `bruno` 설명. `./gradlew test --tests "*ListingBulk*" --tests "*CartBulk*"`, 프론트 `typecheck`·`lint`·`test`. 화면에서 새 양식 내려받기 → 필수만 채워 올리기 → 새 상품 카테고리 고르기 → 확정, 옛 양식 올리기. 실제 사진 ZIP 포함. PR 직전 `./gradlew check`, E2E `bulk-listing`·`bulk-listing-zip` 1번.
+- [x] **1. 사용처 확인** — `findSameIgnoreCase` 호출처 `grep`. 다량 등록만이면 그 메서드를 "분류번호 비면 안 봄 + 하나일 때만" 규칙으로 바꾼다 (`ProductRepository` 쿼리 + `ProductService`).
+- [x] **2. 파서·양식 (테스트 먼저)** — `ListingBulkParser`: 필수 6칸 헤더 검사, 선택 칸은 `optionalColumnIndexes` 방식으로 확장(상품번호·최소주문수량·주문단위·설명·분류번호·카테고리 코드·상품ID·첨부 5칸). `ListingBulkTemplate`: 새 칸 순서·드롭다운 열. 테스트: 새 양식 / 필수만 있는 양식 / 옛 양식(전부) / 필수 헤더 누락 400 / 양식 round trip.
+- [x] **3. 상품 찾기·새 상품 카테고리** — `ListingBulkService`: 분류번호 비면 이름·제조사만, 하나면 MATCHED, 여럿이면 후보, 없으면 NEW_MASTER + `categoryCode` 오류 문구. 테스트: 분류번호 있는 마스터를 분류번호 없이 이름·제조사로 찾음 / 같은 이름·제조사 둘이면 자동 선택 안 함·후보에 오름 / 새 상품은 카테고리 안내 / 옛 양식의 카테고리 코드는 계속 통과.
+- [x] **3-1. 대량구매 양식 (테스트 먼저)** — `CartBulkParser`: 헤더 필수를 상품명·수량·납품희망일로, 제조사·요청사항·분류번호·상품ID는 선택으로. `CartBulkTemplate`: 분류번호·상품ID 칸 제거, 열 순서·드롭다운 위치 갱신. 테스트(`CartBulkParserTest`·템플릿 round trip): 새 양식 / 옛 양식 / 필수 3칸만 / 필수 헤더 누락 400. API 테스트·`bruno/cart/bulk-template.bru`·`bulk-parse.bru` 설명 갱신. 대량구매 화면 안내 문구(`messages/buyBulk.ts`)에 옛 칸 설명이 있으면 함께. 화면: `BUY_INPUT_FIELDS` 에서 `prodClassNo` 제거(입력칸만 — 마스터 선택으로 채워지는 내부 값은 유지), `buyBulk.test.ts`·`lib/validation/buyBulk.test.ts` 갱신, 줄 입력칸이 5개로 줄어도 격자가 어색하지 않은지 360·390px·넓은 화면 확인.
+- [x] **4. 프론트 문구** — `messages/listing.ts` 안내 갱신, `newMasterHint`. 문구 테스트가 있으면 같이.
+- [x] **5. 문서·확인** — `decisions.md` 에 2026-11-05 양식 칸 부분 변경 이유(사용자가 모르는 값) 추가, `bruno` 설명. `./gradlew test --tests "*ListingBulk*" --tests "*CartBulk*"`, 프론트 `typecheck`·`lint`·`test`. 화면에서 새 양식 내려받기 → 필수만 채워 올리기 → 새 상품 카테고리 고르기 → 확정, 옛 양식 올리기. 실제 사진 ZIP 포함. PR 직전 `./gradlew check`, E2E `bulk-listing`·`bulk-listing-zip` 1번.
 
 ## Review Focus
 

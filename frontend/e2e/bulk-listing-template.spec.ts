@@ -65,7 +65,6 @@ async function register(page: Page, prodName: string) {
   await expect(page).toHaveURL(/\/listings\/UP\d{9}\/\d{14}$/);
 }
 
-/** 양식 헤더(*는 필수 표시) — 백엔드 ListingBulkParser.HEADER_LABELS 와 같은 순서 */
 /** 새 양식(백엔드 ListingBulkParser.TEMPLATE_LABELS 중 첨부 칸 제외) — 상품ID·분류번호·카테고리 코드 칸이 없다 */
 const HEADERS = ["상품명*", "제조사*", "상품번호", "상품상태*", "단가*", "수량*", "제공가능일*", "최소주문수량", "주문단위", "설명"];
 

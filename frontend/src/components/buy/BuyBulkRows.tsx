@@ -16,7 +16,10 @@ const t = buyBulk;
 const inputClass =
   "h-8 w-full min-w-0 rounded-md border border-line bg-surface px-2 text-[13px] text-ink outline-none focus-visible:border-primary aria-invalid:border-down disabled:bg-bg disabled:text-ink-3";
 
-const wideFields: BuyInputField[] = ["prodName", "remarks"];
+const wideFields: string[] = ["prodName", "remarks"];
+
+/** 입력 칸 + (값이나 오류가 있을 때만) 분류번호. 구매자는 분류번호를 적지 않지만, 마스터를 고르면 채워지거나 옛 양식에서 들어온 값이 있으면 보이고 지울 수 있어야 한다 */
+type RowField = BuyInputField | "prodClassNo";
 
 interface RowsProps {
   lines: BuyLine[];
@@ -61,8 +64,11 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onFind, onU
           ? "bg-primary-soft text-primary"
           : "bg-green-soft text-green";
 
-  const field = (name: BuyInputField) => {
-    const isProductCell = locked && ["prodName", "prodBrand"].includes(name);
+  const showClassNo = line.fields.prodClassNo.trim() !== "" || Boolean(errors.prodClassNo);
+  const rowFields: RowField[] = showClassNo ? ["prodName", "prodBrand", "prodClassNo", "orderQuantity", "reqDeliDate", "remarks"] : [...BUY_INPUT_FIELDS];
+
+  const field = (name: RowField) => {
+    const isProductCell = locked && ["prodName", "prodBrand", "prodClassNo"].includes(name);
     const error = errors[name];
     return (
       <label key={name} className={cn("flex min-w-0 flex-col gap-1", wideFields.includes(name) && "col-span-2")}>
@@ -170,7 +176,7 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onFind, onU
       </div>
       {open && (
         <div id={regionId}>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-2 p-3 @md:grid-cols-3 @3xl:grid-cols-4">{BUY_INPUT_FIELDS.map((name) => field(name))}</div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-2 p-3 @md:grid-cols-3 @3xl:grid-cols-4">{rowFields.map((name) => field(name))}</div>
           {!line.added && <BuyConditionFields line={line} onEdit={onEdit} onBlurLine={onBlurLine} onEditNow={onEditNow} />}
 
           {/* 이 줄 상품의 매물 카드 — 어느 매물을 살지는 구매자가 고른다 */}
@@ -235,7 +241,7 @@ function BuyBulkRow({ line, onToggle, onEdit, onEditNow, onBlurLine, onFind, onU
           {/* 서버가 칸에 못 붙인 사유(prodId 등) */}
           {Object.entries(errors)
             // 조건 칸의 오류는 조건 구역에서 그 칸 아래에 보인다
-            .filter(([key]) => !(BUY_INPUT_FIELDS as readonly string[]).includes(key) && !(BUY_CONDITION_FIELDS as readonly string[]).includes(key) && key !== "listing")
+            .filter(([key]) => !(BUY_INPUT_FIELDS as readonly string[]).includes(key) && !(BUY_CONDITION_FIELDS as readonly string[]).includes(key) && key !== "listing" && key !== "prodClassNo")
             .map(([key, message]) => (
               <p key={key} role="alert" className="px-3 pb-2 text-[12px] text-down">
                 {t.fields[key] ?? key}: {message}

@@ -48,8 +48,9 @@ export type BuyConditionField = (typeof BUY_CONDITION_FIELDS)[number];
 export const conditionCount = (f: BuyFields): number => BUY_CONDITION_FIELDS.filter((k) => f[k].trim() !== "").length;
 
 /**
- * 화면에 입력 칸으로 보이는 순서. 분류번호는 구매자가 아는 값이 아니라 입력 칸에서 뺐다(계획 2026-11-24) —
- * 마스터를 고르면 그 마스터의 값이 줄에 내부 값(BuyFields.prodClassNo)으로 채워져 같은 이름 마스터를 정확히 가리는 데만 쓰인다
+ * 화면에 입력 칸으로 보이는 순서. 분류번호는 구매자가 아는 값이 아니라 기본 입력 칸에서 뺐다(계획 2026-11-24) —
+ * 마스터를 고르면 그 마스터의 값이 줄에 채워져 같은 이름 마스터를 정확히 가리는 데 쓰이고, 값이나 오류가 있을 때만
+ * BuyBulkRows 가 이 순서 사이에 분류번호 칸을 보여 준다(옛 양식에서 들어온 값도 보고 지울 수 있게)
  */
 export const BUY_INPUT_FIELDS = ["prodName", "prodBrand", "orderQuantity", "reqDeliDate", "remarks"] as const satisfies readonly (keyof BuyFields)[];
 
