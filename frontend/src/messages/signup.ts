@@ -37,7 +37,6 @@ export const signup = {
       DUPLICATE_LOGIN_ID: "이미 사용 중인 아이디입니다.",
       SIGNUP_DAILY_LIMIT: "오늘 가입 가능한 인원을 넘었습니다. 내일 다시 시도해 주세요.",
       DUPLICATE_NICKNAME: "이미 사용 중인 닉네임입니다.",
-      DUPLICATE_PHONE: "이미 가입된 휴대폰 번호입니다.",
       ALREADY_REGISTERED: "이미 가입된 회원입니다. 아이디 찾기를 이용해 주세요.",
     } as Record<string, string>,
   },
@@ -133,7 +132,6 @@ export const signup = {
       submit: "가입하기",
       errors: {
         SIGNUP_DAILY_LIMIT: "오늘 가입 가능한 인원을 넘었습니다. 내일 다시 시도해 주세요.",
-        DUPLICATE_PHONE: "이미 가입된 담당자 휴대폰 번호입니다.",
         DUPLICATE_LOGIN_ID: "이미 사용 중인 아이디입니다.",
         DUPLICATE_BIZ_NO: "이미 가입된 사업자등록번호입니다. 로그인하거나 비밀번호 찾기를 이용하세요.",
         VERIFICATION_EXPIRED: "사업자등록번호 조회가 만료되었습니다. 다시 조회해 주세요.",

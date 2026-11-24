@@ -59,7 +59,7 @@ class DevTableApiTest {
 	@AfterEach
 	void cleanUp() {
 		jdbc.update("delete from trd_ctgr_code where category_code like 'ZZ%'");
-		jdbc.update("delete from trd_user_info where user_id = 'devtooluser'");
+		jdbc.update("delete from trd_user_info where user_id = 'devtooluser' or user_id like 'devimp%'");
 	}
 
 	private static String row(String code, String name) {
@@ -342,6 +342,40 @@ class DevTableApiTest {
 	void import_not_xlsx() throws Exception {
 		MockMultipartFile f = new MockMultipartFile("file", "t.xlsx", "application/octet-stream", "not excel".getBytes());
 		mvc.perform(multipart("/api/v1/dev/tables/{t}/import", TABLE).file(f)).andExpect(status().isBadRequest());
+	}
+
+	@Test
+	@DisplayName("사용자 엑셀: 영문 컬럼명 설명 줄은 건너뛰고, 사용자 구분 한글은 영문으로, 빈 별칭사용여부는 DB 기본값 N")
+	void imports_user_sheet_like_definition_file() throws Exception {
+		Object[] korean = { "시용자ID", "비밀번호", "사용자 구분", "사용자 명", "휴대폰 번호", "이메일", "별칭사용여부", "사업자등록번호", "기업구분", "회사명" };
+		Object[] physical = { "USER_ID", "PASSWORD", "USER_CLASS", "USER_NAME", "USER_PHONE", "USER_EMAIL", "NICKNAME_USAGE", "BUS_REG_ID", "COMPANY_TYPE", "COMPANY_NAME" };
+		MockMultipartFile f = xlsx(new Object[][] { korean, physical,
+				{ "devimp1", 12345678, "개인", "홍길동", "01077770001", "a@example.com", null, null, null, null },
+				{ "devimp2", 12345678, "기업", "김담당", "01077770002", "b@example.com", "Y", "9100000001", "corporate", "임시상사" } });
+		mvc.perform(multipart("/api/v1/dev/tables/{t}/import", "trd_user_info").file(f)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.results[0].inserted").value(2));
+		assertThat(jdbc.queryForObject("select user_class from trd_user_info where user_id = 'devimp1'", String.class)).isEqualTo("personal");
+		assertThat(jdbc.queryForObject("select user_class from trd_user_info where user_id = 'devimp2'", String.class)).isEqualTo("business");
+		assertThat(jdbc.queryForObject("select nickname_usage from trd_user_info where user_id = 'devimp1'", String.class)).isEqualTo("N");
+		assertThat(jdbc.queryForObject("select nickname_usage from trd_user_info where user_id = 'devimp2'", String.class)).isEqualTo("Y");
+	}
+
+	@Test
+	@DisplayName("영문 설명 줄처럼 보여도 값이 하나라도 컬럼명과 다르면 데이터 줄로 본다")
+	void physicalNameRowOnlySkippedWhenAllCellsMatch() throws Exception {
+		Object[] header = { "category_code", "category_name", "category_depth", "category_class", "sort_order" };
+		MockMultipartFile f = xlsx(new Object[][] { header, { "ZZ1", "category_name", "일반", "소", 1 } });
+		mvc.perform(multipart("/api/v1/dev/tables/{t}/import", TABLE).file(f)).andExpect(status().isOk())
+			.andExpect(jsonPath("$.data.results[0].inserted").value(1));
+		assertThat(count("ZZ1")).isEqualTo(1);
+	}
+
+	@Test
+	@DisplayName("사용자 구분은 개인·기업이 아닌 한글이면 거절 (조용히 고치지 않는다)")
+	void unknownUserClassRejected() throws Exception {
+		mvc.perform(post("/api/v1/dev/tables/{t}/rows", "trd_user_info").contentType(MediaType.APPLICATION_JSON)
+			.content("{\"user_id\":\"devimp3\",\"password\":\"x\",\"user_class\":\"외계인\",\"user_name\":\"n\",\"user_phone\":\"01077770003\"}"))
+			.andExpect(status().isBadRequest());
 	}
 
 }
