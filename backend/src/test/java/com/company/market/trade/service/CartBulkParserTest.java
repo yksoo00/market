@@ -169,11 +169,11 @@ class CartBulkParserTest {
 		}
 	}
 
-	/** 양식 전체 열(조건 포함) 순서대로 한 줄: 상품명, 제조사, 분류번호, 상품ID, 수량, 납품희망일, 최소상태, 단가상한, 최소보증, 데이터시트, 사진, 불량지원, 테스트리포트, 정품인증서, 요청사항 */
+	/** 양식 전체 열(조건 포함) 순서대로 한 줄: 상품명, 제조사, 수량, 납품희망일, 최소상태, 단가상한, 최소보증, 데이터시트, 사진, 불량지원, 테스트리포트, 정품인증서, 요청사항 */
 	@Test
 	@DisplayName("조건 칸을 읽는다 — 숫자 셀 6 은 \"6\", 단가 1000.0 은 \"1000\"")
 	void readsConditionColumns() throws IOException {
-		Object[] row = { "스위치", "Cisco", null, null, 3, "2026-12-01", "신품대비 80~89%", 1500000.0, 6, "Y", null, "Y", null, "Y", "메모" };
+		Object[] row = { "스위치", "Cisco", 3, "2026-12-01", "신품대비 80~89%", 1500000.0, 6, "Y", null, "Y", null, "Y", "메모" };
 
 		CartBulkRowDto r = parse(workbook(CartBulkParser.TEMPLATE_LABELS, List.<Object[]>of(row))).get(0);
 
@@ -213,9 +213,39 @@ class CartBulkParserTest {
 	@Test
 	@DisplayName("조건 칸만 채워진 줄도 데이터 줄로 센다 (그래야 필수 칸 오류가 보인다)")
 	void conditionOnlyRowCounts() throws IOException {
-		Object[] row = { null, null, null, null, null, null, "신품", null, null, null, null, null, null, null, null };
+		Object[] row = { null, null, null, null, "신품", null, null, null, null, null, null, null, null };
 
 		assertThat(parse(workbook(CartBulkParser.TEMPLATE_LABELS, List.<Object[]>of(row)))).hasSize(1);
+	}
+
+	@Test
+	@DisplayName("새 양식에는 분류번호·상품ID 칸이 없다 (구매자가 알 수 없는 값)")
+	void templateHasNoHiddenColumns() {
+		assertThat(CartBulkParser.TEMPLATE_LABELS).doesNotContain("분류번호", "상품ID");
+		assertThat(CartBulkParser.TEMPLATE_LABELS).startsWith("상품명*", "제조사", "수량*", "납품희망일*");
+	}
+
+	@Test
+	@DisplayName("필수(*) 3칸(상품명·수량·납품희망일)만 있는 양식도 읽는다. 제조사·요청사항 헤더가 없어도 거절하지 않는다")
+	void readsOnlyRequiredColumns() throws IOException {
+		Object[] row = { "스위치", 3, "2026-12-01" };
+
+		CartBulkRowDto r = parse(workbook(List.of("상품명*", "수량*", "납품희망일*"), List.<Object[]>of(row))).get(0);
+
+		assertThat(r.prodName()).isEqualTo("스위치");
+		assertThat(r.orderQuantity()).isEqualTo("3");
+		assertThat(r.reqDeliDate()).isEqualTo("2026-12-01");
+		assertThat(r.prodBrand()).isNull();
+		assertThat(r.prodClassNo()).isNull();
+		assertThat(r.prodId()).isNull();
+		assertThat(r.remarks()).isNull();
+	}
+
+	@Test
+	@DisplayName("필수 칸 헤더(납품희망일)가 없으면 ValidationException(file)")
+	void missingRequiredHeader() throws IOException {
+		assertThatThrownBy(() -> parse(workbook(List.of("상품명*", "수량*"), List.of())))
+			.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.getFields().get("file")).contains("납품희망일"));
 	}
 
 }
