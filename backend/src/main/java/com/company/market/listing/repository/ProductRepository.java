@@ -30,6 +30,17 @@ public interface ProductRepository extends JpaRepository<Product, String> {
 	List<Product> findAllSameIgnoreCase(@Param("name") String name, @Param("brand") String brand, @Param("classNo") String classNo,
 			Pageable pageable);
 
+	/**
+	 * 엑셀 다량 등록에서 분류번호가 비었을 때의 상품 찾기 — 이름·제조사가 (대소문자만 무시하고) 같은 마스터를 분류번호와 무관하게 전부.
+	 * 판매자는 분류번호를 모르는 게 보통이라 이름·제조사만으로 하나로 정해지면 쓰고, 여럿이면 호출하는 쪽이 사용자에게 고르게 한다
+	 */
+	@Query("""
+		select p from Product p
+		where lower(p.prodName) = lower(:name) and lower(p.prodBrand) = lower(:brand)
+		order by p.prodId
+		""")
+	List<Product> findAllByNameAndBrandIgnoreCase(@Param("name") String name, @Param("brand") String brand, Pageable pageable);
+
 	/** 엑셀 대량구매의 대체상품 찾기 — 이름이 (대소문자만 무시하고) 같은 마스터. 입력 쪽 공백은 호출하는 쪽이 정리 */
 	@Query("select p from Product p where lower(p.prodName) = lower(:name) order by p.prodId")
 	List<Product> findAllByNameIgnoreCase(@Param("name") String name);

@@ -155,6 +155,52 @@ class ListingBulkParserTest {
 	}
 
 	@Test
+	@DisplayName("새 양식(사용자가 아는 칸만)은 상품ID·분류번호·카테고리 코드 칸 없이도 읽는다")
+	void readsNewTemplateWithoutHiddenColumns() throws IOException {
+		assertThat(ListingBulkParser.TEMPLATE_LABELS).doesNotContain("상품ID", "분류번호", "카테고리 코드");
+		Object[] row = { "스위치 C9300", "Cisco", "C9300-24T", "신품", 500000, 3, "2026-12-01", 2, 1, "메모" };
+
+		List<BulkRowDto> rows = parse(workbook(ListingBulkParser.TEMPLATE_LABELS, List.<Object[]>of(row)));
+
+		BulkRowDto r = rows.get(0);
+		assertThat(r.prodName()).isEqualTo("스위치 C9300");
+		assertThat(r.prodBrand()).isEqualTo("Cisco");
+		assertThat(r.prodNo()).isEqualTo("C9300-24T");
+		assertThat(r.prodState()).isEqualTo("신품");
+		assertThat(r.salesUnitPrice()).isEqualTo("500000");
+		assertThat(r.salesQuantity()).isEqualTo("3");
+		assertThat(r.deliveryDate()).isEqualTo("2026-12-01");
+		assertThat(r.minOrderQuantity()).isEqualTo("2");
+		assertThat(r.orderUnit()).isEqualTo("1");
+		assertThat(r.description()).isEqualTo("메모");
+		assertThat(r.prodId()).isNull();
+		assertThat(r.prodClassNo()).isNull();
+		assertThat(r.categoryCode()).isNull();
+	}
+
+	@Test
+	@DisplayName("필수(*) 6칸만 있는 양식도 읽는다. 선택 칸 헤더가 없어도 거절하지 않는다")
+	void readsOnlyRequiredColumns() throws IOException {
+		List<String> required = List.of("상품명*", "제조사*", "상품상태*", "단가*", "수량*", "제공가능일*");
+		Object[] row = { "스위치", "Cisco", "신품", 1000, 2, "2026-12-01" };
+
+		List<BulkRowDto> rows = parse(workbook(required, List.<Object[]>of(row)));
+
+		assertThat(rows).hasSize(1);
+		assertThat(rows.get(0).prodNo()).isNull();
+		assertThat(rows.get(0).description()).isNull();
+	}
+
+	@Test
+	@DisplayName("필수 칸 헤더(제공가능일)가 없으면 ValidationException(file)")
+	void missingRequiredHeader() throws IOException {
+		List<String> headers = List.of("상품명*", "제조사*", "상품상태*", "단가*", "수량*");
+
+		assertThatThrownBy(() -> parse(workbook(headers, List.of())))
+			.isInstanceOfSatisfying(ValidationException.class, e -> assertThat(e.getFields().get("file")).contains("제공가능일"));
+	}
+
+	@Test
 	@DisplayName("양식 build() 결과는 파서가 읽을 수 있고 데이터 줄은 비어 있다 (예시 줄을 두면 지우지 않은 채 올라온다)")
 	void templateRoundTrip() {
 		assertThat(parse(ListingBulkTemplate.build())).isEmpty();
