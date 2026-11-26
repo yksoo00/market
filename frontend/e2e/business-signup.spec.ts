@@ -27,6 +27,14 @@ test("기업 가입 → 기업 탭에서 아이디로 로그인", async ({ page 
     await expect(page.locator("iframe")).toHaveCount(1);
   });
 
+  await test.step("본인인증 전에는 입력이 막히고, 누르면 바로 인증된다", async () => {
+    await expect(f.locator('input[name="contactName"]')).toBeDisabled();
+    await expect(f.getByRole("checkbox", { name: signup.terms.all })).toBeDisabled();
+    await expect(f.getByText(signup.form.needVerify)).toBeVisible();
+    await f.getByRole("button", { name: auth.verify.button }).click();
+    await expect(f.getByText(signup.verify.done)).toBeVisible();
+    await expect(f.locator('input[name="contactName"]')).toBeEnabled();
+  });
 
   await test.step("담당자·계정·회사 정보·약관을 넣고 가입", async () => {
     await f.locator('input[name="contactName"]').fill("김담당");
