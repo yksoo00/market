@@ -96,7 +96,7 @@ export const signup = {
   business: {
     form: {
       title: "기업 회원가입",
-      subtitle: "담당자 정보와 계정을 정하고, 사업자등록번호를 조회해 회사 정보를 입력하세요.",
+      subtitle: "본인인증 후 담당자 정보와 계정을 정하고, 사업자등록번호를 조회해 회사 정보를 입력하세요.",
       reviewNotice: "사업자 등록증 업로드와 관리자 심사는 아직 연결되지 않았습니다.",
       accountSection: "계정",
       companySection: "회사 정보",
