@@ -39,7 +39,7 @@
 1. 개인 로그인: `user_id` 조회 → bcrypt 확인 → access·refresh 쿠키 발급.
 2. 기업 로그인: `bus_reg_id` 조회 → bcrypt 확인 → 쿠키 발급.
 3. refresh: Redis 세션 확인·회전 → 새 access·refresh 쿠키 발급.
-4. 개인 가입: 입력값 검증·중복 확인 → 단일 `trd_user_info` 행 생성. 가입 시 본인인증·약관 단계는 없다.
+4. 개인 가입: 입력값 검증·중복 확인 → 단일 `trd_user_info` 행 생성. 가입 첫 단계는 임시 본인인증(서버 미확인, 기업 가입도 같음)이고, 가입 직전에 약관 동의를 받는다.
 
 5. 기업 가입: 사업자 인증(`/signup/business/verify`) → 토큰으로 `/signup/business`. 국세청 진위확인은 아직 연동 전이라 `APP_ENV=local`에서만 통과하고 그 외 환경은 거부한다.
 
